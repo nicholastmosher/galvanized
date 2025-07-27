@@ -1,0 +1,33 @@
+[package]
+name = "willow-rummager"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Zed deps
+db = { path = "../zed2/crates/db" }
+gpui = { path = "../zed2/crates/gpui" }
+settings = { path = "../zed2/crates/settings" }
+workspace = { path = "../zed2/crates/workspace" }
+util = { path = "../zed2/crates/util" }
+zed = { path = "../zed2/crates/zed" }
+
+# Third-party deps
+async-tungstenite = { version = "0.31.0", features = ["tokio", "tokio-rustls-manual-roots", "tokio-runtime"] }
+serde = "1"
+serde_json = "1.0.145"
+anyhow = "1.0.100"
+schemars = "1.1.0"
+
+# async-tungstenite = "=0.31.0"
+# gpui = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+# zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+# async-tungstenite = { version = "0.30.0", features = ["tokio-runtime"] }
+# async-tungstenite = { version = "0.31.0", features = ["tokio", "tokio-rustls-manual-roots", "tokio-runtime"] }
+# async-tungstenite_0_32 = { package = "async-tungstenite", version = "0.32.0", features = ["tokio", "tokio-rustls-manual-roots", "tokio-runtime"] }
+# jupyter-websocket-client = { git = "https://github.com/ConradIrwin/runtimed", rev = "7130c804216b6914355d15d0b91ea91f6babd734" }
+# jupyter-websocket-client = { path = "../runtimed/crates/jupyter-websocket-client" }
+
+# [patch."https://github.com/ConradIrwin/runtimed"]
+# jupyter-websocket-client = { path = "../runtimed/crates/jupyter-websocket-client" }
+# jupyter-protocol = { path = "../runtimed/crates/jupyter-protocol" }
