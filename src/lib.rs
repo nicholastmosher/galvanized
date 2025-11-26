@@ -1,4 +1,4 @@
-mod willow_panel_settings;
+// mod willow_panel_settings;
 
 use anyhow::{Context as _, bail};
 use db::kvp::KEY_VALUE_STORE;
@@ -11,8 +11,8 @@ use workspace::{
     Panel, Workspace,
     dock::{DockPosition, PanelEvent},
     ui::{
-        ActiveTheme, Clickable, Color, ContextMenu, Icon, IconButton, IconName, IconSize, Label,
-        LabelCommon, LabelSize, ListItem, ListItemSpacing, h_flex, v_flex,
+        ActiveTheme, Clickable, Color, Icon, IconButton, IconName, IconSize, Label, LabelCommon,
+        LabelSize, ListItem, ListItemSpacing, h_flex, v_flex,
     },
 };
 
@@ -88,32 +88,18 @@ pub struct WillowSubspace {
 #[derive(Debug, Clone)]
 enum DialogState {
     None,
-    CreateDocument {
-        path: String,
-        content: String,
-        selected_subspace: String,
-    },
-    CreateSubspace {
-        name: String,
-    },
-    ViewDocument {
-        document: WillowDocument,
-        editing: bool,
-    },
+    CreateDocument { path: String, content: String },
+    CreateSubspace {},
+    ViewDocument { document: WillowDocument },
 }
 
 pub struct WillowPanel {
-    context_menu: Option<(Entity<ContextMenu>, Point<Pixels>, Subscription)>,
     width: Option<Pixels>,
-    active: bool,
     pending_serialization: Task<Option<()>>,
-    subscriptions: Vec<gpui::Subscription>,
     focus_handle: FocusHandle,
     documents: Vec<WillowDocument>,
     subspaces: Vec<WillowSubspace>,
     dialog_state: DialogState,
-    loading: bool,
-    error_message: Option<String>,
     // TODO: Add Willow store when dependencies are working
     // store: Arc<WillowStore>,
 }
@@ -156,11 +142,8 @@ impl WillowPanel {
 
         cx.new(|cx| {
             let panel = Self {
-                context_menu: None,
-                pending_serialization: Task::ready(None),
-                subscriptions: Vec::new(),
-                active: false,
                 width: None,
+                pending_serialization: Task::ready(None),
                 focus_handle: cx.focus_handle(),
                 documents: vec![
                     // Sample data for demonstration
@@ -197,8 +180,6 @@ impl WillowPanel {
                     },
                 ],
                 dialog_state: DialogState::None,
-                loading: false,
-                error_message: None,
             };
 
             panel
@@ -214,11 +195,6 @@ impl WillowPanel {
         self.dialog_state = DialogState::CreateDocument {
             path: String::new(),
             content: String::new(),
-            selected_subspace: self
-                .subspaces
-                .first()
-                .map(|s| s.id.clone())
-                .unwrap_or_default(),
         };
         cx.notify();
     }
@@ -229,9 +205,7 @@ impl WillowPanel {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.dialog_state = DialogState::CreateSubspace {
-            name: String::new(),
-        };
+        self.dialog_state = DialogState::CreateSubspace {};
         cx.notify();
     }
 
@@ -252,12 +226,7 @@ impl WillowPanel {
         cx: &mut Context<Self>,
     ) {
         // For demo purposes, create a mock document
-        if let DialogState::CreateDocument {
-            path,
-            content,
-            selected_subspace: _,
-        } = &self.dialog_state
-        {
+        if let DialogState::CreateDocument { path, content } = &self.dialog_state {
             if !path.is_empty() {
                 let new_doc = WillowDocument {
                     id: format!("doc_{}", self.documents.len() + 1),
@@ -316,7 +285,7 @@ impl Panel for WillowPanel {
         // Position changes are handled by the dock
     }
 
-    fn size(&self, _window: &Window, cx: &App) -> Pixels {
+    fn size(&self, _window: &Window, _cx: &App) -> Pixels {
         self.width.unwrap_or(px(320.))
         // .unwrap_or_else(|| {
         // WillowPanelSettings::get_global(cx)
@@ -749,7 +718,6 @@ impl Render for WillowPanel {
                                                                         DialogState::ViewDocument {
                                                                             document: document
                                                                                 .clone(),
-                                                                            editing: false,
                                                                         };
                                                                     cx.notify();
                                                                 },
