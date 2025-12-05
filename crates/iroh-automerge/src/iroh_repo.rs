@@ -1,0 +1,91 @@
+//! From https://github.com/n0-computer/iroh-examples/blob/6af4d24151b53b93e1d97061c792f77b33917ec2/iroh-automerge-repo/src/lib.rs
+//!
+//! Combines [`iroh`] with automerge's [`samod`] library, a library to create "automerge repositories"
+//! in rust that speak the automerge repo protocol.
+use crate::codec::Codec;
+use anyhow::Result;
+use samod::{ConnDirection, ConnFinishedReason, Repo};
+use tokio_util::codec::{FramedRead, FramedWrite};
+
+/// Combines an [`iroh::Endpoint`] with a [`Repo`] (automerge repository) and
+/// implements [`iroh::protocol::ProtocolHandler`] to accept incoming connections
+/// in an [`iroh::protocol::Router`].
+#[derive(derive_more::Debug, Clone)]
+pub struct IrohRepo {
+    endpoint: iroh::Endpoint,
+    #[debug(skip)]
+    repo: Repo,
+}
+
+impl IrohRepo {
+    pub const SYNC_ALPN: &[u8] = b"iroh/automerge-repo/1";
+
+    /// Constructs a new [`IrohRepo`].
+    pub fn new(endpoint: iroh::Endpoint, repo: Repo) -> Self {
+        IrohRepo { endpoint, repo }
+    }
+
+    /// Attempts to continuously sync with a peer at given address.
+    ///
+    /// To wait for the connection to be established use [`Repo::when_connected`]
+    /// (accessible via [`Self::repo`]: `iroh_repo.repo().when_connected(..)`).
+    /// with the other endpoint's string-encoded [`EndpointId`] as the [`PeerId`].
+    ///
+    /// [`EndpointId`]: iroh::EndpointId
+    /// [`PeerId`]: samod::PeerId
+    pub async fn sync_with(
+        &self,
+        addr: impl Into<iroh::EndpointAddr>,
+    ) -> anyhow::Result<ConnFinishedReason> {
+        let addr = addr.into();
+        let endpoint_id = addr.id;
+        let conn = self.endpoint.connect(addr, IrohRepo::SYNC_ALPN).await?;
+        let (send, recv) = conn.open_bi().await?;
+
+        let conn_finished = self
+            .repo
+            .connect(
+                FramedRead::new(recv, Codec::new(endpoint_id)),
+                FramedWrite::new(send, Codec::new(endpoint_id)),
+                ConnDirection::Outgoing,
+            )
+            .await;
+
+        tracing::debug!(%endpoint_id, ?conn_finished, "Connection we initiated shut down");
+
+        Ok(conn_finished)
+    }
+
+    /// Returns a reference to the stored [`Repo`] instance inside.
+    pub fn repo(&self) -> &Repo {
+        &self.repo
+    }
+}
+
+impl iroh::protocol::ProtocolHandler for IrohRepo {
+    async fn accept(
+        &self,
+        connection: iroh::endpoint::Connection,
+    ) -> Result<(), iroh::protocol::AcceptError> {
+        let endpoint_id = connection.remote_id();
+
+        let (send, recv) = connection.accept_bi().await?;
+
+        let conn_finished = self
+            .repo
+            .connect(
+                FramedRead::new(recv, Codec::new(endpoint_id)),
+                FramedWrite::new(send, Codec::new(endpoint_id)),
+                ConnDirection::Incoming,
+            )
+            .await;
+
+        tracing::debug!(%endpoint_id, ?conn_finished, "Connection we accepted shut down");
+
+        Ok(())
+    }
+
+    async fn shutdown(&self) {
+        self.repo.stop().await
+    }
+}
