@@ -1,5 +1,18 @@
 # Project
 
+# 2026 Jan 6
+
+Status
+
+- Working libp2p swarm, can detect peers with MDNS, good enough to start testing
+- Need to get libp2p-stream connections established, unlocks e.g. automerge-repo
+
+Todo
+
+- Want to create mock discord-esque ui, where discord servers now correspond to Willow
+  namespaces (or subspaces, yet to be seen)
+- Add contacts window like discord friends, populate suggestions from detected peers?
+
 # 2025 Dec 5
 
 I've written about this elsewhere but I can't find my notes so I'm going to write a summary here.

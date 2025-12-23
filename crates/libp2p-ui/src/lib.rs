@@ -1,6 +1,7 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use libp2p::{PeerId, mdns::Event as MdnsEvent};
+use libp2p::{PeerId, StreamProtocol, mdns::Event as MdnsEvent};
+use libp2p_stream::Control;
 use libp2p_swarm::SwarmEvent;
 use zed::unstable::{
     db::smol::stream::StreamExt,
@@ -9,6 +10,7 @@ use zed::unstable::{
         App, Context, IconName, IntoElement, ListItem, ParentElement, Pixels, Render, Styled,
         Window, div, px,
     },
+    util::ResultExt,
     workspace::{
         Panel, Workspace,
         dock::{DockPosition, PanelEvent},
@@ -21,9 +23,21 @@ pub mod p2p;
 
 actions!(workspace, [ToggleLibp2pPanel]);
 
-pub fn init(cx: &mut App) {
-    let libp2p_ui = cx.new(|cx| Libp2pUi::new(cx));
+const PROTOCOL: StreamProtocol = StreamProtocol::new("/prototyping/1.0.0");
 
+pub fn init(cx: &mut App) {
+    let Ok(mut swarm) = PeerieBehaviour::try_init_swarm() else {
+        tracing::error!("Failed to initialize libp2p swarm");
+        return;
+    };
+    let local_peer_id = *swarm.local_peer_id();
+    let control = swarm.behaviour_mut().stream.new_control();
+    let libp2p_ui = cx.new({
+        let control = control.clone();
+        move |cx| Libp2pUi::new(cx, local_peer_id, control)
+    });
+
+    // Swarm stream
     cx.spawn({
         let libp2p_ui = libp2p_ui.clone();
         async move |cx| {
@@ -35,6 +49,27 @@ pub fn init(cx: &mut App) {
                 })?;
             }
             tracing::warn!("Ending Swarm task");
+            anyhow::Ok(())
+        }
+    })
+    .detach_and_log_err(cx);
+
+    // Stream control acceptor
+    cx.spawn({
+        let mut control = control.clone();
+        let libp2p_ui = libp2p_ui.clone();
+        async move |cx| {
+            let mut incoming = control.accept(PROTOCOL)?;
+            tracing::info!("Accepting incoming streams");
+            while let Some((peer_id, stream)) = incoming.next().await {
+                libp2p_ui
+                    .update(cx, |ui, _cx| {
+                        tracing::trace!(%peer_id, "Accepted peer stream");
+                        ui.peer_streams.insert(peer_id, stream);
+                    })
+                    .log_err();
+            }
+            tracing::debug!("Libp2p stream acceptor quit");
             anyhow::Ok(())
         }
     })
@@ -55,11 +90,14 @@ struct Libp2pUi {
     dock_position: DockPosition,
     focus_handle: FocusHandle,
     width: Option<Pixels>,
+    local_peer_id: PeerId,
     peers: BTreeSet<PeerId>,
+    peer_streams: BTreeMap<PeerId, libp2p_swarm::Stream>,
+    _stream_control: Control,
 }
 
 impl Libp2pUi {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(cx: &mut Context<Self>, local_peer_id: PeerId, stream_control: Control) -> Self {
         cx.subscribe_self(|this, event: &SwarmEvent<PeerieBehaviourEvent>, cx| {
             match event {
                 SwarmEvent::Behaviour(PeerieBehaviourEvent::Mdns(MdnsEvent::Discovered(peers))) => {
@@ -76,29 +114,6 @@ impl Libp2pUi {
                     }
                     cx.notify();
                 }
-                SwarmEvent::ConnectionEstablished {
-                    peer_id,
-                    connection_id,
-                    endpoint,
-                    num_established,
-                    concurrent_dial_errors,
-                    established_in,
-                } => {
-                    tracing::info!(?peer_id, "Added peer");
-                    this.peers.insert(*peer_id);
-                    cx.notify();
-                }
-                SwarmEvent::ConnectionClosed {
-                    peer_id,
-                    connection_id,
-                    endpoint,
-                    num_established,
-                    cause,
-                } => {
-                    tracing::info!(?peer_id, "Removed peer");
-                    this.peers.remove(peer_id);
-                    cx.notify();
-                }
                 _ => {
                     //
                 }
@@ -110,13 +125,32 @@ impl Libp2pUi {
             dock_position: DockPosition::Left,
             focus_handle: cx.focus_handle(),
             width: None,
+            local_peer_id,
             peers: Default::default(),
+            peer_streams: Default::default(),
+            _stream_control: stream_control,
         }
+    }
+
+    fn connect_stream(&mut self, remote_peer: PeerId, cx: &mut Context<Self>) {
+        cx.spawn({
+            let mut control = self._stream_control.clone();
+            async move |ui, cx| {
+                let stream = control.open_stream(remote_peer, PROTOCOL).await?;
+                tracing::info!(%remote_peer, "Connecting outbound stream");
+                ui.update(cx, |ui, _cx| {
+                    ui.peer_streams.insert(remote_peer, stream);
+                    tracing::debug!(%remote_peer, "Connected outbound stream");
+                })?;
+                anyhow::Ok(())
+            }
+        })
+        .detach_and_log_err(cx);
     }
 }
 
 impl Render for Libp2pUi {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .size_full()
             .border_1()
@@ -126,13 +160,29 @@ impl Render for Libp2pUi {
                     .w_full()
                     .border_1()
                     .border_color(rgb(0x440099))
-                    .child("Peers:"),
+                    .child(format!("Local Peer ID: {}", self.local_peer_id)),
+            )
+            .child(
+                div()
+                    .w_full()
+                    .border_1()
+                    .border_color(rgb(0x440099))
+                    .child("Discovered Peers:"),
             )
             .children(
                 self.peers
                     .iter()
+                    .copied()
+                    .filter(|it| it != &self.local_peer_id)
                     .enumerate()
-                    .map(|(i, it)| ListItem::new(i).child(it.to_string())),
+                    .map(|(i, remote_peer)| {
+                        ListItem::new(i)
+                            .on_click(cx.listener(move |ui, _click, _window, cx| {
+                                tracing::debug!("Clicked on peer {}", remote_peer);
+                                ui.connect_stream(remote_peer, cx);
+                            }))
+                            .child(remote_peer.to_string())
+                    }),
             )
     }
 }
