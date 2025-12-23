@@ -4,4 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.100"
+culpa = "1.0.2"
+libp2p = { version = "0.54.1", features = ["full"] }
+libp2p-stream = "0.2.0-alpha"
+libp2p-swarm = "0.45"
 zed = { path = "../../../zed2/crates/zed" }
