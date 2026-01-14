@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use anyhow::Context as _;
 use libp2p::{PeerId, StreamProtocol, mdns::Event as MdnsEvent};
 use libp2p_stream::Control;
 use libp2p_swarm::SwarmEvent;
@@ -18,12 +19,14 @@ use zed::unstable::{
 };
 
 use crate::p2p::{PeerieBehaviour, PeerieBehaviourEvent};
+// use crate::libp2p_pane::Libp2pPane;
 
+// pub mod libp2p_pane;
 pub mod p2p;
 
 actions!(workspace, [ToggleLibp2pPanel]);
 
-const PROTOCOL: StreamProtocol = StreamProtocol::new("/prototyping/1.0.0");
+const PROTOCOL: StreamProtocol = StreamProtocol::new("/prototyping");
 
 pub fn init(cx: &mut App) {
     let Ok(mut swarm) = PeerieBehaviour::try_init_swarm() else {
@@ -62,10 +65,11 @@ pub fn init(cx: &mut App) {
             let mut incoming = control.accept(PROTOCOL)?;
             tracing::info!("Accepting incoming streams");
             while let Some((peer_id, stream)) = incoming.next().await {
+                tracing::info!(%peer_id, "Accepted peer stream");
                 libp2p_ui
-                    .update(cx, |ui, _cx| {
-                        tracing::trace!(%peer_id, "Accepted peer stream");
+                    .update(cx, |ui, cx| {
                         ui.peer_streams.insert(peer_id, stream);
+                        cx.notify();
                     })
                     .log_err();
             }
@@ -86,6 +90,7 @@ pub fn init(cx: &mut App) {
     .detach();
 }
 
+// Data
 struct Libp2pUi {
     dock_position: DockPosition,
     focus_handle: FocusHandle,
@@ -93,6 +98,7 @@ struct Libp2pUi {
     local_peer_id: PeerId,
     peers: BTreeSet<PeerId>,
     peer_streams: BTreeMap<PeerId, libp2p_swarm::Stream>,
+    spaces: Vec<String>,
     _stream_control: Control,
 }
 
@@ -128,6 +134,7 @@ impl Libp2pUi {
             local_peer_id,
             peers: Default::default(),
             peer_streams: Default::default(),
+            spaces: vec!["One".to_string(), "Two".to_string(), "Three".to_string()],
             _stream_control: stream_control,
         }
     }
@@ -136,11 +143,15 @@ impl Libp2pUi {
         cx.spawn({
             let mut control = self._stream_control.clone();
             async move |ui, cx| {
-                let stream = control.open_stream(remote_peer, PROTOCOL).await?;
                 tracing::info!(%remote_peer, "Connecting outbound stream");
-                ui.update(cx, |ui, _cx| {
+                let stream = control
+                    .open_stream(remote_peer, PROTOCOL)
+                    .await
+                    .context("failed to open outbound stream")?;
+                ui.update(cx, |ui, cx| {
                     ui.peer_streams.insert(remote_peer, stream);
-                    tracing::debug!(%remote_peer, "Connected outbound stream");
+                    tracing::info!(%remote_peer, "Connected outbound stream");
+                    cx.notify();
                 })?;
                 anyhow::Ok(())
             }
@@ -153,36 +164,76 @@ impl Render for Libp2pUi {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .size_full()
+            .flex()
+            .flex_row()
             .border_1()
-            .border_color(rgb(0xaa00bb))
+            .border_color(rgb(0xaaffbb))
             .child(
-                div()
-                    .w_full()
-                    .border_1()
-                    .border_color(rgb(0x440099))
-                    .child(format!("Local Peer ID: {}", self.local_peer_id)),
+                div().children(self.spaces.iter().enumerate().map(|(i, it)| {
+                    ListItem::new(i)
+                        .rounded()
+                        .child(div().p_4().child(it.to_string()))
+                })),
             )
             .child(
                 div()
-                    .w_full()
                     .border_1()
-                    .border_color(rgb(0x440099))
-                    .child("Discovered Peers:"),
-            )
-            .children(
-                self.peers
-                    .iter()
-                    .copied()
-                    .filter(|it| it != &self.local_peer_id)
-                    .enumerate()
-                    .map(|(i, remote_peer)| {
-                        ListItem::new(i)
-                            .on_click(cx.listener(move |ui, _click, _window, cx| {
-                                tracing::debug!("Clicked on peer {}", remote_peer);
-                                ui.connect_stream(remote_peer, cx);
-                            }))
-                            .child(remote_peer.to_string())
-                    }),
+                    .border_color(rgb(0xaa00bb))
+                    .child(
+                        div()
+                            .w_full()
+                            .border_1()
+                            .border_color(rgb(0x440099))
+                            .child(format!("Local Peer ID: {}", self.local_peer_id)),
+                    )
+                    .child(
+                        div()
+                            .w_full()
+                            .border_1()
+                            .border_color(rgb(0x440099))
+                            .child("Discovered Peers:"),
+                    )
+                    .children(
+                        self.peers
+                            .iter()
+                            .copied()
+                            .filter(|it| it != &self.local_peer_id)
+                            .enumerate()
+                            .map(|(i, remote_peer)| {
+                                ListItem::new(i)
+                                    .on_click(cx.listener(move |ui, _click, _window, cx| {
+                                        tracing::info!("Clicked on peer {}", remote_peer);
+                                        ui.connect_stream(remote_peer, cx);
+                                    }))
+                                    .child(remote_peer.to_string())
+                            }),
+                    )
+                    .child(
+                        div()
+                            .w_full()
+                            .border_1()
+                            .border_color(rgb(0x440099))
+                            .child("Open Peer streams:"),
+                    )
+                    .children(
+                        self.peer_streams
+                            .iter()
+                            .filter(|(peer_id, _stream)| *peer_id != &self.local_peer_id)
+                            .enumerate()
+                            .map(|(i, (remote_peer_id, _remote_stream))| {
+                                let remote_peer_id = remote_peer_id.clone();
+                                ListItem::new(i)
+                                    .on_click(cx.listener(move |_ui, _click, _window, cx| {
+                                        tracing::debug!(
+                                            "Clicked on peer stream {}",
+                                            remote_peer_id
+                                        );
+
+                                        // Open Libp2pPane?
+                                    }))
+                                    .child(remote_peer_id.to_string())
+                            }),
+                    ),
             )
     }
 }

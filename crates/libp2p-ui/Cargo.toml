@@ -13,3 +13,5 @@ tokio = { version = "1.48.0", features = ["rt"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 zed = { path = "../../../zed2/crates/zed" }
+
+# willow-store-simple-sled = { path = "../store_simple_sled" }
