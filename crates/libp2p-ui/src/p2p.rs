@@ -6,7 +6,7 @@ use std::{
 use anyhow::{Context, Error};
 use culpa::throws;
 use libp2p::{
-    Multiaddr, Swarm, dcutr,
+    Multiaddr, PeerId, Swarm, dcutr,
     futures::StreamExt as _,
     gossipsub, identify,
     kad::{self, store::MemoryStore},
@@ -16,8 +16,14 @@ use libp2p::{
 };
 use libp2p_swarm::{NetworkBehaviour, SwarmEvent};
 
-const BOOTSTRAP: &str =
-    "/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa";
+const BOOTSTRAP: &str = "/dnsaddr/bootstrap.libp2p.io";
+
+const BOOTNODES: [&str; 4] = [
+    "QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+    "QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
+    "QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+    "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
+];
 
 #[derive(NetworkBehaviour)]
 pub struct PeerieBehaviour {
@@ -72,10 +78,19 @@ impl PeerieBehaviour {
                     key.public(),
                 ));
 
-                let kad = kad::Behaviour::new(
-                    key.public().to_peer_id(),
-                    MemoryStore::new(key.public().to_peer_id()),
-                );
+                let kad = {
+                    let mut kad = kad::Behaviour::new(
+                        key.public().to_peer_id(),
+                        MemoryStore::new(key.public().to_peer_id()),
+                    );
+
+                    let bootaddr = BOOTSTRAP.parse::<Multiaddr>()?;
+                    for peer in &BOOTNODES {
+                        kad.add_address(&peer.parse::<PeerId>()?, bootaddr.clone());
+                    }
+
+                    kad
+                };
 
                 let mdns = mdns::tokio::Behaviour::new(
                     mdns::Config::default(),
@@ -112,63 +127,16 @@ impl PeerieBehaviour {
         // Listen on all interfaces and whatever port the OS assigns
         swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
         swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+        let local_peer_id = *swarm.local_peer_id();
+        let query_id = swarm.behaviour_mut().kad.get_closest_peers(local_peer_id);
+        tracing::info!(%local_peer_id, %query_id, "Kademlia query");
 
-        // Wait to listen on all interfaces.
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        match swarm.next().await.unwrap() {
-            SwarmEvent::NewListenAddr {
-                listener_id,
-                address,
-            } => {
-                tracing::info!(%address, "Listening on address");
-            }
-            e => {
-                tracing::error!(?e, "Unexpected event");
-            }
-        }
-
-        tracing::info!("Attempting to dial relay");
-        swarm
-            .dial(BOOTSTRAP.parse::<Multiaddr>().expect("valid multiaddr"))
-            .context("failed to dial relay address")?;
-
-        let mut learned_observed_addr = false;
-        let mut told_relay_observed_addr = false;
-        loop {
-            match swarm.next().await.unwrap() {
-                SwarmEvent::NewListenAddr { .. } => {}
-                SwarmEvent::Dialing { .. } => {}
-                SwarmEvent::ConnectionEstablished { .. } => {}
-                SwarmEvent::Behaviour(PeerieBehaviourEvent::Ping(_)) => {}
-                SwarmEvent::Behaviour(PeerieBehaviourEvent::Identify(identify::Event::Sent {
-                    ..
-                })) => {
-                    tracing::info!("Told relay its public address");
-                    told_relay_observed_addr = true;
-                }
-                SwarmEvent::Behaviour(PeerieBehaviourEvent::Identify(
-                    identify::Event::Received {
-                        info: identify::Info { observed_addr, .. },
-                        ..
-                    },
-                )) => {
-                    tracing::info!(address=%observed_addr, "Relay told us our observed address");
-                    learned_observed_addr = true;
-                }
-                event => tracing::error!("{event:?}"),
-            }
-
-            if learned_observed_addr && told_relay_observed_addr {
-                break;
-            }
-        }
-
-        swarm.listen_on(
-            BOOTSTRAP
-                .parse::<Multiaddr>()
-                .unwrap()
-                .with(Protocol::P2pCircuit),
-        )?;
+        // swarm.listen_on(
+        //     BOOTSTRAP
+        //         .parse::<Multiaddr>()
+        //         .unwrap()
+        //         .with(Protocol::P2pCircuit),
+        // )?;
 
         swarm
     }

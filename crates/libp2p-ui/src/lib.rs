@@ -6,10 +6,11 @@ use libp2p_stream::Control;
 use libp2p_swarm::SwarmEvent;
 use zed::unstable::{
     db::smol::stream::StreamExt,
-    gpui::{self, Action, AppContext, EventEmitter, FocusHandle, Focusable, actions, rgb},
+    editor::Editor,
+    gpui::{self, Action, AppContext, Entity, EventEmitter, FocusHandle, Focusable, actions, rgb},
     ui::{
-        App, Context, IconName, IntoElement, ListItem, ParentElement, Pixels, Render, Styled,
-        Window, div, px,
+        App, Button, Clickable, Context, IconName, IntoElement, ListItem, ParentElement, Pixels,
+        Render, Styled, Window, div, px,
     },
     util::ResultExt,
     workspace::{
@@ -132,6 +133,10 @@ impl Libp2pUi {
                     //
                     tracing::info!("Dcutr event: {:?}", event);
                 }
+                SwarmEvent::Behaviour(PeerieBehaviourEvent::Kad(event)) => {
+                    //
+                    tracing::info!("Kademlia event: {:?}", event);
+                }
                 e => {
                     tracing::info!("Swarm event: {e:?}");
                 }
@@ -173,13 +178,19 @@ impl Libp2pUi {
 }
 
 impl Render for Libp2pUi {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let editor = window.use_state(cx, |window, cx| {
+            let mut editor = Editor::single_line(window, cx);
+            editor.set_placeholder_text("Remote Peer ID", window, cx);
+            editor
+        });
         div()
             .size_full()
             .flex()
             .flex_row()
             .border_1()
             .border_color(rgb(0xaaffbb))
+            // Left vertical sidebar
             .child(
                 div().children(self.spaces.iter().enumerate().map(|(i, it)| {
                     ListItem::new(i)
@@ -187,6 +198,7 @@ impl Render for Libp2pUi {
                         .child(div().p_4().child(it.to_string()))
                 })),
             )
+            // Right vertical list of widgets
             .child(
                 div()
                     .border_1()
@@ -197,6 +209,18 @@ impl Render for Libp2pUi {
                             .border_1()
                             .border_color(rgb(0x440099))
                             .child(format!("Local Peer ID: {:?}", self.local_peer_id)),
+                    )
+                    .child(
+                        div()
+                            .w_full()
+                            .flex()
+                            .flex_row()
+                            .border_1()
+                            .border_color(rgb(0xdeadbeef))
+                            .child(editor)
+                            .child(Button::new("Go", "Go").on_click(|_click, _window, _cx| {
+                                tracing::info!("Pressed Go");
+                            })),
                     )
                     .child(
                         div()
