@@ -75,7 +75,7 @@ impl IrohPanel {
         }
     }
 
-    fn remote_endpoint(&self, cx: &App) -> String {
+    fn _remote_endpoint(&self, cx: &App) -> String {
         self.remote_endpoint_editor.read(cx).text(cx)
     }
 }
@@ -124,7 +124,7 @@ impl Render for IrohPanel {
                             .icon(IconName::Plus)
                             .icon_size(IconSize::Small)
                             .icon_position(IconPosition::Start)
-                            .on_click(cx.listener(|this, _, window, cx| {
+                            .on_click(cx.listener(|this, _, _window, cx| {
                                 let repo = this
                                     .iroh_repo
                                     .as_ref()
@@ -149,7 +149,7 @@ impl Render for IrohPanel {
                             .icon(IconName::Plus)
                             .icon_size(IconSize::Small)
                             .icon_position(IconPosition::Start)
-                            .on_click(cx.listener(|this, _, window, cx| {
+                            .on_click(cx.listener(|this, _, _window, cx| {
                                 let Some(repo) = this.iroh_repo.as_ref() else {
                                     return;
                                 };
@@ -161,8 +161,8 @@ impl Render for IrohPanel {
 
                                 cx.spawn({
                                     let repo = repo.clone();
-                                    async move |a, b| {
-                                        let it = repo
+                                    async move |_a, _b| {
+                                        let _it = repo
                                             .proto
                                             .sync_with(endpoint_id)
                                             .await

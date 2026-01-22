@@ -71,7 +71,7 @@ struct SerializedWillowPanel {
 #[derive(Debug, Clone)]
 enum DialogState {
     None,
-    CreateDocument { path: String, content: String },
+    CreateDocument { path: String, _content: String },
     CreateSubspace {},
     ViewDocument { entry: Entry },
 }
@@ -187,7 +187,7 @@ impl WillowPanel {
     ) {
         self.dialog_state = DialogState::CreateDocument {
             path: String::new(),
-            content: String::new(),
+            _content: String::new(),
         };
         cx.notify();
     }
@@ -219,7 +219,7 @@ impl WillowPanel {
         cx: &mut Context<Self>,
     ) {
         // For demo purposes, create a mock entry
-        if let DialogState::CreateDocument { path, content: _ } = &self.dialog_state {
+        if let DialogState::CreateDocument { path, _content: _ } = &self.dialog_state {
             if !path.is_empty() {
                 let new_entry = Entry {
                     namespace_id: "user".to_string(),

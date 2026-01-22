@@ -32,10 +32,10 @@ pub fn init(cx: &mut App) {
             .load()
             .await;
         let proto = IrohSamod::new(endpoint.clone(), repo);
-        let router = iroh::protocol::Router::builder(endpoint)
+        let _router = iroh::protocol::Router::builder(endpoint)
             .accept(IrohSamod::SYNC_ALPN, proto.clone())
             .spawn();
-        let iroh_repository = IrohRepository { proto, router };
+        let iroh_repository = IrohRepository { proto };
 
         cx.update_global(|&mut GlobalIrohRepo(ref mut repo), _| {
             *repo = Some(Arc::new(iroh_repository))
@@ -50,7 +50,7 @@ impl Global for GlobalIrohRepo {}
 
 pub struct IrohRepository {
     pub proto: IrohSamod,
-    pub router: iroh::protocol::Router,
+    // pub router: iroh::protocol::Router,
 }
 
 /// Combines an [`iroh::Endpoint`] with a [`Repo`] (automerge repository) and
@@ -108,7 +108,7 @@ impl IrohSamod {
     }
 
     /// Returns a reference to the stored [`Repo`] instance inside.
-    pub fn repo(&self) -> &Repo {
+    pub fn _repo(&self) -> &Repo {
         &self.repo
     }
 

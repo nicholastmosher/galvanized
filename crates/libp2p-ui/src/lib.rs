@@ -1,18 +1,16 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use anyhow::Context as _;
 use libp2p::{PeerId, StreamProtocol, mdns::Event as MdnsEvent};
 use libp2p_stream::Control;
 use libp2p_swarm::SwarmEvent;
 use zed::unstable::{
     db::smol::stream::StreamExt,
     editor::Editor,
-    gpui::{self, Action, AppContext, Entity, EventEmitter, FocusHandle, Focusable, actions, rgb},
+    gpui::{self, Action, AppContext, EventEmitter, FocusHandle, Focusable, actions, rgb},
     ui::{
         App, Button, Clickable, Context, IconName, IntoElement, ListItem, ParentElement, Pixels,
         Render, Styled, Window, div, px,
     },
-    util::ResultExt,
     workspace::{
         Panel, Workspace,
         dock::{DockPosition, PanelEvent},
@@ -27,7 +25,7 @@ pub mod p2p;
 
 actions!(workspace, [ToggleLibp2pPanel]);
 
-const PROTOCOL: StreamProtocol = StreamProtocol::new("/prototyping");
+const _PROTOCOL: StreamProtocol = StreamProtocol::new("/prototyping");
 
 pub fn init(cx: &mut App) {
     // let Ok(mut swarm) = PeerieBehaviour::try_init_swarm() else {
@@ -48,7 +46,7 @@ pub fn init(cx: &mut App) {
 
             libp2p_ui.update(cx, {
                 let control = control.clone();
-                move |ui, cx| {
+                move |ui, _cx| {
                     ui.local_peer_id = Some(local_peer_id);
                     ui._stream_control = Some(control);
                 }
@@ -237,7 +235,7 @@ impl Render for Libp2pUi {
                             .enumerate()
                             .map(|(i, remote_peer)| {
                                 ListItem::new(i)
-                                    .on_click(cx.listener(move |ui, _click, _window, cx| {
+                                    .on_click(cx.listener(move |_ui, _click, _window, _cx| {
                                         tracing::info!("Clicked on peer {}", remote_peer);
                                         // ui.connect_stream(remote_peer, cx);
                                     }))

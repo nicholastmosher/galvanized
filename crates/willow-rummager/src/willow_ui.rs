@@ -38,7 +38,7 @@ pub struct Entry {
 #[derive(Debug, Clone)]
 pub struct BreadcrumbItem {
     pub name: String,
-    pub path: String,
+    // pub path: String,
 }
 
 pub fn init(cx: &mut App) {
@@ -139,11 +139,11 @@ impl WillowUi {
             self.current_path = vec![
                 BreadcrumbItem {
                     name: namespace_id.to_string(),
-                    path: format!("/{}", namespace_id),
+                    // path: format!("/{}", namespace_id),
                 },
                 BreadcrumbItem {
                     name: subspace_id.to_string(),
-                    path: format!("/{}/{}", namespace_id, subspace_id),
+                    // path: format!("/{}/{}", namespace_id, subspace_id),
                 },
             ];
         }

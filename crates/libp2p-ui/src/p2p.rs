@@ -3,18 +3,14 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{Context, Error};
+use anyhow::Error;
 use culpa::throws;
 use libp2p::{
-    Multiaddr, PeerId, Swarm, dcutr,
-    futures::StreamExt as _,
-    gossipsub, identify,
+    Multiaddr, PeerId, Swarm, dcutr, gossipsub, identify,
     kad::{self, store::MemoryStore},
-    mdns,
-    multiaddr::Protocol,
-    noise, ping, relay, tcp, yamux,
+    mdns, noise, ping, relay, tcp, yamux,
 };
-use libp2p_swarm::{NetworkBehaviour, SwarmEvent};
+use libp2p_swarm::NetworkBehaviour;
 
 const BOOTSTRAP: &str = "/dnsaddr/bootstrap.libp2p.io";
 
