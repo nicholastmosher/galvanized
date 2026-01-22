@@ -173,15 +173,105 @@ impl Libp2pUi {
     //     })
     //     .detach_and_log_err(cx);
     // }
-}
 
-impl Render for Libp2pUi {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_namespace_bar(
+        &mut self,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div().children(self.spaces.iter().enumerate().map(|(i, it)| {
+            div().p_2().child(
+                ListItem::new(i)
+                    .rounded()
+                    .child(div().p_4().child(it.to_string())),
+            )
+        }))
+    }
+
+    fn render_widget_feed(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let editor = window.use_state(cx, |window, cx| {
             let mut editor = Editor::single_line(window, cx);
             editor.set_placeholder_text("Remote Peer ID", window, cx);
             editor
         });
+
+        div()
+            .border_1()
+            .border_color(rgb(0xaa00bb))
+            .child(
+                div()
+                    .w_full()
+                    .border_1()
+                    .border_color(rgb(0x440099))
+                    .child(format!("Local Peer ID: {:?}", self.local_peer_id)),
+            )
+            .child(
+                div()
+                    .w_full()
+                    .flex()
+                    .flex_row()
+                    .border_1()
+                    .border_color(rgb(0xdeadbeef))
+                    .child(editor)
+                    .child(Button::new("Go", "Go").on_click(|_click, _window, _cx| {
+                        tracing::info!("Pressed Go");
+                    })),
+            )
+            .child(
+                div()
+                    .w_full()
+                    .border_1()
+                    .border_color(rgb(0x440099))
+                    .child("Discovered Peers:"),
+            )
+            .children(
+                self.peers
+                    .iter()
+                    .copied()
+                    // .filter(|it| it != &self.local_peer_id)
+                    .enumerate()
+                    .map(|(i, remote_peer)| {
+                        ListItem::new(i)
+                            .on_click(cx.listener(move |_ui, _click, _window, _cx| {
+                                tracing::info!("Clicked on peer {}", remote_peer);
+                                // ui.connect_stream(remote_peer, cx);
+                            }))
+                            .child(remote_peer.to_string())
+                    }),
+            )
+            .child(
+                div()
+                    .w_full()
+                    .border_1()
+                    .border_color(rgb(0x440099))
+                    .child("Open Peer streams:"),
+            )
+            .children(
+                self.peer_streams
+                    .iter()
+                    // .filter(|(peer_id, _stream)| *peer_id != &self.local_peer_id)
+                    .enumerate()
+                    .map(|(i, (remote_peer_id, _remote_stream))| {
+                        let remote_peer_id = remote_peer_id.clone();
+                        ListItem::new(i)
+                            .on_click(cx.listener(move |_ui, _click, _window, _cx| {
+                                tracing::debug!("Clicked on peer stream {}", remote_peer_id);
+
+                                // Open Libp2pPane?
+                            }))
+                            .child(remote_peer_id.to_string())
+                    }),
+            )
+    }
+}
+
+impl Render for Libp2pUi {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Panel root
         div()
             .size_full()
             .flex()
@@ -189,86 +279,9 @@ impl Render for Libp2pUi {
             .border_1()
             .border_color(rgb(0xaaffbb))
             // Left vertical sidebar
-            .child(
-                div().children(self.spaces.iter().enumerate().map(|(i, it)| {
-                    ListItem::new(i)
-                        .rounded()
-                        .child(div().p_4().child(it.to_string()))
-                })),
-            )
+            .child(self.render_namespace_bar(window, cx))
             // Right vertical list of widgets
-            .child(
-                div()
-                    .border_1()
-                    .border_color(rgb(0xaa00bb))
-                    .child(
-                        div()
-                            .w_full()
-                            .border_1()
-                            .border_color(rgb(0x440099))
-                            .child(format!("Local Peer ID: {:?}", self.local_peer_id)),
-                    )
-                    .child(
-                        div()
-                            .w_full()
-                            .flex()
-                            .flex_row()
-                            .border_1()
-                            .border_color(rgb(0xdeadbeef))
-                            .child(editor)
-                            .child(Button::new("Go", "Go").on_click(|_click, _window, _cx| {
-                                tracing::info!("Pressed Go");
-                            })),
-                    )
-                    .child(
-                        div()
-                            .w_full()
-                            .border_1()
-                            .border_color(rgb(0x440099))
-                            .child("Discovered Peers:"),
-                    )
-                    .children(
-                        self.peers
-                            .iter()
-                            .copied()
-                            // .filter(|it| it != &self.local_peer_id)
-                            .enumerate()
-                            .map(|(i, remote_peer)| {
-                                ListItem::new(i)
-                                    .on_click(cx.listener(move |_ui, _click, _window, _cx| {
-                                        tracing::info!("Clicked on peer {}", remote_peer);
-                                        // ui.connect_stream(remote_peer, cx);
-                                    }))
-                                    .child(remote_peer.to_string())
-                            }),
-                    )
-                    .child(
-                        div()
-                            .w_full()
-                            .border_1()
-                            .border_color(rgb(0x440099))
-                            .child("Open Peer streams:"),
-                    )
-                    .children(
-                        self.peer_streams
-                            .iter()
-                            // .filter(|(peer_id, _stream)| *peer_id != &self.local_peer_id)
-                            .enumerate()
-                            .map(|(i, (remote_peer_id, _remote_stream))| {
-                                let remote_peer_id = remote_peer_id.clone();
-                                ListItem::new(i)
-                                    .on_click(cx.listener(move |_ui, _click, _window, _cx| {
-                                        tracing::debug!(
-                                            "Clicked on peer stream {}",
-                                            remote_peer_id
-                                        );
-
-                                        // Open Libp2pPane?
-                                    }))
-                                    .child(remote_peer_id.to_string())
-                            }),
-                    ),
-            )
+            .child(self.render_widget_feed(window, cx))
     }
 }
 
