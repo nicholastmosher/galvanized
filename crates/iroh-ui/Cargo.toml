@@ -9,7 +9,7 @@ automerge = "0.7.2"
 bytes = "1.11.0"
 derive_more = "2.1.0"
 hex = "0.4.3"
-iroh = "0.95.1"
+iroh = { version = "0.95.1", features = ["discovery-local-network"] }
 iroh-blobs = "0.97.0"
 iroh-docs = "0.95.0"
 iroh-gossip = "0.95.0"

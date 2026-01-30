@@ -6,13 +6,16 @@ use iroh_blobs::{ALPN as BLOBS_ALPN, BlobsProtocol};
 use iroh_docs::{ALPN as DOCS_ALPN, protocol::Docs};
 use iroh_gossip::{ALPN as GOSSIP_ALPN, Gossip};
 use rand::Rng;
-use tracing::{info, warn};
+use tracing::info;
 use zed::unstable::editor::Editor;
 use zed::unstable::gpui::{
-    self, App, AppContext as _, Context, Element, Entity, EventEmitter, FocusHandle, Focusable,
-    ParentElement as _, Render, Styled, Window, div, rgb,
+    self, App, AppContext as _, ClipboardItem, Context, Entity, EventEmitter, FocusHandle,
+    Focusable, ParentElement as _, Render, Styled, Window, div, rgb,
 };
-use zed::unstable::ui::{Button, Clickable, IconPosition, IconSize, LabelSize, ListItem};
+use zed::unstable::ui::{
+    Button, Clickable, FluentBuilder, IconPosition, IconSize, IntoElement, LabelSize, ListItem,
+    Pixels,
+};
 use zed::unstable::workspace::Workspace;
 use zed::unstable::workspace::dock::PanelEvent;
 use zed::unstable::{
@@ -49,7 +52,9 @@ pub struct IrohPanel {
     dock_position: DockPosition,
     focus_handle: FocusHandle,
     remote_endpoint_editor: Entity<Editor>,
-    iroh: Option<(Endpoint, Router)>,
+    iroh: Option<(Endpoint, Router, BlobsProtocol, Gossip, Docs)>,
+    spaces: Vec<String>,
+    width: Option<Pixels>,
 }
 
 #[derive(Debug, Clone)]
@@ -60,7 +65,7 @@ impl Handler {
 impl ProtocolHandler for Handler {
     fn accept(
         &self,
-        connection: iroh::endpoint::Connection,
+        _connection: iroh::endpoint::Connection,
     ) -> impl Future<Output = Result<(), iroh::protocol::AcceptError>> + Send {
         async move {
             //
@@ -76,11 +81,11 @@ impl IrohPanel {
         cx.spawn({
             async move |panel, cx| {
                 let Some(panel) = panel.upgrade() else {
-                    warn!("Iroh panel not found");
                     bail!("iroh panel not found");
                 };
 
-                let endpoint = Endpoint::builder().bind().await?;
+                let mdns = iroh::discovery::mdns::MdnsDiscovery::builder();
+                let endpoint = Endpoint::builder().discovery(mdns).bind().await?;
                 let store = MemStore::new();
                 let blobs = BlobsProtocol::new(&store, None);
                 let gossip = iroh_gossip::Gossip::builder().spawn(endpoint.clone());
@@ -88,13 +93,13 @@ impl IrohPanel {
                     .spawn(endpoint.clone(), (*blobs).clone(), gossip.clone())
                     .await?;
                 let router = Router::builder(endpoint.clone())
-                    .accept(BLOBS_ALPN, blobs)
-                    .accept(GOSSIP_ALPN, gossip)
-                    .accept(DOCS_ALPN, docs)
+                    .accept(BLOBS_ALPN, blobs.clone())
+                    .accept(GOSSIP_ALPN, gossip.clone())
+                    .accept(DOCS_ALPN, docs.clone())
                     .accept(Handler::APLN, Handler)
                     .spawn();
                 panel.update(cx, move |panel, _cx| {
-                    panel.iroh = Some((endpoint, router));
+                    panel.iroh = Some((endpoint, router, blobs, gossip, docs));
                 })?;
 
                 anyhow::Ok(())
@@ -113,62 +118,63 @@ impl IrohPanel {
             focus_handle: cx.focus_handle(),
             remote_endpoint_editor,
             iroh: None,
+            spaces: vec!["Home".to_string(), "Family".to_string(), "Work".to_string()],
+            width: None,
         }
     }
 
     fn _remote_endpoint(&self, cx: &App) -> String {
         self.remote_endpoint_editor.read(cx).text(cx)
     }
-}
 
-impl EventEmitter<PanelEvent> for IrohPanel {}
-
-impl Focusable for IrohPanel {
-    fn focus_handle(&self, _cx: &gpui::App) -> gpui::FocusHandle {
-        self.focus_handle.clone()
-    }
-}
-
-impl Render for IrohPanel {
-    fn render(
+    fn render_namespace_bar(
         &mut self,
-        _window: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) -> impl gpui::IntoElement {
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div().children(self.spaces.iter().enumerate().map(|(i, it)| {
+            div().p_2().child(
+                ListItem::new(i)
+                    .rounded()
+                    .child(div().p_4().child(it.to_string())),
+            )
+        }))
+    }
+
+    fn render_widget_feed(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         div()
             .size_full()
             .debug_border()
             .flex_col()
             .child(
                 // Header
-                div()
-                    .w_full()
-                    .p_1()
-                    .flex_row()
-                    .debug_border()
-                    // .child(
-                    //     div()
-                    //         .w(Length::Auto)
-                    //         .map(|this| match self.iroh_repo.as_ref() {
-                    //             None => this.child("No endpoint".into_any()),
-                    //             Some(repo) => {
-                    //                 let endpoint_id = repo.proto.endpoint().id().to_string();
-                    //                 this.child(
-                    //                     format!("Iroh ID: {}", endpoint_id).into_any_element(),
-                    //                 )
-                    //             }
-                    //         }),
-                    // )
-                    .child(
-                        Button::new("copy-endpoint-id", "Copy")
-                            .label_size(LabelSize::Small)
-                            .icon(IconName::Plus)
-                            .icon_size(IconSize::Small)
-                            .icon_position(IconPosition::Start)
-                            .on_click(cx.listener(|this, _, _window, cx| {
-                                info!("Clicked Copy");
-                            })),
-                    ),
+                div().w_full().p_1().flex_row().debug_border().when_some(
+                    self.iroh.as_ref(),
+                    |div, (endpoint, _router, _blobs, _gossip, _docs)| {
+                        //
+                        div
+                            //
+                            .child(format!("Endpoint ID: {}", endpoint.id()))
+                            .child(
+                                Button::new("copy-endpoint-id", "Copy")
+                                    .label_size(LabelSize::Small)
+                                    .icon(IconName::Plus)
+                                    .icon_size(IconSize::Small)
+                                    .icon_position(IconPosition::Start)
+                                    .on_click(cx.listener(|this, _, _window, cx| {
+                                        if let Some((endpoint, ..)) = &this.iroh {
+                                            let text = endpoint.id().to_string();
+                                            cx.write_to_clipboard(ClipboardItem::new_string(text));
+                                        }
+                                        info!("Clicked Copy");
+                                    })),
+                            )
+                    },
+                ),
             )
             .child(
                 div()
@@ -184,25 +190,38 @@ impl Render for IrohPanel {
                             .icon(IconName::Plus)
                             .icon_size(IconSize::Small)
                             .icon_position(IconPosition::Start)
-                            .on_click(cx.listener(|this, _, _window, cx| {
+                            .on_click(cx.listener(|_this, _, _window, _cx| {
                                 info!("Clicked Connect");
                             })),
                     ),
             )
-            .child(
-                //
-                div()
-                    .size_full()
-                    .p_1()
-                    .debug_border()
-                    .child("Content".into_any())
-                    .children(
-                        ["One", "Two", "Three"]
-                            .into_iter()
-                            .enumerate()
-                            .map(|(i, name)| ListItem::new(i).child(name.into_any())),
-                    ),
-            )
+    }
+}
+
+impl EventEmitter<PanelEvent> for IrohPanel {}
+
+impl Focusable for IrohPanel {
+    fn focus_handle(&self, _cx: &gpui::App) -> gpui::FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+
+impl Render for IrohPanel {
+    fn render(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) -> impl gpui::IntoElement {
+        // Panel root
+        div()
+            .size_full()
+            .flex()
+            .flex_row()
+            .debug_border()
+            // Left vertical sidebar
+            .child(self.render_namespace_bar(window, cx))
+            // Right vertical list of widgets
+            .child(self.render_widget_feed(window, cx))
     }
 }
 
@@ -240,16 +259,17 @@ impl Panel for IrohPanel {
         &self,
         _window: &zed::unstable::gpui::Window,
         _cx: &zed::unstable::gpui::App,
-    ) -> zed::unstable::gpui::Pixels {
-        px(300.)
+    ) -> Pixels {
+        self.width.unwrap_or(px(300.))
     }
 
     fn set_size(
         &mut self,
-        _size: Option<zed::unstable::gpui::Pixels>,
+        size: Option<Pixels>,
         _window: &mut zed::unstable::gpui::Window,
         _cx: &mut zed::unstable::gpui::Context<Self>,
     ) {
+        self.width = size;
     }
 
     fn icon(
