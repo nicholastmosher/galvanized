@@ -1,12 +1,15 @@
 use anyhow::bail;
-use iroh::Endpoint;
+use bytes::Bytes;
 use iroh::protocol::{ProtocolHandler, Router};
+use iroh::{Endpoint, EndpointAddr};
 use iroh_blobs::store::mem::MemStore;
 use iroh_blobs::{ALPN as BLOBS_ALPN, BlobsProtocol};
 use iroh_docs::{ALPN as DOCS_ALPN, protocol::Docs};
-use iroh_gossip::{ALPN as GOSSIP_ALPN, Gossip};
+use iroh_gossip::{ALPN as GOSSIP_ALPN, Gossip, TopicId};
 use rand::Rng;
-use tracing::info;
+use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
+use zed::unstable::db::smol::stream::StreamExt as _;
 use zed::unstable::editor::Editor;
 use zed::unstable::gpui::{
     self, App, AppContext as _, ClipboardItem, Context, Entity, EventEmitter, FocusHandle,
@@ -48,12 +51,23 @@ pub fn init(cx: &mut App) {
 
 actions!(workspace, [ToggleIrohPanel]);
 
+#[allow(unused)]
+#[non_exhaustive]
+pub struct Iroh {
+    pub endpoint: Endpoint,
+    pub router: Router,
+    pub blobs: BlobsProtocol,
+    pub gossip: Gossip,
+    pub docs: Docs,
+}
+
 pub struct IrohPanel {
     dock_position: DockPosition,
     focus_handle: FocusHandle,
-    remote_endpoint_editor: Entity<Editor>,
-    iroh: Option<(Endpoint, Router, BlobsProtocol, Gossip, Docs)>,
+    remote_ticket_editor: Entity<Editor>,
+    iroh: Option<Iroh>,
     spaces: Vec<String>,
+    topics: Vec<(TopicId, Ticket)>,
     width: Option<Pixels>,
 }
 
@@ -99,7 +113,13 @@ impl IrohPanel {
                     .accept(Handler::APLN, Handler)
                     .spawn();
                 panel.update(cx, move |panel, _cx| {
-                    panel.iroh = Some((endpoint, router, blobs, gossip, docs));
+                    panel.iroh = Some(Iroh {
+                        endpoint,
+                        router,
+                        blobs,
+                        gossip,
+                        docs,
+                    });
                 })?;
 
                 anyhow::Ok(())
@@ -116,15 +136,12 @@ impl IrohPanel {
         Self {
             dock_position: DockPosition::Left,
             focus_handle: cx.focus_handle(),
-            remote_endpoint_editor,
+            remote_ticket_editor: remote_endpoint_editor,
             iroh: None,
             spaces: vec!["Home".to_string(), "Family".to_string(), "Work".to_string()],
+            topics: Vec::new(),
             width: None,
         }
-    }
-
-    fn _remote_endpoint(&self, cx: &App) -> String {
-        self.remote_endpoint_editor.read(cx).text(cx)
     }
 
     fn render_namespace_bar(
@@ -143,57 +160,250 @@ impl IrohPanel {
 
     fn render_widget_feed(
         &mut self,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         div()
             .size_full()
             .debug_border()
             .flex_col()
-            .child(
-                // Header
-                div().w_full().p_1().flex_row().debug_border().when_some(
-                    self.iroh.as_ref(),
-                    |div, (endpoint, _router, _blobs, _gossip, _docs)| {
-                        //
-                        div
-                            //
-                            .child(format!("Endpoint ID: {}", endpoint.id()))
-                            .child(
-                                Button::new("copy-endpoint-id", "Copy")
-                                    .label_size(LabelSize::Small)
-                                    .icon(IconName::Plus)
-                                    .icon_size(IconSize::Small)
-                                    .icon_position(IconPosition::Start)
-                                    .on_click(cx.listener(|this, _, _window, cx| {
-                                        if let Some((endpoint, ..)) = &this.iroh {
-                                            let text = endpoint.id().to_string();
-                                            cx.write_to_clipboard(ClipboardItem::new_string(text));
-                                        }
-                                        info!("Clicked Copy");
-                                    })),
-                            )
-                    },
-                ),
-            )
-            .child(
-                div()
-                    .w_full()
-                    .p_1()
-                    .debug_border()
-                    .flex()
-                    .gap_2()
-                    .child(self.remote_endpoint_editor.clone())
+            .child(self.render_local_endpoint(window, cx))
+            .child(self.render_connect_remote(window, cx))
+            .child(self.render_create_topic(window, cx))
+            .child(self.render_topics(window, cx))
+    }
+
+    fn render_local_endpoint(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            //
+            .p_1()
+            .flex_row()
+            .debug_border()
+            .when_some(self.iroh.as_ref(), |div, Iroh { endpoint, .. }| {
+                //
+                div
+                    //
                     .child(
-                        Button::new("remote-connect", "Connect")
-                            .label_size(LabelSize::Small)
-                            .icon(IconName::Plus)
-                            .icon_size(IconSize::Small)
-                            .icon_position(IconPosition::Start)
-                            .on_click(cx.listener(|_this, _, _window, _cx| {
-                                info!("Clicked Connect");
-                            })),
-                    ),
+                        Button::new(
+                            "endpoint-id",
+                            format!("Endpoint ID: .+{:.8}", endpoint.id().to_string()),
+                        )
+                        .label_size(LabelSize::Small)
+                        .icon(IconName::Copy)
+                        .icon_size(IconSize::Small)
+                        .icon_position(IconPosition::Start)
+                        .on_click(cx.listener(|this, _, _window, cx| {
+                            let Some(Iroh { endpoint, .. }) = &this.iroh else {
+                                return;
+                            };
+
+                            let text = endpoint.id().to_string();
+                            cx.write_to_clipboard(ClipboardItem::new_string(text));
+                            info!("Clicked Copy");
+                        })),
+                    )
+            })
+    }
+
+    fn render_create_topic(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .p_1()
+            .debug_border()
+            .flex()
+            .gap_2()
+            // .child(self.create_topic_editor.clone())
+            .child(
+                Button::new("create-topic", "Create Topic")
+                    .label_size(LabelSize::Small)
+                    .icon(IconName::Plus)
+                    .icon_size(IconSize::Small)
+                    .icon_position(IconPosition::Start)
+                    .on_click(cx.listener(|this, _, _window, cx| {
+                        let Some(Iroh { gossip, .. }) = this.iroh.as_ref() else {
+                            return;
+                        };
+
+                        let topic_id = TopicId::from_bytes(rand::random());
+                        let me = this.iroh.as_ref().unwrap().endpoint.addr();
+                        let ticket = Ticket {
+                            topic_id,
+                            endpoints: vec![me],
+                        };
+                        this.topics.push((topic_id, ticket));
+
+                        cx.spawn({
+                            let gossip = gossip.clone();
+                            async move |_this, cx| {
+                                let bootstrap = vec![];
+                                let (sender, mut receiver) = gossip
+                                    .subscribe_and_join(topic_id, bootstrap)
+                                    .await?
+                                    .split();
+
+                                cx.spawn({
+                                    async move |_cx| {
+                                        //
+                                        while let Some(event) = receiver.try_next().await? {
+                                            //
+                                            let iroh_gossip::api::Event::Received(message) = event
+                                            else {
+                                                continue;
+                                            };
+
+                                            let buffer = message.content;
+                                            let text = String::from_utf8_lossy(&buffer);
+                                            info!(%text, "Received");
+                                            //
+                                        }
+
+                                        warn!("Receiver task quit");
+                                        anyhow::Ok(())
+                                    }
+                                })
+                                .detach();
+
+                                sender.broadcast(Bytes::from_static(b"created")).await?;
+                                anyhow::Ok(())
+                            }
+                        })
+                        .detach_and_log_err(cx);
+
+                        info!("Clicked Create Topic");
+                    })),
+            )
+    }
+
+    fn render_topics(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .child("Topics:")
+            .children(self.topics.iter().map(|(topic, ticket)| {
+                div()
+                    .pl_2()
+                    .child(
+                        Button::new("topic-{topic}", {
+                            let topic = topic.to_string();
+                            format!("Copy Topic .+{}", &topic[topic.len() - 8..])
+                        })
+                        .label_size(LabelSize::Small)
+                        .icon(IconName::Copy)
+                        .icon_size(IconSize::Small)
+                        .icon_position(IconPosition::Start)
+                        .on_click(cx.listener({
+                            let topic = topic.to_string();
+                            move |_this, _, _window, cx| {
+                                cx.write_to_clipboard(ClipboardItem::new_string(topic.to_string()));
+                                info!("Clicked Copy Topic");
+                            }
+                        })),
+                    )
+                    .child(
+                        Button::new("topic-ticket-{ticket}", {
+                            let ticket = ticket.to_string();
+                            format!("Copy Ticket .+{}", &ticket[ticket.len() - 8..])
+                        })
+                        .label_size(LabelSize::Small)
+                        .icon(IconName::Copy)
+                        .icon_size(IconSize::Small)
+                        .icon_position(IconPosition::Start)
+                        .on_click(cx.listener({
+                            let ticket = ticket.to_string();
+                            move |_this, _, _window, cx| {
+                                cx.write_to_clipboard(ClipboardItem::new_string(
+                                    ticket.to_string(),
+                                ));
+                                info!("Clicked Copy Ticket");
+                            }
+                        })),
+                    )
+            }))
+    }
+
+    fn render_connect_remote(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .p_1()
+            .debug_border()
+            .flex()
+            .gap_2()
+            .child(self.remote_ticket_editor.clone())
+            .child(
+                Button::new("connect-remote", "Connect")
+                    .label_size(LabelSize::Small)
+                    .icon(IconName::Plus)
+                    .icon_size(IconSize::Small)
+                    .icon_position(IconPosition::Start)
+                    .on_click(cx.listener(|this, _, _window, cx| {
+                        let Some(Iroh {
+                            endpoint, gossip, ..
+                        }) = this.iroh.as_ref()
+                        else {
+                            return;
+                        };
+
+                        let ticket_text = this.remote_ticket_editor.read(cx).text(cx);
+                        let ticket_result = ticket_text.parse::<Ticket>();
+                        let ticket = match ticket_result {
+                            Ok(ticket) => ticket,
+                            Err(error) => {
+                                warn!("failed to parse ticket: {error}");
+                                return;
+                            }
+                        };
+
+                        cx.spawn({
+                            let endpoint = endpoint.clone();
+                            let me = endpoint.id();
+                            let gossip = gossip.clone();
+                            async move |_this, cx| {
+                                //
+                                let endpoint_ids =
+                                    ticket.endpoints.iter().map(|it| it.id).collect();
+                                let (sender, mut receiver) = gossip
+                                    .subscribe_and_join(ticket.topic_id, endpoint_ids)
+                                    .await?
+                                    .split();
+
+                                cx.spawn({
+                                    //
+                                    async move |_cx| {
+                                        //
+                                        while let Some(event) = receiver.try_next().await? {
+                                            let iroh_gossip::api::Event::Received(message) = event
+                                            else {
+                                                continue;
+                                            };
+
+                                            let bytes = message.content;
+                                            let text = String::from_utf8_lossy(&bytes);
+                                            info!(%text, "Received:")
+                                        }
+
+                                        warn!("Receiver task quit");
+                                        anyhow::Ok(())
+                                    }
+                                })
+                                .detach();
+
+                                sender
+                                    .broadcast(Bytes::from(format!("{me} joined")))
+                                    .await?;
+                                anyhow::Ok(())
+                            }
+                        })
+                        .detach_and_log_err(cx);
+                        info!("Clicked Connect");
+                    })),
             )
     }
 }
@@ -214,7 +424,8 @@ impl Render for IrohPanel {
     ) -> impl gpui::IntoElement {
         // Panel root
         div()
-            .size_full()
+            .h_full()
+            .w(self.width.unwrap_or(px(300.)))
             .flex()
             .flex_row()
             .debug_border()
@@ -269,7 +480,7 @@ impl Panel for IrohPanel {
         _window: &mut zed::unstable::gpui::Window,
         _cx: &mut zed::unstable::gpui::Context<Self>,
     ) {
-        self.width = size;
+        self.width = size.map(|it| it - px(1.));
     }
 
     fn icon(
@@ -294,5 +505,44 @@ impl Panel for IrohPanel {
 
     fn activation_priority(&self) -> u32 {
         0
+    }
+}
+
+// add the `Ticket` code to the bottom of the main file
+#[derive(Debug, Serialize, Deserialize)]
+struct Ticket {
+    topic_id: TopicId,
+    endpoints: Vec<EndpointAddr>,
+}
+
+impl Ticket {
+    /// Deserialize from a slice of bytes to a Ticket.
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        serde_json::from_slice(bytes).map_err(Into::into)
+    }
+
+    /// Serialize from a `Ticket` to a `Vec` of bytes.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(self).expect("serde_json::to_vec is infallible")
+    }
+}
+
+// The `Display` trait allows us to use the `to_string`
+// method on `Ticket`.
+impl std::fmt::Display for Ticket {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut text = data_encoding::BASE32_NOPAD.encode(&self.to_bytes()[..]);
+        text.make_ascii_lowercase();
+        write!(f, "{}", text)
+    }
+}
+
+// The `FromStr` trait allows us to turn a `str` into
+// a `Ticket`
+impl std::str::FromStr for Ticket {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = data_encoding::BASE32_NOPAD.decode(s.to_ascii_uppercase().as_bytes())?;
+        Self::from_bytes(&bytes)
     }
 }
