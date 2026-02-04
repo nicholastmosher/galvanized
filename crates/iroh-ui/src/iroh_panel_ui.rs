@@ -1,13 +1,12 @@
 use anyhow::bail;
 use bytes::Bytes;
+use iroh::Endpoint;
 use iroh::protocol::{ProtocolHandler, Router};
-use iroh::{Endpoint, EndpointAddr};
 use iroh_blobs::store::mem::MemStore;
 use iroh_blobs::{ALPN as BLOBS_ALPN, BlobsProtocol};
 use iroh_docs::{ALPN as DOCS_ALPN, protocol::Docs};
 use iroh_gossip::{ALPN as GOSSIP_ALPN, Gossip, TopicId};
 use rand::Rng;
-use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 use zed::unstable::db::smol::stream::StreamExt as _;
 use zed::unstable::editor::Editor;
@@ -25,6 +24,8 @@ use zed::unstable::{
     gpui::{actions, px},
     workspace::{Panel, dock::DockPosition, ui::IconName},
 };
+
+use crate::Ticket;
 
 trait DebugViewExt: Styled {
     fn debug_border(self) -> Self {
@@ -53,6 +54,7 @@ actions!(workspace, [ToggleIrohPanel]);
 
 #[allow(unused)]
 #[non_exhaustive]
+#[derive(Clone)]
 pub struct Iroh {
     pub endpoint: Endpoint,
     pub router: Router,
@@ -98,8 +100,12 @@ impl IrohPanel {
                     bail!("iroh panel not found");
                 };
 
-                let mdns = iroh::discovery::mdns::MdnsDiscovery::builder();
-                let endpoint = Endpoint::builder().discovery(mdns).bind().await?;
+                // let mdns = iroh::discovery::mdns::MdnsDiscovery::builder();
+                let endpoint = Endpoint::builder()
+                    //
+                    // .discovery(mdns)
+                    .bind()
+                    .await?;
                 let store = MemStore::new();
                 let blobs = BlobsProtocol::new(&store, None);
                 let gossip = iroh_gossip::Gossip::builder().spawn(endpoint.clone());
@@ -205,6 +211,22 @@ impl IrohPanel {
                             cx.write_to_clipboard(ClipboardItem::new_string(text));
                             info!("Clicked Copy");
                         })),
+                    )
+                    .child(
+                        Button::new("endpoint-addr", "Endpoint Addr")
+                            .label_size(LabelSize::Small)
+                            .icon(IconName::Copy)
+                            .icon_size(IconSize::Small)
+                            .icon_position(IconPosition::Start)
+                            .on_click(cx.listener(|this, _, _window, cx| {
+                                let Some(Iroh { endpoint, .. }) = &this.iroh else {
+                                    return;
+                                };
+
+                                let text = format!("{:?}", endpoint.addr());
+                                cx.write_to_clipboard(ClipboardItem::new_string(text));
+                                info!("Clicked Copy");
+                            })),
                     )
             })
     }
@@ -505,44 +527,5 @@ impl Panel for IrohPanel {
 
     fn activation_priority(&self) -> u32 {
         0
-    }
-}
-
-// add the `Ticket` code to the bottom of the main file
-#[derive(Debug, Serialize, Deserialize)]
-struct Ticket {
-    topic_id: TopicId,
-    endpoints: Vec<EndpointAddr>,
-}
-
-impl Ticket {
-    /// Deserialize from a slice of bytes to a Ticket.
-    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
-        serde_json::from_slice(bytes).map_err(Into::into)
-    }
-
-    /// Serialize from a `Ticket` to a `Vec` of bytes.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(self).expect("serde_json::to_vec is infallible")
-    }
-}
-
-// The `Display` trait allows us to use the `to_string`
-// method on `Ticket`.
-impl std::fmt::Display for Ticket {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut text = data_encoding::BASE32_NOPAD.encode(&self.to_bytes()[..]);
-        text.make_ascii_lowercase();
-        write!(f, "{}", text)
-    }
-}
-
-// The `FromStr` trait allows us to turn a `str` into
-// a `Ticket`
-impl std::str::FromStr for Ticket {
-    type Err = anyhow::Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bytes = data_encoding::BASE32_NOPAD.decode(s.to_ascii_uppercase().as_bytes())?;
-        Self::from_bytes(&bytes)
     }
 }
