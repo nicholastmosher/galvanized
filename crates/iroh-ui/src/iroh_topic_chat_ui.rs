@@ -6,7 +6,7 @@ use iroh_gossip::{
 use tracing::info;
 use zed::unstable::{
     db::smol::stream::StreamExt as _,
-    gpui::{Entity, EventEmitter, FocusHandle, Focusable},
+    gpui::{AsyncApp, Entity, EventEmitter, FocusHandle, Focusable},
     ui::{
         App, Context, IntoElement, ParentElement as _, Render, SharedString, Styled as _, Window,
         div,
@@ -80,27 +80,10 @@ impl TopicChatUi {
                 })
                 .detach();
 
-                // cx.update_entity(&ui, |this, cx| {
-                //     let (sender, receiver) = topic.split();
-                //     this.topic_sender = Some(sender);
-                //     this.topic_receiver = Some(receiver);
-                //     cx.emit(TopicChatEvent::TopicInitialized);
-                // })?;
-
                 anyhow::Ok(())
             }
         })
         .detach_and_log_err(cx);
-
-        // cx.subscribe_self(|this, event, cx| {
-        //     //
-        //     match event {
-        //         TopicChatEvent::TopicInitialized => {
-        //             this.handle_topic_initialized(cx);
-        //         }
-        //     }
-        // })
-        // .detach();
 
         // note(rustfmt): Self {} collapses even with // inside
         Self {
@@ -113,32 +96,6 @@ impl TopicChatUi {
             topics,
         }
     }
-
-    // fn handle_topic_initialized(&mut self, cx: &mut Context<'_, TopicChatUi>) -> _ {
-    //     // SAFETY: Topic is assigned before this event fires
-    //     let receiver = self.topic_receiver.take().unwrap();
-
-    //     // Receiver
-    //     cx.spawn(Self::spawn_topic_receiver(receiver)).detach();
-    // }
-
-    // fn spawn_topic_receiver(
-    //     //
-    //     mut receiver: GossipReceiver,
-    // ) -> impl AsyncFnOnce(WeakEntity<Self>, &mut AsyncApp) -> anyhow::Result<()> {
-    //     async move |ui, cx| {
-    //         while let Some(event) = receiver.try_next().await? {
-    //             let iroh_gossip::api::Event::Received(message) = event else {
-    //                 continue;
-    //             };
-
-    //             Self::handle_received_message(ui.clone(), message, cx).await;
-    //         }
-
-    //         warn!("Receiver task quit");
-    //         anyhow::Ok(())
-    //     }
-    // }
 
     async fn handle_received_message(ui: Entity<TopicChatUi>, message: Message, cx: &mut AsyncApp) {
         // TODO: Message decoding
@@ -193,9 +150,8 @@ impl TopicChatUi {
     }
 }
 
-enum TopicChatEvent {
+pub enum TopicChatEvent {
     //
-    TopicInitialized,
 }
 
 impl EventEmitter<TopicChatEvent> for TopicChatUi {}

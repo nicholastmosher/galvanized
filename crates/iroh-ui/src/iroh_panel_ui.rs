@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::bail;
 use bytes::Bytes;
 use iroh::Endpoint;
@@ -62,8 +64,7 @@ pub struct IrohPanel {
     remote_ticket_editor: Entity<Editor>,
     iroh: Option<Iroh>,
     spaces: Vec<String>,
-    topics: Vec<(TopicId, Ticket)>,
-    topic_chats: Vec<Entity<TopicChatUi>>,
+    topics: HashMap<TopicId, (Ticket, Entity<TopicChatUi>)>,
     width: Option<Pixels>,
 }
 
@@ -139,7 +140,7 @@ impl IrohPanel {
             remote_ticket_editor: remote_endpoint_editor,
             iroh: None,
             spaces: vec!["Home".to_string(), "Family".to_string(), "Work".to_string()],
-            topics: Vec::new(),
+            topics: Default::default(),
             width: None,
         }
     }
@@ -249,7 +250,7 @@ impl IrohPanel {
     fn render_topics(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .child("Topics:")
-            .children(self.topics.iter().map(|(topic, ticket)| {
+            .children(self.topics.iter().map(|(topic, (ticket, _ui))| {
                 div()
                     .pl_2()
                     .child(
@@ -374,8 +375,8 @@ impl IrohPanel {
 
     fn click_create_topic(
         &mut self,
-        event: &gpui::ClickEvent,
-        window: &mut Window,
+        _event: &gpui::ClickEvent,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let Some(iroh) = self.iroh.as_ref() else {
@@ -388,45 +389,9 @@ impl IrohPanel {
             topic_id,
             endpoints: vec![me],
         };
-        self.topics.push((topic_id, ticket));
         let topic_name = topic_id.to_string();
-
-        let topic_chat_ui = cx.new(|cx| TopicChatUi::new(iroh.clone(), topic_name, cx));
-        self.topic_chats.push(topic_chat_ui);
-
-        // cx.spawn({
-        //     let iroh = iroh.clone();
-        //     async move |_this, cx| {
-        //         let bootstrap = vec![];
-        //         let topic = iroh.gossip.subscribe_and_join(topic_id, bootstrap).await?;
-        //         let (sender, receiver) = topic.split();
-
-        //         cx.spawn({
-        //             async move |_cx| {
-        //                 //
-        //                 while let Some(event) = receiver.try_next().await? {
-        //                     //
-        //                     let iroh_gossip::api::Event::Received(message) = event else {
-        //                         continue;
-        //                     };
-
-        //                     let buffer = message.content;
-        //                     let text = String::from_utf8_lossy(&buffer);
-        //                     info!(%text, "Received");
-        //                     //
-        //                 }
-
-        //                 warn!("Receiver task quit");
-        //                 anyhow::Ok(())
-        //             }
-        //         })
-        //         .detach();
-
-        //         sender.broadcast(Bytes::from_static(b"created")).await?;
-        //         anyhow::Ok(())
-        //     }
-        // })
-        // .detach_and_log_err(cx);
+        let ui = cx.new(|cx| TopicChatUi::new(iroh.clone(), topic_name, cx));
+        self.topics.insert(topic_id, (ticket, ui));
 
         info!("Clicked Create Topic");
     }
