@@ -1,7 +1,11 @@
 use iroh::EndpointAddr;
 use iroh_gossip::TopicId;
+use rand::Rng as _;
 use serde::{Deserialize, Serialize};
-use zed::unstable::gpui::App;
+use zed::unstable::{
+    gpui::{App, rgb},
+    ui::Styled,
+};
 
 mod iroh_panel_ui;
 mod iroh_topic_chat_ui;
@@ -9,6 +13,13 @@ mod iroh_topic_chat_ui;
 pub fn init(cx: &mut App) {
     iroh_panel_ui::init(cx);
     iroh_topic_chat_ui::init(cx);
+}
+
+impl<T: Styled> DebugViewExt for T {}
+pub trait DebugViewExt: Styled {
+    fn debug_border(self) -> Self {
+        self.border_1().border_color(rgb(rand::rng().random()))
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

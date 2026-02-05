@@ -6,13 +6,12 @@ use iroh_blobs::store::mem::MemStore;
 use iroh_blobs::{ALPN as BLOBS_ALPN, BlobsProtocol};
 use iroh_docs::{ALPN as DOCS_ALPN, protocol::Docs};
 use iroh_gossip::{ALPN as GOSSIP_ALPN, Gossip, TopicId};
-use rand::Rng;
 use tracing::{info, warn};
 use zed::unstable::db::smol::stream::StreamExt as _;
 use zed::unstable::editor::Editor;
 use zed::unstable::gpui::{
     self, App, AppContext as _, ClipboardItem, Context, Entity, EventEmitter, FocusHandle,
-    Focusable, ParentElement as _, Render, Styled, Window, div, rgb,
+    Focusable, ParentElement as _, Render, Styled, Window, div,
 };
 use zed::unstable::ui::{
     Button, Clickable, FluentBuilder, IconPosition, IconSize, IntoElement, LabelSize, ListItem,
@@ -25,14 +24,8 @@ use zed::unstable::{
     workspace::{Panel, dock::DockPosition, ui::IconName},
 };
 
-use crate::Ticket;
-
-trait DebugViewExt: Styled {
-    fn debug_border(self) -> Self {
-        self.border_1().border_color(rgb(rand::rng().random()))
-    }
-}
-impl<T: Styled> DebugViewExt for T {}
+use crate::iroh_topic_chat_ui::TopicChatUi;
+use crate::{DebugViewExt as _, Ticket};
 
 pub fn init(cx: &mut App) {
     cx.observe_new(|workspace: &mut Workspace, window, cx| {
@@ -70,6 +63,7 @@ pub struct IrohPanel {
     iroh: Option<Iroh>,
     spaces: Vec<String>,
     topics: Vec<(TopicId, Ticket)>,
+    topic_chats: Vec<Entity<TopicChatUi>>,
     width: Option<Pixels>,
 }
 
@@ -248,58 +242,7 @@ impl IrohPanel {
                     .icon(IconName::Plus)
                     .icon_size(IconSize::Small)
                     .icon_position(IconPosition::Start)
-                    .on_click(cx.listener(|this, _, _window, cx| {
-                        let Some(Iroh { gossip, .. }) = this.iroh.as_ref() else {
-                            return;
-                        };
-
-                        let topic_id = TopicId::from_bytes(rand::random());
-                        let me = this.iroh.as_ref().unwrap().endpoint.addr();
-                        let ticket = Ticket {
-                            topic_id,
-                            endpoints: vec![me],
-                        };
-                        this.topics.push((topic_id, ticket));
-
-                        cx.spawn({
-                            let gossip = gossip.clone();
-                            async move |_this, cx| {
-                                let bootstrap = vec![];
-                                let (sender, mut receiver) = gossip
-                                    .subscribe_and_join(topic_id, bootstrap)
-                                    .await?
-                                    .split();
-
-                                cx.spawn({
-                                    async move |_cx| {
-                                        //
-                                        while let Some(event) = receiver.try_next().await? {
-                                            //
-                                            let iroh_gossip::api::Event::Received(message) = event
-                                            else {
-                                                continue;
-                                            };
-
-                                            let buffer = message.content;
-                                            let text = String::from_utf8_lossy(&buffer);
-                                            info!(%text, "Received");
-                                            //
-                                        }
-
-                                        warn!("Receiver task quit");
-                                        anyhow::Ok(())
-                                    }
-                                })
-                                .detach();
-
-                                sender.broadcast(Bytes::from_static(b"created")).await?;
-                                anyhow::Ok(())
-                            }
-                        })
-                        .detach_and_log_err(cx);
-
-                        info!("Clicked Create Topic");
-                    })),
+                    .on_click(cx.listener(Self::click_create_topic)),
             )
     }
 
@@ -427,6 +370,65 @@ impl IrohPanel {
                         info!("Clicked Connect");
                     })),
             )
+    }
+
+    fn click_create_topic(
+        &mut self,
+        event: &gpui::ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(iroh) = self.iroh.as_ref() else {
+            return;
+        };
+
+        let topic_id = TopicId::from_bytes(rand::random());
+        let me = self.iroh.as_ref().unwrap().endpoint.addr();
+        let ticket = Ticket {
+            topic_id,
+            endpoints: vec![me],
+        };
+        self.topics.push((topic_id, ticket));
+        let topic_name = topic_id.to_string();
+
+        let topic_chat_ui = cx.new(|cx| TopicChatUi::new(iroh.clone(), topic_name, cx));
+        self.topic_chats.push(topic_chat_ui);
+
+        // cx.spawn({
+        //     let iroh = iroh.clone();
+        //     async move |_this, cx| {
+        //         let bootstrap = vec![];
+        //         let topic = iroh.gossip.subscribe_and_join(topic_id, bootstrap).await?;
+        //         let (sender, receiver) = topic.split();
+
+        //         cx.spawn({
+        //             async move |_cx| {
+        //                 //
+        //                 while let Some(event) = receiver.try_next().await? {
+        //                     //
+        //                     let iroh_gossip::api::Event::Received(message) = event else {
+        //                         continue;
+        //                     };
+
+        //                     let buffer = message.content;
+        //                     let text = String::from_utf8_lossy(&buffer);
+        //                     info!(%text, "Received");
+        //                     //
+        //                 }
+
+        //                 warn!("Receiver task quit");
+        //                 anyhow::Ok(())
+        //             }
+        //         })
+        //         .detach();
+
+        //         sender.broadcast(Bytes::from_static(b"created")).await?;
+        //         anyhow::Ok(())
+        //     }
+        // })
+        // .detach_and_log_err(cx);
+
+        info!("Clicked Create Topic");
     }
 }
 

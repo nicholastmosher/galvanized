@@ -1,11 +1,20 @@
-use iroh_gossip::{TopicId, api::GossipTopic};
+use anyhow::bail;
+use iroh_gossip::{
+    TopicId,
+    api::{GossipReceiver, GossipSender, Message},
+};
+use tracing::info;
 use zed::unstable::{
-    gpui::{EventEmitter, FocusHandle, Focusable},
-    ui::{App, Context, IntoElement, Render, SharedString, Window, div},
+    db::smol::stream::StreamExt as _,
+    gpui::{Entity, EventEmitter, FocusHandle, Focusable},
+    ui::{
+        App, Context, IntoElement, ParentElement as _, Render, SharedString, Styled as _, Window,
+        div,
+    },
     workspace::Item,
 };
 
-use crate::{Ticket, iroh_panel_ui::Iroh};
+use crate::{DebugViewExt as _, Ticket, iroh_panel_ui::Iroh};
 
 pub fn init(cx: &mut App) {
     //
@@ -20,24 +29,14 @@ pub struct TopicChatUi {
     //
     iroh: Iroh,
     focus_handle: FocusHandle,
-    tab_title: String,
-    topic: GossipTopic,
+    topic_title: String,
+    topic_sender: Option<GossipSender>,
+    topic_receiver: Option<GossipReceiver>,
     topics: Vec<(TopicId, Ticket)>,
 }
 
-impl Render for TopicChatUi {
-    fn render(
-        //
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        div()
-    }
-}
-
 impl TopicChatUi {
-    pub fn new(iroh: Iroh, topic: GossipTopic, topic_name: String, cx: &mut Context<Self>) -> Self {
+    pub fn new(iroh: Iroh, topic_name: String, cx: &mut Context<Self>) -> Self {
         //
 
         let topic_id = TopicId::from_bytes(rand::random());
@@ -48,19 +47,158 @@ impl TopicChatUi {
         };
         let topics = vec![(topic_id, ticket)];
 
+        // Spawn gossip topic
+        cx.spawn({
+            let iroh = iroh.clone();
+            async move |this, cx| {
+                let Some(ui) = this.upgrade() else {
+                    bail!("TopicChatUi is no longer available")
+                };
+
+                let bootstrap = vec![];
+                let topic = iroh.gossip.subscribe_and_join(topic_id, bootstrap).await?;
+                let (sender, mut receiver) = topic.split();
+
+                // Receiver
+                cx.spawn(async move |cx| {
+                    while let Some(event) = receiver.try_next().await? {
+                        let iroh_gossip::api::Event::Received(message) = event else {
+                            continue;
+                        };
+
+                        // Each message handled by a new task
+                        cx.spawn({
+                            let ui = ui.clone();
+                            async move |cx| {
+                                Self::handle_received_message(ui, message, cx).await;
+                            }
+                        })
+                        .detach();
+                    }
+
+                    anyhow::Ok(())
+                })
+                .detach();
+
+                // cx.update_entity(&ui, |this, cx| {
+                //     let (sender, receiver) = topic.split();
+                //     this.topic_sender = Some(sender);
+                //     this.topic_receiver = Some(receiver);
+                //     cx.emit(TopicChatEvent::TopicInitialized);
+                // })?;
+
+                anyhow::Ok(())
+            }
+        })
+        .detach_and_log_err(cx);
+
+        // cx.subscribe_self(|this, event, cx| {
+        //     //
+        //     match event {
+        //         TopicChatEvent::TopicInitialized => {
+        //             this.handle_topic_initialized(cx);
+        //         }
+        //     }
+        // })
+        // .detach();
+
         // note(rustfmt): Self {} collapses even with // inside
         Self {
             //
             iroh,
             focus_handle: cx.focus_handle(),
-            tab_title: topic_name,
-            topic,
+            topic_title: topic_name,
+            topic_sender: None,
+            topic_receiver: None,
             topics,
         }
     }
+
+    // fn handle_topic_initialized(&mut self, cx: &mut Context<'_, TopicChatUi>) -> _ {
+    //     // SAFETY: Topic is assigned before this event fires
+    //     let receiver = self.topic_receiver.take().unwrap();
+
+    //     // Receiver
+    //     cx.spawn(Self::spawn_topic_receiver(receiver)).detach();
+    // }
+
+    // fn spawn_topic_receiver(
+    //     //
+    //     mut receiver: GossipReceiver,
+    // ) -> impl AsyncFnOnce(WeakEntity<Self>, &mut AsyncApp) -> anyhow::Result<()> {
+    //     async move |ui, cx| {
+    //         while let Some(event) = receiver.try_next().await? {
+    //             let iroh_gossip::api::Event::Received(message) = event else {
+    //                 continue;
+    //             };
+
+    //             Self::handle_received_message(ui.clone(), message, cx).await;
+    //         }
+
+    //         warn!("Receiver task quit");
+    //         anyhow::Ok(())
+    //     }
+    // }
+
+    async fn handle_received_message(ui: Entity<TopicChatUi>, message: Message, cx: &mut AsyncApp) {
+        // TODO: Message decoding
+        let buffer = message.content;
+        let text = String::from_utf8_lossy(&buffer);
+        info!(%text, "Received");
+    }
 }
 
-impl EventEmitter<()> for TopicChatUi {}
+impl Render for TopicChatUi {
+    fn render(
+        //
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .debug_border()
+            .p_2()
+            .flex()
+            .flex_row()
+            .child(self.render_header(window, cx))
+            .child(self.render_body(window, cx))
+    }
+}
+
+/// Subcomponent renderings
+impl TopicChatUi {
+    fn render_header(
+        //
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            //
+            .debug_border()
+            .text_2xl()
+            .child(self.topic_title.to_string())
+    }
+
+    fn render_body(
+        //
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            //
+            .debug_border()
+            .child("Body")
+    }
+}
+
+enum TopicChatEvent {
+    //
+    TopicInitialized,
+}
+
+impl EventEmitter<TopicChatEvent> for TopicChatUi {}
 impl Focusable for TopicChatUi {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
@@ -68,9 +206,9 @@ impl Focusable for TopicChatUi {
 }
 
 impl Item for TopicChatUi {
-    type Event = ();
+    type Event = TopicChatEvent;
 
     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-        SharedString::from(&self.tab_title)
+        SharedString::from(&self.topic_title)
     }
 }
