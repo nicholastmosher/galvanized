@@ -5624,6 +5624,9 @@ name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
+dependencies = [
+ "getrandom 0.2.16",
+]
 
 [[package]]
 name = "fax"
@@ -5844,6 +5847,18 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "nanorand",
+ "spin 0.9.8",
+]
+
+[[package]]
+name = "flume"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e139bc46ca777eb5efaf62df0ab8cc5fd400866427e56c68b22e414e53bd3be"
+dependencies = [
+ "fastrand 2.3.0",
+ "futures-core",
+ "futures-sink",
  "spin 0.9.8",
 ]
 
@@ -6945,7 +6960,7 @@ dependencies = [
  "embed-resource",
  "etagere",
  "filedescriptor",
- "flume",
+ "flume 0.11.1",
  "foreign-types 0.5.0",
  "futures",
  "gpui_macros",
@@ -8575,6 +8590,7 @@ dependencies = [
  "bytes",
  "data-encoding",
  "derive_more 2.1.0",
+ "flume 0.12.0",
  "hex",
  "iroh",
  "iroh-blobs",

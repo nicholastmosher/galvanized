@@ -1,16 +1,16 @@
-use anyhow::bail;
-use iroh_gossip::{
-    TopicId,
-    api::{GossipReceiver, GossipSender, Message},
-};
-use tracing::info;
+use anyhow::{Context as _, bail};
+use bytes::Bytes;
+use iroh_gossip::{TopicId, api::Message};
+use tracing::{info, warn};
 use zed::unstable::{
     db::smol::stream::StreamExt as _,
-    gpui::{AsyncApp, Entity, EventEmitter, FocusHandle, Focusable},
+    editor::Editor,
+    gpui::{AppContext as _, AsyncApp, Entity, EventEmitter, FocusHandle, Focusable},
     ui::{
-        App, Context, IntoElement, ParentElement as _, Render, SharedString, Styled as _, Window,
-        div,
+        App, Button, Clickable as _, Context, IconName, IconPosition, IconSize, IntoElement,
+        LabelSize, ListItem, ParentElement as _, Render, SharedString, Styled as _, Window, div,
     },
+    util::ResultExt,
     workspace::Item,
 };
 
@@ -18,7 +18,7 @@ use crate::{DebugViewExt as _, Ticket, iroh_panel_ui::Iroh};
 
 pub fn init(cx: &mut App) {
     //
-    cx.observe_new(|this: &mut TopicChatUi, window, cx| {
+    cx.observe_new(|_this: &mut TopicChatUi, _window, _cx| {
         //
     })
     .detach();
@@ -29,23 +29,30 @@ pub struct TopicChatUi {
     //
     iroh: Iroh,
     focus_handle: FocusHandle,
-    topic_title: String,
-    topic_sender: Option<GossipSender>,
-    topic_receiver: Option<GossipReceiver>,
-    topics: Vec<(TopicId, Ticket)>,
+
+    messages: Vec<String>,
+    sender: Option<flume::Sender<String>>,
+    ticket: Ticket,
+    title: String,
+    topic_id: TopicId,
+    topic_editor: Entity<Editor>,
 }
 
 impl TopicChatUi {
-    pub fn new(iroh: Iroh, topic_name: String, cx: &mut Context<Self>) -> Self {
-        //
+    pub fn new(
+        iroh: Iroh,
+        topic_id: TopicId,
+        topic_name: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        info!("Creating TopicChat");
 
-        let topic_id = TopicId::from_bytes(rand::random());
         let me = iroh.endpoint.addr();
         let ticket = Ticket {
             topic_id,
             endpoints: vec![me],
         };
-        let topics = vec![(topic_id, ticket)];
 
         // Spawn gossip topic
         cx.spawn({
@@ -55,22 +62,50 @@ impl TopicChatUi {
                     bail!("TopicChatUi is no longer available")
                 };
 
+                info!(
+                    location = %core::panic::Location::caller(),
+                    "Spawning gossip topic"
+                );
                 let bootstrap = vec![];
-                let topic = iroh.gossip.subscribe_and_join(topic_id, bootstrap).await?;
+                let topic = iroh
+                    .gossip
+                    .subscribe(topic_id, bootstrap)
+                    .await
+                    .with_context(|| format!("failed to subscribe to topic {topic_id}"))?;
+                let (tx, rx) = flume::bounded::<String>(10);
                 let (sender, mut receiver) = topic.split();
 
-                // Receiver
+                // Save sender
+                info!("🟣 Assigning Sender");
+                ui.update(cx, move |ui, _cx| {
+                    warn!("✅ Assigning Sender");
+                    ui.sender = Some(tx);
+                })?;
+
+                // Spawn gossip sender
+                cx.spawn(async move |_cx| {
+                    while let Ok(message) = rx.recv_async().await {
+                        info!(%message, "Sender forwaring");
+                        sender.broadcast(Bytes::from(message)).await?;
+                    }
+                    anyhow::Ok(())
+                })
+                .detach();
+
+                // Spawn receiver
                 cx.spawn(async move |cx| {
                     while let Some(event) = receiver.try_next().await? {
                         let iroh_gossip::api::Event::Received(message) = event else {
                             continue;
                         };
+                        info!(?message, "Gossip received message");
 
                         // Each message handled by a new task
                         cx.spawn({
                             let ui = ui.clone();
                             async move |cx| {
-                                Self::handle_received_message(ui, message, cx).await;
+                                Self::handle_received_message(ui, message, cx).await?;
+                                anyhow::Ok(())
                             }
                         })
                         .detach();
@@ -85,23 +120,58 @@ impl TopicChatUi {
         })
         .detach_and_log_err(cx);
 
+        let topic_editor = cx.new(|cx| {
+            let mut editor = Editor::single_line(window, cx);
+            editor.set_placeholder_text("Remote endpoint URL", window, cx);
+            editor
+        });
+
         // note(rustfmt): Self {} collapses even with // inside
         Self {
             //
             iroh,
             focus_handle: cx.focus_handle(),
-            topic_title: topic_name,
-            topic_sender: None,
-            topic_receiver: None,
-            topics,
+            messages: Default::default(),
+            sender: None,
+            ticket,
+            title: topic_name,
+            topic_id,
+            topic_editor,
         }
     }
 
-    async fn handle_received_message(ui: Entity<TopicChatUi>, message: Message, cx: &mut AsyncApp) {
+    async fn handle_received_message(
+        ui: Entity<TopicChatUi>,
+        message: Message,
+        cx: &mut AsyncApp,
+    ) -> anyhow::Result<()> {
         // TODO: Message decoding
-        let buffer = message.content;
-        let text = String::from_utf8_lossy(&buffer);
-        info!(%text, "Received");
+        let text = String::from_utf8_lossy(&message.content).to_string();
+        info!(%text, "Received topic message");
+
+        ui.update(cx, move |this, _cx| {
+            this.messages.push(text);
+        })?;
+
+        Ok(())
+    }
+
+    fn send_message(
+        &mut self,
+        text: String,
+        _window: &mut Window,
+        _cx: &mut Context<'_, TopicChatUi>,
+    ) {
+        let Some(tx) = &self.sender else {
+            warn!("No sender");
+            return;
+        };
+
+        self.messages.push(text.to_string());
+        info!(messages = ?self.messages, "Sent message");
+
+        // Send message to sender task
+        tx.send(text).log_err();
     }
 }
 
@@ -116,7 +186,7 @@ impl Render for TopicChatUi {
             .debug_border()
             .p_2()
             .flex()
-            .flex_row()
+            .flex_col()
             .child(self.render_header(window, cx))
             .child(self.render_body(window, cx))
     }
@@ -127,26 +197,53 @@ impl TopicChatUi {
     fn render_header(
         //
         &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
     ) -> impl IntoElement {
         div()
             //
             .debug_border()
             .text_2xl()
-            .child(self.topic_title.to_string())
+            .child(self.title.to_string())
     }
 
     fn render_body(
         //
         &mut self,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         div()
             //
             .debug_border()
+            .flex()
+            .flex_col()
             .child("Body")
+            .children(self.messages.iter().enumerate().map(|(i, message)| {
+                //
+                ListItem::new(i).child(
+                    //
+                    div().p_2().child(message.to_string()),
+                )
+            }))
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .child(self.topic_editor.clone())
+                    .child(
+                        Button::new("topic-send", "Send")
+                            .label_size(LabelSize::Small)
+                            .icon(IconName::Plus)
+                            .icon_size(IconSize::Small)
+                            .icon_position(IconPosition::Start)
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                let text = this.topic_editor.read(cx).text(cx);
+                                info!(%text, "Clicked Send");
+                                this.send_message(text, window, cx);
+                            })),
+                    ),
+            )
     }
 }
 
@@ -165,6 +262,6 @@ impl Item for TopicChatUi {
     type Event = TopicChatEvent;
 
     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-        SharedString::from(&self.topic_title)
+        SharedString::from(&self.title)
     }
 }
