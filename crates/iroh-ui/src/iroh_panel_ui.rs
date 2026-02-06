@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::bail;
+use automerge::Automerge;
 use iroh::endpoint::Connection;
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 use iroh::{Endpoint, EndpointAddr};
@@ -14,7 +15,7 @@ use iroh_docs::store::Query;
 use iroh_docs::{ALPN as DOCS_ALPN, protocol::Docs};
 use iroh_gossip::{ALPN as GOSSIP_ALPN, Gossip, TopicId};
 use samod::storage::TokioFilesystemStorage;
-use samod::{PeerId, Repo};
+use samod::{DocHandle, PeerId, Repo};
 use tracing::{info, warn};
 use zed::unstable::db::smol::stream::StreamExt as _;
 use zed::unstable::editor::Editor;
@@ -24,8 +25,8 @@ use zed::unstable::gpui::{
 };
 use zed::unstable::paths::data_dir;
 use zed::unstable::ui::{
-    Button, Clickable, FluentBuilder, IconPosition, IconSize, IntoElement, LabelSize, ListItem,
-    Pixels, SharedString,
+    Button, Clickable, ContextMenu, FluentBuilder, IconPosition, IconSize, IntoElement, LabelSize,
+    ListItem, Pixels, SharedString,
 };
 use zed::unstable::workspace::Workspace;
 use zed::unstable::workspace::dock::PanelEvent;
@@ -34,6 +35,7 @@ use zed::unstable::{
     workspace::{Panel, dock::DockPosition, ui::IconName},
 };
 
+use crate::iroh_automerge_chat_ui::AutomergeChatUi;
 use crate::iroh_topic_chat_ui::TopicChatUi;
 use crate::{DebugViewExt as _, Ticket};
 
@@ -70,6 +72,7 @@ pub struct Iroh {
 }
 
 pub struct IrohPanel {
+    docs: Vec<Entity<AutomergeChatUi>>,
     dock_position: DockPosition,
     focus_handle: FocusHandle,
     remote_ticket_editor: Entity<Editor>,
@@ -136,50 +139,6 @@ impl IrohPanel {
                     .spawn(endpoint.clone(), (*blobs).clone(), gossip.clone())
                     .await?;
 
-                // Docs experiments
-                {
-                    let author = docs.api().author_default().await?;
-                    let list = docs.api().list().await?;
-                    tokio::pin!(list);
-                    while let Some((namespace_id, capability)) = list.try_next().await? {
-                        //
-                        match capability {
-                            iroh_docs::CapabilityKind::Write => todo!(),
-                            iroh_docs::CapabilityKind::Read => todo!(),
-                        }
-                    }
-                    let doc = docs.api().create().await?;
-                    let namespace = doc.id();
-                    let doc_ticket = doc.share(ShareMode::Write, AddrInfoOptions::Relay).await?;
-                    let (doc, doc_stream) = docs.api().import_and_subscribe(doc_ticket).await?;
-                    tokio::pin!(doc_stream);
-                    while let Some(item) = doc_stream.try_next().await? {
-                        //
-                        match item {
-                            iroh_docs::engine::LiveEvent::InsertLocal { entry } => todo!(),
-                            iroh_docs::engine::LiveEvent::InsertRemote {
-                                from,
-                                entry,
-                                content_status,
-                            } => todo!(),
-                            iroh_docs::engine::LiveEvent::ContentReady { hash } => todo!(),
-                            iroh_docs::engine::LiveEvent::PendingContentReady => todo!(),
-                            iroh_docs::engine::LiveEvent::NeighborUp(public_key) => todo!(),
-                            iroh_docs::engine::LiveEvent::NeighborDown(public_key) => todo!(),
-                            iroh_docs::engine::LiveEvent::SyncFinished(sync_event) => todo!(),
-                        }
-                    }
-
-                    let doc_stream = doc.get_many(Query::all()).await?;
-                    tokio::pin!(doc_stream);
-                    while let Some(entry) = doc_stream.try_next().await? {
-                        //
-                        let id = entry.id();
-                        let record = entry.record();
-                        let data = entry.to_vec();
-                    }
-                    // doc.share(mode, addr_options)
-                }
                 let handler = CustomHandler::new();
                 // let (sync_tx, sync_rx) = tokio::sync::mpsc::channel(10);
                 // let automerge = IrohAutomergeProtocol::new(Automerge::new(), sync_tx);
@@ -221,6 +180,7 @@ impl IrohPanel {
         });
 
         Self {
+            docs: Default::default(),
             dock_position: DockPosition::Left,
             focus_handle: cx.focus_handle(),
             remote_ticket_editor: ticket_editor,
@@ -264,6 +224,8 @@ impl IrohPanel {
             .child(self.render_create_topic(window, cx))
             .child(self.render_topics(window, cx))
             .child(self.render_connect_remote(window, cx))
+            .child(self.render_create_doc(window, cx))
+            .child(self.render_docs(window, cx))
     }
 
     fn render_local_endpoint(
@@ -379,6 +341,43 @@ impl IrohPanel {
             )
     }
 
+    fn render_create_doc(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .p_1()
+            .debug_border()
+            .flex()
+            .gap_2()
+            // .child(self.remote_ticket_editor.clone())
+            .child(
+                Button::new("create-doc", "Create doc")
+                    .label_size(LabelSize::Small)
+                    .icon(IconName::Plus)
+                    .icon_size(IconSize::Small)
+                    .icon_position(IconPosition::Start)
+                    .on_click(cx.listener(Self::click_create_doc)),
+            )
+    }
+
+    fn render_docs(
+        //
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div().children(self.docs.iter().enumerate().map(|(i, ui)| {
+            let id = ui.read(cx).doc.document_id();
+            div().child(
+                ListItem::new(SharedString::from(format!("doc-{i}")))
+                    .child(format!("Doc ID: {id}"))
+                    .on_click(cx.listener(Self::click_doc(ui.clone()))),
+            )
+        }))
+    }
+
     fn click_copy_ticket(
         topic_id: TopicId,
     ) -> impl Fn(&mut Self, &ClickEvent, &mut Window, &mut Context<Self>) {
@@ -428,6 +427,51 @@ impl IrohPanel {
         info!("Clicked Connect");
     }
 
+    fn click_create_doc(
+        &mut self,
+        _event: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(iroh) = &self.iroh else {
+            warn!("Missing iroh");
+            return;
+        };
+        info!("Create doc");
+
+        cx.spawn({
+            let iroh = iroh.clone();
+            async move |ui, cx| {
+                let Some(ui) = ui.upgrade() else {
+                    bail!("Failed to upgrade UI (create doc)");
+                };
+
+                let doc = Automerge::new();
+                let doc_handle = iroh.automerge.repo().create(doc).await?;
+                let doc_ui = cx.new(|cx| AutomergeChatUi::new(doc_handle, cx))?;
+
+                ui.update(cx, |this, cx| {
+                    this.docs.push(doc_ui);
+                    cx.notify();
+                })?;
+
+                anyhow::Ok(())
+            }
+        })
+        .detach_and_log_err(cx);
+    }
+
+    fn click_doc(
+        ui: Entity<AutomergeChatUi>,
+    ) -> impl Fn(&mut Self, &ClickEvent, &mut Window, &mut Context<Self>) {
+        move |this, event, window, cx| {
+            let ui = ui.clone();
+            this.workspace.update(cx, move |workspace, cx| {
+                workspace.add_item_to_active_pane(Box::new(ui), Some(0), false, window, cx);
+            });
+        }
+    }
+
     fn create_topic_ui(
         &mut self,
         topic_id: TopicId,
@@ -455,6 +499,52 @@ impl IrohPanel {
 
         self.topics.insert(topic_id, topic_chat_ui);
     }
+
+    // async fn docs_playground(&mut self, docs: Docs) -> anyhow::Result<()> {
+    //     let author = docs.api().author_default().await?;
+    //     let list = docs.api().list().await?;
+    //     tokio::pin!(list);
+    //     while let Some((namespace_id, capability)) = list.try_next().await? {
+    //         //
+    //         match capability {
+    //             iroh_docs::CapabilityKind::Write => todo!(),
+    //             iroh_docs::CapabilityKind::Read => todo!(),
+    //         }
+    //     }
+    //     let doc = docs.api().create().await?;
+    //     let namespace = doc.id();
+    //     let doc_ticket = doc.share(ShareMode::Write, AddrInfoOptions::Relay).await?;
+    //     let (doc, doc_stream) = docs.api().import_and_subscribe(doc_ticket).await?;
+    //     tokio::pin!(doc_stream);
+    //     while let Some(item) = doc_stream.try_next().await? {
+    //         //
+    //         match item {
+    //             iroh_docs::engine::LiveEvent::InsertLocal { entry } => todo!(),
+    //             iroh_docs::engine::LiveEvent::InsertRemote {
+    //                 from,
+    //                 entry,
+    //                 content_status,
+    //             } => todo!(),
+    //             iroh_docs::engine::LiveEvent::ContentReady { hash } => todo!(),
+    //             iroh_docs::engine::LiveEvent::PendingContentReady => todo!(),
+    //             iroh_docs::engine::LiveEvent::NeighborUp(public_key) => todo!(),
+    //             iroh_docs::engine::LiveEvent::NeighborDown(public_key) => todo!(),
+    //             iroh_docs::engine::LiveEvent::SyncFinished(sync_event) => todo!(),
+    //         }
+    //     }
+
+    //     let doc_stream = doc.get_many(Query::all()).await?;
+    //     tokio::pin!(doc_stream);
+    //     // while let Some(entry) = doc_stream.try_next().await? {
+    //     //     //
+    //     //     let id = entry.id();
+    //     //     let record = entry.record();
+    //     //     let data = entry.to_vec();
+    //     // }
+    //     // doc.share(mode, addr_options)
+
+    //     Ok(())
+    // }
 }
 
 impl EventEmitter<PanelEvent> for IrohPanel {}

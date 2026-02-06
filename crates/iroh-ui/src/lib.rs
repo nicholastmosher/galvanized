@@ -7,6 +7,7 @@ use zed::unstable::{
     ui::Styled,
 };
 
+mod iroh_automerge_chat_ui;
 mod iroh_panel_ui;
 mod iroh_topic_chat_ui;
 
