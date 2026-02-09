@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use anyhow::bail;
 use automerge::Automerge;
@@ -77,20 +77,18 @@ impl Iroh {
             // .discovery(mdns)
             .bind()
             .await?;
+        let tagt_dir = tagt_dir();
         let store = MemStore::new();
         let blobs = BlobsProtocol::new(&store, None);
         let gossip = iroh_gossip::Gossip::builder().spawn(endpoint.clone());
-        let docs = Docs::persistent(zed::unstable::paths::data_dir().to_path_buf())
+        let docs = Docs::persistent(tagt_dir.join("iroh-docs"))
             .spawn(endpoint.clone(), (*blobs).clone(), gossip.clone())
             .await?;
 
         let handler = CustomHandler::new();
-        // let (sync_tx, sync_rx) = tokio::sync::mpsc::channel(10);
-        // let automerge = IrohAutomergeProtocol::new(Automerge::new(), sync_tx);
         let repo = Repo::build_tokio()
-            //
             .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
-            .with_storage(TokioFilesystemStorage::new(iroh_dir()))
+            .with_storage(TokioFilesystemStorage::new(tagt_dir.join("samod-repo")))
             .load()
             .await;
         let automerge = IrohRepo::new(endpoint.clone(), repo);
@@ -98,7 +96,7 @@ impl Iroh {
             .accept(BLOBS_ALPN, blobs.clone())
             .accept(GOSSIP_ALPN, gossip.clone())
             .accept(DOCS_ALPN, docs.clone())
-            .accept(IrohAutomergeProtocol::ALPN, automerge.clone())
+            .accept(IrohRepo::SYNC_ALPN, automerge.clone())
             .accept(CustomHandler::APLN, handler.clone())
             .spawn();
         let iroh = Iroh {
@@ -165,10 +163,23 @@ impl ProtocolHandler for CustomHandler {
     }
 }
 
-fn iroh_dir() -> PathBuf {
-    let iroh_dir = zed::unstable::paths::data_dir().join("iroh");
-    std::fs::create_dir_all(&iroh_dir).expect("create zed/iroh directory");
-    iroh_dir
+// TODO caching etc
+fn tagt_dir() -> PathBuf {
+    static TAGT_INSTANCE: LazyLock<String> = LazyLock::new(|| {
+        let instance = std::env::var("TAGT_INSTANCE").unwrap_or_else(|_| "0".to_string());
+        info!("Tagt Instance: {}", instance);
+        instance
+    });
+
+    let tagt_dir = zed::unstable::paths::data_dir()
+        .join("tagt")
+        .join(&*TAGT_INSTANCE);
+    std::fs::create_dir_all(&tagt_dir).expect("create zed/tagt directory");
+    std::fs::create_dir_all(tagt_dir.join("iroh-docs"))
+        .expect("create zed/tagt/iroh-docs directory");
+    std::fs::create_dir_all(tagt_dir.join("samod-repo"))
+        .expect("create zed/tagt/samod-repo directory");
+    tagt_dir
 }
 
 impl IrohPanel {
@@ -491,6 +502,7 @@ impl IrohPanel {
             }
         };
 
+        info!("Ticket endpoints: {:?}", ticket.endpoints);
         for endpoint_addr in ticket.endpoints {
             let doc_lookup_task = cx.spawn({
                 let iroh = iroh.clone();
@@ -513,22 +525,51 @@ impl IrohPanel {
                         }
                     });
 
+                    info!("Connecting to automerge repo peer");
+                    iroh.automerge
+                        .repo()
+                        .when_connected(PeerId::from_string(endpoint_addr.id.to_string()))
+                        .await?;
+                    info!("Connected to automerge repo peer");
+
                     // Search repo network for the document
+                    info!("Searching repo network for document {doc_id}");
                     let Some(doc_handle) = iroh.automerge.repo().find(doc_id.clone()).await? else {
                         bail!("failed to find document: {doc_id}");
                     };
 
                     // Open outbound chat view
+                    info!("Creating chat UI");
                     let chat_ui = cx.new(|cx| AutomergeChatUi::new(doc_handle, cx))?;
                     ui.update(cx, |this, cx| {
                         let per_endpoint = this
                             .per_endpoint_state
                             .entry(endpoint_addr)
                             .or_insert_with(Default::default);
-                        per_endpoint.chat_ui = Some(chat_ui);
+                        per_endpoint.chat_ui = Some(chat_ui.clone());
                         per_endpoint.doc_sync_task = Some(sync_task);
+
+                        let Some(window) = cx.active_window() else {
+                            bail!("no active window");
+                        };
+                        let Some(window) = window.downcast::<Workspace>() else {
+                            bail!("window downcast");
+                        };
+
+                        info!("Opening chat UI in workspace");
+                        window.update(cx, |workspace, window, cx| {
+                            workspace.add_item_to_active_pane(
+                                Box::new(chat_ui),
+                                Some(0),
+                                false,
+                                window,
+                                cx,
+                            );
+                        })?;
+
                         cx.notify();
-                    })?;
+                        anyhow::Ok(())
+                    })??;
 
                     anyhow::Ok(())
                 }
@@ -591,6 +632,7 @@ impl IrohPanel {
     ) -> impl Fn(&mut Self, &ClickEvent, &mut Window, &mut Context<Self>) {
         move |this, _event, window, cx| {
             let Some(iroh) = this.iroh.as_ref() else {
+                warn!("missing iroh - click-doc");
                 return;
             };
 
@@ -620,6 +662,7 @@ impl IrohPanel {
         cx: &mut Context<Self>,
     ) {
         let Some(iroh) = self.iroh.as_ref() else {
+            warn!("missing iroh - create-topic-ui");
             return;
         };
 

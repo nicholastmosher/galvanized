@@ -64,7 +64,7 @@ impl TopicChatUi {
                 let bootstrap = endpoints.iter().map(|it| it.id).collect();
                 let topic = iroh
                     .gossip
-                    .subscribe_and_join(topic_id, bootstrap)
+                    .subscribe(topic_id, bootstrap)
                     .await
                     .with_context(|| format!("failed to subscribe to topic {}", topic_id))?;
                 let (tx, rx) = flume::bounded::<String>(10);
