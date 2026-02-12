@@ -10,6 +10,7 @@ use zed::unstable::{
 mod iroh_automerge_chat_ui;
 mod iroh_panel_ui;
 mod iroh_topic_chat_ui;
+mod willow_whimsy;
 
 pub fn init(cx: &mut App) {
     iroh_panel_ui::init(cx);

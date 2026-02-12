@@ -1,5 +1,59 @@
 # Project
 
+- More imaginary reasons to call it `tagt`
+  - `/tagged` might be used generically, doesn't feel unique enough
+  - `/tagd` might be interpreted as "tagdee" as if to indicate a daemon
+  - `/tagt` or `tagt` (an executable) are both short, quirky, and seems unique enough
+  - Another one: `.expect("tagged path")` sounds useless, `.expect("tagt path")` feels
+    more intuitive, as `tagt` is clearly a proper noun because it's unusual/unassociated.
+
+- Imagining a new mental model for next-generation apps
+  - In the context of Willow
+
+- Namespaces are unique filesystem roots. Could imagine "mounting" namespaces into a
+  global filesystem where each namespace's public key is a prefix into the subdirectory
+  where that key has full authority, i.e. the root of the namespace, e.g. `/<namespace>/`
+
+- Users are digital entities represented by a key. So-called "user keys" grant access to
+  a "subspace" named after themselves. So a user's root directory from the view of a namespace
+  would be located at `/<namespace>/<subspace a.k.a. user key>/`
+
+- Apps may also be entities represented by keys, and they may request to read or write to
+  a directory in your namespace named after their public key. Maybe there's standard
+  presets of permissions for applications, for example allowing apps to keep a data
+  directory, e.g. `/<namespace>/<subspace>/apps/<app_public_key>/`. The `/apps` path would
+  be pure convention, it would be possible to mint a capability for an app's key that
+  would give access to your entire subspace if you wanted.
+
+- Setting good conventions is worth an intentional think
+  - Convention idea: Namespace named after a subspace (user key) is the user's home "space" (directory)
+    - `let user_key = todo!()`
+    - `/<namespace:user_key>/<subspace:user_key>/[USER's ROOT]` (maybe?)
+    - `/<namespace:user_key>/<subspace:user_key>/home/` (leave the root available for user metadata/upkeep?)
+    - `/<namespace:user_key>/<subspace:user_key>/apps/<app_key>` (data directory for apps?)
+    - `/<namespace:user_key>/<subspace:user_key>/tags/`
+
+  - "Tagged" implies graph data / view. Rather than an always-implied universal ordering for a "path",
+    we navigate by querying through tags to reach data
+  
+    - Kind of like a path, but where the ordering doesn't matter?
+    - `/namespace/alice/` equivalent to
+    - `/alice/namespace/`
+    - `/#namespace:family/#user:alice/#path:pattern`
+    - Maybe shouldn't render as a path, counter-intuitive (paths are hierarchical)
+
+    - Rendered more like tags shown maybe as badges or breadcrumbs?
+    - `/#namespace:family_key/#user:alice/#other_tag:value`
+    - `[#namespace:family_key] | [#user:alice] | [#other_tag:value]`
+    - Tags can point to any object (/entity? GPUI entity??). E.g. treat namespaces as objects that can
+      be tagged, user keys can be tagged, (paths can be tagged? path query of some sort like `/chat/**` or regex as a tag)
+
+- This access would be granted via a Meadowcap capability describing the permission to
+  access (in Willow terms) the Area in
+
+- TODO Willow Store Zed Ext Trait API `cx.willow()`
+- IDEA nix but in Rust and p2p-native (MINTED)
+
 # 2026 Feb 9
 
 - I want to try making a UI for `rad`
