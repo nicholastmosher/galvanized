@@ -1,5 +1,160 @@
 # Project
 
+# 2026 Feb 15
+
+Random Brainstorming
+
+- Thinking about a WillowContext API, analagous to gpui's `Context<Self>`
+- GPUI Entities are well-typed handles to a piece of state, which happens to be
+  held in memory in EntityMap
+- A similar thought-pattern in Willow might be that a WillowObject is a "handle"
+  (representation) of a key-value object model, which happens to be implemented
+  as a list of Willow Paths to entries.
+- So `WillowContext<Self>` might come from `willow.namespace(...)` or ...
+- How about this: an object handle is like a schema and materialized view at
+  the same time. It's like a query over a pattern of keys, which are used as
+  the "fields" of the object.
+- In reverse, the way we'd actually end up using it would be like this:
+
+```rust
+#[derive(WillowObject /* bikeshed name */)]
+struct ProfileObject {
+    // where `path` is some DSL for /path/{patterns}
+    #[willow(path = "avatar.png")]
+    avatar: Image<Png>,
+    #[willow(path = "name.txt")]
+    name: String,
+}
+
+fn init(cx: &mut App) {
+    // experimenting query DSL, this would represent iterating/streaming over
+    // a result set of objects
+    let profiles: Vec<ProfileObject> = cx
+        .willow()
+        .user(/* User query API */)
+        .namespace(/* Namespace query API */)
+        .prefix(
+            // Path query API
+            "/apps/willow_object_app/profile_objects/"
+        )
+        // if the query is choosing from the set of all objects in the full willow space,
+        // then a "projection" is a handle that represents that selection of objects
+        .project()
+    
+    // impl ProfileObject {
+    cx.willow()
+        .query(/* Some Query representation */)
+        // Note: Wouldn't this API need to handle a result _set_?
+        // feels very Bevy
+        .write(|this: &mut ProfileObject, cx: &mut WillowContext<ProfileObject>| {
+            // Like gpui's Entities would have access to the App API,
+            // we provide an API with necessary operations during write time
+        }) // analagous to gpui's -> Subscription
+    // } // end impl ProfileObject
+}
+```
+
+In this API design, you can imagine the Willow Space as the set of all entries (key/value pairs)
+in all namespaces and all subspaces (users). The problem the API needs to solve is for querying
+and rendering objects from the filesystem into memory, and then allowing for attaching behavior.
+
+So GPUI specifies Entities as handles to stateful objects (which happen to be stored in the
+global context `App`), where those objects may specify
+Similarly, Willow "objects"/entities would be handles to stateful objects (where the "fields" of
+the object are a set of paths into a willow path space (namespace/subspace)).
+
+We could implement traits for those objects, like how we have `Entity<State>` and `impl Render for State`
+in GPUI, on the Willow side (continuing with the `ProfileObject` example above), we might have
+`WillowObject<ProfileObject>`, which would be a handle that acts as an API over the set of objects
+in the actual Willow Space (/store). Just like an `entity` needs access to the global context (`App`)
+to read or write itself, so too would the `WillowObject` need access to the Willow store in order
+to read or write or iterate through objects in the Willow Space.
+
+- Willow Store as the term for on-disk representation, Willow Space as the in-memory application space?
+
+Willow App: an application which can use user-keys and/or capabilities to read or write data into a
+Willow Store. For example, a Calandar app might have an app key (which is just a user key used by
+an app), and when using the calandar, you issue a capability for that Calendar app to come look into
+your userspace, but restricted to the Area under a specific Path prefix, such as `/apps/calendar/`.
+
+---
+
+Case study: Calendar
+
+I want to plan and implement a usable and useful calendar app, where I'll attempt to create a
+daily-usable calendar app based on the Willow data model. I'll try to consider and express 
+the concepts of namespaces and subspaces. I think the user-facing language I'd like to use in the
+app's expression of the data model would be "Spaces" for namespaces and "Profile" for subspaces.
+
+- In some way this would be a UX experiment of a "user friendly instantiation" of Willow's parameters's names.
+
+The app experience should visually emphasize a sharp distinction between different Profiles, and
+express a boldness in the presentation of signatures on signed objects or data. I want to make an effort
+to visually directly expresss all of the Willow core concepts, because I think it's a great model to
+build trust on and I think this can be made to be beautiful and powerful.
+
+So significant but consistent representation of e.g. tags and signatures and data objects visually.
+I'm actually now thinking to really lean into Objects as a central term. Imagine the fundamental principle
+of the UI is that we have feeds of objects. A feed takes the objects of a given query and renders them
+according to the objects' plugin definition.
+
+> Slightly later me is thinking twice about using the unqualified term "Object".
+> Need a term that is cohesive and fits both the user's mental model as well as has a direct correlation to
+> the Willow fundamentals
+
+So an "Object" Api here should have a graceful integration of the GPUI visual entity system and the Willow
+data model API. Ideally these could be the exact same definition, e.g. a struct, which both exists as in-meory
+state in the gpui EntityMap and whose type also expresses the relationship between the in-memory representation
+and the in-willow expression of the object.
+
+So an app that is a bare minimum chat room, is just a feed of objects, where all objects are "Chat" objects
+with the same rendering rules in the feed.
+
+You could pin a feed by somehow "tagging" the query used to produce that feed result.
+
+Apps act as custom expressions of Objects, they take a data representation and render a unit UI, that is
+meant to be rendered in a feed of some sort.
+
+Could easily have custom "feed" visual implementations, that could add widgets or whatever else is wanted
+in expressing this feed of content. i.e. customizing the container around a feed and perhaps the children
+
+To make a photo album application, all you need is a plugin that can render "Objects" as album thumbnails.
+The user still writes a query over objects like they always do, and any matching objects that can be rendered
+get shown in the resulting feed. Custom "feed" component implementations could be used to make the feed
+show thumbnails in rows of 3 or 4, allowing the grid style usually used for photo albums.
+
+Calendar User Journey
+
+- First time using the calendar
+- Assuming I already have a profile. let's assume multiple profiles for generality's sake
+- Calendar app maybe needs to get a read/write capability to an app data directory, not sure if an extra
+  key could be needed here or just use user's key directly? Need to figure out user/app relationship.
+- Use the "query interface" (a standard tag-applying query API?, like a searchbar with badges) to choose
+  profiles and spaces whose data will be displayed in the view.
+- Panel: display Profiles and Spaces that matched the query, and their counts
+- Center Item: The calendar display, start with a google calendar looking clone, I need the week view but
+  with the little month calendar
+> Collapsed view should show a count of matches?
+- Fundamental Operations:
+  - Create Event (just a key/value object)
+    - Dialog or popup or other form input. Simple key-value list, direct mapping to object
+  - Edit Event (modify keys/values)
+  - Delete Event
+  - Add friend's profile to calendar
+    - Two potential implementations?
+    - 1) Give friend's key capability to write into namespace?
+    - 2) ... an idea I was too slow to write down
+    - 3) Oh, this is a case where namespace kind matters
+      - A calendar hosted in an owned namespace would require any Profile to get a signed capability
+        from the namespace owner before being allowed to read or write anything, even with their own key.
+      - A calendar in a communal namespace would not require any permissions to be given by the
+        namespace. The Profile key (aka subspace aka user key) has its own authority to read and write
+        into its own subspace within the communal namespace.
+
+---
+
+# 2026 Feb 14
+
 - More imaginary reasons to call it `tagt`
   - `/tagged` might be used generically, doesn't feel unique enough
   - `/tagd` might be interpreted as "tagdee" as if to indicate a daemon
