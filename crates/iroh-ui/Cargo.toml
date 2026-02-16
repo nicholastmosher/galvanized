@@ -29,3 +29,4 @@ zed = { path = "../../../zed2/crates/zed" }
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 dotenvy = "0.15.7"
 autosurgeon = "0.10.1"
+willow-api-derive = { path = "../willow-api-derive" }

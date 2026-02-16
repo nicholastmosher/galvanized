@@ -1,16 +1,19 @@
 // Cleaning up ideas from willow_whimsy
 
-use std::{fmt::Display, path::PathBuf};
+use std::{fmt::Display, marker::PhantomData, path::PathBuf};
 
 use tracing::warn;
+use willow_api_derive::WillowObject;
 use zed::unstable::{
     gpui::{
         self, Action, AppContext, Entity, EventEmitter, FocusHandle, Focusable, Global, actions,
+        rgb,
     },
     paths,
     ui::{
-        App, Context, FluentBuilder, IconButton, IconName, IntoElement, ListItem,
-        ParentElement as _, Pixels, Render, SharedString, Styled as _, Window, div, px,
+        ActiveTheme as _, App, Context, FluentBuilder, IconButton, IconName, InteractiveElement,
+        IntoElement, ListItem, ParentElement as _, Pixels, Render, SharedString,
+        StatefulInteractiveElement as _, Styled as _, Window, div, px,
     },
     workspace::{
         Panel, Workspace,
@@ -21,11 +24,11 @@ use zed::unstable::{
 actions!(willow, [ToggleWillowPanel]);
 
 pub fn init(cx: &mut App) {
-    let path = paths::data_dir();
-    let willow = Willow::new(path, cx);
-    cx.set_global(GlobalWillow(willow.clone()));
-    let willow_ui = cx.new(|cx| WillowUi::new(willow, cx));
+    let store_path = paths::data_dir();
+    let willow = Willow::new(store_path, cx);
+    cx.set_global(GlobalWillow(willow));
 
+    let willow_ui = cx.new(|cx| WillowUi::new(cx.willow(), cx));
     cx.observe_new({
         let willow_ui = willow_ui.clone();
         move |workspace: &mut Workspace, window, cx| {
@@ -66,6 +69,37 @@ impl Render for WillowUi {
             .flex_col()
             // Column-stacked user profiles
             .children(self.willow.profiles(cx))
+            .child(
+                //
+                // ListItem::new("profile-add").rounded().child(
+                div()
+                    //
+                    .px_2()
+                    .py_4()
+                    .child(
+                        div()
+                            //
+                            .id("profile-create")
+                            .px_2()
+                            .py_4()
+                            .text_center()
+                            .justify_center()
+                            .border_2()
+                            .border_dashed()
+                            .border_color(cx.theme().colors().border.opacity(0.6))
+                            .rounded_sm()
+                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                            .hover(|style| {
+                                style
+                                    .bg(cx.theme().colors().ghost_element_hover)
+                                    .border_color(cx.theme().colors().border.opacity(1.0))
+                            })
+                            .child(
+                                //
+                                "+ Create Profile",
+                            ),
+                    ),
+            )
     }
 }
 
@@ -135,24 +169,64 @@ struct GlobalWillow(Willow);
 /// Willow "store" level operations
 #[derive(Clone)]
 pub struct Willow {
-    path: PathBuf,
     /// Local state per Willow instance
     state: Entity<WillowState>,
+}
+
+/// Conceptually, we can think of a Willow Object as a key/value
+/// object whose fields are directly stored as entries in a Willow
+/// namespace.
+///
+/// Note: A real implementation will need careful consideration to
+/// permissioning. At this point we probably need to check the
+/// capabilities we know of and do a verification step that we have
+/// appropriate access to all fields described by the object.
+trait WillowObject {
+    /// Returns a list of keys of the fields of this object
+    ///
+    /// For the following Willow filesystem:
+    ///
+    /// ```text
+    /// /profile/{name}
+    /// ```
+    // TODO: Temporarily using Hashmap<String, ?> as the fs model
+    fn keys(&self) -> Vec<String>;
+}
+
+#[derive(WillowObject /* bikeshed name */)]
+struct ProfileObject {
+    // where `path` is some DSL for /path/{patterns}
+    #[willow(path = "avatar.png")]
+    avatar: Vec<u8>,
+    #[willow(path = "name.txt")]
+    name: String,
+}
+
+pub struct WillowContext<T> {
+    //
+    _0: PhantomData<T>,
+}
+
+impl<T: WillowObject> WillowContext<T> {
+    pub fn new() -> Self {
+        Self {
+            //
+            _0: PhantomData,
+        }
+    }
 }
 
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
 struct WillowState {
     namespaces: Vec<Entity<Namespace>>,
+    store_path: PathBuf,
     profiles: Vec<Entity<Profile>>,
 }
 
 impl Willow {
-    fn new(path: impl Into<PathBuf>, cx: &mut App) -> Self {
-        let state = cx.new(|cx| WillowState::new(cx));
-        let willow = Self {
-            path: path.into(),
-            state,
-        };
+    fn new(store_path: impl Into<PathBuf>, cx: &mut App) -> Self {
+        let state = cx.new(|cx| WillowState::new(store_path.into(), cx));
+        let willow = Self { state };
 
         willow
     }
@@ -188,7 +262,7 @@ impl Willow {
 }
 
 impl WillowState {
-    fn new(cx: &mut Context<Self>) -> Self {
+    fn new(store_path: PathBuf, cx: &mut Context<Self>) -> Self {
         let namespaces = vec![
             cx.new(|cx| {
                 let mut namespace = Namespace::new("ns0".to_string(), cx);
@@ -225,6 +299,7 @@ impl WillowState {
 
         Self {
             namespaces,
+            store_path,
             profiles,
         }
     }
@@ -252,7 +327,7 @@ struct Profile {
 impl Render for Profile {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .debug()
+            // .debug()
             .child(self.render_profile_header(window, cx))
             .when(self.open, |div| {
                 div.child(self.render_profile_namespaces(window, cx))
@@ -269,10 +344,10 @@ impl Profile {
     ) -> impl IntoElement {
         div()
             //
-            .p_2()
+            // .p_2()
             .child(
                 ListItem::new(SharedString::from(format!("user-{}", self.id())))
-                    .rounded()
+                    // .rounded()
                     .child(
                         //
                         div()
@@ -280,7 +355,6 @@ impl Profile {
                             .py_4()
                             .flex()
                             .flex_row()
-                            .rounded_md()
                             .child(IconButton::new(
                                 SharedString::from(format!("user-toggle-{}", self.id())),
                                 IconName::ChevronDown,
@@ -319,27 +393,28 @@ impl Profile {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         div()
-            .debug()
-            .p_2()
+            // .debug()
+            .p_1()
             .flex()
             .flex_col()
             .children(self.namespaces().into_iter().map(|namespace| {
                 let ns = namespace.read(cx);
-                ListItem::new(SharedString::from(format!("ns-{}", ns.name())))
-                    .rounded()
+                div()
+                    .id(SharedString::from(format!("ns-{}", ns.name())))
+                    .p_4()
+                    .border_1()
+                    .rounded_sm()
+                    .border_color(cx.theme().colors().border.opacity(0.6))
+                    .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                    .hover(|style| {
+                        style
+                            .bg(cx.theme().colors().ghost_element_hover)
+                            .border_color(cx.theme().colors().border.opacity(1.0))
+                    })
                     .child(
-                        div()
-                            //
-                            .p_2()
-                            .child(
-                                //
-                                ns.name().to_string(),
-                            ),
+                        //
+                        ns.name().to_string(),
                     )
-                    .on_click(cx.listener(move |this, event, window, cx| {
-                        // Clicked a namespace icon, make it active
-                        this.active_namespace = Some(namespace.clone());
-                    }))
             }))
     }
 
