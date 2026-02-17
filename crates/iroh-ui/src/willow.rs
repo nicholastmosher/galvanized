@@ -4,14 +4,15 @@ use std::{fmt::Display, path::PathBuf};
 
 use tracing::warn;
 use zed::unstable::{
+    editor::Editor,
     gpui::{
         self, Action, AppContext, Entity, EventEmitter, FocusHandle, Focusable, Global, actions,
     },
     paths,
     ui::{
-        ActiveTheme as _, App, Context, FluentBuilder, IconButton, IconName, InteractiveElement,
-        IntoElement, ListItem, ParentElement as _, Pixels, Render, SharedString,
-        StatefulInteractiveElement as _, Styled as _, Window, div, px,
+        ActiveTheme as _, App, Context, FluentBuilder, IconButton, IconName, IconSize,
+        InteractiveElement, IntoElement, ListItem, ParentElement as _, Pixels, Render,
+        SharedString, StatefulInteractiveElement as _, Styled as _, Window, div, px,
     },
     workspace::{
         Panel, Workspace,
@@ -46,16 +47,19 @@ pub struct WillowUi {
     focus_handle: FocusHandle,
     width: Option<Pixels>,
     willow: Willow,
-    creating_profile: bool,
+    create_profile: Entity<AddItemUi>,
 }
 
 impl WillowUi {
     fn new(willow: Willow, cx: &mut Context<Self>) -> Self {
+        let create_profile = cx.new(|cx| {
+            AddItemUi::new("+ Profile".into(), cx).placeholder_text("Profile name".into())
+        });
         Self {
             focus_handle: cx.focus_handle(),
             width: None,
             willow,
-            creating_profile: false,
+            create_profile,
         }
     }
 }
@@ -74,48 +78,7 @@ impl Render for WillowUi {
                     //
                     .px_2()
                     .py_4()
-                    .child(
-                        div()
-                            //
-                            .id("profile-create")
-                            .px_2()
-                            .py_4()
-                            .text_center()
-                            .justify_center()
-                            .border_2()
-                            .border_dashed()
-                            .border_color(cx.theme().colors().border.opacity(0.6))
-                            .rounded_sm()
-                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                            .hover(|style| {
-                                style
-                                    .bg(cx.theme().colors().ghost_element_hover)
-                                    .border_color(cx.theme().colors().border.opacity(1.0))
-                            })
-                            .when(self.creating_profile, |div| {
-                                //
-                                div.child(
-                                    //
-                                    "+ Create Profile",
-                                )
-                            })
-                            .when(!self.creating_profile, |div| {
-                                //
-                                div
-                                    //
-                                    .py_8()
-                                    .child(
-                                        ListItem::new("create-profile-name")
-                                            .rounded()
-                                            .child("Profile Name:"),
-                                    )
-                            })
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                //
-                                this.creating_profile = !this.creating_profile;
-                                cx.notify();
-                            })),
-                    ),
+                    .child(self.create_profile.clone()),
             )
     }
 }
@@ -205,7 +168,7 @@ impl Willow {
         willow
     }
 
-    fn create_namespace(&mut self, name: String, cx: &mut Context<Self>) -> Entity<Namespace> {
+    fn create_namespace(&mut self, name: String, cx: &mut App) -> Entity<Namespace> {
         let namespace = cx.new(|cx| Namespace::new(name, cx));
         self.state.update(cx, |state, _cx| {
             state.namespaces.push(namespace.clone());
@@ -213,13 +176,8 @@ impl Willow {
         namespace
     }
 
-    fn create_profile(
-        &mut self,
-        id: String,
-        name: String,
-        cx: &mut Context<Self>,
-    ) -> Entity<Profile> {
-        let profile = cx.new(|cx| Profile::new(id, name, cx));
+    fn create_profile(&mut self, name: String, cx: &mut App) -> Entity<Profile> {
+        let profile = cx.new(|cx| Profile::new(name, cx));
         self.state.update(cx, |state, _cx| {
             state.profiles.push(profile.clone());
         });
@@ -266,22 +224,25 @@ impl WillowState {
 
         let profiles = vec![
             cx.new(|cx| {
-                let mut profile = Profile::new("0".to_string(), "Profile 0".to_string(), cx);
+                let mut profile = Profile::new("Profile 0".to_string(), cx);
                 profile.join_namespace(namespaces[0].clone());
                 profile.join_namespace(namespaces[1].clone());
                 profile.join_namespace(namespaces[2].clone());
+                profile.active_namespace = Some(namespaces[0].clone());
                 profile
             }),
             cx.new(|cx| {
-                let mut profile = Profile::new("1".to_string(), "Profile 1".to_string(), cx);
+                let mut profile = Profile::new("Profile 1".to_string(), cx);
                 profile.join_namespace(namespaces[0].clone());
                 profile.join_namespace(namespaces[1].clone());
+                profile.active_namespace = Some(namespaces[0].clone());
                 profile
             }),
             cx.new(|cx| {
-                let mut profile = Profile::new("2".to_string(), "Profile 2".to_string(), cx);
+                let mut profile = Profile::new("Profile 2".to_string(), cx);
                 profile.join_namespace(namespaces[1].clone());
                 profile.join_namespace(namespaces[2].clone());
+                profile.active_namespace = Some(namespaces[1].clone());
                 profile
             }),
         ];
@@ -307,16 +268,15 @@ impl WillowExt for App {
 #[derive(Clone)]
 struct Profile {
     active_namespace: Option<Entity<Namespace>>,
-    id: String,
     name: String,
     namespaces: Vec<Entity<Namespace>>,
+    create_namespace: Entity<AddItemUi>,
     open: bool,
 }
 
 impl Render for Profile {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            // .debug()
             .child(self.render_profile_header(window, cx))
             .when(self.open, |div| {
                 div.child(self.render_profile_namespaces(window, cx))
@@ -333,10 +293,8 @@ impl Profile {
     ) -> impl IntoElement {
         div()
             //
-            // .p_2()
             .child(
-                ListItem::new(SharedString::from(format!("user-{}", self.id())))
-                    // .rounded()
+                ListItem::new(SharedString::from(format!("user-{}", self.name())))
                     .child(
                         //
                         div()
@@ -345,7 +303,7 @@ impl Profile {
                             .flex()
                             .flex_row()
                             .child(IconButton::new(
-                                SharedString::from(format!("user-toggle-{}", self.id())),
+                                SharedString::from(format!("user-toggle-{}", self.name())),
                                 IconName::ChevronDown,
                             ))
                             .child(
@@ -368,11 +326,17 @@ impl Profile {
     ) -> impl IntoElement {
         div()
             .flex()
-            .flex_row()
-            // Vertical left, sidebar
-            .child(self.render_namespaces_bar(window, cx))
-            // Verticle right, directory
-            .child(self.render_active_namespace(window, cx))
+            .flex_col()
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    // Vertical left, sidebar
+                    .child(self.render_namespaces_bar(window, cx))
+                    // Verticle right, directory
+                    .child(self.render_active_namespace(window, cx)),
+            )
+            .child(self.create_namespace.clone())
     }
 
     /// Render the namespaces bar for one user.
@@ -382,8 +346,7 @@ impl Profile {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         div()
-            // .debug()
-            .p_1()
+            .p_2()
             .flex()
             .flex_col()
             .gap_2()
@@ -393,7 +356,7 @@ impl Profile {
                     .id(SharedString::from(format!("ns-{}", ns.name())))
                     .p_4()
                     .border_1()
-                    .rounded_sm()
+                    .rounded_lg()
                     .border_color(cx.theme().colors().border.opacity(0.6))
                     .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                     .hover(|style| {
@@ -430,18 +393,17 @@ impl Profile {
 }
 
 impl Profile {
-    fn new(id: String, name: String, _cx: &mut Context<Self>) -> Self {
+    fn new(name: String, cx: &mut Context<Self>) -> Self {
+        let create_namespace = cx.new(|cx| {
+            AddItemUi::new("+ Namespace".into(), cx).placeholder_text("Create namespace".into())
+        });
         Self {
             active_namespace: None,
-            id,
             name,
             namespaces: vec![],
+            create_namespace,
             open: true,
         }
-    }
-
-    pub fn id(&self) -> impl Display {
-        &self.id
     }
 
     fn name(&self) -> impl Display {
@@ -452,7 +414,7 @@ impl Profile {
         self.namespaces.push(namespace);
     }
 
-    pub fn namespaces(&self) -> impl IntoIterator<Item = Entity<Namespace>> {
+    pub fn namespaces(&self) -> Vec<Entity<Namespace>> {
         self.namespaces.clone()
     }
 }
@@ -466,7 +428,6 @@ impl Render for Namespace {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
             //
-            .p_2()
             .children(self.entries().into_iter().enumerate().map(|(i, entry)| {
                 //
                 ListItem::new(SharedString::from(format!("ns-entry-{i}")))
@@ -500,5 +461,130 @@ impl Namespace {
 
     pub fn entries(&self) -> impl IntoIterator<Item = &String> {
         self.entries.iter()
+    }
+}
+
+struct AddItemUi {
+    name: SharedString,
+    placeholder: Option<SharedString>,
+    editor: Option<Entity<Editor>>,
+}
+
+impl AddItemUi {
+    pub fn new(name: SharedString, _cx: &mut Context<Self>) -> Self {
+        Self {
+            //
+            name,
+            placeholder: None,
+            editor: None,
+        }
+    }
+
+    pub fn placeholder_text(mut self, text: SharedString) -> Self {
+        self.placeholder = Some(text);
+        self
+    }
+}
+
+impl Render for AddItemUi {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            //
+            .id("add-item-ui")
+            .text_center()
+            .justify_center()
+            .border_2()
+            .border_dashed()
+            .border_color(cx.theme().colors().border.opacity(0.6))
+            .rounded_sm()
+            .when_none(&self.editor, |this| {
+                //
+                this
+                    //
+                    .px_2()
+                    .py_4()
+                    .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                    .hover(|style| {
+                        style
+                            .bg(cx.theme().colors().ghost_element_hover)
+                            .border_color(cx.theme().colors().border.opacity(1.0))
+                    })
+                    // .child(self.name.clone())
+                    .child(
+                        div()
+                            //
+                            .text_color(cx.theme().colors().text_muted)
+                            .child(
+                                //
+                                self.name.clone(),
+                            ),
+                    )
+                    .on_click(cx.listener(|this, _event, window, cx| {
+                        //
+                        this.editor = Some(
+                            //
+                            cx.new(|cx| {
+                                let mut editor = Editor::single_line(window, cx);
+                                if let Some(placeholder) = &this.placeholder {
+                                    editor.set_placeholder_text(&**placeholder, window, cx);
+                                }
+                                editor
+                            }),
+                        );
+                        cx.notify();
+                    }))
+            })
+            .when_some(self.editor.as_ref(), |this, editor| {
+                //
+                this
+                    //
+                    .h_full()
+                    .w_full()
+                    .flex()
+                    .flex_row()
+                    .child(
+                        //
+                        div()
+                            //
+                            .id("create-profile-cancel")
+                            .p_4()
+                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                            .child(
+                                IconButton::new("cancel", IconName::XCircle)
+                                    .icon_size(IconSize::Medium),
+                            )
+                            .on_click(cx.listener(|this, _event, _window, _cx| {
+                                this.editor.take();
+                            })),
+                    )
+                    .child(
+                        div()
+                            //
+                            .px_2()
+                            .py_4()
+                            .flex_grow()
+                            .child(editor.clone()),
+                    )
+                    .child(
+                        //
+                        div()
+                            //
+                            .id("create-profile-submit")
+                            .p_4()
+                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                            .child(IconButton::new("submit", IconName::ChevronRight))
+                            .on_click(cx.listener({
+                                let editor = editor.clone();
+                                move |this, _event, _window, cx| {
+                                    let name = editor.read(cx).text(cx);
+                                    cx.willow().create_profile(name, cx);
+                                    this.editor.take();
+                                    cx.notify();
+                                }
+                            })),
+                    )
+            })
     }
 }

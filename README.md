@@ -1,5 +1,228 @@
 # Project
 
+# 2026 Feb 17
+
+Experimenting, notes
+
+- Using a Bevy-style Query to represent a Willow query across the given
+  namespaces, subspaces, and paths. The names are bikesheddable but the
+  patterns are what's interesting.
+
+```rust
+fn init(cx: &mut App) {
+    cx.willow().read(
+        // Like gpui callbacks pass &mut App (or Context) to everything, do
+        // we have a need to provide a "willow" context?
+        // 
+        // Oh wow, this could be really cool. So `Query<(...)>` describes the
+        // search area for lookup in Willow, e.g. choosing one namespace and
+        // one user subspace, and some path prefix. The `WillowCx<Datatype>`
+        // 
+        |
+            query: Query<(Namespaces<(...)>, Subspaces<(...)>, PathPatterns<(...)>)>,
+            willow_cx: &mut WillowCx<DataType>,
+        | {
+            // this can happen whenever Willow finishes IO for the query
+            for entry in query.iter() {
+                let ns = entry.namespace();
+                let sub = entry.subspace();
+                let data: &DataType = entry.data(willow_cx);
+                let data: &mut DataType = entry.data_mut(willow_cx);
+            }
+        },
+    );
+    
+    // Second attempt:
+    // 
+    // Bevy-inspired query API for interacting with Willow entries
+    cx.willow().query(
+        //
+        |query: Query<
+            // Data type portion of query
+            Photo,
+            // or, for example, to select multiple matching patterns:
+            // Any<(Photo, String, Contact, Calendar)>
+            // Automerge
+            // Automerge<AutoSurgeonDerivedType>
+            // IrohDoc<SerdeDatatype>
+            
+            // Search area portion of query
+            (
+                Namespaces<(/* list of type tokens for hardcoded namespaces? */)>,
+                Subspaces<(/* list of type tokens for hardcoded subspaces / user keys */)>,
+                Paths<(/* list of type-encoded paths or path patterns*/)>,
+            )
+            
+            // It really seems to me that the only kind of subspace or namespace searching
+            // /filtering capability you'd need would be "select from this list". 
+            // But maybe with the ability to do any/all compositions on those lists
+            // 
+            // So e.g. the user looking at a search bar, could add a search fragment to
+            // describe looking for entries which are located in any of a list of namespaces,
+            // or subspaces, or path patterns
+            // 
+            // Need to think about whether that's actually useful, or whether it makes more
+            // sense to have a runtime representation of queries, to accept dynamic lists of values
+        >| {
+            
+        // Ooh, maybe the query callback can happen quickly by kicking off work in the
+        // background, and just returning handles representing access to those objects?
+        for photo: WillowObject<Photo> in query.iter() {
+            //
+        }
+    });
+    
+    // Dynamic Area construction, rather than attempting via type composition
+    let area = Area::new((
+        Namespaces(vec![...]),
+        Subspaces(vec![...]),
+    ));
+    // Even simpler
+    let area = Area::builder()
+        .with_namespaces(vec![..])
+        .with_subspaces(vec![..])
+        .build();
+    cx.willow().query(area, |query: Query<Photo>| {
+        //
+    });
+    
+    // Fire a callback when any matching-typed object in the given area is created or modified
+    cx.willow().observe(area, |query: Query<Photo>| {
+        for photo: &Photo in query.iter() {
+            //
+        }
+    });
+}
+
+#[derive(WillowObject)]
+struct Photo {
+    #[willow(path = "img.png")]
+    data: Vec<u8>
+}
+```
+
+---
+
+- Calendar was a good thought experiment, but I think I need to pursue chat as
+  a first motivating use-case to deliver.
+- Navigation for Chat:
+  - Open Profile
+  - Open Namespace
+  - optional: Open default chat for namespace?
+  - Conveniently show directories with chat-compliant schemas?
+  - Open a Path with a schema* matching the Chat objects
+    > *I think it's fair to apply the term schema to a directory. Filesystems and objects are
+        both key-value constructions. If a schema of an object can describe a mapping of
+        unique field names to the types expected for the values, then a schema of a directory
+        describes a mapping of unique paths to corresponding files and the expected format of
+        those files.
+    
+  - Convention?: `.types/chat.schema.json`
+    - `.types` as local directory convention that is specially recognized by Willow to
+      describe/store the contents of a directory through the potential lens of many kinds
+      of object. So different schemas in the same `.types` could describe a particular
+      composition of fields into an object. A schema would act as a lens into the directory
+      contents, so with careful design, directories/objects could be made to have strategic overlap
+
+- UI design note: Standardized colors applied to object fields of primitive types
+  - E.g. green for strings, blue for objects/enums
+
+- UI design idea: Special "object" component that's just a little rectangle bubble table
+  with a display of the object's keys and values. Could be made to have standard navigation
+  through keys and lists, make objects predictable and understandable to users.
+  - In an app (as a gpui plugin), define data types that have Render implementations, and
+    associate those objects with a Willow object schema/handle, so the UI becomes a tangible
+    and predictable interface to data objects.
+  - Made to be a new-window component?
+
+- An "object" as a directory in Willow may be uniquely identified by a
+  (namespace, subspace, prefix) tuple
+  - Object schema could either be explicitly given by the tuple, or implicitly identified
+    by convention encoded in files, e.g. `.types/calendar.schema.json`
+  - (namespace, subspace, prefix, schema) as a conventional unit may eliminate the need
+    for special-casing schemas into the data model
+
+---
+
+Willow API: abstraction to generalize over "handles" to data. In the GPUI case, the handle
+to a T is an `Entity<T>`, other handle kinds could include keys to maps.
+
+```rust
+trait ObjectHandle {
+    type Context<T>;
+    fn read(&self, cx: &mut Self::Context<T>) -> &T;
+}
+
+impl<T> ObjectHandle for Entity<T> {
+    type Context = gpui::Context<T>;
+    fn read(&self, cx: &mut gpui::Context<T>) -> &T {}
+}
+
+impl<T> ObjectHandle for WillowObject<T> {
+    type Context = WillowContext<T>;
+    fn read(&self, cx: &mut WillowContext<T>) {}
+}
+```
+
+Here, `WillowContext<T>` represents an "open directory" which has maybe done schema
+validation to ensure the directory fits the shape of the given `T` data object.
+
+---
+
+Random thought: The fully generalized App is the holy grail of abstraction. The
+key problem is how to make an app without any intrinsics, and allow plugins to
+somehow submit first-class app state (e.g. the entity system should itself be a
+plugin). Fully generalized I suppose would mean that the App starts completely
+empty, with no state and no API. Plugins would somehow provide all building
+blocks to the global context, including inherent state like direct fields. The
+way I'm imagining this is something like:
+
+```rust
+struct App<T> {
+    intrinsics: T,
+}
+
+// here, universal T works with any instantiation of App
+fn do_something<T>(cx: &mut App<T>) {}
+
+// here, we require the app given has a particular necessary intrinsic, provided by a plugin
+fn do_something_needing_entity_system(cx: &mut App<T>)
+    where App<T>: EntitySystem
+{
+    cx.new(|cx| ...);
+}
+
+fn main() {
+    // instantiate an App with intrinsics using a tuple
+    App::new((
+        EntitySystem::new(),
+        WillowSystem::new(),
+    ))
+}
+
+// I _think_ this API would require some kind of extractor pattern, which would
+// allow the App to "pick" a given system out of the tuple of systems. I think
+// this could be done but I haven't succeeded with it yet
+```
+
+---
+
+Bigger picture: Roadmap and design
+
+- Need plugins/apps for use-cases:
+  - Chat
+  - (maybe email UX for long-form)
+  - Calendar
+  - Documents,
+  - Filesystem explorer,
+  - Profile/Space management,
+  - Peer network,
+  - Storage,
+  - integrate with Zed Settings
+- UI considerations
+  - Make objects first-class, make it clear that app's components are just
+    direct renderings of data
+
 # 2026 Feb 15
 
 Random Brainstorming
@@ -103,7 +326,7 @@ according to the objects' plugin definition.
 > the Willow fundamentals
 
 So an "Object" Api here should have a graceful integration of the GPUI visual entity system and the Willow
-data model API. Ideally these could be the exact same definition, e.g. a struct, which both exists as in-meory
+data model API. Ideally these could be the exact same definition, e.g. a struct, which both exists as in-memory
 state in the gpui EntityMap and whose type also expresses the relationship between the in-memory representation
 and the in-willow expression of the object.
 
