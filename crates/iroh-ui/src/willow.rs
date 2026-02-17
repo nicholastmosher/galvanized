@@ -1,13 +1,11 @@
 // Cleaning up ideas from willow_whimsy
 
-use std::{fmt::Display, marker::PhantomData, path::PathBuf};
+use std::{fmt::Display, path::PathBuf};
 
 use tracing::warn;
-use willow_api_derive::WillowObject;
 use zed::unstable::{
     gpui::{
         self, Action, AppContext, Entity, EventEmitter, FocusHandle, Focusable, Global, actions,
-        rgb,
     },
     paths,
     ui::{
@@ -48,6 +46,7 @@ pub struct WillowUi {
     focus_handle: FocusHandle,
     width: Option<Pixels>,
     willow: Willow,
+    creating_profile: bool,
 }
 
 impl WillowUi {
@@ -56,6 +55,7 @@ impl WillowUi {
             focus_handle: cx.focus_handle(),
             width: None,
             willow,
+            creating_profile: false,
         }
     }
 }
@@ -70,8 +70,6 @@ impl Render for WillowUi {
             // Column-stacked user profiles
             .children(self.willow.profiles(cx))
             .child(
-                //
-                // ListItem::new("profile-add").rounded().child(
                 div()
                     //
                     .px_2()
@@ -94,10 +92,29 @@ impl Render for WillowUi {
                                     .bg(cx.theme().colors().ghost_element_hover)
                                     .border_color(cx.theme().colors().border.opacity(1.0))
                             })
-                            .child(
+                            .when(self.creating_profile, |div| {
                                 //
-                                "+ Create Profile",
-                            ),
+                                div.child(
+                                    //
+                                    "+ Create Profile",
+                                )
+                            })
+                            .when(!self.creating_profile, |div| {
+                                //
+                                div
+                                    //
+                                    .py_8()
+                                    .child(
+                                        ListItem::new("create-profile-name")
+                                            .rounded()
+                                            .child("Profile Name:"),
+                                    )
+                            })
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                //
+                                this.creating_profile = !this.creating_profile;
+                                cx.notify();
+                            })),
                     ),
             )
     }
@@ -173,49 +190,6 @@ pub struct Willow {
     state: Entity<WillowState>,
 }
 
-/// Conceptually, we can think of a Willow Object as a key/value
-/// object whose fields are directly stored as entries in a Willow
-/// namespace.
-///
-/// Note: A real implementation will need careful consideration to
-/// permissioning. At this point we probably need to check the
-/// capabilities we know of and do a verification step that we have
-/// appropriate access to all fields described by the object.
-trait WillowObject {
-    /// Returns a list of keys of the fields of this object
-    ///
-    /// For the following Willow filesystem:
-    ///
-    /// ```text
-    /// /profile/{name}
-    /// ```
-    // TODO: Temporarily using Hashmap<String, ?> as the fs model
-    fn keys(&self) -> Vec<String>;
-}
-
-#[derive(WillowObject /* bikeshed name */)]
-struct ProfileObject {
-    // where `path` is some DSL for /path/{patterns}
-    #[willow(path = "avatar.png")]
-    avatar: Vec<u8>,
-    #[willow(path = "name.txt")]
-    name: String,
-}
-
-pub struct WillowContext<T> {
-    //
-    _0: PhantomData<T>,
-}
-
-impl<T: WillowObject> WillowContext<T> {
-    pub fn new() -> Self {
-        Self {
-            //
-            _0: PhantomData,
-        }
-    }
-}
-
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
 struct WillowState {
     namespaces: Vec<Entity<Namespace>>,
@@ -265,15 +239,27 @@ impl WillowState {
     fn new(store_path: PathBuf, cx: &mut Context<Self>) -> Self {
         let namespaces = vec![
             cx.new(|cx| {
-                let mut namespace = Namespace::new("ns0".to_string(), cx);
+                let mut namespace = Namespace::new("Home".to_string(), cx);
                 namespace.create_entry("entry/0".to_string());
                 namespace.create_entry("entry/1".to_string());
+                namespace.create_entry("entry/2".to_string());
+                namespace.create_entry("entry/3".to_string());
                 namespace
             }),
             cx.new(|cx| {
-                let mut namespace = Namespace::new("ns1".to_string(), cx);
-                namespace.create_entry("entry/2".to_string());
-                namespace.create_entry("entry/3".to_string());
+                let mut namespace = Namespace::new("Family".to_string(), cx);
+                namespace.create_entry("entry/4".to_string());
+                namespace.create_entry("entry/5".to_string());
+                namespace.create_entry("entry/6".to_string());
+                namespace.create_entry("entry/7".to_string());
+                namespace
+            }),
+            cx.new(|cx| {
+                let mut namespace = Namespace::new("Work".to_string(), cx);
+                namespace.create_entry("entry/8".to_string());
+                namespace.create_entry("entry/9".to_string());
+                namespace.create_entry("entry/10".to_string());
+                namespace.create_entry("entry/11".to_string());
                 namespace
             }),
         ];
@@ -283,16 +269,19 @@ impl WillowState {
                 let mut profile = Profile::new("0".to_string(), "Profile 0".to_string(), cx);
                 profile.join_namespace(namespaces[0].clone());
                 profile.join_namespace(namespaces[1].clone());
+                profile.join_namespace(namespaces[2].clone());
                 profile
             }),
             cx.new(|cx| {
                 let mut profile = Profile::new("1".to_string(), "Profile 1".to_string(), cx);
                 profile.join_namespace(namespaces[0].clone());
+                profile.join_namespace(namespaces[1].clone());
                 profile
             }),
             cx.new(|cx| {
                 let mut profile = Profile::new("2".to_string(), "Profile 2".to_string(), cx);
                 profile.join_namespace(namespaces[1].clone());
+                profile.join_namespace(namespaces[2].clone());
                 profile
             }),
         ];
@@ -364,7 +353,7 @@ impl Profile {
                                 self.name().to_string(),
                             ),
                     )
-                    .on_click(cx.listener(|this, event, window, cx| {
+                    .on_click(cx.listener(|this, _event, _window, cx| {
                         this.open = !this.open;
                         cx.notify();
                     })),
@@ -397,6 +386,7 @@ impl Profile {
             .p_1()
             .flex()
             .flex_col()
+            .gap_2()
             .children(self.namespaces().into_iter().map(|namespace| {
                 let ns = namespace.read(cx);
                 div()
@@ -411,6 +401,9 @@ impl Profile {
                             .bg(cx.theme().colors().ghost_element_hover)
                             .border_color(cx.theme().colors().border.opacity(1.0))
                     })
+                    .on_click(cx.listener(move |this, _event, _window, _cx| {
+                        this.active_namespace = Some(namespace.clone());
+                    }))
                     .child(
                         //
                         ns.name().to_string(),
@@ -474,12 +467,17 @@ impl Render for Namespace {
         div()
             //
             .p_2()
-            .children(self.entries().into_iter().map(|entry| {
+            .children(self.entries().into_iter().enumerate().map(|(i, entry)| {
                 //
-                div()
-                    //
-                    .p_2()
-                    .child(format!("{}/{}", self.name(), entry))
+                ListItem::new(SharedString::from(format!("ns-entry-{i}")))
+                    .rounded()
+                    .child(
+                        //
+                        div()
+                            //
+                            .p_2()
+                            .child(format!("{}/{}", self.name(), entry)),
+                    )
             }))
     }
 }
