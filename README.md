@@ -103,6 +103,139 @@ struct Photo {
 
 ---
 
+Top-down time, UX brainstorming:
+
+- Use-case: Chat
+- Chat's unit visual object:
+  - Profile name
+  - Profile key
+  - Profile icon (maybe default to key-derived generated?)
+    - Oh! A functional, maybe styled QR code with the public key encoded?
+    - Use as some kind of iroh ticket, passed by QR
+    - Would want a toggle view, with default displayed not including any
+      sensitive information, if anything.
+  - Chat icon, one chat is probably one directory in a namespace, and whose
+    chat-objects are written as entries in that directory. Possibly
+  - Consider how to namespace schema definitions, would be useful to be have
+    easy stable addresses to schemas 🔥
+  - Feed: Needs to display some context like chat name, icon, status(es)?
+    maybe custom styling
+  - Feed visual objects: bubble-renders of chat data-objects, each bubble is a
+    single message, maybe display sender or read status or whatever else
+  - Send interface, text box and buttons. Consider multimedia now? Sigh
+  - How to represent "others" (remote profiles? friends, contacts, connections)
+    - Visually: face bubbles in chat?
+    - As an object: `.receipts/{mary,jane}/{fields}`
+  - I open a chat in a namespace. Where do I see known others in this chat?
+    - Contact feed, next to the chat feed
+    - "Space" interface is just a space full of feeds? Feed of profiles, namespaces,
+      paths, tags.
+  
+- As an early user of this data space, what prefixing conventions would be good
+  to establish? Want to be a good citizen and not make dumb choices people will
+  need to live with forever.
+- Right now I want to put app data in like `/apps/{app_name}/{here}`, because in
+  Willow that path will also exist per-user and per-namespace, so in a way we
+  already have a fairly globally unique prefix to our "root" directory.
+- How easy or hard would it be to show the difference between:
+  - This is a file in my namespace/profile-subspace that I'm editing, vs
+  - This is a file in another namespace or profile-subspace that I happen to have
+    the capability to use?
+
+- Handle called Peer representing an online, syncing store of p2p protocols?
+  - Allow instantiating multiple IO-unique peers in one process? Seems counter
+    to the in-memory composition style going on, but still maybe
+- "Peers" become another standard tag used for searching for feeds of objects.
+  - Local peer: Shows only data that is persisted locally
+  - All peers: Shows all the data we _know about_, e.g. we keep an index of files
+    that may be in namespaces that we have read capabilities for. We could show a
+    view where all local/saved/here objects are opaque and bold-colored, and remote
+    ones are somewhat greyed-out or otherwise visually distinguished.
+  - Tag queries could include:
+    - All document between these three peers
+
+- Bevy-inspired Asset interface?
+
+- Per-profile "user styling" data object that's like a definition for how your
+  profile should be rendered to other people. Like a specific purple glow rendered
+  around all data objects associated with you. Custom shaders?
+
+Data Spaces
+
+- In-memory, in-application
+- On-disk, over-wire
+- REMOTE? FOREIGN-PEER OBJECT HANDLE?
+
+What if it were possible to have an abstraction that treated in-memory and on-disk
+objects with the same fundamental interface? `Entity<T>` handles are a delightfully
+simple interface for interacting with app state. I'd like to make a similar handle
+API for "on-disk" access (implemented as a Willow store), and if possible find a way
+to compose the API of the two handles, ideally with the same handle type.
+
+Down-the-line thought: physical storage, first-class replica management
+- Replica: A remote peer that you have entered into a replication agreement with
+- Probably implemented as some standard kind of capability (e.g. into a well-defined Area)
+- Need user-facing terminology for remote interactions. And visual convention
+
+- Workspace-item: Render a "space" as a sort of open canvas for feeds and object types.
+  Could eventually extend to games, etc.
+- API for plugins: Submit an object schema and path to the app, get rendered into the
+  user's space as data objects integrated into existing feeds, or as newly-opened feeds
+- Subject to standard query language, this becomes something users learn to apply to
+  everything (tags, namespace/subspace or space/profile, paths)
+
+- Need to figure out a first-class relationship between Willow and CRDT systems. I want
+  first-class instant collaboration from CRDTS. I wonder if Willow would serve the purpose
+  of namespacing and "addressing" a CRDT document, which could be represented as another
+  custom handle type? When in an active session, the object is represented by a "CRDT handle"
+  which might interact with it's "Context" which provides the machinery for sync and state
+  managment and live collaboration.
+
+- Want first-class consideration and integration of a reputation system, something that
+  would maybe be useful for local organization purposes? Would be a target for abuse,
+  might render it useless immediately
+
+- Proxy render API as serializable DSL to host API-compatible interface inside WASM
+  context, boom remote-portable apps
+
+- Capability schemas??
+
+- Make a UI dedicated to communicating how suspicious a requested capability is? For exmaple,
+  assuming capabilities are first-class objects that users are familiar with handling, apps
+  might request access to certain directories of the user's space.
+
+- UI exercise: Need to practice distinguishing owned/communal namespaces. This matters
+  very first thing in namespace (discord server) creation. Should probably heavily favor
+  owned namespaces, I think I'd consider a communal namespace to be 
+
+- Zed/GPUI: How hard is it to launch a program that's a handler for a file type? Just become
+  a proper file explorer
+
+---
+
+- Thinking about how to display other users belonging to a mutual namespace
+  - This is distinct from how to display multiple profiles controlled by one user
+- If navigation is Profile > Namespace, in the namespace context it should be possible
+  to view other (foreign, non-local) profiles which have participated in or have access
+  to the namespace.
+- Should capabilities be written to a standard directory in a namespace? Should there
+  be a standard namespace index of participants?
+
+- Need to think of a visual convention for Capabilities. I think they're easily just an
+  instantiation of a "WillowObject" (as in earlier), so just a key-value object.
+  Thinking rounded table window or bubble, with color-coded key/value cells and maybe a
+  visually distinct rendering per data type, could be made generic and extendable.
+- API: `trait ObjectLike` (name bikeshed), with `#[derive(ObjectLike)]`,
+
+```rust
+#[derive(ObjectLike)]
+struct ProfileObject {}
+```
+
+- Network 
+
+# 2026 Feb 16
+
 - Calendar was a good thought experiment, but I think I need to pursue chat as
   a first motivating use-case to deliver.
 - Navigation for Chat:
