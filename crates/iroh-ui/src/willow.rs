@@ -169,6 +169,8 @@ pub struct Willow {
 struct WillowState {
     namespaces: Vec<Entity<Namespace>>,
     store_path: PathBuf,
+    /// Payloads in simple impl are just bytes
+    paths: HashMap<String, Vec<u8>>,
     profiles: Vec<Entity<Profile>>,
 }
 
@@ -267,6 +269,7 @@ impl WillowState {
         Self {
             namespaces,
             store_path,
+            paths: Default::default(),
             profiles,
         }
     }

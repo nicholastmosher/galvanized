@@ -1,5 +1,16 @@
 # Project
 
+# 2026 Feb 18
+
+- Need to do some solid coding, I have enough ideas to work with
+- Contacts & Chat UI (peers/nodes UI?)
+- Simple impl of Willow store API in-memory for testing? Would be nice
+  for testing UX to actually be able to e.g. make profiles and entries.
+
+- Thinking of using `.home/` as the convention for meta files, for a
+  directory, or maybe `.here/`? so e.g. `.home/schemas/chat.schema.json`,
+  or `.here/capabilities/chat.json`
+
 # 2026 Feb 17
 
 Experimenting, notes
