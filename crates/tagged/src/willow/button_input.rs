@@ -4,12 +4,12 @@ use tracing::info;
 use zed::unstable::{
     component,
     editor::Editor,
-    gpui::{self, AppContext as _, Entity},
+    gpui::{self, AppContext as _, Entity, Stateful},
     ui::{
-        ActiveTheme as _, App, Component, Context, ElementId, FluentBuilder as _, IconButton,
+        ActiveTheme as _, App, Component, Context, Div, ElementId, FluentBuilder as _, IconButton,
         IconName, IconSize, InteractiveElement as _, IntoElement, ParentElement as _,
-        RegisterComponent, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
-        Window, div,
+        RegisterComponent, Rems, Render, SharedString, StatefulInteractiveElement as _,
+        Styled as _, Window, div,
     },
 };
 
@@ -87,7 +87,9 @@ impl ButtonInput {
 }
 
 impl Render for ButtonInput {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let button_side = self.render_button_side(window, cx);
+        let input_side = self.render_input_side(window, cx);
         div()
             //
             .id(self.id.clone())
@@ -97,113 +99,141 @@ impl Render for ButtonInput {
             .border_dashed()
             .border_color(cx.theme().colors().border.opacity(0.6))
             .rounded_sm()
-            .when_none(&self.editor, |this| {
+            // button side
+            .when_none(&self.editor, |this| this.child(button_side))
+            // input side
+            .when_some(self.editor.as_ref(), |this, _editor| {
                 //
-                this
+                this.child(input_side)
+            })
+    }
+}
+
+impl ButtonInput {
+    fn render_button_side(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement + 'static {
+        div()
+            //
+            .id("todo")
+            .px_2()
+            .py_4()
+            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+            .hover(|style| {
+                style
+                    .bg(cx.theme().colors().ghost_element_hover)
+                    .border_color(cx.theme().colors().border.opacity(1.0))
+            })
+            .child(
+                div()
+                    //
+                    .text_color(cx.theme().colors().text_muted)
+                    .child(
+                        //
+                        self.name.clone(),
+                    ),
+            )
+            .on_click(cx.listener(|this, _event, window, cx| {
+                //
+                this.editor = Some(
+                    //
+                    cx.new(|cx| {
+                        let mut editor = Editor::single_line(window, cx);
+                        if let Some(placeholder) = &this.placeholder {
+                            editor.set_placeholder_text(&**placeholder, window, cx);
+                        }
+                        editor
+                    }),
+                );
+                cx.notify();
+            }))
+    }
+
+    fn render_input_side(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<'_, ButtonInput>,
+    ) -> impl IntoElement + 'static {
+        let Some(editor) = self.editor.clone() else {
+            return div().p_4().debug();
+        };
+
+        let cancel_button = render_icon_button("cancel", IconName::XCircle, window, cx);
+        let accept_button = render_icon_button("accept", IconName::ChevronRight, window, cx);
+
+        div()
+            //
+            .h_full()
+            .w_full()
+            .flex()
+            .flex_row()
+            .child(
+                cancel_button
+                    //
+                    .on_click(cx.listener(|this, _event, _window, _cx| {
+                        this.editor.take();
+                    })),
+            )
+            .child(
+                div()
                     //
                     .px_2()
                     .py_4()
-                    .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                    .hover(|style| {
-                        style
-                            .bg(cx.theme().colors().ghost_element_hover)
-                            .border_color(cx.theme().colors().border.opacity(1.0))
-                    })
-                    // .child(self.name.clone())
-                    .child(
-                        div()
-                            //
-                            .text_color(cx.theme().colors().text_muted)
-                            .child(
-                                //
-                                self.name.clone(),
-                            ),
-                    )
-                    .on_click(cx.listener(|this, _event, window, cx| {
-                        //
-                        this.editor = Some(
-                            //
-                            cx.new(|cx| {
-                                let mut editor = Editor::single_line(window, cx);
-                                if let Some(placeholder) = &this.placeholder {
-                                    editor.set_placeholder_text(&**placeholder, window, cx);
-                                }
-                                editor
-                            }),
-                        );
-                        cx.notify();
-                    }))
-            })
-            .when_some(self.editor.as_ref(), |this, editor| {
-                //
-                this
+                    .flex_grow()
+                    .child(editor.clone()),
+            )
+            .child(
+                accept_button
                     //
-                    .h_full()
-                    .w_full()
-                    .flex()
-                    .flex_row()
-                    .child(
-                        //
-                        div()
-                            //
-                            .id(SharedString::from(format!(
-                                "{}-create-profile-cancel",
-                                self.id
-                            )))
-                            .p_4()
-                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                            .child(
-                                IconButton::new(
-                                    SharedString::from(format!(
-                                        "{}-create-profile-cancel-icon",
-                                        self.id
-                                    )),
-                                    IconName::XCircle,
-                                )
-                                .icon_size(IconSize::Medium),
-                            )
-                            .on_click(cx.listener(|this, _event, _window, _cx| {
-                                this.editor.take();
-                            })),
-                    )
-                    .child(
-                        div()
-                            //
-                            .px_2()
-                            .py_4()
-                            .flex_grow()
-                            .child(editor.clone()),
-                    )
-                    .child(
-                        //
-                        div()
-                            //
-                            // .id("create-profile-submit")
-                            .id(SharedString::from(format!(
-                                "{}-create-profile-submit",
-                                self.id
-                            )))
-                            .p_4()
-                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                            .child(IconButton::new(
-                                SharedString::from(format!(
-                                    "{}-create-profile-submit-icon",
-                                    self.id
-                                )),
-                                IconName::ChevronRight,
-                            ))
-                            .on_click(cx.listener({
-                                let editor = editor.clone();
-                                move |this, _event, window, cx| {
-                                    let name = editor.read(cx).text(cx);
-                                    if let Some(on_submit) = this.on_submit.clone() {
-                                        (on_submit)(this, name, window, cx)
-                                    }
-                                }
-                            })),
-                    )
-            })
+                    .on_click(cx.listener({
+                        let editor = editor.clone();
+                        move |this, _event, window, cx| {
+                            let name = editor.read(cx).text(cx);
+                            if let Some(on_submit) = this.on_submit.clone() {
+                                (on_submit)(this, name, window, cx)
+                            }
+                        }
+                    })),
+            )
     }
+
+    // fn render_icon_button(
+    //     &mut self,
+    //     id: impl std::fmt::Display,
+    //     icon: IconName,
+    //     _window: &mut Window,
+    //     cx: &mut Context<Self>,
+    // ) -> Stateful<Div> {
+    //     div()
+    //         // Id namespaced by the component id, followed by the passed `id` as a suffix
+    //         .id(SharedString::from(format!("{}/{id}", self.id)))
+    //         .p_4()
+    //         .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+    //         .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+    //         .child(
+    //             IconButton::new(SharedString::from(format!("{}/{id}-icon", self.id)), icon)
+    //                 .icon_size(IconSize::Custom(Rems(1.5))),
+    //         )
+    // }
+}
+
+pub fn render_icon_button<T>(
+    id: impl std::fmt::Display,
+    icon: IconName,
+    _window: &mut Window,
+    cx: &mut Context<T>,
+) -> Stateful<Div> {
+    div()
+        //
+        // Id namespaced by the component id, followed by the passed `id` as a suffix
+        .id(SharedString::from(format!("{id}/icon-button")))
+        .p_4()
+        .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+        .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+        .child(
+            IconButton::new(SharedString::from(format!("{id}/icon")), icon)
+                .icon_size(IconSize::Custom(Rems(1.5))),
+        )
 }

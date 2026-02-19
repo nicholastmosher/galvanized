@@ -21,13 +21,13 @@ pub struct Space {
 
 #[derive(Debug)]
 pub struct Entry {
-    data: Vec<u8>,
+    content: String,
 }
 impl Entry {
-    fn new(data: impl Into<Vec<u8>>, cx: &mut Context<Self>) -> Self {
+    fn new(content: impl Into<String>, cx: &mut Context<Self>) -> Self {
         Self {
             //
-            data: data.into(),
+            content: content.into(),
         }
     }
 }
@@ -55,7 +55,8 @@ impl Space {
     pub fn new(name: impl Into<String>, cx: &mut Context<Self>) -> Self {
         Self {
             name: name.into(),
-            entries: Default::default(),
+            // entries: Default::default(),
+            entries: vec![cx.new(|cx| Entry::new("apps/chat/{id}/", cx))],
             focus_handle: cx.focus_handle(),
         }
     }

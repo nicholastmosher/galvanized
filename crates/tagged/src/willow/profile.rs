@@ -4,13 +4,13 @@ use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity},
     ui::{
-        ActiveTheme as _, Clickable as _, Context, ElementId, FluentBuilder as _, IconButton,
-        IconName, InteractiveElement, IntoElement, ListItem, ParentElement as _, Render,
-        SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+        ActiveTheme as _, Context, ElementId, FluentBuilder as _, IconButton, IconName,
+        InteractiveElement, IntoElement, ListItem, ParentElement as _, Render, SharedString,
+        StatefulInteractiveElement as _, Styled as _, Window, div,
     },
 };
 
-use crate::willow::{ButtonInput, WillowExt as _, space::Space};
+use crate::willow::{ButtonInput, WillowExt as _, button_input::render_icon_button, space::Space};
 
 #[derive(Clone)]
 #[non_exhaustive]
@@ -153,9 +153,12 @@ impl Profile {
     /// Render the namespaces bar for one user.
     fn render_namespaces_bar(
         &mut self,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let add_namespace_button =
+            render_icon_button("create-namespace-mini-button", IconName::Plus, window, cx);
+
         div()
             .p_2()
             .flex()
@@ -195,28 +198,28 @@ impl Profile {
                     div()
                         //
                         .id("create-namespace-mini")
-                        .p_4()
-                        .border_1()
-                        .rounded_lg()
+                        .flex()
+                        .flex_row()
+                        .text_center()
                         .justify_center()
+                        .border_2()
+                        .border_dashed()
                         .border_color(cx.theme().colors().border.opacity(0.6))
+                        .rounded_sm()
                         .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                         .hover(|style| {
                             style
                                 .bg(cx.theme().colors().ghost_element_hover)
                                 .border_color(cx.theme().colors().border.opacity(1.0))
                         })
-                        .child(
-                            IconButton::new("create-namespace-mini-icon", IconName::Plus).on_click(
-                                cx.listener(|this, _event, window, cx| {
-                                    info!("Clicked Create Namespace");
-                                    this.create_space.update(cx, |this, cx| {
-                                        this.fresh_input(window, cx);
-                                        cx.notify();
-                                    });
-                                }),
-                            ),
-                        ),
+                        .child(add_namespace_button)
+                        .on_click(cx.listener(|this, _event, window, cx| {
+                            info!("Clicked Create Namespace");
+                            this.create_space.update(cx, |this, cx| {
+                                this.fresh_input(window, cx);
+                                cx.notify();
+                            });
+                        })),
                 )
             })
     }
