@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
-
+use schemars::{JsonSchema, schema_for};
+use serde::{Deserialize, Serialize};
 use zed::unstable::{
     gpui::{self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, actions},
     ui::{
@@ -12,14 +12,19 @@ use zed::unstable::{
     },
 };
 
+use crate::willow::WillowModel;
+
 actions!(workspace, [ToggleContactsPanel]);
 
 // #[derive(WillowModel)]
-#[derive(JsonSchema)]
+impl WillowModel for Contact {}
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Contact {
     // #[willow(path = "/apps/contacts/entities/name")]
+    #[serde(rename = "name.txt")]
     name: String,
     // #[willow(path = "/apps/contacts/entities/key")]
+    #[serde(rename = "keys/key.txt")]
     key: String,
 }
 
@@ -35,96 +40,8 @@ impl Contact {
     }
 }
 
-/// A Willow Entity is a handle representing an object with a well-known type
-///
-/// To be a somewhat complete and well-addressed handle, a WillowEntity includes
-/// information about the namespace and subspace of the underlying Entry.
-///
-/// So an Entity is like an address/handle for an Area, so it's defined by its
-/// namespace, subspace, and path prefix (directory). The definition of a Willow
-/// Area also includes a time range, I want to think about how to represent time
-/// in a dedicated brainstorm.
-///
-/// - Area in the spec has `subspace_id: SubspaceId | any`, which implies an
-///   arbitrary restriction in the expressiveness of the API. I think it should
-///   easily be possible to specify a list of subspaces we're interested in.
-struct WillowEntity<T: WillowModel> {
-    _phantom: PhantomData<T>,
-}
-
-struct WillowContext<T> {
-    _phantom: PhantomData<T>,
-}
-
-impl<T: WillowModel> WillowEntity<T> {
-    fn read(&self, cx: &mut WillowContext<T>) -> Option<&T> {
-        None
-    }
-}
-
-// WillowComponent?
-// WillowSpec
-// WillowArea
-// WillowModel <-- expresses paths to multiple files, typed extractors
-// - Model would refer to a multi-"file" data construction which is located
-//   at a path and described by the set of files the model refers to, as well
-//   as the types of those files.
-use schemars::JsonSchema;
-trait WillowModel: Sized + JsonSchema {
-    // uhhh, does it matter that Sized was required to be here? fuzzy on Sized details...
-
-    fn model() -> Schema<Self>;
-}
-impl WillowModel for () {
-    fn model() -> Schema<Self> {
-        SchemaBuilder::new().finish()
-    }
-}
-impl WillowModel for String {
-    fn model() -> Schema<Self> {
-        SchemaBuilder::new().finish()
-    }
-}
-impl WillowModel for Contact {
-    fn model() -> Schema<Self> {
-        // TODO: derive trait impl
-        SchemaBuilder::new()
-            .field::<String>("name")
-            .field::<String>("key")
-            .finish()
-    }
-}
-
-/// Schema of a `T`
-struct Schema<T: WillowModel = ()> {
-    _phantom: PhantomData<T>,
-}
-struct SchemaBuilder {
-    //
-}
-impl SchemaBuilder {
-    fn new() -> Self {
-        SchemaBuilder {}
-    }
-    fn field<T: WillowModel>(mut self, name: &str) -> Self {
-        self
-    }
-
-    fn finish<T: WillowModel>(&self) -> Schema<T> {
-        Schema {
-            //
-            _phantom: PhantomData,
-        }
-    }
-}
-struct AnySchema {} // Type-erased schema
-struct Entry; // stand-in for Willow Entry (as per spec)
-trait FromEntry {
-    fn from_entry(entry: Entry) -> Self;
-}
-
 impl Render for Contact {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             //
             .p_2()
@@ -143,6 +60,14 @@ impl Render for Contact {
                 //
                 div().child(format!("Key: {}", self.key)),
             )
+            // schema
+            .child(
+                //
+                div().child(format!(
+                    "Schema: {}",
+                    serde_json::to_value(schema_for!(Self)).unwrap(),
+                )),
+            )
     }
 }
 
@@ -151,6 +76,20 @@ pub struct Contacts {
     contacts: Vec<Entity<Contact>>,
     focus_handle: FocusHandle,
     width: Option<Pixels>,
+}
+
+trait Feed {
+    type Item;
+    fn feed(&self) -> impl IntoIterator<Item = Self::Item>;
+}
+
+// Contacts is a feed of `Contact`s.
+impl Feed for Contacts {
+    type Item = Entity<Contact>;
+    /// Feed of internal objects provided by implementor
+    fn feed(&self) -> impl IntoIterator<Item = Self::Item> {
+        []
+    }
 }
 
 impl Contacts {
