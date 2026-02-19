@@ -2,6 +2,290 @@
 
 # 2026 Feb 18
 
+How about: a tour of the codebase and a quick story about how this started
+and how far it's come.
+
+Firstly, the way I've been conducting this project is to just make a crate
+and jam on it, trying experiments and iterating design attempts and going
+with the flow. I try not to interrupt an idea when I'm having it, so if I
+eventually hit a dead end, I'll just create a new crate to act as the top
+level app. But GPUI kind of makes this into a strengh as well, because I
+can keep any successful reusable components, such as UI elements.
+
+> future me: I got into the conceptual weeds, but I wanted to mostly point
+> out which code is recent and which is older:
+>
+> - `crates/tagged`: The (as of now) most recent iteration, and looking to
+>   become top-level app integration point. I'm thinking that `tagged` is
+>   a good name to stick with, I'll have to see if there's any reason not
+>   - However, this one started out called `iroh-ui`, and was an iroh-heavy
+>     experiment. Iroh worked pretty well! Relaying works out of the box,
+>     but mdns still didn't work for me. I think I've messed up some local
+>     network setting by installing things like docker and VMs.
+>
+> - `crates/willow-api-derive`: This one needed to be a separate crate due
+>   to being a proc macro, but I didn't end up actually needing it yet. I
+>   left the crate just to be a set-up scratchpad for when I do need macros.
+>
+> - `crates/libp2p-ui`: I was investigating `libp2p` as a potential p2p
+> solution, but it felt a bit clunky to use its API in GPUI, so I dropped it.
+>
+> - `crates/iroh-automerge`: This was the first time I'd played with Iroh,
+>   but I think I also didn't know what I was doing with GPUI yet, so I was
+>   getting bogged down trying to do p2p but not knowing how to render what
+>   the state of everything was.
+>
+> - `willow-rummager`: I think when I first made this repo was back when the
+>   Willow crew was talking about doing a general-purpose explorer-type app.
+>   I don't want to step on their toes with naming though, so I've decided
+>   to name this app something different.
+
+
+Ok, so I'll say I've been thiniking about this project for several years
+now, but until about one year ago, I'd mostly felt that I didn't have good
+enough foundations in all the tech that'd be needed. So I've been trying to
+follow and learn over time, checking out different p2p, crdt, and UI crates
+over the years.
+
+So sometime last year, I started really diving into Zed's source to try to
+learn about it. I'd been using Zed for some time and was highly impressed
+with it, and the codebase is spectacular and makes me appreciate the project
+that much more. The base patterns established by GPUI are so buttery smooth
+to work with: when I'm creating a component, it's starting with a rectangle
+and dividing inward. Using a tailwind DSL as the styling system was such a
+brilliant move, it's so easy to make "good enough" UI by just chaining a
+bunch of calls together.
+
+At some point, when I was poking around `App` to see how it worked, I noticed
+that the base structure of GPUI is essentially the same as Bevy's, where there's
+one central `App`, and all of the app's state and behavior get installed to it.
+In Bevy, they talk about how almost all of the functionality of the game engine
+itself is defined as plugins, rather than being baked in as a native or intrinsic
+behavior of the system. I think Bevy's entity system and scheduler are two
+examples of "inherent" `App` behavior. I have definitely thought a lot about
+whether it could be possible to make Bevy and Zed compose with each other, though
+I haven't figured that out yet.
+
+One of the great things about `Bevy`'s plugins is that they can be published as
+crates, and installed into other applications. For example, a camera control
+library could be written once but used in many applications. So there becomes an
+inherent incentive for the community to build and share plugins, because it
+raises the ceiling for future projects because of being able to reuse prior
+solutions.
+
+How does Bevy's composition work, and then what is similar about Zed's patterns?
+
+In Bevy, a small app might look like this:
+
+```rust
+use bevy::prelude::*;
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(TagPlugin)
+        .run();
+}
+
+struct TagPlugin;
+impl Plugin for TagPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(NextTag(0.into()));
+        app.add_systems(Startup, startup_system);
+    }
+}
+
+#[derive(Component)]
+struct Tag(u64);
+
+#[derive(Resource)]
+struct NextTag(AtomicU64);
+
+fn startup_system(mut commands: Commands, next: Res<NextTag>) {
+    // Create a first tag entity at startup
+    commands.spawn(Tag(next.next()));
+}
+```
+
+I personally _love_ Bevy's API, I've been being inspired by it for years now,
+even though I've really never done an extended project with Bevy (lots of tiny ones).
+
+So let me point out some patterns I think are super neat and deceptively powerful.
+
+- The `App` is a container where all of the state and behavior live.
+  - Imagine an infite filing cabinet, with a way to put or interact with things
+    in each drawer.
+  - Each drawer is an Entity, and each drawer may have zero or one Component of any type.
+- There are two notable kinds of state management, Resources and Components.
+  - There may be more, my knowledge of Bevy is very incomplete
+- Resources are single values, and are looked up by their type. They are effectively
+  the same thing as Zed's `Global`s.
+- Components are pieces of data that can be attached to an Entity. Component data
+  is stored in some internal representation within `App`.
+
+- (some of) Bevy's behavior is expressed as "Systems", which are functions that run
+  once per frame of the game (or some schedule).
+- Systems use the "magic function" pattern, which can be seen elsewhere such as axum
+  and actix-web. In Bevy, systems are just functions, and they define inputs and outputs.
+  The cool part is that by changing the shape of a system, such as by adding another
+  expected input, the App API `.add_systems(magic_function)`, through some trait magic,
+  will effectively derive a plan for querying the inputs you asked for from the central
+  App state (the `World`, in Bevy) and passing those inputs to your system when it's
+  time to run.
+
+Ok, so to summarize, Bevy has a bunch of cool APIs that allow for installing state and
+behavior into the `App`, which then schedules and executes that behavior, calling the
+magic system functions with references to the data it queried by just defining its own
+inputs. In one little API, there's separation of state and behavior, composition of
+common behavior as Plugins, and the ability to control the scheduling of the behavior.
+
+Now, let's look at what we see in Zed:
+
+Zed also uses what I like to call the "Global Context" pattern, because it has an `App`
+and all of the state and behavior of the application get installed into it. Unfortunately,
+Zed is lacking a Plugin API, and therefore has what I consider to be a composition
+problem. I'll talk more about that later, but TLDR I have a fork of Zed which is very
+minimal but completely solves the problem and unlocks the composition I want.
+
+So what does Zed's state management story look like? It has two primitives (that I know),
+which are `Global`s and `Entity<T>`s. As I mentioned before, Zed `Global`s are about
+equivalent to Bevy's `Resource`s in that up to 1 instance of any type held in the context.
+`Global`s and `Resource`s also each provide APIs that use the _type_ of the singleton state
+stored in the context. In other words, they both offer access by type-lookup.
+
+`Entity<T>` is the solution for storing zero-to-many instances of a kind of state. The
+only requirement is `T: 'static`, consider it to be living in a hashmap where `Entity<T>`
+is the key.
+
+One of the key units of behavioral composition in GPUI happens when you have an `Entity<T>`
+and know traits implemented by `T`, such as `Render`. When this is the case, the `Entity<T>`
+handle can be used directly as a visual object.
+
+Let's jump into some code to see how it works. In this codebase, I'm depending on my fork
+of Zed where this is possible:
+
+```rust
+fn main() {
+    Application::new()
+        .add_plugins(zed::init)
+        .add_plugins(tagged::init)
+        .run();
+}
+```
+
+This effectively allows me to build in a GPUI app that is
+- 1) the entire Zed application (GPL3! <3), and
+- 2) additionally whatever I stuff into the `App`.
+
+The typical Zed "plugin" starts with `fn init(cx: &mut App) {}`. For most of my experiments,
+I've wanted to be able to create custom UI, and the best starting points for me have been
+to implement the Zed `Workspace`'s `Panel` and `Item` traits. Panels live in the side or bottom
+docks, including views like `ProjectPanel`, `CollabPanel`, or `OutlinePanel`. Items fill the
+main content window, like when you open a file to edit in Zed.
+
+For this example, I'll show how to make a custom Panel, then how to integrate it into `Workspace`
+using it's already-existing APIs, no modification to workspace source needed.
+
+```rust
+use gpui::*;
+
+fn init(cx: &mut App) {
+    // To instantiate a new Entity, we use `cx.new`.
+    // The returned value is the Entity handle that we can use to look up or edit that state later.
+    let chat_ui: Entity<ChatUi> = cx.new(|cx| ChatUi::new(cx));
+    
+    cx.observe_new({
+        let willow_ui = willow_ui.clone();
+        move |workspace: &mut Workspace, window, cx| {
+            let Some(window) = window else {
+                warn!("WillowUi: no Window in Workspace");
+                return;
+            };
+            
+            // Add panel to Workspace, then immediately toggle it open
+            // Note: It appears that Workspace panels are limited to one per type
+            workspace.add_panel(chat_ui.clone(), window, cx);
+            workspace.toggle_panel_focus::<ChatUi>(window, cx);
+        }
+    });
+}
+
+struct ChatUi {
+    focus_handle: FocusHandle,
+}
+
+impl ChatUi {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        //
+        Self {
+            focus_handle: cx.focus_handle(),
+        }
+    }
+}
+
+impl Item for ChatUi {
+    // ...
+}
+impl Focusable for ChatUi {
+    fn focus_handle(&self) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+impl EventEmitter<PanelEvent> for ChatUi {}
+impl Render for ChatUi {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        div()
+            .child()
+            .child()
+    }
+}
+
+// There's some more to this example to make it work but this is a good illustration
+```
+
+So while Bevy and Zed have several distinctions and specializations to their domain,
+their pattern of composition is (in an abstract way) very similar.
+
+- They each embed their state in the "global context" (`App`)
+- They each have a lifecycle and call the installed behavior on-demand
+  - For Bevy this is a runloop, as a game engine, but
+  - For Zed this is more like a Browser-style element tree with event
+    propagation and callbacks.
+
+There's a lot more to talk about with regard to the development experience from
+within Zed, all good things. The design choices make it such a breeze to visually
+design a representation of the inner state, while Entity handles allow for a cheap
+and flexible way to pass state between contexts or to new components.
+
+---
+
+- Split Profile, Space, ButtonInput, ObjectWidget to separate modules
+  - GPUI is so good at composition
+
+- Chat as an instantiation of a more general feed, maybe `Feed<Chat>`
+  - Feed could provide container-level common behavior, such as scrolling
+    or animations.
+
+---
+
+- Portable private key, e.g. yubikey, allows logging in to any peer's
+  "browser". The private key can generate the public key, and then perhaps
+  there's a p2p layer that indexes nodes on the network according to their
+  key and then allows lookup of any nodes hosting your key's content.
+
+- So effectively if you leave your home computer on, and go to a friend's
+  and use their laptop and the yubikey, you'd expect to find a path to your
+  home node, or potentially any node that may be replicating data belonging to
+  your key.
+
+- Imagine your family's nodes have a "pull" permission to replicate a
+  designated "backup" folder (or tag of folders) of yours, without you needing
+  to give them any access to the contents.
+  - Logging onto a new node via yubikey could sync the nearest copy of your
+    namespaces to you.
+
+---
+
 - Need to do some solid coding, I have enough ideas to work with
 - Contacts & Chat UI (peers/nodes UI?)
 - Simple impl of Willow store API in-memory for testing? Would be nice
