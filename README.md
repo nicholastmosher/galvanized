@@ -1,5 +1,17 @@
 # Project
 
+# 2026 Feb 19
+
+Todo
+
+- Chat use-case
+- Need to instantiate new chat. How to go from 0 to 1 chat-feed objects?
+- Profile > Space > Directory-to-chat-data > chat room (feed) id > objects
+- In Path view, at the bottom in a dashed rounded box (like ButtonInput),
+  have row of "create object" buttons, based on the object types registered
+  by all installed plugins.
+- Bet
+
 # 2026 Feb 18
 
 How about: a tour of the codebase and a quick story about how this started
