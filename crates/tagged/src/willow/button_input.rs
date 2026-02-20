@@ -22,20 +22,6 @@ pub struct ButtonInput {
     on_submit: Option<Rc<dyn Fn(&mut Self, String, &mut Window, &mut Context<Self>)>>,
 }
 
-impl Component for ButtonInput {
-    fn preview(_window: &mut Window, cx: &mut App) -> Option<gpui::AnyElement> {
-        let ui = cx.new(|cx| {
-            Self::new("sample", "Sample".into(), cx)
-                .placeholder_text("Input here")
-                .on_submit(|_this, _text, _window, _cx| {
-                    info!("Sample OnClick");
-                })
-        });
-        let container = div().p_2().child(ui);
-        Some(container.into_any_element())
-    }
-}
-
 impl ButtonInput {
     pub fn new(id: impl Into<ElementId>, name: SharedString, _cx: &mut Context<Self>) -> Self {
         Self {
@@ -236,4 +222,18 @@ pub fn render_icon_button<T>(
             IconButton::new(SharedString::from(format!("{id}/icon")), icon)
                 .icon_size(IconSize::Custom(Rems(1.5))),
         )
+}
+
+impl Component for ButtonInput {
+    fn preview(_window: &mut Window, cx: &mut App) -> Option<gpui::AnyElement> {
+        let ui = cx.new(|cx| {
+            Self::new("sample", "Sample".into(), cx)
+                .placeholder_text("Input here")
+                .on_submit(|_this, _text, _window, _cx| {
+                    info!("Sample OnClick");
+                })
+        });
+        let container = div().p_2().child(ui);
+        Some(container.into_any_element())
+    }
 }

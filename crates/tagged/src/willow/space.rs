@@ -25,16 +25,24 @@
 
 use std::fmt::Display;
 
+use tracing::warn;
 use zed::unstable::{
     gpui::{AppContext as _, Entity, EventEmitter, FocusHandle, Focusable},
     ui::{
         App, Context, IntoElement, ListItem, ParentElement as _, Render, SharedString, Styled as _,
         Window, div,
     },
-    workspace::Item,
+    workspace::{Item, Workspace},
 };
 
+use crate::{chat::ChatUi, willow::button_input::ButtonInput};
+
 pub struct Space {
+    chats: Vec<Entity<ChatUi>>,
+
+    ///
+    create_chat: Entity<ButtonInput>,
+
     /// The user-displayed name of the space.
     name: String,
 
@@ -61,6 +69,9 @@ impl Render for Space {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             //
+            .debug()
+            .flex()
+            .flex_col()
             .children(self.entries(cx).into_iter().enumerate().map(|(i, entry)| {
                 //
                 ListItem::new(SharedString::from(format!("ns-entry-{i}")))
@@ -73,13 +84,54 @@ impl Render for Space {
                             .child(format!("{}/{:?}", self.name(), entry)),
                     )
             }))
+            .child(
+                //
+                self.create_chat.clone(),
+            )
     }
 }
 
 impl Space {
     pub fn new(name: impl Into<String>, cx: &mut Context<Self>) -> Self {
+        let name = name.into();
+        let weak_space = cx.weak_entity();
+        let create_chat = cx.new(|cx| {
+            ButtonInput::new(
+                SharedString::from(format!("create-chat-{name}")),
+                "+ Chat".into(),
+                cx,
+            )
+            .on_submit(move |this, text, _window, cx| {
+                let Some(space) = weak_space.upgrade() else {
+                    warn!("Weak space");
+                    return;
+                };
+
+                // let chat_ui = cx.new(|cx| ChatUi::new(text, cx));
+                // space.update(cx, |space, _cx| {
+                //     space.chats.push(chat_ui);
+                // });
+
+                // let workspace = workspace.clone();
+                // workspace.update(cx, |workspace, cx| {
+                //     workspace.add_item_to_active_pane(
+                //         Box::new(chat_ui),
+                //         Some(0),
+                //         false,
+                //         window,
+                //         cx,
+                //     );
+                // });
+
+                this.clear();
+                cx.notify();
+            })
+        });
+
         Self {
-            name: name.into(),
+            chats: Default::default(),
+            create_chat,
+            name,
             // entries: Default::default(),
             entries: vec![cx.new(|cx| Entry::new("apps/chat/{id}/", cx))],
             focus_handle: cx.focus_handle(),

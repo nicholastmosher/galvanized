@@ -28,43 +28,40 @@ pub mod space;
 actions!(willow, [ToggleWillowPanel]);
 
 pub fn init(cx: &mut App) {
-    let store_path = paths::data_dir();
-    let willow = Willow::new(store_path, cx);
-    cx.set_global(GlobalWillow(willow));
+    cx.observe_new(move |workspace: &mut Workspace, window, cx| {
+        let Some(window) = window else {
+            warn!("WillowUi: no Window in Workspace");
+            return;
+        };
 
-    let willow_ui = cx.new(|cx| WillowUi::new(cx.willow(), cx));
-    cx.observe_new({
-        let willow_ui = willow_ui.clone();
-        move |workspace: &mut Workspace, window, cx| {
-            let Some(window) = window else {
-                warn!("WillowUi: no Window in Workspace");
-                return;
-            };
+        // Save workspace handle
+        let workspace_entity = cx.entity();
 
-            // Save workspace handle
-            let workspace_handle = cx.entity();
-            willow_ui.update(cx, |ui, cx| {
-                ui.willow.state.update(cx, |state, _cx| {
-                    state.workspace = Some(workspace_handle);
-                })
-            });
+        let store_path = paths::data_dir();
+        let willow = Willow::new(store_path, cx);
+        cx.set_global(GlobalWillow(willow));
+        let willow_ui = cx.new(|cx| WillowUi::new(cx.willow(), workspace_entity.clone(), cx));
 
-            workspace.add_panel(willow_ui.clone(), window, cx);
-            workspace.toggle_panel_focus::<WillowUi>(window, cx);
-        }
+        workspace.add_panel(willow_ui.clone(), window, cx);
+        workspace.toggle_panel_focus::<WillowUi>(window, cx);
     })
     .detach();
 }
 
+// Meta-object that coordinates all components tied to a given Willow store?
+//
+// In other words, actual UI components hold an entity to this to look up the
+// coordinated visual state
 pub struct WillowUi {
+    create_profile: Entity<ButtonInput>,
     focus_handle: FocusHandle,
     width: Option<Pixels>,
     willow: Willow,
-    create_profile: Entity<ButtonInput>,
+    workspace: Entity<Workspace>,
 }
 
 impl WillowUi {
-    fn new(willow: Willow, cx: &mut Context<Self>) -> Self {
+    fn new(willow: Willow, workspace: Entity<Workspace>, cx: &mut Context<Self>) -> Self {
         let create_profile = cx.new(|cx| {
             ButtonInput::new("create-profile-input", "+ Profile".into(), cx)
                 .placeholder_text("Profile name")
@@ -78,11 +75,13 @@ impl WillowUi {
                     }
                 })
         });
+
         Self {
+            create_profile,
             focus_handle: cx.focus_handle(),
             width: None,
             willow,
-            create_profile,
+            workspace,
         }
     }
 }
@@ -183,7 +182,6 @@ struct WillowState {
     /// Payloads in simple impl are just bytes
     paths: HashMap<String, Vec<u8>>,
     profiles: Vec<Entity<Profile>>,
-    workspace: Option<Entity<Workspace>>,
 }
 
 impl Willow {
@@ -194,12 +192,15 @@ impl Willow {
         willow
     }
 
-    fn create_space(&mut self, name: String, cx: &mut App) -> Entity<Space> {
-        let namespace = cx.new(|cx| Space::new(name, cx));
-        self.state.update(cx, |state, _cx| {
-            state.spaces.push(namespace.clone());
-        });
-        namespace
+    /// Returns None if no workspace is available
+    ///
+    /// Otherwise, creates a new Space as a workspace item
+    fn create_space(&mut self, name: String, cx: &mut App) -> Option<Entity<Space>> {
+        self.state.update(cx, |state, cx| {
+            let space = cx.new(|cx| Space::new(name, cx));
+            state.spaces.push(space.clone());
+            Some(space)
+        })
     }
 
     fn create_profile(
@@ -254,26 +255,10 @@ impl WillowState {
         let spaces = vec![
             cx.new(|cx| {
                 let mut space = Space::new("Home".to_string(), cx);
-                space.create_entry("entry/0".to_string(), cx);
-                space.create_entry("entry/1".to_string(), cx);
-                space.create_entry("entry/2".to_string(), cx);
-                space.create_entry("entry/3".to_string(), cx);
                 space
             }),
             cx.new(|cx| {
                 let mut space = Space::new("Family".to_string(), cx);
-                space.create_entry("entry/4".to_string(), cx);
-                space.create_entry("entry/5".to_string(), cx);
-                space.create_entry("entry/6".to_string(), cx);
-                space.create_entry("entry/7".to_string(), cx);
-                space
-            }),
-            cx.new(|cx| {
-                let mut space = Space::new("Work".to_string(), cx);
-                space.create_entry("entry/8".to_string(), cx);
-                space.create_entry("entry/9".to_string(), cx);
-                space.create_entry("entry/10".to_string(), cx);
-                space.create_entry("entry/11".to_string(), cx);
                 space
             }),
         ];
@@ -283,22 +268,13 @@ impl WillowState {
                 let mut profile = Profile::new("profile-0".into(), "Profile 0".to_string(), cx);
                 profile.join_space(spaces[0].clone());
                 profile.join_space(spaces[1].clone());
-                profile.join_space(spaces[2].clone());
                 profile.active_space = Some(spaces[0].clone());
                 profile
             }),
             cx.new(|cx| {
                 let mut profile = Profile::new("profile-1".into(), "Profile 1".to_string(), cx);
                 profile.join_space(spaces[0].clone());
-                profile.join_space(spaces[1].clone());
                 profile.active_space = Some(spaces[0].clone());
-                profile
-            }),
-            cx.new(|cx| {
-                let mut profile = Profile::new("profile-2".into(), "Profile 2".to_string(), cx);
-                profile.join_space(spaces[1].clone());
-                profile.join_space(spaces[2].clone());
-                profile.active_space = Some(spaces[1].clone());
                 profile
             }),
         ];
@@ -308,7 +284,6 @@ impl WillowState {
             store_path,
             paths: Default::default(),
             profiles,
-            workspace: Default::default(),
         }
     }
 }
