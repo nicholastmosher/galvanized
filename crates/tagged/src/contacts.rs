@@ -30,7 +30,7 @@ pub struct Contact {
 
 impl Contact {
     //
-    pub fn new(name: String, key: String, cx: &mut Context<Self>) -> Self {
+    pub fn new(name: String, key: String, _cx: &mut Context<Self>) -> Self {
         //
         Self {
             //
@@ -112,7 +112,7 @@ impl Contacts {
 }
 
 impl Render for Contacts {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .debug()
             .p_2()
@@ -126,7 +126,7 @@ impl Render for Contacts {
 }
 
 impl Focusable for Contacts {
-    fn focus_handle(&self, cx: &App) -> FocusHandle {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }

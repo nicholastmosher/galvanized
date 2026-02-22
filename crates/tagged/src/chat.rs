@@ -12,7 +12,7 @@ pub struct Feed<T> {
 
 impl<T> Feed<T> {
     //
-    pub fn new(children: impl IntoIterator<Item = Entity<T>>, cx: &mut Context<Self>) -> Self {
+    pub fn new(children: impl IntoIterator<Item = Entity<T>>, _cx: &mut Context<Self>) -> Self {
         Self {
             //
             children: children.into_iter().collect(),
@@ -21,7 +21,7 @@ impl<T> Feed<T> {
 }
 
 impl<T: Render> Render for Feed<T> {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
             //
             .p_2()
@@ -39,31 +39,22 @@ pub struct ChatBubble {
 }
 
 impl ChatBubble {
-    pub fn new(from: String, message: String, cx: &mut Context<Self>) -> Self {
+    pub fn new(from: String, message: String, _cx: &mut Context<Self>) -> Self {
         Self { from, message }
     }
 }
 
 impl Render for ChatBubble {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
+            .debug()
             //
             .flex()
             .flex_col()
-            // Top bar across bubble
-            .child(
-                div()
-                    //
-                    .w_full(),
-            )
+            .rounded_lg()
             // Bubble body
-            .child(
-                div()
-                    //
-                    .flex_grow()
-                    .child("One")
-                    .child("Two"),
-            )
+            .child(format!("From: {}", self.from))
+            .child(format!("Message: {}", self.message))
     }
 }
 
@@ -75,14 +66,6 @@ pub struct ChatUi {
     chat_feed: Entity<Feed<ChatBubble>>,
     focus_handle: FocusHandle,
     title: String,
-}
-
-impl Render for ChatUi {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            //
-            .child(self.chat_feed.clone())
-    }
 }
 
 impl ChatUi {
@@ -101,8 +84,16 @@ impl ChatUi {
     }
 }
 
+impl Render for ChatUi {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            //
+            .child(self.chat_feed.clone())
+    }
+}
+
 impl Focusable for ChatUi {
-    fn focus_handle(&self, cx: &App) -> zed::unstable::gpui::FocusHandle {
+    fn focus_handle(&self, _cx: &App) -> zed::unstable::gpui::FocusHandle {
         self.focus_handle.clone()
     }
 }
@@ -112,6 +103,6 @@ impl Item for ChatUi {
     type Event = ChatEvent;
 
     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-        "Chat".into()
+        SharedString::from(&self.title)
     }
 }

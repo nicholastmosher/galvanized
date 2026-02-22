@@ -34,7 +34,7 @@ impl ObjectWidget {
     fn render_value(
         &mut self,
         value: &Value,
-        window: &mut Window,
+        _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let it = div();

@@ -260,7 +260,7 @@ impl Willow {
     /// - It's just a folder that holds some kinds of objects
     /// - Like, "put my Chat" objects in "/apps/chat/feeds/family/"
     /// - Oh yeah, call it a feed?
-    pub fn create_feed<T>(&self, path: &str) -> WillowFeed<T> {
+    pub fn create_feed<T>(&self, _path: &str) -> WillowFeed<T> {
         //
         todo!()
     }
@@ -355,7 +355,7 @@ struct WillowContext<T> {
 }
 
 impl<T: WillowModel> WillowEntity<T> {
-    fn read(&self, cx: &mut WillowContext<T>) -> Option<&T> {
+    fn read(&self, _cx: &mut WillowContext<T>) -> Option<&T> {
         None
     }
 }

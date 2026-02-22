@@ -142,25 +142,36 @@ impl Space {
     ) -> Self {
         let name = name.into();
         let space = cx.entity();
-        let create_chat = cx.new(|cx| {
-            ButtonInput::new(
-                SharedString::from(format!("create-chat-{name}")),
-                "+ Chat".into(),
-                cx,
-            )
-            .on_submit(move |this, text, _window, cx| {
-                info!("Submitted +Chat");
+        let create_chat = cx.new({
+            let workspace = workspace.clone();
+            |cx| {
+                ButtonInput::new(
+                    SharedString::from(format!("create-chat-{name}")),
+                    "+ Chat".into(),
+                    cx,
+                )
+                .on_submit(move |this, text, window, cx| {
+                    info!("Submitted +Chat");
 
-                space.update(cx, |space, cx| {
-                    // .. need workspace, or somehow create
+                    space.update(cx, |space, cx| {
+                        let chat = cx.new(|cx| ChatUi::new(text, cx));
+                        workspace.update(cx, |workspace, cx| {
+                            //
+                            space.chats.push(chat.clone());
+                            workspace.add_item_to_active_pane(
+                                Box::new(chat.clone()),
+                                Some(0),
+                                true,
+                                window,
+                                cx,
+                            );
+                        });
+                    });
 
-                    let chat = cx.new(|cx| ChatUi::new(text, cx));
-                    space.chats.push(chat.clone());
-                });
-
-                this.clear();
-                cx.notify();
-            })
+                    this.clear();
+                    cx.notify();
+                })
+            }
         });
 
         Self {
