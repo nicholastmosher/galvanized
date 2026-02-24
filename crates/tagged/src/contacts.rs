@@ -7,7 +7,7 @@ use zed::unstable::{
         Styled as _, Window, div, px,
     },
     workspace::{
-        Panel,
+        Panel, Workspace,
         dock::{DockPosition, PanelEvent},
     },
 };
@@ -15,6 +15,20 @@ use zed::unstable::{
 use crate::willow::WillowModel;
 
 actions!(workspace, [ToggleContactsPanel]);
+
+pub fn init(cx: &mut App) {
+    cx.observe_new(|workspace: &mut Workspace, window, cx| {
+        let Some(window) = window else { return };
+        //
+        let panel_ui = cx.new(|cx| Contacts::new(cx));
+
+        workspace.add_panel(panel_ui, window, cx);
+        workspace.register_action(|workspace, _: &ToggleContactsPanel, window, cx| {
+            workspace.toggle_panel_focus::<Contacts>(window, cx);
+        });
+    })
+    .detach();
+}
 
 // #[derive(WillowModel)]
 impl WillowModel for Contact {}
@@ -116,6 +130,7 @@ impl Render for Contacts {
         div()
             .debug()
             .p_2()
+            .gap_2()
             .flex()
             .flex_col()
             .children(self.contacts.iter().map(|contact| {

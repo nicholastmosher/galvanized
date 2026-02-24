@@ -107,14 +107,14 @@ impl Render for ChatUi {
                     // "OneKey": "OneValue",
                     "One": {
                         "One.One": "11",
-                        "One.Two": [
-                            "One.Two.One",
-                            "One.Two.Two",
-                            "One.Two.Three",
-                        ]
+                        // "One.Two": [
+                        //     "One.Two.One",
+                        //     "One.Two.Two",
+                        //     "One.Two.Three",
+                        // ]
                     // },
-                    // "Two": 2,
-                    // "Three": 3,
+                    "Two": 2,
+                    "Three": 3,
                     // "Four": {
                     //     "FourOne": "41",
                     //     "FourTwo": "42",

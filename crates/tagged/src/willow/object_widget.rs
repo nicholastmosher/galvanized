@@ -5,15 +5,10 @@ use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity},
     ui::{
-        ActiveTheme, App, Context, FluentBuilder, InteractiveElement, IntoElement,
-        ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
-        Window, div,
+        ActiveTheme, Context, FluentBuilder, InteractiveElement, IntoElement, ParentElement as _,
+        Render, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
     },
 };
-
-// fn init(cx: &mut App) {
-//     // let _widget = cx.new(|cx| ObjectWidget::new(json!({}), cx));
-// }
 
 pub struct ObjectWidget {
     //
@@ -40,10 +35,31 @@ impl JsonPath {
     }
 }
 
+impl std::fmt::Display for JsonPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let path = self
+            .path
+            .iter()
+            .map(|it| it.to_string())
+            .collect::<Vec<_>>()
+            .join("/");
+        write!(f, "{path}")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum JsonIndex {
     Key(String),
     Number(usize),
+}
+
+impl std::fmt::Display for JsonIndex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            JsonIndex::Key(key) => write!(f, "{key}"),
+            JsonIndex::Number(n) => write!(f, "{n}"),
+        }
+    }
 }
 
 impl From<usize> for JsonIndex {
@@ -124,11 +140,70 @@ impl Render for ObjectWidget {
                             .p_2()
                             .child("Object Header".to_string()),
                     )
+                    // .child(self.render_value(&value, window, cx)),
                     .child(self.render_value(&value, window, cx)),
             )
     }
 }
 
+// Attempt 2:
+impl ObjectWidget {
+    //
+    fn render_value2(
+        &mut self,
+        value: &Value,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let path = self.current_path.to_string();
+
+        let active_color = cx.theme().colors().ghost_element_active;
+        let hover_bg_color = cx.theme().colors().ghost_element_hover;
+        let hover_border_color = cx.theme().colors().border.opacity(1.0);
+
+        //
+        let base = div()
+            //
+            .id(SharedString::from(format!("{path}-container")))
+            .w_full()
+            .p_2()
+            .flex()
+            .flex_row()
+            .active(|style| style.bg(active_color))
+            .hover(|style| style.bg(hover_bg_color).border_color(hover_border_color));
+
+        // match value {
+        //     Value::Null => todo!(),
+        //     Value::Bool(_) => todo!(),
+        //     Value::Number(number) => todo!(),
+        //     Value::String(_) => todo!(),
+        //     Value::Array(values) => todo!(),
+        //     Value::Object(map) => todo!(),
+        // }
+        base
+            //
+            .on_click(cx.listener(|this, event, window, cx| {
+                info!("Clicked kv");
+                //
+            }))
+            .child(
+                //
+                div()
+                    //
+                    .flex_1()
+                    .child("Key"),
+            )
+            .child(
+                //
+                div()
+                    //
+                    .flex_1()
+                    .child("Value"),
+            )
+    }
+}
+
+// Attempt 1:
 impl ObjectWidget {
     fn value_text_preview(&mut self, value: &Value) -> String {
         match value {
@@ -212,60 +287,59 @@ impl ObjectWidget {
 
         div()
             //
-            .flex()
-            .flex_col()
             .children(map.iter().enumerate().map(|(i, (key, value))| {
-                // foreach kv (entire row)
                 div()
-                    .debug()
-                    // TODO better IDs
-                    .id(SharedString::from(format!("object_widget-{i}")))
-                    .w_full()
                     .flex()
-                    .flex_row()
-                    .on_click({
-                        let key = key.clone();
-                        let value = value.clone();
-                        cx.listener(move |this, _event, _window, _cx| {
-                            //
-                            info!("Clicked KV ({key}, {value})");
-                            this.path_state().open = !this.path_state().open;
-                        })
-                    })
-                    .active(|style| style.bg(active_color))
-                    .hover(|style| style.bg(hover_bg_color).border_color(hover_border_color))
+                    .flex_col()
+                    // This kv
                     .child(
+                        // foreach kv (entire row)
                         div()
-                            //
-                            .p_2()
-                            .flex_1()
-                            // .flex_initial()
-                            .child(format!("Key: {key}")),
-                    )
-                    // .when(!self.path_state().open, |it| {
-                    //     //
-                    //     it
-                    //         //
-                    //         .p_2()
-                    //         .flex_1()
-                    //         .child(self.value_text_preview(value))
-                    // })
-                    // When this key/value is open, render inner
-                    // .when(self.path_state().open, |stateful_div| {
-                    //
-                    .child(self.visiting(
-                        JsonIndex::Key(key.to_string()),
-                        window,
-                        cx,
-                        move |this, window, cx| {
-                            //
-                            div()
+                            .debug()
+                            // TODO better IDs
+                            .id(SharedString::from(format!(
+                                "object_widget-{i}-{key}-{value}"
+                            )))
+                            .w_full()
+                            .flex()
+                            .flex_row()
+                            .on_click({
+                                let key = key.clone();
+                                let value = value.clone();
+                                cx.listener(move |this, _event, _window, _cx| {
+                                    //
+                                    info!("Clicked KV ({key}, {value})");
+                                    this.path_state().open = !this.path_state().open;
+                                })
+                            })
+                            .active(|style| style.bg(active_color))
+                            .hover(|style| {
+                                style.bg(hover_bg_color).border_color(hover_border_color)
+                            })
+                            // Row left child
+                            .child(
+                                div()
+                                    //
+                                    .p_2()
+                                    .flex_1()
+                                    // .flex_initial()
+                                    .child(format!("Key: {key}")),
+                            )
+                            // Row left child
+                            .child(
                                 //
-                                .child(this.render_value(value, window, cx))
-                        },
-                    ))
-
-                // })
+                                div().p_2().flex_1().child(self.value_text_preview(value)),
+                            ),
+                    )
+                    .when(self.path_state().open, |this| {
+                        this
+                            // Children, if any
+                            .debug()
+                            .child(
+                                //
+                                self.render_value(value, window, cx),
+                            )
+                    })
             }))
     }
 

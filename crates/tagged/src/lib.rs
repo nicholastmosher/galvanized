@@ -16,6 +16,7 @@ mod willow;
 // mod willow_whimsy;
 
 pub fn init(cx: &mut App) {
+    contacts::init(cx);
     iroh_panel_ui::init(cx);
     iroh_topic_chat_ui::init(cx);
     willow::init(cx);

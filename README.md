@@ -2,6 +2,21 @@
 
 # 2026 Feb 23
 
+> pm
+
+- Maybe work on Object rendering
+- Maybe work on cleaning up data modeling interface?
+- Goal is an interface that allows one data definition
+  to be used across UI and storage (and maybe remotes)
+- aside: `trait ContentAddressable { type Address; fn address(&self) -> Result<Self::Address>; }`
+- Some UI trait describing typical CRDT workflows, to auto-translate CRDT operations
+  (abstractly/generically) into UI wrapping/decoration
+- Try to make a glue between UI and data that makes a visual language for data
+
+# 2026 Feb 23
+
+> am
+
 - Working on ObjectWidget
 - Want to make a generic interface to bridge with CRDTS
   - Get live dynamic rendering of CRDT data
