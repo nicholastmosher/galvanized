@@ -286,15 +286,25 @@ impl ObjectWidget {
                             .hover(|style| {
                                 style.bg(hover_bg_color).border_color(hover_border_color)
                             })
-                            .child(div().p_2().map(|this| {
-                                let open = self.path_state().open;
-                                let icon_name = if open {
-                                    IconName::ChevronDown
-                                } else {
-                                    IconName::ChevronRight
-                                };
-                                this.child(Icon::new(icon_name))
-                            }))
+                            .child(
+                                div()
+                                    //
+                                    .p_2()
+                                    .child(Icon::new(if self.path_state().open {
+                                        IconName::ChevronDown
+                                    } else {
+                                        IconName::ChevronRight
+                                    })),
+                            )
+                            // .child(div().p_2().map(|this| {
+                            //     let open = self.path_state().open;
+                            //     let icon_name = if open {
+                            //         IconName::ChevronDown
+                            //     } else {
+                            //         IconName::ChevronRight
+                            //     };
+                            //     this.child(Icon::new(icon_name))
+                            // }))
                             // Row left child
                             .child(
                                 div()
@@ -348,14 +358,22 @@ impl ObjectWidget {
                     .p_2()
                     .flex()
                     .flex_row()
-                    .child(div().child(format!("Index: {}", i)))
-                    .child(self.with_path_context(
-                        JsonIndex::Number(i),
-                        window,
-                        cx,
-                        |this, window, cx| this.render_value(value, window, cx),
-                    ))
+                    .child(
+                        //
+                        div().child(format!("Index: {}", i)),
+                    )
+                    .child(
+                        //
+                        self.with_path_context(
+                            JsonIndex::Number(i),
+                            window,
+                            cx,
+                            |this, window, cx| {
+                                //
+                                this.render_value(value, window, cx)
+                            },
+                        ),
+                    )
             }))
-            .into_any_element()
     }
 }

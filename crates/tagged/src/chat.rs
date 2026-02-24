@@ -99,6 +99,10 @@ impl ChatUi {
                     // "OneKey": "OneValue",
                     "One": {
                         "One.One": "11",
+                        "One.Two": {
+                            "One.Two.One": "1.2.1",
+                            "One.Two.Two": "1.2.2",
+                        },
                         // "One.Two": [
                         //     "One.Two.One",
                         //     "One.Two.Two",
@@ -135,13 +139,6 @@ impl ChatUi {
 impl Render for ChatUi {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            //
-            // .id("the-chat-ui")
-            // .on_click(cx.listener(|this, event, window, cx| {
-            //     //
-            //     info!("Clicked Chat UI");
-            //     cx.propagate();
-            // }))
             .size_full()
             .flex()
             .flex_col()

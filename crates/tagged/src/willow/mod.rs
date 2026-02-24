@@ -210,64 +210,6 @@ impl Willow {
         let willow = Self { state };
         willow
     }
-
-    // /// Returns None if no workspace is available
-    // ///
-    // /// Otherwise, creates a new Space as a workspace item
-    // fn create_space(&mut self, name: String, cx: &mut App) -> Option<Entity<Space>> {
-    //     self.state.update(cx, |state, cx| {
-    //         let space = cx.new(|cx| Space::new(name, cx));
-    //         state.spaces.push(space.clone());
-    //         Some(space)
-    //     })
-    // }
-
-    // fn create_profile(
-    //     &mut self,
-    //     id: impl Into<ElementId>,
-    //     name: String,
-    //     workspace: Entity<Workspace>,
-    //     cx: &mut App,
-    // ) -> Entity<Profile> {
-    //     let profile = cx.new(|cx| Profile::new(id.into(), name, workspace, cx));
-    //     self.state.update(cx, |state, _cx| {
-    //         state.profiles.push(profile.clone());
-    //     });
-    //     profile
-    // }
-
-    // fn spaces(&self, cx: &mut App) -> impl IntoIterator<Item = Entity<Space>> {
-    //     self.state.read(cx).spaces.clone()
-    // }
-
-    // fn profiles(&self, cx: &mut App) -> impl IntoIterator<Item = Entity<Profile>> {
-    //     self.state.read(cx).profiles.clone()
-    // }
-
-    /// ```rust,no-run
-    /// #[derive(Debug, WillowObject)]
-    /// struct ChatBubble {
-    ///     #[willow(path = "content/")]
-    ///     content: ChatContent,
-    ///     #[willow(path = "sender.txt")]
-    ///     sender: Profile,
-    ///     #[willow(path = "signature.txt")]
-    ///     signature: (),
-    /// }
-    /// let chat_feed: WillowFeed<ChatBubble> = cx.willow()
-    ///     //
-    ///     .create_feed::<ChatBubble>("/apps/chat/feeds/family/");
-    /// ```
-    ///
-    /// Gotta find a better name than "object index"
-    ///
-    /// - It's just a folder that holds some kinds of objects
-    /// - Like, "put my Chat" objects in "/apps/chat/feeds/family/"
-    /// - Oh yeah, call it a feed?
-    pub fn create_feed<T>(&self, _path: &str) -> WillowFeed<T> {
-        //
-        todo!()
-    }
 }
 
 impl WillowState {
