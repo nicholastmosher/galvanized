@@ -5,9 +5,9 @@ use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity},
     ui::{
-        ActiveTheme, Context, FluentBuilder, Icon, IconName, InteractiveElement, IntoElement,
-        ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
-        Window, div,
+        ActiveTheme, Context, FluentBuilder, Icon, IconButton, IconName, InteractiveElement,
+        IntoElement, ParentElement as _, Render, SharedString, StatefulInteractiveElement as _,
+        Styled as _, Window, div,
     },
 };
 
@@ -208,17 +208,17 @@ impl ObjectWidget {
                 // it.child("null").into_any_element()
                 it.into_any_element()
             }
-            Value::Bool(b) => {
+            Value::Bool(_b) => {
                 //
                 // it.child(if *b { "true" } else { "false" })
                 it.into_any_element()
             }
-            Value::Number(number) => {
+            Value::Number(_number) => {
                 //
                 // it.child(format!("{number}")).into_any_element()
                 it.into_any_element()
             }
-            Value::String(string) => {
+            Value::String(_string) => {
                 //
                 // it.child(string.to_string()).into_any_element()
                 it.into_any_element()
@@ -270,12 +270,14 @@ impl ObjectWidget {
                                 let key = key.clone();
                                 let value = value.clone();
                                 cx.listener(move |this, _event, window, cx| {
-                                    //
+                                    // notable: this must be here as opposed to up above wrapping the entire
+                                    // component, because _when_ the on_click callback is called is after the
+                                    // rendering function has completed and the path state stack has unwinded
                                     this.with_path_context(
                                         JsonIndex::Key(Cow::Borrowed(&key)),
                                         window,
                                         cx,
-                                        |this, window, cx| {
+                                        |this, _window, _cx| {
                                             info!("Clicked KV ({key}, {value})");
                                             this.path_state().open = !this.path_state().open;
                                         },
@@ -287,25 +289,27 @@ impl ObjectWidget {
                                 style.bg(hover_bg_color).border_color(hover_border_color)
                             })
                             .child(
-                                div()
-                                    //
-                                    .p_2()
-                                    .child(Icon::new(if self.path_state().open {
-                                        IconName::ChevronDown
-                                    } else {
-                                        IconName::ChevronRight
-                                    })),
+                                //
+                                self.with_path_context(
+                                    JsonIndex::Key(Cow::Borrowed(&key)),
+                                    window,
+                                    cx,
+                                    |this, _window, _cx| {
+                                        div()
+                                            //
+                                            .p_2()
+                                            .child(IconButton::new(
+                                                //
+                                                "object-widget-map-{key}",
+                                                if this.path_state().open {
+                                                    IconName::ChevronDown
+                                                } else {
+                                                    IconName::ChevronRight
+                                                },
+                                            ))
+                                    },
+                                ),
                             )
-                            // .child(div().p_2().map(|this| {
-                            //     let open = self.path_state().open;
-                            //     let icon_name = if open {
-                            //         IconName::ChevronDown
-                            //     } else {
-                            //         IconName::ChevronRight
-                            //     };
-                            //     this.child(Icon::new(icon_name))
-                            // }))
-                            // Row left child
                             .child(
                                 div()
                                     //
@@ -320,6 +324,7 @@ impl ObjectWidget {
                                 div().p_2().flex_1().child(self.value_text_preview(value)),
                             ),
                     )
+                    // If the sibling above is a path that's been opened, render that sibling's children
                     .map(|parent| {
                         //
                         self.with_path_context(
@@ -333,7 +338,14 @@ impl ObjectWidget {
                                     .when(this.path_state().open, |this_div| {
                                         this_div
                                             //
-                                            .child(this.render_value(value, window, cx))
+                                            // .child(this.render_value(value, window, cx))
+                                            // todo add padding left
+                                            .child(
+                                                div()
+                                                    //
+                                                    .pl_4()
+                                                    .child(this.render_value(value, window, cx)),
+                                            )
                                     })
                             },
                         )
