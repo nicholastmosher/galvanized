@@ -1,4 +1,151 @@
-# Project
+# Project: Tagged
+
+# 2026 Feb 24
+
+- Need to write an intro and getting started and pin it to top of README
+
+- I want to write more about the vision for the project
+- Extensibility, data ownership, honest language shared between data and UI
+- From my written notes yesterday:
+  - Storytelling of tagged's purpose and ideas
+  - I'm hoping to make data a first-class idea in the UI and mental model. Having a
+    pretty and extensible "Object" viewer should set a standard and predictable
+    way to think about key-value or list data.
+  - It seems to me that all data is key-value, from an abstract point of view.
+    Lists are just a case where the item's index serves as the key.
+  - There are many different "domains" of key-value data that we think about
+    differently due to setting, but which all seem able to express
+  - > (this is where my notes trailed off, but I'll continue my present thoughts below)
+  
+- One key-value system we're familiar with is a filesystem. I want to start from here, in
+  nice familiar territory, then expand on it.
+- Fundamentally, a folders and directories based system is hierarchical, and may be
+  described as a tree. As a tree, every folder might have zero or more children, the
+  files and subfolders in the folder. (a tree is less general than a graph, to be continued)
+- Even more fundamentally, the point of a filesystem is just to organize the total set of
+  files on a digital system. It's the assignment of names to content, where the fundamental
+  purpose is to find content by name. We then use the mental model of files and folders to
+  help us navigate when we have too many files to think about at one time.
+- Even more fundamentally from a human perspective, the way we organize ideas is influenced by
+  our intellectual capabilities and limitations. One way humans think is by use of abstractions,
+  where many ideas may be grouped together and given one name, therefore simplifying it.
+  Abstraction helps us deal with the problem that we can only hold a few ideas in mind at a time.
+  Loosely, thinking about 100 things is much easier if we think about them in 10 groups of 10 things.
+- But ultimately the only thing a digital information system needs to provide is a simple and fast
+  path for the user to find and interact with their data. Hierarchies (like folders) are but one
+  way to allow for the thinking about groups of files at a time.
+- However, hierarchies have a key limitation, which is that one file cannot be in two folders
+  at a time. There are crude solutions to this like shortcuts or symlinks, but they're crude
+  because they don't solve the limitation in the mental model, they're a hack, a technical
+  solution to a mental modeling problem.
+- I said folders are trees, this is true because any folder (or tree node) can have at most one
+  parent. In computer science, we also talk about graphs. Like trees, graphs have nodes and edges,
+  but there is no parent-child relationship, so there is no limitation that a "child" may only
+  have one "parent". Graphs are strictly more expressive than trees, because every tree is a
+  valid graph, but the opposite is not true. To bring this back into a user-language context,
+  "tags" (as in a file explorer context) are an expression of a graph structure.
+- I was thinking that like "folders" are the real-world analogue for nodes in a tree, for graphs
+  a good metaphor might be **"stickers"**. You can have as many different designs of stickers as you want,
+  and you can put any number of stickers on any files you own. Then, looking for files becomes
+  a query for files with certain stickers.
+- Alternate timeline name, sticky?
+- I should probably get more familiar with the technical details about graph databases, especially
+  querying.
+- In terms of efficient database/datastore implementation, I do wonder whether a
+  hierarchical system (Willow's Paths) would be considered higher-level or lower-level than
+  a graph-based system? In other words, what would something like Willow look like if it used
+  graph-based primitives rather than hierarchy-based primitives (Paths).
+  It feels to me that the more expressive datatype (graph) would either want some special
+  considerations during implementation that might influence the data model design, or might
+  provide some significant benefits due to the increased expressivity.
+- Alternatively, what would it look like to implement a graph-based query system on top of existing
+  hierarchical primitives? Interestingly... I think that GPUI's `Entity<T>` system already expresses
+  a graph relationship.
+- I wonder if adding a newtyping pattern on top of entities could be used for an easily-extensible
+  custom-graph-node-type kind of API. For example, `struct ChatHandle(Entity<Chat>)`. I'm definitely
+  imagining solutions to unknown problems based on remixing gpui patterns, but I'm pretty curious
+  how extensible and composable the entity pattern could be made to be.
+- I really want an interface that is simple and consistent in these dimensions: user interface,
+  programming interface, and data model. 
+
+Project vision (continued)
+
+- A platform to give users full control and ownership over their digital lives.
+- A dedication to simplicity, for lowering the barrier to entry both for users and for developers.
+- A unification of terminology/domain across data, applications, and permissioning.
+- A community-driven expansion based on composable APIs and protocols
+- Built for power users _and_ everyday users. Allow multiple interfaces to the same system for accessibility.
+- A dead-simple app should define 1 data type and a render function, and be able to show up in feeds.
+- Feed-based interface. A feed is just all objects matching a query, rendered in a row or column.
+- ? User-first control means that the app framework takes care of the standard data query langauge
+  or interface. Apps are given a result set of objects matching the user's query, then render the data
+- Privacy and anonymity as first-class considerations, both at the data level but also in UI.
+- It should be easy to keep two identities separated, both for the purpose of locally seeing which data
+  belongs to which profile, but also for being intentional about knowing which profile is interacting with
+  particular content or groups. For example, being sure not to post a family photo to a public forum by accident.
+- It should be easy to understand and use permissions! It should be easy to share content exactly to the
+  intended recipients, and later to be able to view and check who has access to a given file or area.
+- For now, a committment to being Rust-only. I think Rust's types and traits offer such powerful composition
+  that trying to maintain a bridge to a more simplistic API style like C would severely limit the possibilities
+  for building a platform. I look at Zed's codebase as more than enough confirmation of this. I can't even
+  count how many new compositional patterns I've learned just from reading Zed's source, bravo Zed team
+
+- I think there should be an audit-quality timeline view. A visual representation of every time your data
+  was touched, from what application, and under what express or derived authority? (e.g. chain of capabilities)
+- Reputation could be some kind of embellished view on top of a timeline. Imagine a kind of tag (or sticker)
+  that users could slap on other profiles or actions taken by different profiles, like posted files.
+  - I always have a gut feeling that any kind of reputation system would only be abused. But I also can't help
+    but feel like a trusted community member should be able to sign objects, so that the trusted community's
+    followers can find the files or the work
+  - If a member signed a document, but edits were added later, should viewers see the signer as e.g. a badge on
+    a document, but then also be shown a diff between the document at the time the member signed and the version
+    that's currently being viewed.
+- A multi-spacial view. Every "space" view must be able of rendering all objects in all of a profile's spaces.
+  Then the user filters down with standard queries, and the view narrows down
+- A single/multi profile viewer (mental model) that follows the Rust terms: you can read/write if you're
+  exclusively using one profile, or you could have a read-only view over a shared pool of profiles. For privacy,
+  you wouldn't want to attempt writing when viewing a multi-profile context, because you might accidentally expose
+  a profille by writing with its identity into a space it didn't intend to.
+
+- I want to get to contact persistence. I add somebody by ticket once and persist their Iroh Endpoint Id (to start)
+
+---
+
+- Canvass-like UI, like inkscape. It's a surface that can be scrolled around,
+  and visual elements live on that space.
+- Allow for pinning objects to a canvass, and providing visual data interaction
+  tools, such as wires for a data stream.
+- I have a gut feeling that I need to make the visual language center around
+  addressing, so that the abstract data space can be more or less plugged into
+  any other space that could be addressable. For example, write a git adapter
+  plugin that allows addressing objects in the git filesystem, so they can be
+  pulled into the overall data visualization. A plugin would just need to provide
+  a way to render the content behind an address like a git hash.
+- I've had this idea sticking around for awhile: A specialized search bar that
+  is a kind of universal query bar, with support for searching by tags. When this
+  search bar appears in a new place, users should automatically know what can
+  be queried and how to do it.
+- Brainstorming: Components I ~definitely know I'll need~ could maybe do:
+  - Object widget (in progress)
+  - Object canvass (scrollable space for objects, like inkscape)
+  - Tag-based search bar
+  - Object feed
+  - Peer view (peer system view?)
+
+- The most pressing problem I have no idea how to answer is that of discovery.
+- Social media by corporations is problematic for many reasons but one of which is the
+  fact that our discovery of each other is at the whim of the centralized controller
+  of the platform.
+- The goal is of course to move to a self-supporting distributed app platform, but
+  how users discover each other or their content is currently something I have no idea
+  how to solve other than by relying on connections being built out-of-band.
+- I think a key element of the philosophy is that users should be able to control their
+  own experience by installing plugins they like. So Discovery might be something
+  provided by a plugin, or there might be one unified discovery API and then plugins
+  could hook into an API that allows them to show suggestions for content.
+- I think Bluesky and atproto take content discovery into account something like this
+
+---
 
 # 2026 Feb 23
 
