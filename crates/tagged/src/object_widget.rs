@@ -1,15 +1,119 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 use tracing::info;
 use zed::unstable::{
-    gpui::{AppContext as _, Entity},
+    gpui::{AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, ScrollHandle},
     ui::{
-        ActiveTheme, Context, FluentBuilder, IconButton, IconName, InteractiveElement, IntoElement,
-        ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
-        Window, div,
+        ActiveTheme, App, Context, FluentBuilder, IconButton, IconName, InteractiveElement,
+        IntoElement, ParentElement as _, Render, SharedString, StatefulInteractiveElement as _,
+        Styled as _, Window, div,
     },
+    workspace::{Item, Workspace},
 };
+
+pub fn init(cx: &mut App) {
+    cx.observe_new(|workspace: &mut Workspace, window, cx| {
+        let Some(window) = window else {
+            return;
+        };
+
+        let value = json!({
+            "profile": {
+                "name": "John Doe",
+                "age": 30,
+                "email": "john.doe@example.com",
+                "active": true,
+                "preferences": {
+                    "theme": "dark",
+                    "notifications": true,
+                    "language": "en",
+                    "timezone": "UTC-5",
+                    "privacy": {
+                        "public_profile": true,
+                        "show_email": false,
+                        "last_login": "2023-10-15T08:30:00Z",
+                        "session_duration": 3600,
+                        "two_factor_auth": true
+                    }
+                },
+                "hobbies": ["reading", "swimming", "coding"],
+                "friends": [
+                    {
+                        "name": "Jane Smith",
+                        "age": 28,
+                        "active": true
+                    },
+                    {
+                        "name": "Bob Johnson",
+                        "age": 32,
+                        "active": false
+                    }
+                ]
+            }
+        });
+
+        let widget1 = cx.new(|cx| ObjectWidget::new(value, cx));
+        let canvas = cx.new(|cx| {
+            let mut canvas = ObjectCanvas::new(cx);
+            canvas.add(widget1);
+            canvas
+        });
+
+        workspace.add_item_to_active_pane(Box::new(canvas), Some(0), false, window, cx);
+    })
+    .detach();
+}
+
+pub struct ObjectCanvas {
+    focus_handle: FocusHandle,
+    objects: Vec<Entity<ObjectWidget>>,
+    scroll_handle: ScrollHandle,
+}
+
+impl ObjectCanvas {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        Self {
+            focus_handle: cx.focus_handle(),
+            objects: Default::default(),
+            scroll_handle: Default::default(),
+        }
+    }
+
+    pub fn add(&mut self, widget: Entity<ObjectWidget>) {
+        self.objects.push(widget);
+    }
+}
+
+impl Render for ObjectCanvas {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            //
+            .id("object-canvas")
+            .p_4()
+            .bg(cx.theme().colors().editor_background)
+            .track_scroll(&self.scroll_handle)
+            .overflow_y_scroll()
+            .children(self.objects.iter().map(|object| {
+                //
+                object.clone()
+            }))
+    }
+}
+
+impl EventEmitter<()> for ObjectCanvas {}
+impl Focusable for ObjectCanvas {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+impl Item for ObjectCanvas {
+    type Event = ();
+
+    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+        "Canvas".into()
+    }
+}
 
 pub struct ObjectWidget {
     //
@@ -67,22 +171,17 @@ impl Render for ObjectWidget {
         div()
             //
             .p_2()
+            .bg(cx.theme().colors().panel_background)
+            .rounded_lg()
             .child(
                 div()
                     //
+                    .w_full()
                     .p_2()
-                    .bg(cx.theme().colors().element_background)
-                    .rounded_lg()
-                    .child(
-                        div()
-                            //
-                            .w_full()
-                            .p_2()
-                            .child("Object Header".to_string()),
-                    )
-                    // .child(self.render_value(&value, window, cx)),
-                    .child(self.render_value(&value, window, cx)),
+                    .child("Object Header".to_string()),
             )
+            // .child(self.render_value(&value, window, cx)),
+            .child(self.render_value(&value, window, cx))
     }
 }
 

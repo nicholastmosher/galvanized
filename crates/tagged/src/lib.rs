@@ -20,6 +20,7 @@ pub fn init(cx: &mut App) {
     contacts::init(cx);
     iroh_panel_ui::init(cx);
     iroh_topic_chat_ui::init(cx);
+    object_widget::init(cx);
     willow::init(cx);
 }
 
