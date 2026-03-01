@@ -8,6 +8,7 @@ use zed::unstable::{
 };
 
 mod chat;
+mod components;
 mod contacts;
 mod function_widget;
 mod iroh_automerge_chat_ui;
@@ -18,6 +19,7 @@ mod willow;
 // mod willow_whimsy;
 
 pub fn init(cx: &mut App) {
+    components::init(cx);
     contacts::init(cx);
     function_widget::init(cx);
     iroh_panel_ui::init(cx);
