@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use tracing::info;
 use zed::unstable::{
     component,
@@ -8,55 +6,15 @@ use zed::unstable::{
         ActiveTheme, AnyElement, App, Avatar, AvatarAvailabilityIndicator, ButtonCommon,
         ButtonSize, CollaboratorAvailability, Component, Context, Element, FluentBuilder as _,
         IconButton, IconName, IconSize, InteractiveElement, IntoElement, ParentElement as _,
-        RegisterComponent, Rems, Render, RenderOnce, SharedString, StatefulInteractiveElement as _,
-        Styled, Window, div, h_flex, px, v_flex,
+        RegisterComponent, Rems, Render, RenderOnce, StatefulInteractiveElement as _, Styled,
+        Window, div, h_flex, px, v_flex,
     },
 };
 
+use crate::state::profile::Profile;
+
 pub fn init(cx: &mut App) {
     //
-}
-
-/// Data-only manager for profiles
-pub struct ProfileManager {
-    //
-    profiles: Vec<Entity<Profile>>,
-}
-
-impl ProfileManager {
-    pub fn new() -> Self {
-        Self {
-            profiles: Vec::new(),
-        }
-    }
-
-    pub fn add_profile(&mut self, profile: Entity<Profile>) {
-        self.profiles.push(profile);
-    }
-}
-
-// data object only
-pub struct Profile {
-    /// Path to the avatar image.
-    avatar: Option<PathBuf>,
-    name: SharedString,
-    online: bool,
-}
-
-impl Profile {
-    pub fn new(name: impl Into<SharedString>, cx: &mut Context<Self>) -> Self {
-        Self {
-            //
-            avatar: None,
-            name: name.into(),
-            online: true,
-        }
-    }
-
-    pub fn with_avatar(mut self, avatar: impl Into<PathBuf>) -> Self {
-        self.avatar = Some(avatar.into());
-        self
-    }
 }
 
 #[derive(IntoElement, RegisterComponent)]
@@ -147,20 +105,20 @@ impl RenderOnce for ProfileNugget {
             .on_click(move |_e, _window, cx| {
                 info!("Clicked profile nugget 2");
                 profile.update(cx, |profile, _cx| {
-                    profile.online = !profile.online;
+                    profile.toggle_online();
                 });
             })
-            .when_some(self.profile.read(cx).avatar.as_ref(), |it, avatar| {
+            .when_some(self.profile.read(cx).avatar(), |it, avatar| {
                 //
                 it.child(
                     div()
                         //
                         .child(
-                            Avatar::new(avatar.clone())
+                            Avatar::new(avatar)
                                 //
                                 .size(px(40.))
                                 .indicator(AvatarAvailabilityIndicator::new(
-                                    if self.profile.read(cx).online {
+                                    if self.profile.read(cx).online() {
                                         CollaboratorAvailability::Free
                                     } else {
                                         CollaboratorAvailability::Busy
@@ -172,12 +130,12 @@ impl RenderOnce for ProfileNugget {
             .child(
                 v_flex()
                     //
-                    .child(self.profile.read(cx).name.clone())
+                    .child(self.profile.read(cx).name())
                     .child(
                         div()
                             .text_sm()
                             .text_color(cx.theme().colors().text_muted)
-                            .child(if self.profile.read(cx).online {
+                            .child(if self.profile.read(cx).online() {
                                 "Online"
                             } else {
                                 "Offline"

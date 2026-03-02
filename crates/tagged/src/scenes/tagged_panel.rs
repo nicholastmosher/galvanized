@@ -10,9 +10,9 @@ use zed::unstable::{
     },
 };
 
-use crate::components::{
-    profile_bar::{Profile, ProfileBar},
-    space_icon::SpaceIcon,
+use crate::{
+    components::{profile_bar::ProfileBar, space_icon::SpaceIcon},
+    state::profile::Profile,
 };
 
 actions!(workspace, [ToggleTaggedPanel]);

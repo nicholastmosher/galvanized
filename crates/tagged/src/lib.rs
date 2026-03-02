@@ -15,6 +15,8 @@ mod iroh_automerge_chat_ui;
 mod iroh_panel_ui;
 mod iroh_topic_chat_ui;
 mod object_widget;
+mod scenes;
+mod state;
 mod willow;
 // mod willow_whimsy;
 
@@ -25,6 +27,8 @@ pub fn init(cx: &mut App) {
     iroh_panel_ui::init(cx);
     iroh_topic_chat_ui::init(cx);
     object_widget::init(cx);
+    scenes::init(cx);
+    state::init(cx);
     // willow::init(cx);
 }
 
