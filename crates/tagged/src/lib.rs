@@ -25,7 +25,7 @@ pub fn init(cx: &mut App) {
     iroh_panel_ui::init(cx);
     iroh_topic_chat_ui::init(cx);
     object_widget::init(cx);
-    willow::init(cx);
+    // willow::init(cx);
 }
 
 impl<T: Styled> DebugViewExt for T {}

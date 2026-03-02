@@ -80,31 +80,28 @@ impl ProfileBar {
 impl Render for ProfileBar {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         h_flex()
+            .flex_grow()
             //
+            .p_2()
+            .gap_2()
+            .rounded_md()
+            .shadow_md()
+            .bg(cx.theme().colors().toolbar_background)
+            .child(self.nugget.clone())
             .child(
                 h_flex()
-                    .flex_shrink()
-                    //
+                    .ml_auto()
                     .p_2()
-                    .gap_2()
-                    .rounded_md()
-                    .shadow_md()
-                    .bg(cx.theme().colors().panel_background)
-                    .child(self.nugget.clone())
+                    .gap_4()
                     .child(
-                        h_flex()
-                            .p_2()
-                            .gap_4()
-                            .child(
-                                IconButton::new("profile-mute", IconName::Mic)
-                                    .icon_size(IconSize::Custom(Rems(1.25)))
-                                    .size(ButtonSize::Large),
-                            )
-                            .child(
-                                IconButton::new("profile-deafen", IconName::AudioOn)
-                                    .icon_size(IconSize::Custom(Rems(1.25)))
-                                    .size(ButtonSize::Large),
-                            ),
+                        IconButton::new("profile-mute", IconName::Mic)
+                            .icon_size(IconSize::Custom(Rems(1.25)))
+                            .size(ButtonSize::Large),
+                    )
+                    .child(
+                        IconButton::new("profile-deafen", IconName::AudioOn)
+                            .icon_size(IconSize::Custom(Rems(1.25)))
+                            .size(ButtonSize::Large),
                     ),
             )
     }
@@ -180,6 +177,7 @@ impl Render for ProfileNugget {
             //
             .id("profile-nugget")
             .p_2()
+            .pr_4()
             .gap_4()
             .active(|style| style.bg(active_bg_color))
             .hover(|style| style.bg(hover_bg_color))
@@ -188,7 +186,6 @@ impl Render for ProfileNugget {
                 info!("Clicked profile nugget 2");
                 profile.update(cx, |profile, cx| {
                     profile.online = !profile.online;
-                    cx.notify();
                 });
             })
             .when_some(self.profile.read(cx).avatar.as_ref(), |it, avatar| {
