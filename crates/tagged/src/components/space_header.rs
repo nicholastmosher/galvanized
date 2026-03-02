@@ -34,41 +34,51 @@ impl RenderOnce for SpaceHeader {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let menu = ContextMenu::build(window, cx, |this, _window, _cx| {
             this.custom_entry(
-                |window, cx| {
+                |_window, _cx| {
                     //
-                    div()
-                        .debug()
-                        .p_4()
-                        .child("Click me if you can")
+                    h_flex()
+                        .w_full()
+                        .p_2()
+                        .child("Invite to Space")
                         .into_any_element()
                 },
-                |window, cx| {
+                |_window, _cx| {
                     //
                     info!("Chose custom 1");
                 },
             )
             .custom_entry(
-                |window, cx| {
+                |_window, _cx| {
                     //
-                    div()
-                        .debug()
-                        .p_4()
-                        .child("Click me if you can NUMBER TWO")
-                        .into_any_element()
+                    h_flex().w_full().p_2().child("Members").into_any_element()
                 },
-                |window, cx| {
+                |_window, _cx| {
                     //
                     info!("Chose custom 2");
                 },
             )
+            .custom_entry(
+                |_window, _cx| {
+                    //
+                    h_flex().w_full().p_2().child("Settings").into_any_element()
+                },
+                |_window, _cx| {
+                    //
+                    info!("Chose custom 3");
+                },
+            )
         });
 
-        let popover = PopoverMenu::new("popover-menu")
-            .full_width(false)
-            .menu(move |_window, _cx| Some(menu.clone()));
-
         h_flex()
-            .child(popover.trigger(SpaceDropdown::new("Group's Space")))
+            .child(
+                PopoverMenu::new("space-header-popover-menu")
+                    .full_width(false)
+                    .menu(move |_window, _cx| Some(menu.clone()))
+                    .trigger(SpaceDropdown::new(
+                        "space-header-dropdown",
+                        self.space.read(cx).name(),
+                    )),
+            )
             .child(div().flex_grow())
             .child(
                 div()

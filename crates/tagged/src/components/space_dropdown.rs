@@ -9,14 +9,16 @@ use zed::unstable::{
 
 #[derive(IntoElement)]
 pub struct SpaceDropdown {
+    id: SharedString,
     open: bool,
     on_click: Option<Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut App) + 'static>>,
     text: SharedString,
 }
 
 impl SpaceDropdown {
-    pub fn new(text: impl Into<SharedString>) -> Self {
+    pub fn new(id: impl Into<SharedString>, text: impl Into<SharedString>) -> Self {
         Self {
+            id: id.into(),
             open: false,
             on_click: None,
             text: text.into(),
@@ -38,12 +40,6 @@ impl Clickable for SpaceDropdown {
     }
 }
 
-// impl Disableable for SpaceDropdown {
-//     fn disabled(mut self, disabled: bool) -> Self {
-//         self
-//     }
-// }
-
 impl Toggleable for SpaceDropdown {
     fn toggle_state(mut self, selected: bool) -> Self {
         self.open = selected;
@@ -55,7 +51,7 @@ impl RenderOnce for SpaceDropdown {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         h_flex()
             //
-            .id("asdfas")
+            .id(self.id.clone())
             .p_2()
             .rounded_md()
             .font_weight(FontWeight::BOLD)
