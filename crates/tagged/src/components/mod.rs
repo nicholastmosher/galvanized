@@ -1,6 +1,7 @@
 use zed::unstable::ui::App;
 
 pub mod profile_bar;
+pub mod space_dropdown;
 pub mod space_header;
 pub mod space_icon;
 

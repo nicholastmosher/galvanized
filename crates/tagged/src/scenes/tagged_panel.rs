@@ -12,12 +12,8 @@ use zed::unstable::{
 };
 
 use crate::{
-    components::{
-        profile_bar::ProfileBar,
-        space_header::{Space, SpaceHeader},
-        space_icon::SpaceIcon,
-    },
-    state::profile::Profile,
+    components::{profile_bar::ProfileBar, space_header::SpaceHeader, space_icon::SpaceIcon},
+    state::{profile::Profile, space::Space},
 };
 
 actions!(workspace, [ToggleTaggedPanel]);
