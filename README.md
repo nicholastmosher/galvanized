@@ -107,7 +107,9 @@ considering is this:
 
 > TODO: Write more about why I chose Zed and Willow as the basis for the stack
 
-![Tagged](./.assets/tagged.svg)
+<div align="center">
+<img src=".assets/tagged.svg" alt="My goofy project icon" width="300" height="300">
+</div>
 
 > I needed an icon and this is what came out of me playing with Inkscape >:D
 >
