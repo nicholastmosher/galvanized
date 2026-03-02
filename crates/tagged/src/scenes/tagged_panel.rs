@@ -1,8 +1,9 @@
 use zed::unstable::{
     gpui::{self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, actions},
     ui::{
-        App, Context, IconName, InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
-        Render, StatefulInteractiveElement, Styled, Window, div, h_flex, px, v_flex,
+        App, Context, IconName, InteractiveElement as _, IntoElement, ListSeparator,
+        ParentElement as _, Pixels, Render, StatefulInteractiveElement, Styled, Window, div,
+        h_flex, px, v_flex,
     },
     workspace::{
         Panel, Workspace,
@@ -11,7 +12,11 @@ use zed::unstable::{
 };
 
 use crate::{
-    components::{profile_bar::ProfileBar, space_icon::SpaceIcon},
+    components::{
+        profile_bar::ProfileBar,
+        space_header::{Space, SpaceHeader},
+        space_icon::SpaceIcon,
+    },
     state::profile::Profile,
 };
 
@@ -34,8 +39,9 @@ pub fn init(cx: &mut App) {
 }
 
 pub struct TaggedPanel {
-    focus_handle: FocusHandle,
     active_profile: Entity<Profile>,
+    active_space: Entity<Space>,
+    focus_handle: FocusHandle,
     width: Option<Pixels>,
 }
 
@@ -44,9 +50,12 @@ impl TaggedPanel {
         let active_profile =
             cx.new(|cx| Profile::new("Myselfandi", cx).with_avatar(".assets/tagged.svg"));
 
+        let active_space = cx.new(|cx| Space::new("Group's Space", cx));
+
         Self {
             //
             active_profile,
+            active_space,
             focus_handle: cx.focus_handle(),
             width: None,
         }
@@ -128,20 +137,13 @@ impl TaggedPanel {
         _cx: &mut Context<Self>,
     ) -> impl IntoElement {
         // Container, no flex
-        div()
+        v_flex()
             .debug()
             //
             .p_2()
             .size_full()
-            .child(
-                //
-                h_flex()
-                    //
-                    .mx_auto()
-                    .justify_center()
-                    .content_center()
-                    .child("Active space content"),
-            )
+            .child(SpaceHeader::new(self.active_space.clone()))
+            .child(ListSeparator)
     }
 }
 
