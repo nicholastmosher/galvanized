@@ -160,10 +160,14 @@ impl TaggedPanel {
             // Next steps
             .child(
                 //
-                OnboardingButton::new("next-steps", "Next steps", ".assets/create-profile.svg")
-                    .border_color(cx.theme().colors().border_disabled)
-                    .border_dashed(true)
-                    .disabled(profile.is_none()),
+                OnboardingButton::new(
+                    "connect-peers",
+                    "Connect with Peers",
+                    ".assets/connect-peers.svg",
+                )
+                .border_color(cx.theme().colors().border_disabled)
+                .border_dashed(true)
+                .disabled(profile.is_none()),
             )
     }
 
