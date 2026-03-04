@@ -116,6 +116,19 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 March 4
+
+Screenshot from the start of today
+
+![An onboarding panel with steps Create Profile, Create Space, and Connect with Peers](.assets/screenshot-tagged-onboarding-20260304.png)
+
+- Need to develop onboarding logic and bind to UI
+  - Fix duplicate item opening
+  - One Item for onboarding? Or one Item each for Profile/Space/Peers?
+    - Long term seems like each should have a dedicated page/item
+    - Short term, might create a quick one-page solution
+- Want to prototype with in-memory Willow store
+
 # 2026 March 2
 
 > pm
