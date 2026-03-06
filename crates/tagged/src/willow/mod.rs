@@ -2,9 +2,15 @@ use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use willow25::{
+    entry::{Entry, EntrylikeExt as _, NamespaceId, randomly_generate_subspace},
+    path,
+    prelude::WriteCapability,
+    storage::{MemoryStore, Store},
+};
 use zed::unstable::{
     gpui::{AppContext, Entity, Global},
-    ui::{App, Context},
+    ui::{App, Context, SharedString},
 };
 
 use crate::state::{profile::Profile, space::Space};
@@ -13,6 +19,9 @@ pub fn init(cx: &mut App) {
     let store_path = zed::unstable::paths::data_dir();
     let willow = Willow::new(store_path, cx);
     cx.set_global(GlobalWillow(willow));
+
+    // Insert dummy data to store
+    cx.willow();
 }
 
 impl Global for GlobalWillow {}
@@ -36,6 +45,8 @@ struct WillowState {
     store_path: PathBuf,
     /// Payloads in simple impl are just bytes
     paths: HashMap<String, Vec<u8>>,
+
+    store: MemoryStore,
 }
 
 impl Willow {
@@ -43,6 +54,19 @@ impl Willow {
         let state = cx.new(|cx| WillowState::new(store_path.into(), cx));
         let willow = Self { state };
         willow
+    }
+
+    fn create_profile(&self, name: impl Into<SharedString>, cx: &mut App) -> Entity<Profile> {
+        let profile = cx.new(|cx| Profile::new(name, cx));
+        self.state.update(cx, |state, _cx| {
+            state.profiles.push(profile.clone());
+        });
+
+        profile
+    }
+
+    fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>> {
+        self.state.read(cx).profiles.clone()
     }
 }
 
@@ -70,12 +94,40 @@ impl WillowState {
             }),
         ];
 
+        let store = MemoryStore::new();
+
         Self {
             spaces,
             store_path,
             paths: Default::default(),
             profiles,
+            store,
         }
+    }
+
+    fn it(&mut self) -> anyhow::Result<()> {
+        // Note: Consider to be low-level interface.
+        // Want to create a GPUI simple DSL on top
+        // self.store
+        //     .create_entry(data, payload_producer, payload_length, ingredients)
+
+        let mut csprng = rand_core::OsRng;
+        let (subspace_id, secret) = randomly_generate_subspace(&mut csprng);
+        let namespace_id = NamespaceId::from_bytes(&[17; 32]);
+
+        let entry = Entry::builder()
+            .namespace_id(namespace_id.clone())
+            .subspace_id(subspace_id.clone())
+            .path(path!("/ideas"))
+            .timestamp(12345)
+            .payload(b"chocolate with mustard")
+            .build()
+            .unwrap();
+
+        let cap = WriteCapability::new_communal(namespace_id.clone(), subspace_id.clone());
+        let authed = entry.authorise(&cap, &secret)?;
+
+        Ok(())
     }
 }
 

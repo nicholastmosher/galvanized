@@ -585,6 +585,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34cd60c5e3152cef0a592f1b296f1cc93715d89d2551d85315828c3a09575ff4"
 
 [[package]]
+name = "anyhash"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9afbff139c450c74eeb6e7613ac54629f52571cda67e5985fc7d63123d1c41e6"
+dependencies = [
+ "anyhash-macros",
+]
+
+[[package]]
+name = "anyhash-macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4fe49025a9ca41e12a7dd170de31c93acf54ad96c2eaf590a4d24272d59a166"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.116",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1847,6 +1867,19 @@ dependencies = [
  "aws-smithy-runtime-api",
  "aws-smithy-types",
  "http_client",
+]
+
+[[package]]
+name = "bab_rs"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60117cbe6f0d0b322978c0f83f9b9c37e5ac5a0340239489247e423d191f642c"
+dependencies = [
+ "anyhash",
+ "arrayref",
+ "constant_time_eq 0.4.2",
+ "order_theory",
+ "zeroize",
 ]
 
 [[package]]
@@ -3245,6 +3278,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "compact_u64"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc8168132fcc79680d4186cb9e3292d1168296ae0a4bc132856efe43497960f4"
+dependencies = [
+ "ufotofu",
+]
+
+[[package]]
 name = "component"
 version = "0.1.0"
 dependencies = [
@@ -3281,6 +3323,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
+]
+
+[[package]]
+name = "const-hex"
+version = "1.18.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "531185e432bb31db1ecda541e9e7ab21468d4d844ad7505e0546a49b4945d49b"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
 ]
 
 [[package]]
@@ -3332,6 +3384,12 @@ name = "constant_time_eq"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
+
+[[package]]
+name = "constant_time_eq"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
 
 [[package]]
 name = "context_server"
@@ -4985,6 +5043,7 @@ checksum = "70e796c081cee67dc755e1a36a0a172b897fab85fc3f6bc48307991f64e4eca9"
 dependencies = [
  "curve25519-dalek 4.1.3",
  "ed25519 2.2.3",
+ "rand_core 0.6.4",
  "serde",
  "sha2 0.10.9",
  "subtle",
@@ -7405,6 +7464,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "hifitime"
+version = "4.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40f327fab876db009c736d1042522e0fcbaf808288ee6d0ef9551bafac02f7e0"
+dependencies = [
+ "js-sys",
+ "lexical-core",
+ "num-traits",
+ "serde",
+ "serde_derive",
+ "snafu",
+ "wasm-bindgen",
+ "web-sys",
+ "web-time",
+]
+
+[[package]]
 name = "hkdf"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9360,6 +9436,42 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a79a3332a6609480d7d0c9eab957bca6b455b91bb84e66d19f5ff66294b85b8"
 
 [[package]]
+name = "lexical-core"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d8d125a277f807e55a77304455eb7b1cb52f2b18c143b60e766c120bd64a594"
+dependencies = [
+ "lexical-parse-float",
+ "lexical-parse-integer",
+ "lexical-util",
+]
+
+[[package]]
+name = "lexical-parse-float"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52a9f232fbd6f550bc0137dcb5f99ab674071ac2d690ac69704593cb4abbea56"
+dependencies = [
+ "lexical-parse-integer",
+ "lexical-util",
+]
+
+[[package]]
+name = "lexical-parse-integer"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a7a039f8fb9c19c996cd7b2fcce303c1b2874fe1aca544edc85c4a5f8489b34"
+dependencies = [
+ "lexical-util",
+]
+
+[[package]]
+name = "lexical-util"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2604dd126bb14f13fb5d1bd6a66155079cb9fa655b37f875b3a742c705dbed17"
+
+[[package]]
 name = "libc"
 version = "0.2.177"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10721,6 +10833,18 @@ checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
+]
+
+[[package]]
+name = "meadowcap"
+version = "0.4.0"
+dependencies = [
+ "compact_u64",
+ "order_theory",
+ "pollster 0.4.0",
+ "signature 2.2.0",
+ "ufotofu",
+ "willow-data-model",
 ]
 
 [[package]]
@@ -12296,6 +12420,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
+name = "order_theory"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfd8606adb2e4df2a193a5eafbe2212d9e15a9b6e0e4a9859c013a7cae3d31af"
+
+[[package]]
 name = "ordered-float"
 version = "2.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13368,6 +13498,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5da3b0203fd7ee5720aa0b5e790b591aa5d3f41c3ed2c34a3a393382198af2f7"
 
 [[package]]
+name = "pollster"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
+
+[[package]]
 name = "poly1305"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13478,7 +13614,7 @@ dependencies = [
  "log",
  "parking_lot",
  "pin-project",
- "pollster",
+ "pollster 0.2.5",
  "static_assertions",
  "thiserror 1.0.69",
 ]
@@ -16324,6 +16460,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "snafu"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e84b3f4eacbf3a1ce05eac6763b4d629d60cbc94d632e4092c54ade71f1e1a2"
+dependencies = [
+ "backtrace",
+ "snafu-derive",
+]
+
+[[package]]
+name = "snafu-derive"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1c97747dbf44bb1ca44a561ece23508e99cb592e862f22222dcf42f51d1e451"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.116",
+]
+
+[[package]]
 name = "snippet"
 version = "0.1.0"
 dependencies = [
@@ -17296,6 +17454,7 @@ dependencies = [
  "data-encoding",
  "derive_more 2.1.0",
  "dotenvy",
+ "ed25519-dalek 2.2.0",
  "flume 0.12.0",
  "hex",
  "iroh",
@@ -17305,6 +17464,7 @@ dependencies = [
  "iroh-docs",
  "iroh-gossip",
  "rand 0.9.2",
+ "rand_core 0.6.4",
  "samod",
  "schemars 1.2.1",
  "serde",
@@ -17315,6 +17475,7 @@ dependencies = [
  "tracing-subscriber",
  "ufotofu",
  "willow-api-derive",
+ "willow25",
  "zed",
 ]
 
@@ -19800,6 +19961,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "willow-data-model"
+version = "0.6.1"
+dependencies = [
+ "anyhash",
+ "bytes",
+ "compact_u64",
+ "either",
+ "frugal_async",
+ "hifitime",
+ "order_theory",
+ "ufotofu",
+]
+
+[[package]]
 name = "willow-rummager"
 version = "0.1.0"
 dependencies = [
@@ -19809,6 +19984,36 @@ dependencies = [
  "serde",
  "serde_json",
  "zed",
+]
+
+[[package]]
+name = "willow25"
+version = "0.4.0"
+dependencies = [
+ "anyhash",
+ "bab_rs",
+ "bytes",
+ "const-hex",
+ "constant_time_eq 0.4.2",
+ "ed25519-dalek 2.2.0",
+ "frugal_async",
+ "hifitime",
+ "meadowcap",
+ "order_theory",
+ "rand_core 0.6.4",
+ "signature 2.2.0",
+ "ufotofu",
+ "willow-data-model",
+ "willow25-macros",
+]
+
+[[package]]
+name = "willow25-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.116",
 ]
 
 [[package]]

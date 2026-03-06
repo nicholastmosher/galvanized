@@ -118,9 +118,16 @@ considering is this:
 
 # 2026 March 5
 
-Screenshot from today
+Screenshot from start of today
 
 ![An onboarding page with Profile and Space forms](.assets/screenshot-tagged-onboarding-item-20260305.png)
+
+TODO:
+
+- Experiment with Willow MemoryStore
+- Experiment with query API
+
+- Aaah I should really rebase soon
 
 # 2026 March 4
 
@@ -134,6 +141,11 @@ Screenshot from the start of today
     - Long term seems like each should have a dedicated page/item
     - Short term, might create a quick one-page solution
 - Want to prototype with in-memory Willow store
+
+---
+
+- Ufotofu(0.8.8): `expose_items_sync` uses `sync` to refer to the higher-order function argument,
+  not to IO being done synchronously. I think the docs should maybe mention this.
 
 # 2026 March 2
 

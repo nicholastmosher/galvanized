@@ -1,14 +1,12 @@
 use std::path::PathBuf;
 
+use tracing::info;
 use zed::unstable::{
     editor::Editor,
-    gpui::{
-        AppContext, Entity, EventEmitter, FocusHandle, Focusable, TextStyleRefinement, img,
-        opaque_grey,
-    },
+    gpui::{AppContext, Entity, EventEmitter, FocusHandle, Focusable, img, opaque_grey},
     ui::{
-        ActiveTheme, App, Context, IntoElement, ParentElement, Render, SharedString, Styled,
-        Window, div, h_flex, px, v_flex,
+        ActiveTheme, App, Context, InteractiveElement, IntoElement, ParentElement, Render,
+        SharedString, StatefulInteractiveElement, Styled, Window, div, h_flex, px, v_flex,
     },
     workspace::Item,
 };
@@ -48,9 +46,11 @@ impl Render for OnboardingItem {
         v_flex()
             .size_full()
             .bg(cx.theme().colors().editor_background)
+            .id("onboarding-item")
             //
             .p_4()
             .gap_4()
+            .overflow_y_scroll()
             .child(
                 div()
                     .bg(cx.theme().colors().panel_background)
@@ -93,7 +93,20 @@ impl Render for OnboardingItem {
                                     .text_color(cx.theme().colors().text_muted)
                                     .child("You can change this later")
                             )
-                            .child(self.profile_name_editor.clone())
+                            .child(
+                                //
+                                div()
+                                    .id("profile-name-input")
+                                    //
+                                    .p_2()
+                                    .on_key_down(cx.listener(|this, e, window, cx| {
+                                        info!(?e, "on_key_down");
+                                        //
+                                    }))
+                                    .child(
+                                        self.profile_name_editor.clone()
+                                    )
+                            )
                     ),
             )
             .child(

@@ -106,11 +106,13 @@ impl TaggedPanel {
     ) -> impl IntoElement {
         // Full panel body is a vertical flex
         v_flex()
+            .id("tagged-panel")
             .size_full()
             //
             .p_2()
             // .py_20()
             // Create Profile title
+            .overflow_y_scroll()
             .child(
                 //
                 div()
