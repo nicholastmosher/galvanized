@@ -1,4 +1,3 @@
-use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity},
     ui::{Context, Window},

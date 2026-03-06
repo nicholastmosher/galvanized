@@ -5,7 +5,6 @@ use zed::unstable::{
     ui::{App, Context, SharedString},
 };
 
-use crate::willow::Willow;
 
 pub fn init(cx: &mut App) {
     //

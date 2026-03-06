@@ -4,10 +4,10 @@ use std::{
 };
 
 use zed::unstable::{
-    gpui::{self, ObjectFit, Stateful, img},
+    gpui::{self, Stateful, img},
     ui::{
         AbsoluteLength, ActiveTheme as _, App, Div, ElementId, InteractiveElement, IntoElement,
-        ParentElement as _, RenderOnce, StatefulInteractiveElement, Styled, StyledImage, Window,
+        ParentElement as _, RenderOnce, StatefulInteractiveElement, Styled, Window,
         div, rems,
     },
 };

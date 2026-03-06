@@ -341,7 +341,7 @@ impl IrohPanel {
         div()
             .flex_grow()
             .child("Topics:")
-            .children(self.topics.iter().map(|(topic_id, _ui)| {
+            .children(self.topics.keys().map(|topic_id| {
                 div().pl_2().child(
                     Button::new(SharedString::from(format!("topic-{topic_id}")), {
                         let topic = topic_id.to_string();
@@ -576,7 +576,7 @@ impl IrohPanel {
 
             self.per_endpoint_state
                 .entry(endpoint_addr)
-                .or_insert_with(Default::default)
+                .or_default()
                 .doc_lookup_task = Some(doc_lookup_task);
         }
 

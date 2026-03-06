@@ -52,11 +52,15 @@ struct WillowState {
 impl Willow {
     fn new(store_path: impl Into<PathBuf>, cx: &mut App) -> Self {
         let state = cx.new(|cx| WillowState::new(store_path.into(), cx));
-        let willow = Self { state };
-        willow
+
+        Self { state }
     }
 
     pub fn create_profile(&self, name: impl Into<SharedString>, cx: &mut App) -> Entity<Profile> {
+        self.state.update(cx, |state, cx| {
+            //
+            // let it = state.store.get_area(namespace_id, area);
+        });
         let profile = cx.new(|cx| Profile::new(name, cx));
         self.state.update(cx, |state, _cx| {
             state.profiles.push(profile.clone());
@@ -73,25 +77,13 @@ impl Willow {
 impl WillowState {
     fn new(store_path: PathBuf, cx: &mut Context<Self>) -> Self {
         let spaces = vec![
-            cx.new(|cx| {
-                let space = Space::new("Home".to_string(), cx);
-                space
-            }),
-            cx.new(|cx| {
-                let space = Space::new("Family".to_string(), cx);
-                space
-            }),
+            cx.new(|cx| Space::new("Home".to_string(), cx)),
+            cx.new(|cx| Space::new("Family".to_string(), cx)),
         ];
 
         let profiles = vec![
-            cx.new(|cx| {
-                let profile = Profile::new("Myselfandi", cx);
-                profile
-            }),
-            cx.new(|cx| {
-                let profile = Profile::new("Alterego", cx);
-                profile
-            }),
+            cx.new(|cx| Profile::new("Myselfandi", cx)),
+            cx.new(|cx| Profile::new("Alterego", cx)),
         ];
 
         let store = MemoryStore::new();

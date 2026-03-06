@@ -20,7 +20,7 @@ pub fn init(cx: &mut App) {
     cx.observe_new(|workspace: &mut Workspace, window, cx| {
         let Some(window) = window else { return };
         //
-        let panel_ui = cx.new(|cx| Contacts::new(cx));
+        let panel_ui = cx.new(Contacts::new);
 
         workspace.add_panel(panel_ui, window, cx);
         workspace.register_action(|workspace, _: &ToggleContactsPanel, window, cx| {
@@ -133,10 +133,7 @@ impl Render for Contacts {
             .gap_2()
             .flex()
             .flex_col()
-            .children(self.contacts.iter().map(|contact| {
-                //
-                contact.clone()
-            }))
+            .children(self.contacts.iter().cloned())
     }
 }
 

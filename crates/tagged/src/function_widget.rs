@@ -3,7 +3,7 @@ use std::panic::Location;
 use zed::unstable::{
     gpui::{
         AppContext as _, Bounds, Entity, EventEmitter, FocusHandle, Focusable, GlobalElementId,
-        InspectorElementId, Interactivity, LayoutId, PaintQuad,
+        InspectorElementId, Interactivity, LayoutId,
     },
     ui::{
         ActiveTheme, App, Context, Element, ElementId, IntoElement, ParentElement, Pixels, Render,
@@ -18,7 +18,7 @@ pub fn init(cx: &mut App) {
             return;
         };
 
-        let function = cx.new(|cx| FunctionWidget::new(cx));
+        let function = cx.new(FunctionWidget::new);
         let canvas = cx.new(|cx| {
             let mut canvas = FunctionCanvas::new(cx);
             canvas.add(function);
@@ -56,10 +56,7 @@ impl Render for FunctionCanvas {
             .p_2()
             .rounded_lg()
             .bg(cx.theme().colors().editor_background)
-            .children(self.widgets.iter().map(|widget| {
-                //
-                widget.clone()
-            }))
+            .children(self.widgets.iter().cloned())
     }
 }
 

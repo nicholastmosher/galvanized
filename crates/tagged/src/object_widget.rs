@@ -94,10 +94,7 @@ impl Render for ObjectCanvas {
             .bg(cx.theme().colors().editor_background)
             .track_scroll(&self.scroll_handle)
             .overflow_y_scroll()
-            .children(self.objects.iter().map(|object| {
-                //
-                object.clone()
-            }))
+            .children(self.objects.iter().cloned())
     }
 }
 
@@ -224,7 +221,9 @@ impl ObjectWidget {
         let it = div();
         // let it = div().debug();
         // let it = div().size_full().debug();
-        let it = match value {
+        
+
+        match value {
             Value::Null => {
                 //
                 // it.child("null").into_any_element()
@@ -255,9 +254,7 @@ impl ObjectWidget {
                 it.child(self.render_map(map, window, cx))
                     .into_any_element()
             }
-        };
-
-        it
+        }
     }
 
     fn render_map(
@@ -313,7 +310,7 @@ impl ObjectWidget {
                             .child(
                                 //
                                 self.with_path_context(
-                                    JsonIndex::Key(Cow::Borrowed(&key)),
+                                    JsonIndex::Key(Cow::Borrowed(key)),
                                     window,
                                     cx,
                                     |this, _window, _cx| {
