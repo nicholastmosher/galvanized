@@ -71,7 +71,7 @@ impl OnboardingButton {
 }
 
 impl RenderOnce for OnboardingButton {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         v_flex()
             .flex_1()
             .w_full()

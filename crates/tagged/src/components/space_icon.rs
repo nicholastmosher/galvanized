@@ -7,12 +7,11 @@ use zed::unstable::{
     gpui::{self, Stateful, img},
     ui::{
         AbsoluteLength, ActiveTheme as _, App, Div, ElementId, InteractiveElement, IntoElement,
-        ParentElement as _, RenderOnce, StatefulInteractiveElement, Styled, Window,
-        div, rems,
+        ParentElement as _, RenderOnce, StatefulInteractiveElement, Styled, Window, div, rems,
     },
 };
 
-pub fn init(cx: &mut App) {
+pub fn init(_cx: &mut App) {
     // cx.observe_new(|workspace: &mut Workspace, window, cx| {
     //     let Some(window) = window else {
     //         return;

@@ -129,7 +129,7 @@ impl Render for OnboardingItem {
                                             .border_color(cx.theme().colors().border_selected)
                                             .rounded_md()
                                     })
-                                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, _window, cx| {
                                         info!(?e, "on_key_down");
                                         let Some("\n") = e.keystroke.key_char.as_deref() else {
                                             return;
@@ -219,7 +219,7 @@ impl Render for OnboardingItem {
                                                         })
                                                 }
                                             })
-                                            .on_click(cx.listener(|this, e, window, cx| {
+                                            .on_click(cx.listener(|this, _e, _window, _cx| {
                                                 this.space_kind = SpaceKind::Owned;
                                             }))
                                             .child(
@@ -293,7 +293,7 @@ impl Render for OnboardingItem {
                                                         })
                                                 }
                                             })
-                                            .on_click(cx.listener(|this, e, window, cx| {
+                                            .on_click(cx.listener(|this, _e, _window, _cx| {
                                                 this.space_kind = SpaceKind::Communal;
                                             }))
                                             .child(
@@ -350,7 +350,7 @@ impl Render for OnboardingItem {
                                             .border_color(cx.theme().colors().border_selected)
                                             .rounded_md()
                                     })
-                                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, _window, cx| {
                                         info!(?e, "on_key_down");
                                         let Some("\n") = e.keystroke.key_char.as_deref() else {
                                             return;

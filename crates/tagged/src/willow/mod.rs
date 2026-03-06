@@ -66,7 +66,7 @@ impl Willow {
         let (_subspace_id, sub_secret) = randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
         let profile = cx.new(move |cx| Profile::new(name, sub_secret, cx));
 
-        self.state.update(cx, |state, cx| {
+        self.state.update(cx, |state, _cx| {
             state.profiles.push(profile.clone());
         });
 
@@ -78,7 +78,7 @@ impl Willow {
             randomly_generate_owned_namespace(&mut rand_core_0_6_4::OsRng);
         let space = cx.new(move |cx| Space::new(name, ns_secret, cx));
 
-        self.state.update(cx, |state, cx| {
+        self.state.update(cx, |state, _cx| {
             state.spaces.push(space.clone());
         });
 
@@ -94,7 +94,7 @@ impl Willow {
             randomly_generate_communal_namespace(&mut rand_core_0_6_4::OsRng);
         let space = cx.new(move |cx| Space::new(name, ns_secret, cx));
 
-        self.state.update(cx, |state, cx| {
+        self.state.update(cx, |state, _cx| {
             state.spaces.push(space.clone());
         });
 
@@ -111,7 +111,7 @@ impl Willow {
 }
 
 impl WillowState {
-    fn new(store_path: PathBuf, cx: &mut Context<Self>) -> Self {
+    fn new(store_path: PathBuf, _cx: &mut Context<Self>) -> Self {
         let spaces = vec![
             // cx.new(|cx| Space::new("Home".to_string(), cx)),
             // cx.new(|cx| Space::new("Family".to_string(), cx)),

@@ -26,7 +26,7 @@
 use willow25::entry::NamespaceSecret;
 use zed::unstable::ui::{App, Context, SharedString};
 
-pub fn init(cx: &mut App) {
+pub fn init(_cx: &mut App) {
     //
 }
 

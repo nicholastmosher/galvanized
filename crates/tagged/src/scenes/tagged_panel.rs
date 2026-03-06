@@ -150,7 +150,7 @@ impl TaggedPanel {
                 .border_dashed(true)
                 .on_click({
                     let onboarding = self.onboarding.downgrade();
-                    move |e, window, cx| {
+                    move |_e, window, cx| {
                         let Some(onboarding) = onboarding.upgrade() else {
                             return;
                         };

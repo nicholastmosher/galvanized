@@ -2,11 +2,11 @@ use std::path::{Path, PathBuf};
 
 use willow25::entry::SubspaceSecret;
 use zed::unstable::{
-    gpui::{AppContext as _, Entity},
+    gpui::Entity,
     ui::{App, Context, SharedString},
 };
 
-pub fn init(cx: &mut App) {
+pub fn init(_cx: &mut App) {
     //
 }
 
@@ -40,7 +40,11 @@ pub struct Profile {
 }
 
 impl Profile {
-    pub fn new(name: impl Into<SharedString>, key: SubspaceSecret, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        name: impl Into<SharedString>,
+        key: SubspaceSecret,
+        _cx: &mut Context<Self>,
+    ) -> Self {
         Self {
             //
             avatar: None,

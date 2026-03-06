@@ -1,7 +1,7 @@
 use tracing::info;
 use zed::unstable::{
     component,
-    gpui::{self, AppContext as _, Entity, EventEmitter},
+    gpui::{self, Entity, EventEmitter},
     ui::{
         ActiveTheme, AnyElement, App, Avatar, AvatarAvailabilityIndicator, ButtonCommon,
         ButtonSize, CollaboratorAvailability, Component, Element, FluentBuilder as _, IconButton,
@@ -10,9 +10,9 @@ use zed::unstable::{
     },
 };
 
-use crate::state::profile::Profile;
+use crate::{state::profile::Profile, willow::WillowExt as _};
 
-pub fn init(cx: &mut App) {
+pub fn init(_cx: &mut App) {
     //
 }
 
@@ -61,7 +61,7 @@ impl EventEmitter<()> for ProfileBar {}
 
 impl Component for ProfileBar {
     fn preview(_window: &mut Window, cx: &mut App) -> Option<AnyElement> {
-        let profile = cx.new(|cx| Profile::new("Myselfandi", cx).with_avatar(".assets/tagged.svg"));
+        let profile = cx.willow().create_profile("Myselfandi", cx);
         let canvas = div()
             //
             .debug()
