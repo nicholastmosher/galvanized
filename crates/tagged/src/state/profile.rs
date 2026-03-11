@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use willow25::entry::SubspaceSecret;
+use willow25::entry::{SubspaceId, SubspaceSecret};
 use zed::unstable::{
     gpui::Entity,
     ui::{App, Context, SharedString},
@@ -52,6 +52,10 @@ impl Profile {
             name: name.into(),
             online: true,
         }
+    }
+
+    pub fn id(&self) -> SubspaceId {
+        self.key.corresponding_subspace_id()
     }
 
     pub fn name(&self) -> SharedString {

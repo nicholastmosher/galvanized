@@ -7,9 +7,9 @@ use zed::unstable::{
         AppContext, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, img, opaque_grey,
     },
     ui::{
-        ActiveTheme, App, Context, FluentBuilder as _, InteractiveElement, IntoElement,
-        ParentElement, Render, SharedString, StatefulInteractiveElement, Styled, Window, div,
-        h_flex, px, v_flex,
+        ActiveTheme, App, ButtonCommon, Context, FluentBuilder as _, IconButton, IconName,
+        InteractiveElement, IntoElement, ListSeparator, ParentElement, Render, SharedString,
+        StatefulInteractiveElement, Styled, Tooltip, Window, div, h_flex, px, v_flex,
     },
     workspace::Item,
 };
@@ -85,71 +85,154 @@ impl Render for OnboardingItem {
                         v_flex()
                             .w_full()
                             //
+                            .gap_2()
                             .child(
                                 //
                                 div()
                                     //
                                     .text_2xl()
-                                    .child("Profile"),
+                                    .child("Profiles"),
                             )
                             .child(
                                 //
                                 div()
+                                    .mb_2()
                                     //
                                     .text_color(cx.theme().colors().text_muted)
-                                    .child("Pick a profile name and generate a key"),
+                                    .child("Virtual identities you can use to create and view content"),
                             )
-                            .child(
-                                //
-                                div()
-                                    .mt_4()
+                            .children(
+                                cx.willow().profiles(cx).iter().map(|profile| {
                                     //
-                                    .text_xl()
-                                    .child("Display name")
-                            )
-                            .child(
-                                //
-                                div()
-                                    //
-                                    .text_color(cx.theme().colors().text_muted)
-                                    .child("You can change this later")
-                            )
-                            .child(
-                                //
-                                div()
-                                    .id("profile-name-input")
-                                    .mt_2()
-                                    //
-                                    .p_2()
-                                    .when(self.profile_name_editor.read(cx).is_focused(window), |el| {
+                                    let profile = profile.read(cx);
+                                    v_flex()
+                                        .id(SharedString::from(format!("profile-{:?}", profile.id())))
                                         //
-                                        el
-                                            //
-                                            .border_2()
-                                            .border_color(cx.theme().colors().border_selected)
-                                            .rounded_md()
-                                    })
-                                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, _window, cx| {
-                                        info!(?e, "on_key_down");
-                                        let Some("\n") = e.keystroke.key_char.as_deref() else {
-                                            return;
-                                        };
-
-                                        let profile_name = this.profile_name_editor.read(cx).text(cx);
-                                        if profile_name.is_empty() {
-                                            // Do nothing if empty, any other input valid
-                                            return;
-                                        }
-
-                                        cx.willow().create_profile(profile_name, cx);
-
-                                        info!("Submit Create Profile");
-                                        cx.stop_propagation();
-                                    }))
+                                        .p_4()
+                                        .border_2()
+                                        .border_color(cx.theme().colors().border_selected)
+                                        .rounded_xl()
+                                        .hover(|style| {
+                                            style
+                                                //
+                                                .bg(cx.theme().colors().ghost_element_hover)
+                                        })
+                                        .active(|style| {
+                                            style
+                                                //
+                                                .bg(cx.theme().colors().ghost_element_active)
+                                        })
+                                        .child(profile.name())
+                                        .child(format!("ID: {:?}", profile.id()))
+                                })
+                            )
+                            .child(
+                                //
+                                h_flex()
+                                    //
+                                    .border_2()
+                                    .border_dashed()
+                                    .border_color(cx.theme().colors().border_disabled)
+                                    .rounded_xl()
                                     .child(
-                                        self.profile_name_editor.clone()
+                                        // Editor
+                                        v_flex()
+                                            .flex_1()
+                                            //
+                                            .p_2()
+                                            .gap_2()
+                                            .child(
+                                                //
+                                                div()
+                                                    //
+                                                    .child("Create Profile")
+                                            )
+                                            .child(
+                                                v_flex()
+                                                    .p_2()
+                                                    .border_1()
+                                                    .border_color(cx.theme().colors().border_disabled)
+                                                    .rounded_md()
+                                                    .child(self.profile_name_editor.clone())
+                                                    .child(ListSeparator)
+                                                    .child(
+                                                        h_flex()
+                                                            .child(IconButton::new("create-profile-regenerate-key", IconName::LoadCircle).tooltip(Tooltip::text("Regenerate Profile Key")))
+                                                            .child("Key: awieuvnaenaiunfliauneclunaluencaluiebnclaue")
+                                                    )
+                                            )
+                                    )
+                                    .child(
+                                        // Icon
+                                        h_flex()
+                                            .id("create-profile-submit")
+                                            .h_full()
+                                            .items_center()
+                                            //
+                                            .hover(|style| {
+                                                style
+                                                    //
+                                                    .bg(cx.theme().colors().ghost_element_hover)
+                                            })
+                                            .active(|style| {
+                                                style
+                                                    //
+                                                    .bg(cx.theme().colors().ghost_element_active)
+                                            })
+                                            .tooltip(Tooltip::text("Create Profile"))
+                                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                                let text = this.profile_name_editor.read(cx).text(cx);
+                                                if text.trim().is_empty() {
+                                                    return;
+                                                }
+
+                                                let _profile = cx.willow().create_profile(text, cx);
+                                            }))
+                                            .child(
+                                                //
+                                                img(PathBuf::from(".assets/create-profile.svg"))
+                                                    //
+                                                    .p_16()
+                                                    .size(px(24. * 4.))
+                                            )
                                     )
                             )
+                            // .child(
+                            //     //
+                            //     div()
+                            //         .id("profile-name-input")
+                            //         .mt_2()
+                            //         //
+                            //         .p_2()
+                            //         .when(self.profile_name_editor.read(cx).is_focused(window), |el| {
+                            //             //
+                            //             el
+                            //                 //
+                            //                 .border_2()
+                            //                 .border_color(cx.theme().colors().border_selected)
+                            //                 .rounded_md()
+                            //         })
+                            //         .on_key_down(cx.listener(|this, e: &KeyDownEvent, _window, cx| {
+                            //             info!(?e, "on_key_down");
+                            //             let Some("\n") = e.keystroke.key_char.as_deref() else {
+                            //                 return;
+                            //             };
+
+                            //             let profile_name = this.profile_name_editor.read(cx).text(cx);
+                            //             if profile_name.is_empty() {
+                            //                 // Do nothing if empty, any other input valid
+                            //                 return;
+                            //             }
+
+                            //             cx.willow().create_profile(profile_name, cx);
+
+                            //             info!("Submit Create Profile");
+                            //             cx.stop_propagation();
+                            //         }))
+                            //         .child(
+                            //             self.profile_name_editor.clone()
+                            //         )
+                            // )
                     ),
             )
             .child(
