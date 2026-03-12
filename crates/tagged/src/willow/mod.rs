@@ -43,6 +43,8 @@ struct WillowState {
     profiles: Vec<Entity<Profile>>,
     spaces: Vec<Entity<Space>>,
 
+    active_profile: Option<Entity<Profile>>,
+
     store_path: PathBuf,
     /// Payloads in simple impl are just bytes
     paths: HashMap<String, Vec<u8>>,
@@ -68,6 +70,9 @@ impl Willow {
 
         self.state.update(cx, |state, _cx| {
             state.profiles.push(profile.clone());
+            if state.active_profile.is_none() {
+                state.active_profile = Some(profile.clone());
+            }
         });
 
         profile
@@ -101,6 +106,10 @@ impl Willow {
         space
     }
 
+    pub fn active_profile(&self, cx: &mut App) -> Option<Entity<Profile>> {
+        self.state.read(cx).active_profile.clone()
+    }
+
     pub fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>> {
         self.state.read(cx).profiles.clone()
     }
@@ -129,33 +138,9 @@ impl WillowState {
             store_path,
             paths: Default::default(),
             profiles,
+            active_profile: None,
             store,
         }
-    }
-
-    fn it(&mut self) -> anyhow::Result<()> {
-        // Note: Consider to be low-level interface.
-        // Want to create a GPUI simple DSL on top
-        // self.store
-        //     .create_entry(data, payload_producer, payload_length, ingredients)
-
-        // let mut csprng = rand_core::OsRng;
-        // let (subspace_id, secret) = randomly_generate_subspace(&mut csprng);
-        // let namespace_id = NamespaceId::from_bytes(&[17; 32]);
-
-        // let entry = Entry::builder()
-        //     .namespace_id(namespace_id.clone())
-        //     .subspace_id(subspace_id.clone())
-        //     .path(path!("/ideas"))
-        //     .timestamp(12345)
-        //     .payload(b"chocolate with mustard")
-        //     .build()
-        //     .unwrap();
-
-        // let cap = WriteCapability::new_communal(namespace_id.clone(), subspace_id.clone());
-        // let authed = entry.authorise(&cap, &secret)?;
-
-        Ok(())
     }
 }
 

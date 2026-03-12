@@ -116,6 +116,11 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 March 12
+
+- I'm spending way too much time on this onboarding UI that probably will
+  end up changed anyway. sigh
+
 # 2026 March 6
 
 > am

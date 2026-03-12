@@ -221,7 +221,6 @@ impl ObjectWidget {
         let it = div();
         // let it = div().debug();
         // let it = div().size_full().debug();
-        
 
         match value {
             Value::Null => {

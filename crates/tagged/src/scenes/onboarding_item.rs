@@ -1,20 +1,25 @@
-use std::path::PathBuf;
+use std::{fmt::LowerHex, ops::Not, path::PathBuf, time::Duration};
 
+use hex::ToHex;
 use tracing::info;
+use willow25::entry::{SubspaceId, SubspaceSecret, randomly_generate_subspace};
 use zed::unstable::{
     editor::Editor,
     gpui::{
-        AppContext, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, img, opaque_grey,
+        Animation, AnimationExt, AppContext, Entity, EventEmitter, FocusHandle, Focusable,
+        KeyDownEvent, bounce, ease_in_out, ease_out_quint, img, opaque_grey, quadratic,
     },
     ui::{
-        ActiveTheme, App, ButtonCommon, Context, FluentBuilder as _, IconButton, IconName,
-        InteractiveElement, IntoElement, ListSeparator, ParentElement, Render, SharedString,
+        ActiveTheme, AnimationDirection, App, ButtonCommon, Clickable, CommonAnimationExt, Context,
+        DefaultAnimations, FluentBuilder as _, Icon, IconButton, IconName, InteractiveElement,
+        IntoElement, ListSeparator, ParentElement, Render, SharedString,
         StatefulInteractiveElement, Styled, Tooltip, Window, div, h_flex, px, v_flex,
     },
+    util::ResultExt,
     workspace::Item,
 };
 
-use crate::willow::WillowExt as _;
+use crate::{state::profile::ProfileKey, willow::WillowExt as _};
 
 pub fn init(_cx: &mut App) {
     // cx.observe_new(|workspace: &mut Workspace, window, cx| {
@@ -30,6 +35,10 @@ pub struct OnboardingItem {
     profile_name_editor: Entity<Editor>,
     space_name_editor: Entity<Editor>,
     space_kind: SpaceKind,
+
+    /// Whether the icon should bounce
+    create_profile_ready: bool,
+    create_profile_key: ProfileKey,
 }
 
 enum SpaceKind {
@@ -58,12 +67,18 @@ impl OnboardingItem {
             profile_name_editor,
             space_kind: SpaceKind::Owned,
             space_name_editor,
+            create_profile_ready: false,
+            create_profile_key: ProfileKey::new(),
         }
     }
 }
 
 impl Render for OnboardingItem {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Trivial: ready when not empty.
+        // Todo: ready validation here?
+        self.create_profile_ready = self.profile_name_editor.read(cx).text(cx).is_empty().not();
+
         v_flex()
             .size_full()
             .bg(cx.theme().colors().editor_background)
@@ -106,7 +121,7 @@ impl Render for OnboardingItem {
                                     //
                                     let profile = profile.read(cx);
                                     v_flex()
-                                        .id(SharedString::from(format!("profile-{:?}", profile.id())))
+                                        .id(SharedString::from(format!("profile-{:x}", profile.id())))
                                         //
                                         .p_4()
                                         .border_2()
@@ -123,9 +138,22 @@ impl Render for OnboardingItem {
                                                 .bg(cx.theme().colors().ghost_element_active)
                                         })
                                         .child(profile.name())
-                                        .child(format!("ID: {:?}", profile.id()))
+                                        .child(
+                                            div()
+                                                //
+                                                .text_color(cx.theme().colors().text_muted)
+                                                .child("Profile ID")
+                                        )
+                                        .child(
+                                            //
+                                            div()
+                                                //
+                                                .w(px(320.))
+                                                .child(format!("{:x}", profile.id()))
+                                        )
                                 })
                             )
+                            // Start of Create Profile
                             .child(
                                 //
                                 h_flex()
@@ -155,11 +183,40 @@ impl Render for OnboardingItem {
                                                     .rounded_md()
                                                     .child(self.profile_name_editor.clone())
                                                     .child(ListSeparator)
-                                                    .child(
-                                                        h_flex()
-                                                            .child(IconButton::new("create-profile-regenerate-key", IconName::LoadCircle).tooltip(Tooltip::text("Regenerate Profile Key")))
-                                                            .child("Key: awieuvnaenaiunfliauneclunaluencaluiebnclaue")
-                                                    )
+                                                    .child({
+                                                        let id = self.create_profile_key.id();
+                                                        v_flex()
+                                                            .w(px(320.))
+                                                            //
+                                                            .child(
+                                                                div()
+                                                                    //
+                                                                    .text_color(cx.theme().colors().text_muted)
+                                                                    .child("Profile ID")
+                                                            )
+                                                            .child(
+                                                                div()
+                                                                    .id("regenerate-profile-key")
+                                                                    .rounded_md()
+                                                                    .hover(|style| {
+                                                                        style
+                                                                            //
+                                                                            .bg(cx.theme().colors().ghost_element_hover)
+                                                                    })
+                                                                    .active(|style| {
+                                                                        style
+                                                                            //
+                                                                            .bg(cx.theme().colors().ghost_element_active)
+                                                                    })
+                                                                    .tooltip(Tooltip::text("Regenerate Profile ID"))
+                                                                    .on_click(cx.listener(|this, _event, window, cx| {
+                                                                        this.create_profile_key = ProfileKey::new();
+                                                                    }))
+                                                                    .child(
+                                                                        SharedString::from(format!("{:x}", id))
+                                                                    )
+                                                            )
+                                                    })
                                             )
                                     )
                                     .child(
@@ -180,59 +237,36 @@ impl Render for OnboardingItem {
                                                     .bg(cx.theme().colors().ghost_element_active)
                                             })
                                             .tooltip(Tooltip::text("Create Profile"))
-                                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                            .on_click(cx.listener(|this, _event, window, cx| {
                                                 let text = this.profile_name_editor.read(cx).text(cx);
                                                 if text.trim().is_empty() {
                                                     return;
                                                 }
 
                                                 let _profile = cx.willow().create_profile(text, cx);
+                                                this.profile_name_editor.update(cx, |editor, cx| {
+                                                    editor.clear(window, cx);
+                                                });
                                             }))
-                                            .child(
-                                                //
+                                            .child({
+                                                let create_profile_ready = self.create_profile_ready;
                                                 img(PathBuf::from(".assets/create-profile.svg"))
                                                     //
                                                     .p_16()
                                                     .size(px(24. * 4.))
-                                            )
+                                                    .with_animation("create-profile-bounce", Animation::new(Duration::from_millis(1800)).repeat().with_easing(bounce(quadratic)), move |this, t| {
+                                                        if create_profile_ready {
+                                                            //
+                                                            this
+                                                                //
+                                                                .bottom(px((t * 6.) - 2.))
+                                                        } else {
+                                                            this
+                                                        }
+                                                    })
+                                            })
                                     )
                             )
-                            // .child(
-                            //     //
-                            //     div()
-                            //         .id("profile-name-input")
-                            //         .mt_2()
-                            //         //
-                            //         .p_2()
-                            //         .when(self.profile_name_editor.read(cx).is_focused(window), |el| {
-                            //             //
-                            //             el
-                            //                 //
-                            //                 .border_2()
-                            //                 .border_color(cx.theme().colors().border_selected)
-                            //                 .rounded_md()
-                            //         })
-                            //         .on_key_down(cx.listener(|this, e: &KeyDownEvent, _window, cx| {
-                            //             info!(?e, "on_key_down");
-                            //             let Some("\n") = e.keystroke.key_char.as_deref() else {
-                            //                 return;
-                            //             };
-
-                            //             let profile_name = this.profile_name_editor.read(cx).text(cx);
-                            //             if profile_name.is_empty() {
-                            //                 // Do nothing if empty, any other input valid
-                            //                 return;
-                            //             }
-
-                            //             cx.willow().create_profile(profile_name, cx);
-
-                            //             info!("Submit Create Profile");
-                            //             cx.stop_propagation();
-                            //         }))
-                            //         .child(
-                            //             self.profile_name_editor.clone()
-                            //         )
-                            // )
                     ),
             )
             .child(

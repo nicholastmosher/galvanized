@@ -1,6 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::LowerHex,
+    path::{Path, PathBuf},
+};
 
-use willow25::entry::{SubspaceId, SubspaceSecret};
+use hex::ToHex as _;
+use willow25::entry::{SubspaceId, SubspaceSecret, randomly_generate_subspace};
 use zed::unstable::{
     gpui::Entity,
     ui::{App, Context, SharedString},
@@ -25,6 +29,31 @@ impl ProfileManager {
 
     pub fn add_profile(&mut self, profile: Entity<Profile>) {
         self.profiles.push(profile);
+    }
+}
+
+pub struct ProfileKey(SubspaceSecret);
+impl ProfileKey {
+    // TODO: plumb RNG? or is this fine
+    pub fn new() -> Self {
+        let (_subspace_id, sub_secret) = randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
+        ProfileKey(sub_secret)
+    }
+
+    pub fn id(&self) -> ProfileId {
+        ProfileId(self.0.corresponding_subspace_id())
+    }
+}
+impl From<SubspaceSecret> for ProfileKey {
+    fn from(value: SubspaceSecret) -> Self {
+        Self(value)
+    }
+}
+pub struct ProfileId(SubspaceId);
+impl LowerHex for ProfileId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let hex: String = self.0.to_bytes().encode_hex();
+        write!(f, "{hex}")
     }
 }
 
@@ -54,8 +83,8 @@ impl Profile {
         }
     }
 
-    pub fn id(&self) -> SubspaceId {
-        self.key.corresponding_subspace_id()
+    pub fn id(&self) -> ProfileId {
+        ProfileId(self.key.corresponding_subspace_id())
     }
 
     pub fn name(&self) -> SharedString {
