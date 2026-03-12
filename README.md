@@ -118,8 +118,41 @@ considering is this:
 
 # 2026 March 12
 
+- Ooh Private Circle and Public Square. I'm imagining using a circle and a square
+  respectively for the Space icons depending on whether they're owned or communal
+  spaces.
+
 - I'm spending way too much time on this onboarding UI that probably will
   end up changed anyway. sigh
+
+- idea: Serde Entity projections
+  - in other words, an in-memory Entity may be serialized
+
+```rust
+trait SerializeCx: Serialize {
+    //
+    fn serialize_cx<S>(&self, serializer: S, cx: &mut App) {
+        <Self as Serialize>::serialize()
+    }
+}
+
+impl<T> SerializeCx for T 
+    where T: Serialize
+{
+    fn serialize_cx(&self)
+}
+
+trait SerializableHandle {
+    fn serialize_cx<T>(&self, item: &T, cx: &App);
+}
+
+#[derive(Serialize, SerializeEntity)]
+struct MyDataType {
+    // Want to allow serde serialization through Entity indirection
+    #[serialize_entity]
+    profile: Entity<Profile>
+}
+```
 
 # 2026 March 6
 

@@ -1,11 +1,12 @@
-use std::{path::PathBuf, time::Duration};
+use std::{ops::Not as _, path::PathBuf, time::Duration};
 
+use tracing::info;
 use willow25::entry::randomly_generate_subspace;
 use zed::unstable::{
     editor::Editor,
     gpui::{
         self, Action, Animation, AnimationExt as _, AppContext as _, Entity, EventEmitter,
-        FocusHandle, Focusable, actions, bounce, img, quadratic,
+        FocusHandle, Focusable, KeyDownEvent, actions, bounce, img, quadratic,
     },
     ui::{
         ActiveTheme, App, Context, FluentBuilder as _, IconName, InteractiveElement as _,
@@ -23,7 +24,11 @@ use crate::{
         onboarding_button::OnboardingButton, profile_bar::ProfileBar, space_header::SpaceHeader,
         space_icon::SpaceIcon,
     },
-    state::{onboarding::Onboarding, profile::Profile, space::Space},
+    state::{
+        onboarding::Onboarding,
+        profile::{Profile, ProfileKey},
+        space::Space,
+    },
     willow::WillowExt as _,
 };
 
@@ -58,6 +63,8 @@ pub struct TaggedPanel {
     demo_profile: Entity<Profile>,
     initial_panel: bool,
     create_profile_editor: Entity<Editor>,
+    bottom_bar_height: Pixels,
+    create_profile_key: ProfileKey,
 }
 
 impl TaggedPanel {
@@ -76,8 +83,8 @@ impl TaggedPanel {
 
         Self {
             //
-            // active_profile: None,
-            active_profile: Some(demo_profile.clone()),
+            active_profile: None,
+            // active_profile: Some(demo_profile.clone()),
             active_space,
             focus_handle: cx.focus_handle(),
             onboarding,
@@ -92,6 +99,8 @@ impl TaggedPanel {
                 editor.set_placeholder_text("Display name", window, cx);
                 editor
             }),
+            bottom_bar_height: px(48.),
+            create_profile_key: ProfileKey::new(),
         }
     }
 }
@@ -222,7 +231,7 @@ impl TaggedPanel {
             .child(
                 h_flex()
                     .h_full()
-                    .pb_20()
+                    .pb_24()
                     // Spaces bar
                     .child(
                         //
@@ -256,7 +265,7 @@ impl TaggedPanel {
             .absolute()
             .bottom_0()
             //
-            .p_2()
+            .p_1()
             .map(|el| {
                 match &self.active_profile {
                     None => {
@@ -286,38 +295,124 @@ impl TaggedPanel {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let is_bouncing = self
+            .create_profile_editor
+            .read(cx)
+            .text(cx)
+            .is_empty()
+            .not();
         h_flex()
+            .size_full()
+            .bg(cx.theme().colors().editor_background)
             // Floating heart-plus
+            .gap_2()
+            .p_1()
+            .rounded_lg()
             .child(
                 //
-                img(PathBuf::from(".assets/create-profile.svg"))
-                    .p_16()
-                    .size(px(24. * 1.))
-                    .with_animation(
-                        "create-profile-bounce",
-                        Animation::new(Duration::from_millis(1800))
-                            .repeat()
-                            .with_easing(bounce(quadratic)),
-                        move |this, t| {
-                            if true {
-                                //
-                                this
-                                    //
-                                    .bottom(px((t * 6.) - 2.))
-                            } else {
-                                this
-                            }
-                        },
+                div()
+                    .flex_shrink_0()
+                    //
+                    .id("create-profile-icon-button")
+                    .rounded_lg()
+                    .hover(|style| {
+                        style
+                            //
+                            .bg(cx.theme().colors().ghost_element_hover)
+                    })
+                    .active(|style| {
+                        style
+                            //
+                            .bg(cx.theme().colors().ghost_element_active)
+                    })
+                    .on_click(cx.listener(|this, e, window, cx| {
+                        let name = this.create_profile_editor.read(cx).text(cx);
+                        if name.is_empty() {
+                            return;
+                        }
+
+                        let profile = cx.willow().create_profile(name, cx);
+                        this.active_profile = Some(profile);
+                    }))
+                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, _window, cx| {
+                        info!(?e, "on_key_down");
+                        let Some("\n") = e.keystroke.key_char.as_deref() else {
+                            return;
+                        };
+
+                        let name = this.create_profile_editor.read(cx).text(cx);
+                        if name.is_empty() {
+                            return;
+                        }
+
+                        let profile = cx.willow().create_profile(name, cx);
+                        this.active_profile = Some(profile);
+                    }))
+                    .child(
+                        img(PathBuf::from(".assets/create-profile.svg"))
+                            .size(px(12. * 5.))
+                            .with_animation(
+                                "create-profile-bounce",
+                                Animation::new(Duration::from_millis(1800))
+                                    .repeat()
+                                    .with_easing(bounce(quadratic)),
+                                move |this, t| {
+                                    if is_bouncing {
+                                        //
+                                        this
+                                            //
+                                            .bottom(px((t * 6.) - 3.))
+                                    } else {
+                                        this
+                                    }
+                                },
+                            ),
                     ),
             )
             .child(
                 //
                 v_flex()
+                    .flex_grow()
                     //
-                    // .child(div())
                     .child(
                         //
-                        div(),
+                        div()
+                            //
+                            .p_2()
+                            .child(self.create_profile_editor.clone()),
+                    )
+                    .child(
+                        div()
+                            .id("regenerate-profile-key")
+                            .p_2()
+                            .rounded_md()
+                            .hover(|style| {
+                                style
+                                    //
+                                    .bg(cx.theme().colors().ghost_element_hover)
+                            })
+                            .active(|style| {
+                                style
+                                    //
+                                    .bg(cx.theme().colors().ghost_element_active)
+                            })
+                            .tooltip(Tooltip::text("Regenerate Profile ID"))
+                            .on_click(cx.listener(|this, _event, window, cx| {
+                                this.create_profile_key = ProfileKey::new();
+                            }))
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .text_sm()
+                                    .text_color(cx.theme().colors().text_muted)
+                                    .child({
+                                        let mut id_hex =
+                                            format!("{:x}", self.create_profile_key.id());
+                                        let lsbs = id_hex.split_off(id_hex.len() - 8);
+                                        SharedString::from(format!("ID: .+{lsbs}"))
+                                    }),
+                            ),
                     ),
             )
     }
