@@ -116,6 +116,14 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 March 14
+
+- Reworked Profile/Space creation again, getting better at UI and learning more
+  Zed-native components
+- Want to strike a balance between design fitting into Zed and hand-crafted feeling
+- Still only using Entities in-memory for storing anything, need to try to integrate
+  with the Willow memory store and figure out serialization preferences/conventions
+
 # 2026 March 12
 
 - Ooh Private Circle and Public Square. I'm imagining using a circle and a square
