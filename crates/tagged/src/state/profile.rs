@@ -91,9 +91,8 @@ impl Profile {
         self.name.clone()
     }
 
-    pub fn with_avatar(mut self, avatar: impl Into<PathBuf>) -> Self {
+    pub fn set_avatar(&mut self, avatar: impl Into<PathBuf>) {
         self.avatar = Some(avatar.into());
-        self
     }
 
     pub fn avatar(&self) -> Option<&Path> {

@@ -26,7 +26,7 @@ use crate::{
         profile::{Profile, ProfileKey},
         space::Space,
     },
-    views::create_space_modal::CreateSpaceModal,
+    views::{create_profile_modal::CreateProfileModal, create_space_modal::CreateSpaceModal},
     willow::WillowExt as _,
 };
 
@@ -50,7 +50,6 @@ pub fn init(cx: &mut App) {
 }
 
 pub struct TaggedPanel {
-    active_profile: Option<Entity<Profile>>,
     active_space: Option<Entity<Space>>,
     focus_handle: FocusHandle,
     onboarding: Entity<Onboarding>,
@@ -58,7 +57,7 @@ pub struct TaggedPanel {
     workspace: Entity<Workspace>,
 
     // temp
-    demo_profile: Entity<Profile>,
+    // demo_profile: Entity<Profile>,
     initial_panel: bool,
     // create_profile_editor: Entity<Editor>,
     create_profile_input: Entity<InputField>,
@@ -73,17 +72,7 @@ impl TaggedPanel {
         // let active_space = cx.new(|cx| Space::new("Group's Space", cx));
         let onboarding = cx.new(|cx| Onboarding::new(workspace.clone(), cx));
 
-        let demo_profile = cx.new(|cx| {
-            //
-            let mut csprng = rand_core_0_6_4::OsRng;
-            let (_demo_id, demo_secret) = randomly_generate_subspace(&mut csprng);
-            Profile::new("Myselfandi", demo_secret, cx).with_avatar(".assets/tagged.svg")
-        });
-
         Self {
-            //
-            active_profile: None,
-            // active_profile: Some(demo_profile.clone()),
             active_space: None,
             // active_space: Some(active_space),
             focus_handle: cx.focus_handle(),
@@ -92,7 +81,7 @@ impl TaggedPanel {
             workspace,
 
             // temp
-            demo_profile,
+            // demo_profile,
             initial_panel: true,
             create_profile_input: cx.new(|cx| InputField::new(window, cx, "Profile name")),
             bottom_bar_height: px(48.),
@@ -159,14 +148,15 @@ impl TaggedPanel {
             //
             .p_1()
             .map(|el| {
-                match &self.active_profile {
+                match cx.willow().active_profile(cx) {
                     None => {
                         //
                         el
                             // Bottom bar initialization
                             .child(
                                 //
-                                self.render_bottom_bar_create_profile(window, cx),
+                                // self.render_bottom_bar_create_profile(window, cx),
+                                self.render_bottom_bar_create_profile_button(window, cx),
                             )
                     }
                     Some(profile) => {
@@ -175,11 +165,62 @@ impl TaggedPanel {
                             //
                             .child(
                                 //
-                                ProfileBar::new(profile.clone()),
+                                ProfileBar::new(profile),
                             )
                     }
                 }
             })
+    }
+
+    fn render_bottom_bar_create_profile_button(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        h_flex()
+            .size_full()
+            .bg(cx.theme().colors().panel_background)
+            .p_1()
+            .rounded_lg()
+            .child(
+                div()
+                    .id("create-profile-bar-button")
+                    .w_full()
+                    //
+                    .p_2()
+                    .rounded_lg()
+                    .hover(|style| {
+                        style
+                            //
+                            .bg(cx.theme().colors().ghost_element_hover)
+                    })
+                    .active(|style| {
+                        style
+                            //
+                            .bg(cx.theme().colors().ghost_element_active)
+                    })
+                    .on_click(cx.listener(|this, e, window, cx| {
+                        this.workspace.update(cx, |workspace, cx| {
+                            CreateProfileModal::toggle(workspace, window, cx);
+                        })
+                    }))
+                    .child(
+                        img(PathBuf::from(".assets/create-profile.svg"))
+                            .size(px(12. * 4.))
+                            .mx_auto()
+                            .with_animation(
+                                "create-profile-bounce",
+                                Animation::new(Duration::from_millis(1800))
+                                    .repeat()
+                                    .with_easing(bounce(quadratic)),
+                                move |this, t| {
+                                    this
+                                        //
+                                        .bottom(px((t * 6.) - 3.))
+                                },
+                            ),
+                    ),
+            )
     }
 
     fn render_bottom_bar_create_profile(
@@ -219,7 +260,6 @@ impl TaggedPanel {
                         }
 
                         let profile = cx.willow().create_profile(name, cx);
-                        this.active_profile = Some(profile);
                     }))
                     .on_key_down(cx.listener(|this, e: &KeyDownEvent, _window, cx| {
                         info!(?e, "on_key_down");
@@ -233,7 +273,6 @@ impl TaggedPanel {
                         }
 
                         let profile = cx.willow().create_profile(name, cx);
-                        this.active_profile = Some(profile);
                     }))
                     .child(
                         img(PathBuf::from(".assets/create-profile.svg"))
@@ -386,20 +425,12 @@ impl TaggedPanel {
                             // .rounded_xl()
                             .max_w_full(),
                     )
-
-                // // TODO real icon properties
-                // SpaceIcon::new(
-                //     SharedString::from(format!("space-icon-{i}")),
-                //     ".assets/tagged.svg",
-                // )
-                // .size(px(48.))
-                // .tooltip(Tooltip::text(format!("Space {i}")))
             }))
             .child(div().flex_grow())
             .child({
                 // Bounce when empty to prompt user to create a space
                 let new_space_bounces =
-                    self.active_profile.is_some() && cx.willow().spaces(cx).is_empty();
+                    cx.willow().active_profile(cx).is_some() && cx.willow().spaces(cx).is_empty();
 
                 div()
                     //

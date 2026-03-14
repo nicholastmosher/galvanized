@@ -11,7 +11,7 @@ use zed::unstable::{
         IconName, InteractiveElement as _, IntoElement, KeyBinding, Label, LabelCommon as _,
         LabelSize, Modal, ModalFooter, ModalHeader, ParentElement as _, Render,
         StatefulInteractiveElement as _, Styled as _, StyledExt, ToggleState, Tooltip, Window, div,
-        h_flex, px, rems_from_px, v_flex,
+        h_flex, px, rems, rems_from_px, v_flex,
     },
     ui_input::InputField,
     workspace::{ModalView, Workspace},
@@ -65,7 +65,7 @@ impl Render for CreateSpaceModal {
 
         div()
             .id("create-space-modal")
-            .w_full()
+            .w(rems(34.))
             //
             .elevation_3(cx)
             .child(
@@ -73,28 +73,18 @@ impl Render for CreateSpaceModal {
                 Modal::new("create-space-modal-inner", None)
                     .header(ModalHeader::new().headline("Create Space"))
                     .child(
-                        //
                         v_flex()
                             .p_2()
                             .gap_2()
-                            // .items_center()
                             .child(self.input.space_name.clone())
-                                    // .size(LabelSize::Small)
-                                    // .color(if self.disabled {
-                                    //     Color::Disabled
-                                    // } else {
-                                    //     Color::Default
-                                    // }),
                             .child(
                                 Label::new("Space kind").size(LabelSize::Small)
                             )
+                            // Owned Space choice
                             .child(
-                                //
                                 h_flex()
                                     .id("space-owned")
                                     .w_full()
-                                    // .w_1_2()
-                                    .flex_1()
                                     //
                                     .p_4()
                                     .gap_2()
@@ -164,13 +154,12 @@ impl Render for CreateSpaceModal {
                                             ),
                                     ),
                             )
+                            // Communal Space choice
                             .child(
                                 //
                                 h_flex()
                                     .id("space-communal")
                                     .w_full()
-                                    // .w_1_2()
-                                    // .flex_1()
                                     //
                                     .p_4()
                                     .gap_2()
