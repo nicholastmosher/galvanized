@@ -1,9 +1,10 @@
 use std::{collections::HashMap, path::PathBuf};
 
+use anyhow::bail;
 use zed::unstable::{
     gpui::{
-        AppContext as _, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, img,
-        opaque_grey,
+        AppContext as _, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
+        PathPromptOptions, TextOverflow, img, opaque_grey,
     },
     menu::{self},
     ui::{
@@ -14,6 +15,7 @@ use zed::unstable::{
         h_flex, px, rems, rems_from_px, v_flex,
     },
     ui_input::InputField,
+    util::ResultExt as _,
     workspace::{ModalView, Workspace},
 };
 
@@ -21,6 +23,7 @@ use crate::{state::profile::Profile, willow::WillowExt as _};
 
 pub struct CreateSpaceModal {
     focus_handle: FocusHandle,
+    icon_path: Option<PathBuf>,
     input: CreateSpaceInput,
 }
 
@@ -50,6 +53,7 @@ impl CreateSpaceModal {
         Self {
             //
             focus_handle: cx.focus_handle(),
+            icon_path: None,
             input,
         }
     }
@@ -76,7 +80,82 @@ impl Render for CreateSpaceModal {
                         v_flex()
                             .p_2()
                             .gap_2()
-                            .child(self.input.space_name.clone())
+                            .child(
+                                //
+                                h_flex()
+                                    //
+                                    .gap_2()
+                                    .child(
+                                        v_flex()
+                                            .flex_1()
+                                            .child(div().flex_grow())
+                                            .child(self.input.space_name.clone())
+                                    )
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .child(
+                                                //
+                                                img({
+                                                    if let Some(path) = &self.icon_path {
+                                                        path.to_path_buf()
+                                                    } else {
+                                                        PathBuf::from(".assets/create-space.svg")
+                                                    }
+                                                })
+                                                    .id("create-space-select-icon")
+                                                    .mx_auto()
+                                                    //
+                                                    .size(px(12. * 10.))
+                                                    .p_2()
+                                                    .bg(cx.theme().colors().background)
+                                                    .border_1()
+                                                    .border_color(cx.theme().colors().border)
+                                                    .rounded_md()
+                                                    .hover(|style| {
+                                                        style
+                                                            //
+                                                            .bg(cx.theme().colors().ghost_element_hover)
+                                                    })
+                                                    .active(|style| {
+                                                        style
+                                                            //
+                                                            .bg(cx.theme().colors().ghost_element_active)
+                                                    })
+                                                    .on_click(cx.listener(|_this, _e, _window, cx| {
+                                                        let options =  PathPromptOptions {
+                                                            files: true,
+                                                            directories: false,
+                                                            multiple: false,
+                                                            prompt: Some("Select space icon".into()),
+                                                        };
+                                                        let rx = cx.prompt_for_paths(options);
+
+                                                        // TODO don't dangle
+                                                        cx.spawn(async move |weak_this, cx| {
+                                                            let Some(this_entity) = weak_this.upgrade() else {
+                                                                bail!("Entity released");
+                                                            };
+
+                                                            let selection = rx.await.log_err().transpose().log_err().flatten().flatten();
+                                                            let Some(paths) = selection else {
+                                                                bail!("Selected no paths");
+                                                            };
+
+                                                            let [path] = &*paths else {
+                                                                bail!("Profile icon expected one path");
+                                                            };
+
+                                                            this_entity.update(cx, |this, _cx| {
+                                                                this.icon_path = Some(path.clone());
+                                                            })?;
+
+                                                            anyhow::Ok(())
+                                                        }).detach_and_log_err(cx);
+                                                    }))
+                                            )
+                                    )
+                            )
                             .child(
                                 Label::new("Space kind").size(LabelSize::Small)
                             )
@@ -218,11 +297,12 @@ impl Render for CreateSpaceModal {
                                             )
                                             .child(
                                                 //
-                                                div()
+                                                v_flex()
                                                     .w_full()
                                                     //
                                                     // .child("Owned spaces by default are private to you. You may share read or write access to areas in your space, but nobody can access your space without explicit permission"),
-                                                    .child("Communal spaces are public and can be joined by anyone"),
+                                                    .child("Communal spaces are public")
+                                                    .child("They can be joined by anyone"),
                                             ),
                                     ),
                             )
@@ -314,13 +394,18 @@ impl Render for CreateSpaceModal {
                                                     return;
                                                 }
 
-                                                match this.input.space_kind {
+                                                let space = match this.input.space_kind {
                                                     SpaceKind::Owned => {
-                                                        cx.willow().create_owned_space(name, cx);
+                                                        cx.willow().create_owned_space(name, cx)
                                                     },
                                                     SpaceKind::Communal => {
-                                                        cx.willow().create_communal_space(name, cx);
+                                                        cx.willow().create_communal_space(name, cx)
                                                     },
+                                                };
+                                                if let Some(icon_path) = &this.icon_path {
+                                                    space.update(cx, |space, cx| {
+                                                        space.set_icon_path(icon_path.clone());
+                                                    });
                                                 }
 
                                                 cx.emit(DismissEvent);

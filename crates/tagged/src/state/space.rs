@@ -23,6 +23,8 @@
 //! - A calendar is just a list of events, rendered on a week or month view
 //! - A chat is just a list of messages and media, rendered as a conversation
 
+use std::path::{Path, PathBuf};
+
 use willow25::entry::NamespaceSecret;
 use zed::unstable::ui::{App, Context, SharedString};
 
@@ -32,6 +34,7 @@ pub fn init(_cx: &mut App) {
 
 pub struct Space {
     key: NamespaceSecret,
+    icon_path: Option<PathBuf>,
     name: SharedString,
 }
 
@@ -43,6 +46,7 @@ impl Space {
     ) -> Self {
         Space {
             key,
+            icon_path: None,
             name: name.into(),
         }
     }
@@ -53,5 +57,13 @@ impl Space {
 
     pub fn is_communal(&self) -> bool {
         self.key.corresponding_namespace_id().is_communal()
+    }
+
+    pub fn icon_path(&self) -> Option<&Path> {
+        self.icon_path.as_deref()
+    }
+
+    pub fn set_icon_path(&mut self, icon_path: PathBuf) {
+        self.icon_path = Some(icon_path);
     }
 }

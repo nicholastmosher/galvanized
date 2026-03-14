@@ -1,4 +1,7 @@
-use std::{path::PathBuf, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use zed::unstable::{
     gpui::{
@@ -231,15 +234,19 @@ impl TaggedPanel {
                     .tooltip(Tooltip::text(space.read(cx).name()))
                     .child(
                         //
-                        img(PathBuf::from(".assets/tagged.svg"))
-                            .size(px(48.))
-                            .map(|el| {
-                                if space.read(cx).is_communal() {
-                                    el.rounded_lg()
-                                } else {
-                                    el.rounded_full()
-                                }
-                            }),
+                        img(space
+                            .read(cx)
+                            .icon_path()
+                            .unwrap_or_else(|| Path::new(&".assets/create-space.svg")))
+                        // img(PathBuf::from(".assets/tagged.svg"))
+                        .size(px(48.))
+                        .map(|el| {
+                            if space.read(cx).is_communal() {
+                                el.rounded_lg()
+                            } else {
+                                el.rounded_full()
+                            }
+                        }),
                     )
             }))
             .child(div().flex_grow())
