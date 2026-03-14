@@ -112,21 +112,21 @@ impl Render for TaggedPanel {
             .h_full()
             .bg(cx.theme().colors().editor_background)
             .w(self.width.unwrap_or(px(300.)) - px(1.))
-            .when(self.initial_panel, |el| {
-                el
-                    //
-                    .child(
-                        //
-                        self.render_initial_panel(window, cx),
-                    )
-            })
-            .when(!self.initial_panel, |el| {
-                //
-                el
-                    //
-                    .child(self.render_active_panel(window, cx))
-            })
-        // .child(self.render_active_panel(window, cx))
+            // .when(self.initial_panel, |el| {
+            //     el
+            //         //
+            //         .child(
+            //             //
+            //             self.render_initial_panel(window, cx),
+            //         )
+            // })
+            // .when(!self.initial_panel, |el| {
+            //     //
+            //     el
+            //         //
+            //         .child(self.render_active_panel(window, cx))
+            // })
+            .child(self.render_active_panel(window, cx))
     }
 }
 
@@ -296,12 +296,7 @@ impl TaggedPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let is_bouncing = self
-            .create_profile_editor
-            .read(cx)
-            .text(cx)
-            .is_empty()
-            .not();
+        let display_name_empty = self.create_profile_editor.read(cx).text(cx).is_empty();
         h_flex()
             .size_full()
             .bg(cx.theme().colors().panel_background)
@@ -358,7 +353,7 @@ impl TaggedPanel {
                                     .repeat()
                                     .with_easing(bounce(quadratic)),
                                 move |this, t| {
-                                    if is_bouncing {
+                                    if !display_name_empty {
                                         //
                                         this
                                             //
@@ -390,39 +385,80 @@ impl TaggedPanel {
                                     el
                                 }
                             })
-                            .child(self.create_profile_editor.clone()),
-                    )
-                    .child(
-                        div()
-                            .id("regenerate-profile-key")
-                            .p_2()
-                            .rounded_md()
-                            .hover(|style| {
-                                style
-                                    //
-                                    .bg(cx.theme().colors().ghost_element_hover)
-                            })
-                            .active(|style| {
-                                style
-                                    //
-                                    .bg(cx.theme().colors().ghost_element_active)
-                            })
-                            .tooltip(Tooltip::text("Regenerate Profile ID"))
-                            .on_click(cx.listener(|this, _event, window, cx| {
-                                this.create_profile_key = ProfileKey::new();
-                            }))
+                            .child(self.create_profile_editor.clone())
                             .child(
                                 //
                                 div()
                                     //
-                                    .text_sm()
-                                    .text_color(cx.theme().colors().text_muted)
-                                    .child({
-                                        let mut id_hex =
-                                            format!("{:x}", self.create_profile_key.id());
-                                        let lsbs = id_hex.split_off(id_hex.len() - 8);
-                                        SharedString::from(format!("ID: .+{lsbs}"))
-                                    }),
+                                    .absolute()
+                                    .bottom_12()
+                                    .child(
+                                        //
+                                        img(PathBuf::from(".assets/arrow-down.png"))
+                                            .size(px(48.))
+                                            .with_animation(
+                                                "display-name-arrow",
+                                                Animation::new(Duration::from_millis(2_000))
+                                                    .repeat()
+                                                    .with_easing(bounce(quadratic)),
+                                                move |el, t| {
+                                                    if display_name_empty {
+                                                        el.mb(px(0. - (t * 6.)))
+                                                    } else {
+                                                        //
+                                                        el
+                                                    }
+                                                },
+                                            ),
+                                    ),
+                            ),
+                    )
+                    .child(
+                        div()
+                            //
+                            .p_2()
+                            .child(
+                                //
+                                h_flex()
+                                    //
+                                    // .text_color(cx.theme().colors().text_muted)
+                                    .gap_1()
+                                    .child(
+                                        img(PathBuf::from(".assets/refresh-arrows.png"))
+                                            .id("regenerate-profile-key")
+                                            .justify_center()
+                                            //
+                                            .p_1()
+                                            .size(px(24.))
+                                            .rounded_md()
+                                            .hover(|style| {
+                                                style
+                                                    //
+                                                    .bg(cx.theme().colors().ghost_element_hover)
+                                            })
+                                            .active(|style| {
+                                                style
+                                                    //
+                                                    .bg(cx.theme().colors().ghost_element_active)
+                                            })
+                                            .tooltip(Tooltip::text("Regenerate Profile ID"))
+                                            .on_click(cx.listener(|this, _event, window, cx| {
+                                                this.create_profile_key = ProfileKey::new();
+                                            })),
+                                    )
+                                    .child("ID: ")
+                                    .child(
+                                        //
+                                        div()
+                                            //
+                                            .text_sm()
+                                            .child({
+                                                let mut id_hex =
+                                                    format!("{:x}", self.create_profile_key.id());
+                                                let lsbs = id_hex.split_off(id_hex.len() - 8);
+                                                SharedString::from(format!(".+{lsbs}"))
+                                            }),
+                                    ),
                             ),
                     ),
             )

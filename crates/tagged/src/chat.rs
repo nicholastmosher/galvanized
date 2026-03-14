@@ -11,7 +11,7 @@ use zed::unstable::{
     workspace::Item,
 };
 
-use crate::object_widget::ObjectWidget;
+// use crate::object_widget::ObjectWidget;
 
 pub struct Feed<T> {
     //
@@ -75,7 +75,7 @@ pub struct ChatUi {
     chat_feed: Entity<Feed<ChatBubble>>,
     focus_handle: FocusHandle,
     input_editor: Entity<Editor>,
-    object_widget: Entity<ObjectWidget>,
+    // object_widget: Entity<ObjectWidget>,
     title: String,
 }
 
@@ -92,45 +92,45 @@ impl ChatUi {
             editor
         });
 
-        let object_widget = cx.new(|cx| {
-            ObjectWidget::new(
-                json!({
-                    //
-                    // "OneKey": "OneValue",
-                    "One": {
-                        "One.One": "11",
-                        "One.Two": {
-                            "One.Two.One": "1.2.1",
-                            "One.Two.Two": "1.2.2",
-                        },
-                        // "One.Two": [
-                        //     "One.Two.One",
-                        //     "One.Two.Two",
-                        //     "One.Two.Three",
-                        // ]
-                    },
-                    "Two": 2,
-                    "Three": 3,
-                    "Four": [
-                        "FourOne",
-                        "FourTwo",
-                        "FourThree",
-                    ]
-                    // "Four": {
-                    //     "FourOne": "41",
-                    //     "FourTwo": "42",
-                    //     "FourThree": null,
-                    // }
-                }),
-                cx,
-            )
-        });
+        // let object_widget = cx.new(|cx| {
+        //     ObjectWidget::new(
+        //         json!({
+        //             //
+        //             // "OneKey": "OneValue",
+        //             "One": {
+        //                 "One.One": "11",
+        //                 "One.Two": {
+        //                     "One.Two.One": "1.2.1",
+        //                     "One.Two.Two": "1.2.2",
+        //                 },
+        //                 // "One.Two": [
+        //                 //     "One.Two.One",
+        //                 //     "One.Two.Two",
+        //                 //     "One.Two.Three",
+        //                 // ]
+        //             },
+        //             "Two": 2,
+        //             "Three": 3,
+        //             "Four": [
+        //                 "FourOne",
+        //                 "FourTwo",
+        //                 "FourThree",
+        //             ]
+        //             // "Four": {
+        //             //     "FourOne": "41",
+        //             //     "FourTwo": "42",
+        //             //     "FourThree": null,
+        //             // }
+        //         }),
+        //         cx,
+        //     )
+        // });
 
         Self {
             chat_feed,
             focus_handle: cx.focus_handle(),
             input_editor,
-            object_widget,
+            // object_widget,
             title,
         }
     }
@@ -144,7 +144,7 @@ impl Render for ChatUi {
             .flex_col()
             .child(self.chat_feed.clone())
             .child(div().p_2().flex_grow().debug())
-            .child(self.object_widget.clone())
+            // .child(self.object_widget.clone())
             .child(
                 div()
                     .debug()

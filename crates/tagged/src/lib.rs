@@ -10,11 +10,11 @@ use zed::unstable::{
 mod chat;
 mod components;
 mod contacts;
-mod function_widget;
+// mod function_widget;
 mod iroh_automerge_chat_ui;
 mod iroh_panel_ui;
 mod iroh_topic_chat_ui;
-mod object_widget;
+// mod object_widget;
 mod scenes;
 mod state;
 mod willow;
@@ -23,10 +23,10 @@ mod willow;
 pub fn init(cx: &mut App) {
     components::init(cx);
     contacts::init(cx);
-    function_widget::init(cx);
+    // function_widget::init(cx);
     // iroh_panel_ui::init(cx);
     // iroh_topic_chat_ui::init(cx);
-    object_widget::init(cx);
+    // object_widget::init(cx);
     scenes::init(cx);
     state::init(cx);
     willow::init(cx);
