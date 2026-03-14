@@ -1,17 +1,16 @@
-use std::{ops::Not as _, path::PathBuf, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use tracing::info;
 use willow25::entry::randomly_generate_subspace;
 use zed::unstable::{
-    editor::Editor,
     gpui::{
         self, Action, Animation, AnimationExt as _, AppContext as _, Entity, EventEmitter,
         FocusHandle, Focusable, KeyDownEvent, actions, bounce, img, quadratic,
     },
     ui::{
-        ActiveTheme, App, Context, FluentBuilder as _, Icon, IconName, IconSize,
-        InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Pixels, Render,
-        SharedString, StatefulInteractiveElement, Styled, Tooltip, Window, div, h_flex, px, v_flex,
+        ActiveTheme, App, Context, FluentBuilder as _, IconName, InteractiveElement as _,
+        IntoElement, ListSeparator, ParentElement as _, Pixels, Render, SharedString,
+        StatefulInteractiveElement, Styled, Tooltip, Window, div, h_flex, px, v_flex,
     },
     ui_input::InputField,
     workspace::{
@@ -22,14 +21,14 @@ use zed::unstable::{
 
 use crate::{
     components::{
-        onboarding_button::OnboardingButton, profile_bar::ProfileBar, space_header::SpaceHeader,
-        space_icon::SpaceIcon,
+        onboarding_button::OnboardingButton, profile_bar::ProfileBar, space_icon::SpaceIcon,
     },
     state::{
         onboarding::Onboarding,
         profile::{Profile, ProfileKey},
         space::Space,
     },
+    views::create_space_modal::CreateSpaceModal,
     willow::WillowExt as _,
 };
 
@@ -467,18 +466,47 @@ impl TaggedPanel {
             .child(SpaceIcon::new("space-icon-1", ".assets/tagged.svg").size(px(48.)))
             .child(ListSeparator)
             .children(cx.willow().spaces(cx).iter().enumerate().map(|(i, space)| {
-                // TODO real icon properties
-                SpaceIcon::new(
-                    SharedString::from(format!("space-icon-{i}")),
-                    ".assets/tagged.svg",
-                )
-                .size(px(48.))
-                .tooltip(Tooltip::text(format!("Space {i}")))
+                div()
+                    .id(SharedString::from(format!("space-icon-{i}")))
+                    .hover(|style| style.opacity(0.6))
+                    .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                    .map(|el| {
+                        if space.read(cx).is_communal() {
+                            el.rounded_lg()
+                        } else {
+                            el.rounded_full()
+                        }
+                    })
+                    .tooltip(Tooltip::text(space.read(cx).name()))
+                    .child(
+                        //
+                        img(PathBuf::from(".assets/tagged.svg"))
+                            .size(px(48.))
+                            .map(|el| {
+                                if space.read(cx).is_communal() {
+                                    el.rounded_lg()
+                                } else {
+                                    el.rounded_full()
+                                }
+                            })
+                            // .rounded_xl()
+                            .max_w_full(),
+                    )
+
+                // // TODO real icon properties
+                // SpaceIcon::new(
+                //     SharedString::from(format!("space-icon-{i}")),
+                //     ".assets/tagged.svg",
+                // )
+                // .size(px(48.))
+                // .tooltip(Tooltip::text(format!("Space {i}")))
             }))
             .child(div().flex_grow())
             .child({
+                // Bounce when empty to prompt user to create a space
                 let new_space_bounces =
-                    self.active_profile.is_some() && self.active_space.is_none();
+                    self.active_profile.is_some() && cx.willow().spaces(cx).is_empty();
+
                 div()
                     //
                     .id("create-space")
@@ -494,8 +522,10 @@ impl TaggedPanel {
                             //
                             .bg(cx.theme().colors().ghost_element_active)
                     })
-                    .on_click(cx.listener(|this, _e, _window, _cx| {
-                        this.initial_panel = !this.initial_panel;
+                    .on_click(cx.listener(|this, _e, window, cx| {
+                        this.workspace.update(cx, |workspace, cx| {
+                            CreateSpaceModal::toggle(workspace, window, cx);
+                        })
                     }))
                     .child(
                         img(PathBuf::from(".assets/create-space.svg"))
