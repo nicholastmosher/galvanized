@@ -118,6 +118,170 @@ considering is this:
 
 # 2026 March 14
 
+> pm
+
+Need to set goals
+
+- End to end as soon as possible
+- Start thinking about the relationship between data and the application, try to
+  find the most minimal but intuitive way.
+- Everything needs to be dead simple
+- Need to prototype with Willow's MemoryStore. Should pull
+- Really really should rebase Zed fork
+- Data from the perspective of a disk,
+  data from the perspective of transmission is protocols, such as request/response,
+  pipelined stream-based messaging,
+- Remote proxying of objects will probably be golden here. An `Entity<T>` is just a
+  proxy to get `T`, so too could a `RemoteEntity<T>` represent perhaps the existence
+  of such an Entity on a given peer?
+  - PeerContext?
+
+```rust
+/// UI to demonstrate a workflow that initiates a remote fetch of some content.
+/// 
+/// So the user sees a bubble like in any chat app, and that bubble is like the
+/// visual API to data objects. The data object gets to define how it renders itself,
+/// and it may be displayed wherever bubbles are allowed.
+/// 
+/// I've mentioned earlier having a notion of "feeds" as a fundamental building block
+/// I think the feed would be the parent element and the bubble would be the child
+fn render_user_clicksona_thumbnailand_nowgottadownloadit_widget(clicked_entity: &Entity<T>, &mut Window, &mut App) {
+    div()
+}
+
+struct RemoteEntity<T> {...}
+impl<T> RemoteEntity<T> {
+    /// Invokes the retrieval of the content referenced by the 
+    pub fn read_remote(&self, cx: &mut App) -> WeakEntity<T> {
+        // peer-willow, just needed a bikeshed that works for my brain lol
+        cx.pillow() // -> Pillow // just a nice domain name for an arbitrary API
+            .active_peer() // -> Peer
+            // Initiates a request with the p2p system, requesting
+            // the retrieval of
+            .read(self);
+    }
+}
+
+trait TheMacro { }
+
+struct ChatContent {
+    #[the_macro(content)]
+    author_id: ProfileId,
+}
+
+
+#[derive(TheMacro)]
+struct ChatBubble {
+    // How to represent Content?? That's a big one
+    #[the_macro(content)]
+    content: ChatContent,
+    
+    // Allow designating any field as having no business in this adventure
+    #[the_macro(skip)]
+    unrelated_state: usize,
+    
+    // This field may hold state for UI or otherwise irrelevant to the domain model transmission
+    #[the_macro(local)]
+    local_ui_state: Entity<UiState>,
+    
+    // This entity must be recursively "shareable", would allow peers to sync their local peer
+    // UI to follow focus. Different profile focuses could be like tabs somewhere
+    #[the_macro(shared)]
+    shared_ui_state: Entity<SharedUiStae>,
+    
+    // Some DSL to express data that gets predictably stored to disk
+    #[the_macro(willow)]
+    durable_app_state: Entity<DurableAppState>,
+    
+    // This data is agreed to be synced and replicated with peers according to policy
+    // 
+    // ... how to express the policy?
+    #[the_macro(replicated)]
+    replicated_app_state: Entity<ReplicatedAppState>, // Entity<T> where T: Replicatable
+}
+
+#[derive(Replicated)]
+/// Fields in this struct follow the requirements of `Replicated` and
+struct ChatReplicatedAppState {
+    //
+}
+
+trait Replicatable {
+    //
+}
+
+// - `T: Render`
+// - `T: Willowize`
+// - `T: Neighborly` // Can live on a trusted neighbor's device
+```
+
+So 5 dimensions:
+
+Digital lives
+
+- Content, what the user cares about. 
+- Replicated content
+
+App machinery (the behavior of the GPUI app)
+
+- Local state: Application internals that don't need syncing or aren't beneficial to
+- Shared state: Zed remote entity sync such as is done in shared sessions.
+  - I need to dig in more to how that's all done
+- Durable state: Like Zed's `Settings` getting serialized between 
+
+> Feels like "Upgrading" and "Downgrading"
+> - A state object can move between the levels of "App machinery"
+> - Actually, I think they're orthogonal:
+>   - In-memory: Local or shared
+>   - Durable: Persisted to disk, or not
+
+> - Local state/objects can become shared, shared can become local
+>   - It maybe sounds weird in an editor to consider app state going back and forth
+>     between local or shared, it feels like I should expect things to be one or the other
+>   - Consider a future with lots of apps, local/shared could be a matter of private/public,
+>     or being "online" or "offline".
+>   - Digital Soverignty: The right to disconnect.
+>     - Human right
+>     - Allow anyone/anything to refuse to sync or host any other peer's content, for any reason
+
+How are "Shared state" and "Replicated data" different? (I asked,)
+
+- Shared data is runtime GPUI Entities which can be synced to other peers.
+  - It's needed to sync UI state for anything that wants to be "live"
+
+- Replicated data is durable (e.g. Willow) and has strong properties around permissioning
+  - Need to think of permissioning in all scopes/domains
+  - Can Willow's permissioning model be projected onto other p2p structures?
+  - I think "capabilities" is effectively just a protocol.
+    - A signed message from one peer with this 
+
+  data from the perspective of GPUI is `Entity<T>`
+- data from the perspective of the UI is just any `T: Render`
+- So we want a DSL based around creating one extremely capable
+
+---
+
+- So we have a standard interface for Profiles (the profile bar) which is pretty much persistent
+- What if it was rendered on an overlay by convention? So like steam's shift-tab, but your overlay
+  could be a custom arrangement of GPUI data objects, like a pinned dashboard with a quick toggle
+- We have a standard interface for Spaces, the left vertical bar. This interface includes a free
+  Big Button because it claims the top icon slot, where DMs live in discord. But I'd want to think
+  hard about potential opportunities for integrating visual data principles as first-class in the
+  foundation of the UI in places like that button.
+- Next is this empty rectangle left over in the panel. In many chat apps this is where channels go.
+  But let's start without assumptions about how the presentation has to be done, let's instead think
+  about the information that gets represented, and see if we can craft that information into an
+  interface that expresses the meanings of what's happening inside
+- At any given time, a channel includes a set of people who are members of the channel
+- The "content" of a chat channel is the set of all messages that were sent. A message is possibly
+  a data object including fields like `{ timestamp, author_id, content, metadata, signature }`
+- Rendered very pretty-like on a timeline of decorated bubbles
+- Content is the serialized version of any struct that's being used as a data object.
+
+# 2026 March 14
+
+> am
+
 - Reworked Profile/Space creation again, getting better at UI and learning more
   Zed-native components
 - Want to strike a balance between design fitting into Zed and hand-crafted feeling
