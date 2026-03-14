@@ -22,7 +22,6 @@ mod willow;
 pub fn init(cx: &mut App) {
     components::init(cx);
     contacts::init(cx);
-    // function_widget::init(cx);
     // iroh_panel_ui::init(cx);
     // iroh_topic_chat_ui::init(cx);
     // object_widget::init(cx);

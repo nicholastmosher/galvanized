@@ -1,6 +1,5 @@
 use zed::unstable::ui::App;
 
-// pub mod onboarding;
 pub mod profile;
 pub mod space;
 
