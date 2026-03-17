@@ -15,26 +15,13 @@ An experiment, to figure out a way to put human beings back in charge of their o
 
 ## Getting Started
 
-This project is effectively a plugin to a fork of Zed, so you'll need to clone both
-my fork of Zed and this project.
-
-> The fork only exists to add a tiny change to Zed's app builder to allow it to accept plugins.
->
-> I think this is super cool and I'd really like Zed to upstream it but they closed my PR :(
+I have a fork of Zed that allows for externally composing modules into an `Application`,
+so this project depends on that fork of Zed. This project links to the zed fork via
+cargo git dependency.
 
 ```
-# Clone Zed fork
-mkdir -p ~/git/github.com/nicholastmosher/zed
-cd ~/git/github.com/nicholastmosher/zed
-git clone https://github.com/nicholastmosher/zed .
-
-# Clone this project
-mkdir -p ~/git/github.com/nicholastmosher/tagged
-cd ~/git/github.com/nicholastmosher/tagged
 git clone https://github.com/nicholastmosher/tagged
-
-# Run
-cd tagged/crates/tagged
+cd tagged
 cargo run
 ```
 
