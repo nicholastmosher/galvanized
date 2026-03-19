@@ -331,7 +331,7 @@ impl Render for CreateSpaceModal {
                                     .border_dashed()
                                     .border_color(cx.theme().colors().border.opacity(0.6))
                                     .bg(cx.theme().colors().element_active.opacity(0.15))
-                                    .children(cx.willow().profiles(cx).into_iter().enumerate().map(|(i, profile)| {
+                                    .children(cx.willow().profiles().into_iter().enumerate().map(|(i, profile)| {
                                         let toggle_state = self.input.profile_toggle_states.entry(profile.clone()).or_insert_with(|| {
                                             if i == 0 {
                                                 ToggleState::Selected

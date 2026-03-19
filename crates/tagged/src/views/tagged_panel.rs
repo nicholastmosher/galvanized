@@ -118,7 +118,7 @@ impl TaggedPanel {
             //
             .p_1()
             .map(|el| {
-                match cx.willow().active_profile(cx) {
+                match cx.willow().active_profile() {
                     None => {
                         //
                         el
@@ -219,7 +219,7 @@ impl TaggedPanel {
                     ),
             )
             .child(ListSeparator)
-            .children(cx.willow().spaces(cx).iter().enumerate().map(|(i, space)| {
+            .children(cx.willow().spaces().iter().enumerate().map(|(i, space)| {
                 div()
                     .id(SharedString::from(format!("space-icon-{i}")))
                     .hover(|style| style.opacity(0.6))
@@ -253,7 +253,7 @@ impl TaggedPanel {
             .child({
                 // Bounce when empty to prompt user to create a space
                 let new_space_bounces =
-                    cx.willow().active_profile(cx).is_some() && cx.willow().spaces(cx).is_empty();
+                    cx.willow().active_profile().is_some() && cx.willow().spaces().is_empty();
 
                 div()
                     //

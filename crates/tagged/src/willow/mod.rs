@@ -1,4 +1,9 @@
-use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
+use std::{
+    collections::HashMap,
+    marker::PhantomData,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -34,7 +39,7 @@ struct GlobalWillow(Willow);
 #[derive(Clone)]
 pub struct Willow {
     /// Local state per Willow instance
-    state: Entity<WillowState>,
+    state: Arc<Mutex<WillowState>>,
 }
 
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
@@ -54,8 +59,8 @@ struct WillowState {
 
 impl Willow {
     fn new(store_path: impl Into<PathBuf>, cx: &mut App) -> Self {
-        let state = cx.new(|cx| WillowState::new(store_path.into(), cx));
-
+        // let state = cx.new(|cx| WillowState::new(store_path.into(), cx));
+        let state = Arc::new(Mutex::new(WillowState::new(store_path.into())));
         Self { state }
     }
 
@@ -72,12 +77,13 @@ impl Willow {
             Profile::new(name, sub_secret, cx)
         });
 
-        self.state.update(cx, |state, _cx| {
+        {
+            let mut state = self.state.lock().expect("lock WillowState");
             state.profiles.push(profile.clone());
             if state.active_profile.is_none() {
                 state.active_profile = Some(profile.clone());
             }
-        });
+        }
 
         profile
     }
@@ -87,9 +93,10 @@ impl Willow {
             randomly_generate_owned_namespace(&mut rand_core_0_6_4::OsRng);
         let space = cx.new(move |cx| Space::new(name, ns_secret, cx));
 
-        self.state.update(cx, |state, _cx| {
+        {
+            let mut state = self.state.lock().expect("lock WillowState");
             state.spaces.push(space.clone());
-        });
+        }
 
         space
     }
@@ -103,28 +110,32 @@ impl Willow {
             randomly_generate_communal_namespace(&mut rand_core_0_6_4::OsRng);
         let space = cx.new(move |cx| Space::new(name, ns_secret, cx));
 
-        self.state.update(cx, |state, _cx| {
+        {
+            let mut state = self.state.lock().expect("lock WillowState");
             state.spaces.push(space.clone());
-        });
+        }
 
         space
     }
 
-    pub fn active_profile(&self, cx: &mut App) -> Option<Entity<Profile>> {
-        self.state.read(cx).active_profile.clone()
+    pub fn active_profile(&self) -> Option<Entity<Profile>> {
+        let state = self.state.lock().expect("lock WillowState");
+        state.active_profile.clone()
     }
 
-    pub fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>> {
-        self.state.read(cx).profiles.clone()
+    pub fn profiles(&self) -> Vec<Entity<Profile>> {
+        let state = self.state.lock().expect("lock WillowState");
+        state.profiles.clone()
     }
 
-    pub fn spaces(&self, cx: &mut App) -> Vec<Entity<Space>> {
-        self.state.read(cx).spaces.clone()
+    pub fn spaces(&self) -> Vec<Entity<Space>> {
+        let state = self.state.lock().expect("lock WillowState");
+        state.spaces.clone()
     }
 }
 
 impl WillowState {
-    fn new(store_path: PathBuf, _cx: &mut Context<Self>) -> Self {
+    fn new(store_path: PathBuf) -> Self {
         let spaces = vec![
             // cx.new(|cx| Space::new("Home".to_string(), cx)),
             // cx.new(|cx| Space::new("Family".to_string(), cx)),
