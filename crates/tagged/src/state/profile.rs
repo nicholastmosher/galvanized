@@ -62,8 +62,19 @@ impl Profile {
         }
     }
 
-    pub fn id(&self) -> ProfileId {
-        ProfileId(self.key.0.corresponding_subspace_id())
+    // TODO: make crate-owned wrapper type
+    pub fn subspace_id(&self) -> SubspaceId {
+        self.key.0.corresponding_subspace_id()
+    }
+
+    // TODO before production, find proper secrets solution
+    pub fn subspace_secret(&self) -> &SubspaceSecret {
+        &self.key.0
+    }
+
+    pub fn parts(&self) -> (SubspaceId, SubspaceSecret) {
+        let id = self.key.0.corresponding_subspace_id();
+        (id, self.key.0.clone())
     }
 
     pub fn name(&self) -> SharedString {

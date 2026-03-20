@@ -12,8 +12,6 @@ use zed::unstable::{
     },
 };
 
-use crate::willow::WillowModel;
-
 actions!(workspace, [ToggleContactsPanel]);
 
 pub fn init(cx: &mut App) {
@@ -31,7 +29,7 @@ pub fn init(cx: &mut App) {
 }
 
 // #[derive(WillowModel)]
-impl WillowModel for Contact {}
+// impl WillowModel for Contact {}
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Contact {
     // #[willow(path = "/apps/contacts/entities/name")]

@@ -25,7 +25,7 @@
 
 use std::path::{Path, PathBuf};
 
-use willow25::entry::NamespaceSecret;
+use willow25::entry::{NamespaceId, NamespaceSecret};
 use zed::unstable::ui::{App, Context, SharedString};
 
 pub fn init(_cx: &mut App) {
@@ -49,6 +49,21 @@ impl Space {
             icon_path: None,
             name: name.into(),
         }
+    }
+
+    pub fn namespace_id(&self) -> NamespaceId {
+        self.key.corresponding_namespace_id()
+    }
+
+    // TODO before production, find proper secrets solution
+    pub fn namespace_secret(&self) -> &NamespaceSecret {
+        //
+        &self.key
+    }
+
+    pub fn parts(&self) -> (NamespaceId, NamespaceSecret) {
+        let id = self.key.corresponding_namespace_id();
+        (id, self.key.clone())
     }
 
     pub fn name(&self) -> SharedString {

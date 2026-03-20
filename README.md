@@ -103,6 +103,69 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 March 19
+
+- Damn, I need to think about synchronization now, it can't wait.
+  - I can't be trying to lock a mutex on the UI thread
+- So if the UI thread is solid land, then async shenanegans are a tempest in the ocean.
+- Imagining either a ship or an island or other kind of "center", we have `WillowState`
+- Tasks may crash upon the state like waves in a threadpool, but they always yield eventually
+- Ok bringing it back, in UI-thread land, we use `&mut App`, which is designed for a
+  single-threaded context (e.g. uses `Rc`s).
+  - `&mut App` is therefore the "synchronous center"
+- In async-land, we need an "asynchronous center"
+  - Need async answer for `Entity<T>`
+  - I'm imagining `DashMap<(TypeId, AnyEntity), Box<dyn Any + 'static>>` ?
+  - `fn get(self: &AsyncCx, )
+
+```rust
+// bikeshed name
+/// Handle with Arc semantics. All APIs should externally use `&self` and synchronize internally
+#[derive(Clone)]
+struct AsyncCx {
+    //
+    state: Arc<AsyncCxState>,
+}
+
+struct AsyncCxState {
+    // hmm typeId would give us a singleton per type, which is actually globals
+    map: DashMap<TypeId, Box<dyn Any + 'static>>,
+    
+    map2: DashMap<(AnyEntity, TypeId), Box<dyn Any + 'static>>,
+}
+
+impl AsyncCx {
+    pub fn put<T: Any + 'static>(&self, it: T) {
+        self.state.map.insert(it);
+    }
+    
+    pub fn read<T>(&self, entity: &AsyncEntity<T>) {
+        self.map2.get((entity.to_any(), type_id::<T>()))
+    }
+}
+```
+
+- Trinity (n'ity?) of `Entity<T>`
+- `T: Render` is a UI element
+- `T: Willowize` is a durable data element
+- `T: Portable` is a remote-portable data element
+- `trait Tangible {}`/`T: Tangible` sounds epic
+- A type `T` with all of the above becomes almost like a tangible object,
+  you know it's the same instance regardless of which view you have of it.
+- It feels like we need a degree of universiality, like embedding a Uuid
+- `StableEntity<T>` is like `(Entity<T>, Uuid)`, to be a stable id across
+  disk writes and network nodes. May need to be able to express pending,
+  for example, `fn ex<T: Portable>(t: &StableEntity<T>) {}`
+- Imagine taking the action of assigning a local entity to go live on a
+  remote node. The action returns a handle that represents that entity's
+  life on the remote, from this local view.
+- So when initiating the action locally, it may take significant time
+  until we rendezvous with the target remote node to sync with, so the
+  `StableEntity<T: Portable>` handle we have locally might represent a
+  to-be-synced object. The handle becomes the API for managing that pending sync.
+
+- Heh, higher-kinded type use-case: abstractions over handle types
+
 # 2026 March 18
 
 - All rebased and ready to start the next thing

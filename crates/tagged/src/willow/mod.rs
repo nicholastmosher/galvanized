@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    io::{BufReader, Cursor},
     marker::PhantomData,
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -8,9 +7,7 @@ use std::{
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use ufotofu::{IntoProducer, ProducerExt, queues};
 use willow25::{
-    authorisation::McIngredients,
     entry::{
         Entry, randomly_generate_communal_namespace, randomly_generate_owned_namespace,
         randomly_generate_subspace,
@@ -59,6 +56,7 @@ struct WillowState {
     spaces: Vec<Entity<Space>>,
 
     active_profile: Option<Entity<Profile>>,
+    active_space: Option<Entity<Space>>,
 
     store_path: PathBuf,
     /// Payloads in simple impl are just bytes
@@ -133,9 +131,19 @@ impl Willow {
         state.active_profile.clone()
     }
 
+    pub fn active_profile_(&self, cx: &mut App) -> Option<Entity<Profile>> {
+        let state = self.state.lock().expect("lock WillowState");
+        state.active_profile.clone()
+    }
+
     pub fn profiles(&self) -> Vec<Entity<Profile>> {
         let state = self.state.lock().expect("lock WillowState");
         state.profiles.clone()
+    }
+
+    pub fn active_space(&self) -> Option<Entity<Space>> {
+        let state = self.state.lock().expect("lock WillowState");
+        state.active_space.clone()
     }
 
     pub fn spaces(&self) -> Vec<Entity<Space>> {
@@ -153,50 +161,36 @@ impl Willow {
     fn todo_write_to_willow<T: Willowize>(&self, input: &Entity<T>, cx: &mut App) {
         let value = input.read(cx);
         let serialized = serde_json::to_string(value).unwrap();
-        let len = serialized.len();
-        let producer = serialized
-            .into_bytes()
-            .into_producer()
-            .to_buffered(queues::new_fixed(len));
 
         cx.spawn(async move |cx| {
+            // TODO: Use explicit parameters rather than "active" context?
+            let profile_entity = cx.willow().active_profile().unwrap();
+            let (sub_id, sub_key) = cx.read_entity(&profile_entity, |it, cx| it.parts());
+            let space_entity = cx.willow().active_space().unwrap();
+            let (ns_id, ns_key) = cx.read_entity(&space_entity, |it, cx| it.parts());
+
             let entry = Entry::builder()
                 // What is the context of this call? How do we know chich namespace or subspace IDs to use?
-                .namespace_id(todo!())
-                .subspace_id(todo!())
+                .namespace_id(ns_id)
+                .subspace_id(sub_id.clone())
                 .path(path!("/todo/path"))
                 .now()
                 .unwrap()
                 .payload(&serialized)
                 .build()
                 .unwrap();
-            let write_capability = todo!();
-            let secret = todo!();
+            let write_capability = WriteCapability::new_owned(&ns_key, sub_id);
+
+            // Entry with content serialized from the given Entity
             let authorized_entry = entry
-                .into_authorised_entry(write_capability, secret)
+                .into_authorised_entry(&write_capability, &sub_key)
                 .unwrap();
 
-            let reader = BufReader::new(Cursor::new(serialized));
-
-            let keypair = todo!();
-            let user_key = todo!();
-            let secret = todo!();
-            let capability = WriteCapability::new_owned(keypair, user_key);
-            let ingredients = McIngredients::new(capability, secret).unwrap();
-
-            let state = cx.willow().state.clone();
-            let mut state = state.lock().unwrap();
-            let maybe_written = state
-                .store
-                .create_entry(
-                    //
-                    &authorized_entry,
-                    producer,
-                    todo!(),
-                    &ingredients,
-                )
-                .await
-                .unwrap();
+            {
+                let state = cx.willow().state.clone();
+                let mut state = state.lock().unwrap();
+                let write_visible = state.store.insert_entry(authorized_entry).await?;
+            }
 
             anyhow::Ok(())
         })
@@ -226,6 +220,7 @@ impl WillowState {
             paths: Default::default(),
             profiles,
             active_profile: None,
+            active_space: None,
             store,
         }
     }
@@ -243,46 +238,46 @@ impl<C: AppContext> WillowExt for C {
     }
 }
 
-pub struct WillowObject<T> {
-    _phantom: PhantomData<T>,
-}
+// pub struct WillowObject<T> {
+//     _phantom: PhantomData<T>,
+// }
 
-pub struct WillowFeed<T> {
-    _phantom: PhantomData<T>,
-}
+// pub struct WillowFeed<T> {
+//     _phantom: PhantomData<T>,
+// }
 
-/// A Willow Entity is a handle representing an object with a well-known type
-///
-/// To be a somewhat complete and well-addressed handle, a WillowEntity includes
-/// information about the namespace and subspace of the underlying Entry.
-///
-/// So an Entity is like an address/handle for an Area, so it's defined by its
-/// namespace, subspace, and path prefix (directory). The definition of a Willow
-/// Area also includes a time range, I want to think about how to represent time
-/// in a dedicated brainstorm.
-///
-/// - Area in the spec has `subspace_id: SubspaceId | any`, which implies an
-///   arbitrary restriction in the expressiveness of the API. I think it should
-///   easily be possible to specify a list of subspaces we're interested in.
-struct WillowEntity<T: WillowModel> {
-    _phantom: PhantomData<T>,
-}
+// /// A Willow Entity is a handle representing an object with a well-known type
+// ///
+// /// To be a somewhat complete and well-addressed handle, a WillowEntity includes
+// /// information about the namespace and subspace of the underlying Entry.
+// ///
+// /// So an Entity is like an address/handle for an Area, so it's defined by its
+// /// namespace, subspace, and path prefix (directory). The definition of a Willow
+// /// Area also includes a time range, I want to think about how to represent time
+// /// in a dedicated brainstorm.
+// ///
+// /// - Area in the spec has `subspace_id: SubspaceId | any`, which implies an
+// ///   arbitrary restriction in the expressiveness of the API. I think it should
+// ///   easily be possible to specify a list of subspaces we're interested in.
+// struct WillowEntity<T: WillowModel> {
+//     _phantom: PhantomData<T>,
+// }
 
-struct WillowContext<T> {
-    _phantom: PhantomData<T>,
-}
+// struct WillowContext<T> {
+//     _phantom: PhantomData<T>,
+// }
 
-impl<T: WillowModel> WillowEntity<T> {
-    fn read(&self, _cx: &mut WillowContext<T>) -> Option<&T> {
-        None
-    }
-}
+// impl<T: WillowModel> WillowEntity<T> {
+//     fn read(&self, _cx: &mut WillowContext<T>) -> Option<&T> {
+//         None
+//     }
+// }
 
-// WillowComponent?
-// WillowSpec
-// WillowArea
-// WillowModel <-- expresses paths to multiple files, typed extractors
-// - Model would refer to a multi-"file" data construction which is located
-//   at a path and described by the set of files the model refers to, as well
-//   as the types of those files.
-pub trait WillowModel: JsonSchema + Serialize + for<'de> Deserialize<'de> {}
+// // WillowComponent?
+// // WillowSpec
+// // WillowArea
+// // WillowModel <-- expresses paths to multiple files, typed extractors
+// // - Model would refer to a multi-"file" data construction which is located
+// //   at a path and described by the set of files the model refers to, as well
+// //   as the types of those files.
+// pub trait WillowModel: JsonSchema + Serialize + for<'de> Deserialize<'de> {}
