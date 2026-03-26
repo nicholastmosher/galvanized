@@ -103,6 +103,17 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 March 26
+
+Practical TODOs:
+
+- Need to solve "persistence" for Profiles and Spaces
+  - Ideally these are not special-cased, but for now they are
+
+- Need to sketch chat interface to motivate object/entity design
+  - Chat should ultimately be an instantiation of a more general display
+  - A chat is an instantiation of a feed, where the feed objects are chat bubbles
+
 # 2026 March 25
 
 - Has it been six days?
