@@ -194,12 +194,13 @@ struct BarAction {
 mod usage {
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
+    use willow25::storage::MemoryStore;
     use zed::unstable::{
         gpui::{self, Action, AppContext, Global},
         ui::{InteractiveElement as _, IntoElement, StatefulInteractiveElement as _},
     };
 
-    use crate::willow::tasks::willow_task::{AsyncCx, FooAction};
+    use crate::willow::tasks::willow_task::{AsyncCx, BarAction, FooAction};
 
     impl Global for GlobalWillow {}
     struct GlobalWillow(Willow);
@@ -232,6 +233,14 @@ mod usage {
     }
 
     fn ui_render(window: &mut gpui::Window, cx: &mut gpui::App) -> impl IntoElement {
+        let willow = cx.willow();
+        let it = cx.background_executor().spawn(async move {
+            let willow = willow;
+            willow.dispatch(BarAction {
+                name: "thing".to_string(),
+            });
+            //
+        });
         gpui::div()
             //
             .id("button")

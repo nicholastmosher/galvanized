@@ -6,11 +6,11 @@ use willow25::{
         randomly_generate_subspace,
     },
     path,
-    prelude::WriteCapability,
+    prelude::{AuthorisedEntry, WriteCapability},
     storage::{MemoryStore, Store},
 };
 use zed::unstable::{
-    gpui::{AppContext, Entity, Global},
+    gpui::{AnyEntity, AppContext, Entity, Global},
     ui::{App, SharedString},
 };
 
@@ -52,6 +52,9 @@ struct WillowState {
 
     active_profile: Option<Entity<Profile>>,
     active_space: Option<Entity<Space>>,
+
+    // Mapping from in-memory Entity to Willow Entry key for lookup
+    entity_entries: HashMap<AnyEntity, AuthorisedEntry>,
 
     store_path: PathBuf,
     /// Payloads in simple impl are just bytes
@@ -171,6 +174,21 @@ impl Willow {
     //   - Need to offer to convert from Entity to value?
     //   - Or take callbacks that say how to manipulate the object
 
+    fn sync<T: Willowize>(&self, it: &Entity<T>, cx: &mut App) {
+        // Sync from in-memory to disk
+        let sub = cx.observe(it, |it, cx| {
+            // TODO: on entity change, check to sync with Willow
+            // - Compare hash to avoid sync-looping?
+            let value = it.read(cx);
+        });
+
+        // TODO: Sync from disk to in-memory
+        // cx.willow().observe(it, |it, cx| {
+        //     //
+        // });
+        //
+    }
+
     // trait Willowize: 'static + JsonSchema + Serialize + for<'de> Deserialize<'de> {}
     fn todo_write_to_willow<T: Willowize>(&self, input: &Entity<T>, cx: &mut App) {
         let value = input.read(cx);
@@ -263,12 +281,13 @@ impl WillowState {
         let store = MemoryStore::new();
 
         Self {
-            spaces,
-            store_path,
-            paths: Default::default(),
             profiles,
+            spaces,
             active_profile: None,
             active_space: None,
+            entity_entries: Default::default(),
+            store_path,
+            paths: Default::default(),
             store,
         }
     }
