@@ -41,3 +41,4 @@ willow25 = { path = "../../../../../codeberg.org/worm-blossom/willow_rs/willow25
 willow-api-derive = { path = "../willow-api-derive" }
 zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
 futures-concurrency = "7.7.1"
+dashmap = "6.1.0"

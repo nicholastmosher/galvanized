@@ -103,6 +103,13 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 April 2
+
+- Protocol icons
+  - Dedicated UI toolbar kind of thing, where registered protocols may render
+    an arbitrary indicator element.
+  - Protocols composed in the same way as GPUI/Bevy "Plugins"
+
 # 2026 March 30
 
 - Need a visual win, so I want to prototype the UI for making p2p connections

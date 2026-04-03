@@ -22,7 +22,10 @@ use zed::unstable::{
 use crate::{
     components::{profile_bar::ProfileBar, space_header::SpaceHeader},
     state::space::Space,
-    views::{create_profile_modal::CreateProfileModal, create_space_modal::CreateSpaceModal},
+    views::{
+        connections::ConnectionsUi, create_profile_modal::CreateProfileModal,
+        create_space_modal::CreateSpaceModal,
+    },
     willow::WillowExt as _,
 };
 
@@ -35,7 +38,9 @@ pub fn init(cx: &mut App) {
         };
 
         let workspace_entity = cx.entity();
-        let tagged_panel = cx.new(|cx| TaggedPanel::new(workspace_entity, window, cx));
+        let connections_ui = cx.new(|cx| ConnectionsUi::new(window, cx));
+        let tagged_panel =
+            cx.new(|cx| TaggedPanel::new(workspace_entity, connections_ui, window, cx));
         workspace.add_panel(tagged_panel, window, cx);
         workspace.focus_panel::<TaggedPanel>(window, cx);
         workspace.register_action(|workspace, _: &ToggleTaggedPanel, window, cx| {
@@ -46,6 +51,7 @@ pub fn init(cx: &mut App) {
 }
 
 pub struct TaggedPanel {
+    connections_ui: Entity<ConnectionsUi>,
     content: PanelContent,
     focus_handle: FocusHandle,
     width: Option<Pixels>,
@@ -58,8 +64,14 @@ pub enum PanelContent {
 }
 
 impl TaggedPanel {
-    pub fn new(workspace: Entity<Workspace>, _window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        workspace: Entity<Workspace>,
+        connections_ui: Entity<ConnectionsUi>,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         Self {
+            connections_ui,
             content: PanelContent::Home,
             focus_handle: cx.focus_handle(),
             width: None,
@@ -339,10 +351,20 @@ impl TaggedPanel {
 
     fn render_content_home(
         &mut self,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        div()
+        v_flex()
+            .size_full()
+            // .p_2()
+            // .child(
+            //     //
+            //     div()
+            //         //
+            //         .text_lg()
+            //         .child("Connections"),
+            // )
+            .child(self.connections_ui.clone())
     }
 
     fn render_content_space(

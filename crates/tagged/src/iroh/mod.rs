@@ -1,16 +1,28 @@
-use futures_concurrency::stream::Merge as _;
-use iroh::Endpoint;
-use tracing::{error, warn};
+use std::sync::Arc;
+
+use dashmap::DashMap;
+use iroh::{
+    Endpoint, EndpointId,
+    protocol::{ProtocolHandler, Router},
+};
 use zed::unstable::{
-    db::smol::stream::{Stream, StreamExt},
     gpui::{AppContext, Global},
     ui::App,
 };
 
 pub fn init(cx: &mut App) {
-    let (iroh, task) = Iroh::init();
-    let _handle = tokio::task::spawn(task);
+    // Global Iroh state includes Endpoint, but it's not available synchronously at startup
+    // So we init it with endpoint: None, and kick off async init to install later
+    let iroh = Iroh::new();
     cx.set_global(GlobalIroh(iroh));
+    cx.spawn(async move |cx| {
+        let endpoint = Endpoint::builder().bind().await?;
+        cx.update_global::<GlobalIroh, _>(|it, _cx| {
+            it.0.init(endpoint);
+        });
+        anyhow::Ok(())
+    })
+    .detach_and_log_err(cx);
 
     //
     let iroh = cx.iroh();
@@ -18,105 +30,96 @@ pub fn init(cx: &mut App) {
 
 struct GlobalIroh(Iroh);
 impl Global for GlobalIroh {}
-
-enum IrohInput {
-    //
-    Initialized(Endpoint),
-    Shutdown,
-}
-
-/// External handle API for iroh operations
-#[derive(Clone)]
-pub struct Iroh {
-    tx: flume::Sender<IrohInput>,
-}
-
-impl Iroh {
-    fn init() -> (Self, impl Future<Output = ()>) {
-        let (tx, rx) = flume::bounded(10);
-
-        let engine = IrohEngine::new();
-        let future = engine.run(tx.clone(), rx);
-
-        let iroh = Iroh {
-            //
-            tx,
-        };
-        (iroh, future)
-    }
-}
-
-/// Internal engine state
-pub struct IrohEngine {
-    //
-    endpoint: Option<Endpoint>,
-}
-
-impl IrohEngine {
-    pub fn new() -> Self {
-        IrohEngine { endpoint: None }
-    }
-
-    async fn create_input_stream(
-        &self,
-        rx: flume::Receiver<IrohInput>,
-    ) -> impl Stream<Item = IrohInput> + use<> {
-        let rx_stream = rx.into_stream();
-        let stream = (rx_stream,).merge();
-        stream
-    }
-
-    async fn run(
-        //
-        mut self,
-        tx: flume::Sender<IrohInput>,
-        rx: flume::Receiver<IrohInput>,
-    ) {
-        //
-        let it = tokio::task::spawn(async move {
-            let endpoint = Endpoint::builder().bind().await?;
-            tx.send(IrohInput::Initialized(endpoint))?;
-            anyhow::Ok(())
-        });
-        let mut input_stream = self.create_input_stream(rx).await;
-        loop {
-            //
-            let result = self.try_run(&mut input_stream).await;
-            if let Err(error) = result {
-                error!(?error, "Error in IrohEngine");
-            } else {
-                warn!("Iroh Engine shutdown");
-                return;
-            }
-        }
-    }
-
-    async fn try_run(
-        &mut self,
-        input: &mut (impl Unpin + Stream<Item = IrohInput>),
-    ) -> anyhow::Result<()> {
-        while let Some(event) = input.next().await {
-            match event {
-                IrohInput::Initialized(endpoint) => {
-                    self.endpoint = Some(endpoint);
-                }
-                IrohInput::Shutdown => {
-                    return Ok(());
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-
 pub trait IrohExt {
-    //
     fn iroh(&self) -> Iroh;
 }
-
 impl<'a, C: AppContext> IrohExt for &'a mut C {
     fn iroh(&self) -> Iroh {
         self.read_global::<GlobalIroh, _>(|it, _cx| it.0.clone())
+    }
+}
+
+/// Entrypoint to the GPUI-style API for Iroh/p2p operations
+#[derive(Clone)]
+pub struct Iroh {
+    state: Option<IrohState>,
+}
+
+#[derive(Clone)]
+pub struct IrohState {
+    endpoint: Endpoint,
+    protocol: Protocol,
+    router: Router,
+}
+
+impl Iroh {
+    /// Instantiate a new Iroh instance with an uninitialized endpoint
+    fn new() -> Self {
+        Self {
+            //
+            state: None,
+        }
+    }
+
+    /// Install the Endpoint after its async initialization completes
+    fn init(&mut self, endpoint: Endpoint) {
+        let protocol = Protocol::new();
+        let router = Router::builder(endpoint.clone())
+            .accept(Protocol::ALPN, protocol.clone())
+            .spawn();
+        let state = IrohState {
+            endpoint,
+            protocol,
+            router,
+        };
+        self.state = Some(state);
+    }
+
+    pub fn endpoint_id(&self) -> Option<EndpointId> {
+        self.state.as_ref().map(|it| it.endpoint.id())
+    }
+
+    /// Returns a list of Endpoint IDs of the remote peers connected via our Protocol
+    pub fn remote_peers(&self) -> Option<Vec<EndpointId>> {
+        let state = self.state.as_ref()?;
+
+        let remote_peers = state
+            .protocol
+            .peer_state
+            .iter()
+            .map(|it| it.key().clone())
+            .collect::<Vec<_>>();
+
+        Some(remote_peers)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Protocol {
+    //
+    peer_state: Arc<DashMap<EndpointId, ()>>,
+}
+
+impl Protocol {
+    const ALPN: &'static [u8] = b"/tagged/1";
+
+    fn new() -> Self {
+        Self {
+            peer_state: Arc::new(DashMap::new()),
+        }
+    }
+}
+
+impl ProtocolHandler for Protocol {
+    fn accept(
+        &self,
+        connection: iroh::endpoint::Connection,
+    ) -> impl Future<Output = Result<(), iroh::protocol::AcceptError>> + Send {
+        async move {
+            let remote_id = connection.remote_id();
+            self.peer_state.entry(remote_id).or_insert(());
+            //
+            Ok(())
+        }
     }
 }
