@@ -3,6 +3,7 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use iroh::{
     Endpoint, EndpointAddr, EndpointId,
+    endpoint::Connection,
     protocol::{ProtocolHandler, Router},
 };
 use tracing::info;
@@ -101,9 +102,12 @@ impl Iroh {
 
         let addr = addr.into();
         cx.spawn({
-            let endpoint = state.endpoint.clone();
-            async move |cx| {
-                let connection = endpoint.connect(addr, Protocol::ALPN).await?;
+            let state = state.clone();
+            async move |_cx| {
+                let id = addr.id.clone();
+                let connection = state.endpoint.connect(addr, Protocol::ALPN).await?;
+
+                state.protocol.peer_state.insert(id, connection);
 
                 // TODO handle outbound connection
                 info!("Connection established! TODO");
@@ -117,8 +121,8 @@ impl Iroh {
 
 #[derive(Debug, Clone)]
 struct Protocol {
-    //
-    peer_state: Arc<DashMap<EndpointId, ()>>,
+    // Connection state by remote peer EndpointId
+    peer_state: Arc<DashMap<EndpointId, Connection>>,
 }
 
 impl Protocol {
@@ -138,7 +142,7 @@ impl ProtocolHandler for Protocol {
     ) -> impl Future<Output = Result<(), iroh::protocol::AcceptError>> + Send {
         async move {
             let remote_id = connection.remote_id();
-            self.peer_state.entry(remote_id).or_insert(());
+            self.peer_state.entry(remote_id).or_insert(connection);
             //
             Ok(())
         }
