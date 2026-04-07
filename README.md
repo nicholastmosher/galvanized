@@ -105,6 +105,12 @@ considering is this:
 
 # 2026 April 7
 
+> pm
+
+
+
+> am
+
 Notes from today:
 
 - Wrote about Globals, Entities, and Render
@@ -335,7 +341,7 @@ Panels and Items.
 
 Panels in Zed are the views in the left, bottom, and right docks. Items are the things
 shown in the main editor window. Each item gets a tab bar tab, and items may be split
-horizontally or vertically.
+horizontally or vertically within the main pane.
 
 Zed's Workspace has public APIs that allow us to arbitrarily add new panels and items
 to it. For some applications, a Panel chould be used to provide navigation, and Items
