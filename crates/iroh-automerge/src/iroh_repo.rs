@@ -39,7 +39,7 @@ pub fn init(cx: &mut App) {
 
         cx.update_global(|&mut GlobalIrohRepo(ref mut repo), _| {
             *repo = Some(Arc::new(iroh_repository))
-        })?;
+        });
         anyhow::Ok(())
     })
     .detach();

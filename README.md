@@ -200,32 +200,41 @@ Entities allow for storing zero to many instances of a kind of state in the App,
 and provide cheaply cloneable handles for interacting with that state. Let's see
 what this looks like in practice:
 
-```rust
-pub struct MyState {
-    name: SharedString,
-}
+<details open>
 
-impl MyState {
-    pub fn new(cx: &mut Context<Self>) {
-        Self {
-            name: "Bob".into(),
-        }
-    }
-}
+<summary>From <a href="crates/csh-demo/src/lib.rs">crates/csh-demo/src/lib.rs</a></summary>
+
+```rust
+use zed::unstable::{
+    gpui::{AppContext as _, Entity},
+    ui::{App, Context, SharedString},
+};
 
 pub fn init(cx: &mut App) {
     // Create a new Entity using `cx.new`
-    let my_state_entity: Entity<MyState> = cx.new(|cx| MyState::new(cx));
-    
+    let csher_entity: Entity<Csher> = cx.new(|cx| Csher::new("nick", cx));
+
     // Use the handle to look up the state from the App cx
-    let name: SharedString = my_state_entity.read(cx).name.clone();
-    
+    let _name: SharedString = csher_entity.read(cx).name.clone();
+
     // Use entity.update and provide a closure to edit the instance state
-    my_state_entity.update(cx, |it: &mut MyState, cx| {
-        it.name = "Carol".into();
+    csher_entity.update(cx, |csher: &mut Csher, _cx| {
+        csher.name = "Nick".into();
     });
 }
+
+pub struct Csher {
+    name: SharedString,
+}
+
+impl Csher {
+    pub fn new(name: impl Into<SharedString>, _cx: &mut Context<Self>) -> Self {
+        Self { name: name.into() }
+    }
+}
 ```
+
+</details>
 
 ## Rendering
 
@@ -296,6 +305,162 @@ impl Render for ChatBubble {
 
 This should render a bubble with three rounded corners and one sharp corner, with a
 profile picture on the left and a name and message on the right.
+
+## Integrating with Zed: The Workspace
+
+So far, we've looked at some fundamental tools provided by GPUI:
+
+- Globals: An app may have zero or one global instance of any given `T: Global` type
+- Entities: Store zero-to-many instances of any `T: 'static` in an `&mut App`.
+  An `Entity<T>` is a strong, typed handle which may be used with an `&mut App` context
+  to read or update the entity's state.
+- Any `Entity<T>` where `T: Render` may be used as an element in a higher render.
+  So `Entity<T>` is a stateful unit of composition in a render tree.
+  - So if you have `
+  - All I mean is you can do `div().child(self.my_view.clone())` if `MyView: Render`
+
+What we want to do next is to start installing our own views into Zed.
+In Zed, the top-level entity rendered to the window is the Workspace.
+The Workspace has a bunch of things, but we're specifically interested in
+Panels and Items.
+
+Panels in Zed are the views in the left, bottom, and right docks. Items are the things
+shown in the main editor window. Each item gets a tab bar tab, and items may be split
+horizontally or vertically.
+
+Zed's Workspace has public APIs that allow us to arbitrarily add new panels and items
+to it. For some applications, a Panel chould be used to provide navigation, and Items
+chould be used to interact with specific documents or channels or applications or media.
+
+### Workspace Panels
+
+In this project I already need to make a calendar UI, so I'll use that as an exercise
+for showing how to integrate arbitrary GPUI elements into Zed.
+
+Let's take a look at how to create a custom Panel. We need to create a view
+(a type which implements `Render`), and implement the `Panel` trait.
+
+<details>
+
+<summary>From <a href="crates/csh-demo/src/calendar.rs">crates/csh-demo/src/calendar.rs</a></summary>
+
+```rust
+actions!(calendar, [ToggleCalendar]);
+
+pub struct CalendarPanel {
+    dock_position: DockPosition,
+    focus_handle: FocusHandle,
+    width: Option<Pixels>,
+}
+impl CalendarPanel {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        Self {
+            dock_position: DockPosition::Left,
+            focus_handle: cx.focus_handle(),
+            width: None,
+        }
+    }
+}
+impl Focusable for CalendarPanel {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+impl EventEmitter<PanelEvent> for CalendarPanel {}
+impl Panel for CalendarPanel {
+    fn persistent_name() -> &'static str {
+        "Calendar"
+    }
+
+    fn panel_key() -> &'static str {
+        "calendar"
+    }
+
+    fn position(&self, _window: &Window, _cx: &App) -> DockPosition {
+        self.dock_position
+    }
+
+    fn position_is_valid(&self, _position: DockPosition) -> bool {
+        true
+    }
+
+    fn set_position(
+        &mut self,
+        position: DockPosition,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) {
+        self.dock_position = position;
+    }
+
+    fn size(&self, _window: &Window, _cx: &App) -> Pixels {
+        self.width.unwrap_or(px(300.))
+    }
+
+    fn set_size(&mut self, size: Option<Pixels>, _window: &mut Window, _cx: &mut Context<Self>) {
+        self.width = size;
+    }
+
+    fn icon(&self, _window: &Window, _cx: &App) -> Option<IconName> {
+        Some(IconName::AtSign)
+    }
+
+    fn icon_tooltip(&self, _window: &Window, _cx: &App) -> Option<&'static str> {
+        Some("Calendar")
+    }
+
+    fn toggle_action(&self) -> Box<dyn Action> {
+        Box::new(ToggleCalendar)
+    }
+
+    fn activation_priority(&self) -> u32 {
+        30
+    }
+}
+
+impl Render for CalendarPanel {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .debug()
+            //
+            .p_2()
+            .child("Calendar Panel")
+    }
+}
+
+pub fn init(cx: &mut App) {
+    // Create a Calendar entity to be added to the Workspace as a Panel
+    let calendar = cx.new(|cx| CalendarPanel::new(cx));
+
+    // Registers a callback for when a `Workspace` is created
+    cx.observe_new::<Workspace>(move |workspace, window, cx| {
+        let Some(window) = window else { return };
+
+        // Add the panel to the workspace and for demo purposes toggle it open right away
+        workspace.add_panel(calendar.clone(), window, cx);
+        workspace.toggle_panel_focus::<CalendarPanel>(window, cx);
+
+        // Register a callback for the `ToggleCalendar` action to toggle the panel focus in the Workspace
+        // This allows us to use `:togglecalendar` in the command palette to toggle the panel open/closed
+        // Clicking the panel icon also emits `ToggleCalendar`, so this handles both cases
+        workspace.register_action(|workspace, _: &ToggleCalendar, window, cx| {
+            workspace.toggle_panel_focus::<CalendarPanel>(window, cx);
+        });
+    })
+    .detach();
+}
+```
+
+</summary>
+
+---
+
+- Gotcha: Using `actions!` requires `use zed::unstable::gpui::self`
+- Gotcha: Using `RegisterComponent` requires `use zed::unstable::component::self`
+- Gotcha: Make sure to use imports from zed::unstable where needed.
+  Sometimes code-action add-import puts the wrong one on top, in particular I see
+  this with suggesting `anyhow::Context` rather than `zed::unstable::ui::Context`
+  which is what I usually want.
 
 ---
 

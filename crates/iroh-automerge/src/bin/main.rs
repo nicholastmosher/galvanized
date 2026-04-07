@@ -1,8 +1,8 @@
-use zed::unstable::gpui::Application;
+use zed::unstable::gpui_platform::application;
 
 #[tokio::main]
 async fn main() {
-    Application::new()
+    application()
         .add_plugins(zed::init)
         .add_plugins(iroh_automerge::init)
         .run();

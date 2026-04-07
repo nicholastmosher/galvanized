@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+# zed = { path = "../../../zed/crates/zed" }

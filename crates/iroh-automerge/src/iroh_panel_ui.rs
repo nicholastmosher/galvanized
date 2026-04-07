@@ -121,9 +121,6 @@ impl Render for IrohPanel {
                     .child(
                         Button::new("copy-endpoint-id", "Copy")
                             .label_size(LabelSize::Small)
-                            .icon(IconName::Plus)
-                            .icon_size(IconSize::Small)
-                            .icon_position(IconPosition::Start)
                             .on_click(cx.listener(|this, _, _window, cx| {
                                 let repo = this
                                     .iroh_repo
@@ -146,9 +143,6 @@ impl Render for IrohPanel {
                     .child(
                         Button::new("remote-connect", "Connect")
                             .label_size(LabelSize::Small)
-                            .icon(IconName::Plus)
-                            .icon_size(IconSize::Small)
-                            .icon_position(IconPosition::Start)
                             .on_click(cx.listener(|this, _, _window, cx| {
                                 let Some(repo) = this.iroh_repo.as_ref() else {
                                     return;
