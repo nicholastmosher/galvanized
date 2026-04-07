@@ -103,6 +103,15 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 April 7
+
+Notes from today:
+
+- Wrote about Globals, Entities, and Render
+- Going to use Calendar as a hands-on example, maybe chat too
+- Trying to cross the finish line with an e2e automerge sync
+- Need to get an mvp UI for calendar kinda sketched
+
 # 2026 April 5
 
 Giving a seminar about this project at CSH! Need to plan it out:

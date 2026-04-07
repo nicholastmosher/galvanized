@@ -1,14 +1,17 @@
 use std::sync::Arc;
 
+use anyhow::anyhow;
+use automerge::Automerge;
 use dashmap::DashMap;
 use iroh::{
     Endpoint, EndpointAddr, EndpointId,
     endpoint::Connection,
     protocol::{ProtocolHandler, Router},
 };
-use tracing::info;
+use iroh_automerge::iroh_repo::IrohSamod;
+use samod::{DocHandle, PeerId, storage::TokioFilesystemStorage};
 use zed::unstable::{
-    gpui::{AppContext, Global},
+    gpui::{AppContext, Global, Task},
     ui::App,
 };
 
@@ -18,16 +21,37 @@ pub fn init(cx: &mut App) {
     let iroh = Iroh::new();
     cx.set_global(GlobalIroh(iroh));
     cx.spawn(async move |cx| {
+        let base_path = "/tmp/iroh-automerge";
         let endpoint = Endpoint::builder().bind().await?;
+        let repo = samod::Repo::build_tokio()
+            .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
+            .with_storage(TokioFilesystemStorage::new(format!(
+                "{}/{}",
+                base_path,
+                endpoint.id(),
+            )))
+            .load()
+            .await;
+        let protocol_automerge = IrohSamod::new(endpoint.clone(), repo);
+        let protocol_tagged = TaggedProtocol::new();
+        let router = Router::builder(endpoint.clone())
+            .accept(IrohSamod::SYNC_ALPN, protocol_automerge.clone())
+            .accept(TaggedProtocol::ALPN, protocol_tagged.clone())
+            .spawn();
+
+        let state = IrohState {
+            endpoint,
+            protocol_automerge,
+            protocol_tagged,
+            router,
+        };
+
         cx.update_global::<GlobalIroh, _>(|it, _cx| {
-            it.0.init(endpoint);
+            it.0.state = Some(state);
         });
         anyhow::Ok(())
     })
     .detach_and_log_err(cx);
-
-    //
-    let iroh = cx.iroh();
 }
 
 struct GlobalIroh(Iroh);
@@ -50,7 +74,8 @@ pub struct Iroh {
 #[derive(Clone)]
 pub struct IrohState {
     endpoint: Endpoint,
-    protocol: Protocol,
+    protocol_automerge: IrohSamod,
+    protocol_tagged: TaggedProtocol,
     router: Router,
 }
 
@@ -63,20 +88,6 @@ impl Iroh {
         }
     }
 
-    /// Install the Endpoint after its async initialization completes
-    fn init(&mut self, endpoint: Endpoint) {
-        let protocol = Protocol::new();
-        let router = Router::builder(endpoint.clone())
-            .accept(Protocol::ALPN, protocol.clone())
-            .spawn();
-        let state = IrohState {
-            endpoint,
-            protocol,
-            router,
-        };
-        self.state = Some(state);
-    }
-
     pub fn endpoint_id(&self) -> Option<EndpointId> {
         self.state.as_ref().map(|it| it.endpoint.id())
     }
@@ -86,7 +97,7 @@ impl Iroh {
         let state = self.state.as_ref()?;
 
         let remote_peers = state
-            .protocol
+            .protocol_tagged
             .peer_state
             .iter()
             .map(|it| it.key().clone())
@@ -105,27 +116,44 @@ impl Iroh {
             let state = state.clone();
             async move |_cx| {
                 let id = addr.id.clone();
-                let connection = state.endpoint.connect(addr, Protocol::ALPN).await?;
+                let connection = state.endpoint.connect(addr, TaggedProtocol::ALPN).await?;
 
-                state.protocol.peer_state.insert(id, connection);
-
-                // TODO handle outbound connection
-                info!("Connection established! TODO");
+                state.protocol_tagged.peer_state.insert(id, connection);
 
                 anyhow::Ok(())
             }
         })
         .detach_and_log_err(cx);
     }
+
+    pub fn create_doc(&self, cx: &mut App) -> Task<anyhow::Result<DocHandle>> {
+        let Some(state) = self.state.clone() else {
+            return Task::ready(Err(anyhow!("Missing IrohState")));
+        };
+
+        let task = cx.spawn(async move |cx| {
+            // TODO embed initial doc for global document
+            let initial_content = Automerge::new();
+            let handle = state
+                .protocol_automerge
+                .repo()
+                .create(initial_content.clone())
+                .await?;
+
+            anyhow::Ok(handle)
+        });
+
+        task
+    }
 }
 
 #[derive(Debug, Clone)]
-struct Protocol {
+struct TaggedProtocol {
     // Connection state by remote peer EndpointId
     peer_state: Arc<DashMap<EndpointId, Connection>>,
 }
 
-impl Protocol {
+impl TaggedProtocol {
     const ALPN: &'static [u8] = b"/tagged/1";
 
     fn new() -> Self {
@@ -135,7 +163,7 @@ impl Protocol {
     }
 }
 
-impl ProtocolHandler for Protocol {
+impl ProtocolHandler for TaggedProtocol {
     fn accept(
         &self,
         connection: iroh::endpoint::Connection,

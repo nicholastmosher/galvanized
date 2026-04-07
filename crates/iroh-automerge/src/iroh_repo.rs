@@ -22,6 +22,7 @@ pub fn init(cx: &mut App) {
             .secret_key(secret_key)
             .bind()
             .await?;
+        let base_path = "/tmp/iroh-automerge";
         let repo = samod::Repo::build_tokio()
             .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
             .with_storage(TokioFilesystemStorage::new(format!(
@@ -108,7 +109,7 @@ impl IrohSamod {
     }
 
     /// Returns a reference to the stored [`Repo`] instance inside.
-    pub fn _repo(&self) -> &Repo {
+    pub fn repo(&self) -> &Repo {
         &self.repo
     }
 

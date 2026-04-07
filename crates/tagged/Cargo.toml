@@ -45,4 +45,4 @@ zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-pl
 # zed = { path = "../../../zed/crates/zed" }
 
 # Path dependencies
-iroh-automerge = { path = "crates/" }
+iroh-automerge = { path = "../iroh-automerge" }
