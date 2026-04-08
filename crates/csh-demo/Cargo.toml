@@ -4,6 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-palette.workspace = true
-tailwindcss_palette.workspace = true
 zed.workspace = true

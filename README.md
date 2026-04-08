@@ -535,12 +535,18 @@ impl Render for CalendarItem {
 
 ---
 
+Misc notes
+
 - Gotcha: Using `actions!` requires `use zed::unstable::gpui::self`
 - Gotcha: Using `RegisterComponent` requires `use zed::unstable::component::self`
 - Gotcha: Make sure to use imports from zed::unstable where needed.
   Sometimes code-action add-import puts the wrong one on top, in particular I see
   this with suggesting `anyhow::Context` rather than `zed::unstable::ui::Context`
   which is what I usually want.
+
+Ubuntu VM notes
+
+- sudo apt install pkg-config
 
 ---
 

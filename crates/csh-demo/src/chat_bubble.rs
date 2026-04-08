@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use zed::unstable::{
     component,
-    gpui::{AppContext as _, img},
+    gpui::{AppContext as _, img, rgb},
     ui::{
         ActiveTheme as _, AnyElement, App, Component, ComponentScope, Context, IntoElement,
         ParentElement as _, RegisterComponent, Render, SharedString, Styled as _, Window, div,
@@ -43,6 +43,8 @@ impl Render for ChatBubble {
                     .bg(cx.theme().colors().panel_background)
                     .p_4()
                     .gap_4()
+                    .border_2()
+                    .border_color(rgb(0x00b8db))
                     .rounded_bl_lg()
                     .rounded_br_lg()
                     .rounded_tr_lg()
