@@ -131,6 +131,29 @@ Giving a seminar about this project at CSH! Need to plan it out:
 
 # CSH Seminar: First-class plugins for GPUI and Zed, Vision for Tagged
 
+GPUI is a pure-rust Desktop app framework, and let me just say it is an absolute
+dream to work with. It provides a Tailwind-like styling API, meaning that it's both
+a breeze to work with and highly capable. The experience of writing GPUI code is
+one of being in the flow and actually being able to experiment and prototype UI
+on the fly. With a little practice, building new visual components is easy.
+I'd been looking for a good GUI framework in Rust for years, and GPUI is finally the
+one to scratch the itch, and it's so good at just getting things done.
+
+One of the things that GPUI excells at is _being composable_. This is one of the
+things I think contributes to being able to go with the flow. When designing UI
+in GPUI, it's like writing a tree like HTML, so as you're working and figuring
+out, this tree of code gets larger and larger. GPUI makes it super easy to just
+cut and paste code from the middle of a tree into a new render function, like
+pruning a branch on an overgrown tree, but then re-rooting the pruned branch
+into the ground.
+
+> As human beings writing code, why do we refactor things? One reason is because
+> the human mind can't hold a large number of ideas in a present moment. The
+> strategy to overcome this is called abstraction, which is when a group of ideas
+> may be given a name that allows for them all to be referred to by one mental symbol.
+> There are many valid definitions of abstraction, this is just how I think of it.
+
+
 Here's the pitch: GPUI is _really good_ and hella fun to program with, and its
 design is elegant and pragmatic and modular and extensible. With some small tweaks,
 GPUI allows for composing plugins into a single application.
@@ -218,14 +241,23 @@ pub fn init(cx: &mut App) {
 }
 ```
 
-Now when we `cargo run`, we'll get a full debug build of the Zed editor. Now all we
+Now when we `cargo run`, we'll get a full debug build of the entire Zed editor. Now all we
 need to do is add our plugin's behavior via the `init` function.
 
 ## Learning about `&mut App`
 
+```rust
+// Infinite potential
+pub fn init(cx: &mut App) { }
+```
+
 In GPUI, _all_ of the state and behavior of the application get installed into the App.
 Holding a `cx: &mut App` is essentially like holding the entire application in your hand,
 and through it you can read and update the state of the app, or add or remove behavior.
+
+Remember that GPUI is a desktop framework to build Zed, and one of Zed's explicit goals
+is performance. Zed has been demonstrated to run at 120fps, which feels amazing compared
+to editors with more latency (like, all of them).
 
 Let's talk about state management in GPUI, which comes in two forms: Globals and Entities.
 
@@ -357,6 +389,10 @@ impl Render for ChatBubble {
 }
 ```
 
+> If anybody's curious, the reason I put `//` interspersed like they are is because
+> it makes rustfmt keep each of those things on separate lines. This makes it really
+> easy in vim visual line mode to move meaningful chunks of code around.
+
 This should render a bubble with three rounded corners and one sharp corner, with a
 profile picture on the left and a name and message on the right.
 
@@ -368,9 +404,8 @@ So far, we've looked at some fundamental tools provided by GPUI:
 - Entities: Store zero-to-many instances of any `T: 'static` in an `&mut App`.
   An `Entity<T>` is a strong, typed handle which may be used with an `&mut App` context
   to read or update the entity's state.
-- Any `Entity<T>` where `T: Render` may be used as an element in a higher render.
+- Any `Entity<T>` where `T: Render` may be used as an element in a higher render call.
   So `Entity<T>` is a stateful unit of composition in a render tree.
-  - So if you have `
   - All I mean is you can do `div().child(self.my_view.clone())` if `MyView: Render`
 
 What we want to do next is to start installing our own views into Zed.

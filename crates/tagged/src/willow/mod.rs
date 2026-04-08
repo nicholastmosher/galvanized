@@ -213,8 +213,7 @@ impl Willow {
             .now()
             .unwrap()
             .payload(&serialized)
-            .build()
-            .unwrap();
+            .build();
         let write_capability = WriteCapability::new_owned(&ns_key, sub_id);
 
         // Entry with content serialized from the given Entity

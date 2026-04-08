@@ -11716,7 +11716,7 @@ dependencies = [
 [[package]]
 name = "meadowcap"
 version = "0.4.0"
-source = "git+https://codeberg.org/worm-blossom/willow_rs.git#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
+source = "git+https://codeberg.org/worm-blossom/willow_rs.git?rev=5b4eb0f31942535f9c163dd8ae884d82508cc1fe#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
 dependencies = [
  "compact_u64",
  "derive_more 2.1.1",
@@ -21665,7 +21665,7 @@ dependencies = [
 [[package]]
 name = "willow-data-model"
 version = "0.6.1"
-source = "git+https://codeberg.org/worm-blossom/willow_rs.git#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
+source = "git+https://codeberg.org/worm-blossom/willow_rs.git?rev=5b4eb0f31942535f9c163dd8ae884d82508cc1fe#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
 dependencies = [
  "anyhash",
  "bon",
@@ -21694,7 +21694,7 @@ dependencies = [
 [[package]]
 name = "willow25"
 version = "0.4.0"
-source = "git+https://codeberg.org/worm-blossom/willow_rs.git#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
+source = "git+https://codeberg.org/worm-blossom/willow_rs.git?rev=5b4eb0f31942535f9c163dd8ae884d82508cc1fe#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
 dependencies = [
  "anyhash",
  "bab_rs",
@@ -21717,7 +21717,7 @@ dependencies = [
 [[package]]
 name = "willow25-macros"
 version = "0.1.0"
-source = "git+https://codeberg.org/worm-blossom/willow_rs.git#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
+source = "git+https://codeberg.org/worm-blossom/willow_rs.git?rev=5b4eb0f31942535f9c163dd8ae884d82508cc1fe#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
 dependencies = [
  "proc-macro2",
  "quote",
