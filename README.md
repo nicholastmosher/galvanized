@@ -330,22 +330,27 @@ except it's pure Rust functions and lots of fluent builder-style APIs. Let's loo
 at one to render a chat bubble:
 
 ```rust
+// deriving `RegisterComponent` lets us view this via `workspace: open component preview`
+#[derive(RegisterComponent)]
 pub struct ChatBubble {
+    //
     display_name: SharedString,
     message: SharedString,
+    icon_path: PathBuf,
 }
 
 impl ChatBubble {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(_cx: &mut Context<Self>) -> Self {
         Self {
             display_name: "Alice".into(),
             message: "Hey, are you online?".into(),
+            icon_path: PathBuf::from(".assets/tagged.svg"),
         }
     }
 }
 
 impl Render for ChatBubble {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         h_flex()
             //
             .p_2()
@@ -357,12 +362,14 @@ impl Render for ChatBubble {
                     .bg(cx.theme().colors().panel_background)
                     .p_4()
                     .gap_4()
+                    .border_2()
+                    .border_color(rgb(0x00b8db))
                     .rounded_bl_lg()
                     .rounded_br_lg()
                     .rounded_tr_lg()
                     .child(
                         //
-                        img(PathBuf::from(".assets/tagged.svg"))
+                        img(self.icon_path.clone())
                             //
                             .w(px(48.))
                             .rounded_lg(),
@@ -387,14 +394,32 @@ impl Render for ChatBubble {
             )
     }
 }
+
+// Implementing Component allows this view to be shown in the Component Preview view
+impl Component for ChatBubble {
+    fn scope() -> ComponentScope {
+        ComponentScope::None
+    }
+
+    fn preview(_window: &mut Window, cx: &mut App) -> Option<AnyElement> {
+        Some(cx.new(|cx| ChatBubble::new(cx)).into_any_element())
+    }
+}
 ```
 
 > If anybody's curious, the reason I put `//` interspersed like they are is because
 > it makes rustfmt keep each of those things on separate lines. This makes it really
 > easy in vim visual line mode to move meaningful chunks of code around.
 
-This should render a bubble with three rounded corners and one sharp corner, with a
-profile picture on the left and a name and message on the right.
+This ChatBubble widget will show a profile icon on the left and a display name and
+message on the right. Notice the `impl Component for ChatBubble` and the
+`#[derive(RegisterComponent)]` on ChatBubble itself. These allow for this view to be
+added to the "Component Preview" gallery in Zed, which is a nice way to view and iterate
+on the look of reusable components.
+
+Viewing our ChatBubble in the Component Preview looks like this:
+
+![ChatBubble rendered in Component Preview](.assets/chat-bubble-component-preview.png)
 
 ## Integrating with Zed: The Workspace
 

@@ -19,6 +19,7 @@ pub struct ChatBubble {
     //
     display_name: SharedString,
     message: SharedString,
+    icon_path: PathBuf,
 }
 
 impl ChatBubble {
@@ -26,6 +27,7 @@ impl ChatBubble {
         Self {
             display_name: "Alice".into(),
             message: "Hey, are you online?".into(),
+            icon_path: PathBuf::from(".assets/tagged.svg"),
         }
     }
 }
@@ -50,7 +52,7 @@ impl Render for ChatBubble {
                     .rounded_tr_lg()
                     .child(
                         //
-                        img(PathBuf::from(".assets/tagged.svg"))
+                        img(self.icon_path.clone())
                             //
                             .w(px(48.))
                             .rounded_lg(),
