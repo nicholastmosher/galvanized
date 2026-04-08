@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0.100"
-culpa = "1.0.2"
-libp2p = { version = "0.54.1", features = ["full"] }
-libp2p-stream = "0.2.0-alpha"
-libp2p-swarm = "0.45"
-tokio = { version = "1.48.0", features = ["rt"] }
-tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
-zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+anyhow.workspace = true
+culpa.workspace = true
+libp2p.workspace = true
+libp2p-stream.workspace = true
+libp2p-swarm.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+zed.workspace = true
 
 # willow-store-simple-sled = { path = "../store_simple_sled" }

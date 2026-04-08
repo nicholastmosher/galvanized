@@ -8,10 +8,10 @@ zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-pl
 
 # Third-party deps
 async-tungstenite = { version = "0.31.0", features = ["tokio", "tokio-rustls-manual-roots", "tokio-runtime"] }
-serde = "1"
-serde_json = "1.0.145"
-anyhow = "1.0.100"
-schemars = "1.1.0"
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+schemars.workspace = true
 # willow_25 = "0.1.1"
 # willow-store-simple-sled = "0.1.0"
 

@@ -341,6 +341,6 @@ impl Panel for Libp2pUi {
     }
 
     fn activation_priority(&self) -> u32 {
-        0
+        40
     }
 }

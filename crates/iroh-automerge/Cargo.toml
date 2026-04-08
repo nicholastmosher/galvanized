@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0.100"
-automerge = "0.7.2"
-bytes = "1.11.0"
-derive_more = "2.1.0"
-hex = "0.4.3"
-iroh = "0.96"
-rand = "0.9.2"
-samod = { version = "0.5.1", features = ["tokio"] }
-tokio = "1.48.0"
-tokio-util = "0.7.17"
-tracing = "0.1.43"
-zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+anyhow.workspace = true
+automerge.workspace = true
+bytes.workspace = true
+derive_more.workspace = true
+hex.workspace = true
+iroh.workspace = true
+rand.workspace = true
+samod.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+zed.workspace = true
