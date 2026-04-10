@@ -596,7 +596,7 @@ impl Render for CalendarItem {
 }
 ```
 
-</summary>
+</details>
 
 When built and rendered, the calendar looks like this:
 
