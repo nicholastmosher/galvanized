@@ -1,61 +1,64 @@
+use autosurgeon::{Hydrate, Reconcile};
 /// ChatUi is a `Workspace` item, rendering into the tab window
 use zed::unstable::{
     editor::Editor,
-    gpui::{AppContext as _, Entity, EventEmitter, FocusHandle, Focusable},
-    ui::{
-        ActiveTheme, App, Context, IntoElement, ParentElement, Render, SharedString, Styled,
-        Window, div,
+    gpui::{
+        self, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, actions,
+        rgb,
     },
-    workspace::Item,
+    ui::{
+        ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
+        RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div, v_flex,
+    },
+    workspace::{Item, Workspace},
 };
 
-pub struct Feed<T> {
-    //
-    children: Vec<Entity<T>>,
+use crate::iroh::IrohExt;
+
+actions!(
+    chat,
+    [
+        /// Opens the chat interface
+        OpenChat,
+    ]
+);
+
+pub fn init(cx: &mut App) {
+    cx.observe_new::<Workspace>(|workspace, window, cx| {
+        let Some(window) = window else { return };
+        let chat = cx.new(|cx| ChatUi::new("MyChat", window, cx));
+        workspace.add_item_to_active_pane(Box::new(chat.clone()), Some(0), true, window, cx);
+        workspace.register_action(move |workspace, _: &OpenChat, window, cx| {
+            workspace.add_item_to_active_pane(Box::new(chat.clone()), Some(0), true, window, cx);
+        });
+    })
+    .detach();
 }
 
-impl<T> Feed<T> {
+#[derive(IntoElement)]
+pub struct ChatBubble {
     //
-    pub fn new(children: impl IntoIterator<Item = Entity<T>>, _cx: &mut Context<Self>) -> Self {
+    from: SharedString,
+    message: SharedString,
+}
+
+impl ChatBubble {
+    pub fn new(from: impl Into<SharedString>, message: impl Into<SharedString>) -> Self {
         Self {
-            //
-            children: children.into_iter().collect(),
+            from: from.into(),
+            message: message.into(),
         }
     }
 }
 
-impl<T: Render> Render for Feed<T> {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            //
-            .p_2()
-            .gap_2()
-            .flex()
-            .flex_col()
-            .children(self.children.clone())
-    }
-}
-
-pub struct ChatBubble {
-    //
-    from: String,
-    message: String,
-}
-
-impl ChatBubble {
-    pub fn new(from: String, message: String, _cx: &mut Context<Self>) -> Self {
-        Self { from, message }
-    }
-}
-
-impl Render for ChatBubble {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
+impl RenderOnce for ChatBubble {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        v_flex()
             //
             .p_2()
             .bg(cx.theme().colors().element_background)
-            .flex()
-            .flex_col()
+            .border_1()
+            .border_color(rgb(0x7008e7))
             .rounded_lg()
             // Bubble body
             .child(format!("From: {}", self.from))
@@ -64,87 +67,106 @@ impl Render for ChatBubble {
 }
 
 /// let ChatUi be the large Item in the main window,
-/// let Feed be one column of content in the item window,
 /// let ChatBubble be one item in the feed
 pub struct ChatUi {
-    // TODO: Plural feeds
-    chat_feed: Entity<Feed<ChatBubble>>,
+    document: ChatDocument,
     focus_handle: FocusHandle,
     input_editor: Entity<Editor>,
-    // object_widget: Entity<ObjectWidget>,
-    title: String,
+    title: SharedString,
+}
+
+#[derive(Hydrate, Reconcile)]
+pub struct ChatDocument {
+    //
+    messages: Vec<ChatMessage>,
+}
+
+#[derive(Hydrate, Reconcile)]
+pub struct ChatMessage {
+    //
+    from: String,
+    body: String,
+}
+
+impl ChatMessage {
+    pub fn new(from: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            from: from.into(),
+            body: message.into(),
+        }
+    }
 }
 
 impl ChatUi {
-    pub fn new(title: String, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let feed_items = [
-            cx.new(|cx| ChatBubble::new("John".to_string(), "Hey what's up?".to_string(), cx)),
-            cx.new(|cx| ChatBubble::new("Mary".to_string(), "Nothing much".to_string(), cx)),
+    pub fn new(
+        title: impl Into<SharedString>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let messages = vec![
+            ChatMessage::new("John", "Hey what's up?"),
+            ChatMessage::new("Mary", "Nothing much"),
         ];
-        let chat_feed = cx.new(|cx| Feed::new(feed_items, cx));
+
+        let document = ChatDocument { messages };
+
         let input_editor = cx.new(|cx| {
             let mut editor = Editor::single_line(window, cx);
             editor.set_placeholder_text("Message", window, cx);
             editor
         });
 
-        // let object_widget = cx.new(|cx| {
-        //     ObjectWidget::new(
-        //         json!({
-        //             //
-        //             // "OneKey": "OneValue",
-        //             "One": {
-        //                 "One.One": "11",
-        //                 "One.Two": {
-        //                     "One.Two.One": "1.2.1",
-        //                     "One.Two.Two": "1.2.2",
-        //                 },
-        //                 // "One.Two": [
-        //                 //     "One.Two.One",
-        //                 //     "One.Two.Two",
-        //                 //     "One.Two.Three",
-        //                 // ]
-        //             },
-        //             "Two": 2,
-        //             "Three": 3,
-        //             "Four": [
-        //                 "FourOne",
-        //                 "FourTwo",
-        //                 "FourThree",
-        //             ]
-        //             // "Four": {
-        //             //     "FourOne": "41",
-        //             //     "FourTwo": "42",
-        //             //     "FourThree": null,
-        //             // }
-        //         }),
-        //         cx,
-        //     )
-        // });
-
         Self {
-            chat_feed,
+            document,
             focus_handle: cx.focus_handle(),
             input_editor,
-            // object_widget,
-            title,
+            title: title.into(),
         }
     }
 }
 
 impl Render for ChatUi {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        v_flex()
             .size_full()
-            .flex()
-            .flex_col()
-            .child(self.chat_feed.clone())
-            .child(div().p_2().flex_grow())
-            // .child(self.object_widget.clone())
+            //
+            .bg(cx.theme().colors().editor_background)
+            .child(
+                //
+                v_flex()
+                    .flex_grow()
+                    //
+                    .p_2()
+                    .gap_2()
+                    .children(self.document.messages.iter().map(|message| {
+                        //
+                        ChatBubble::new(&message.from, &message.body)
+                    })),
+            )
             .child(
                 div()
+                    .id("chat-input")
                     //
+                    .border_2()
+                    .border_color(cx.theme().colors().border_selected)
                     .p_4()
+                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                        if e.keystroke.key != "enter" {
+                            return;
+                        }
+                        let text = this.input_editor.read(cx).text(cx);
+                        if !text.is_empty() {
+                            return;
+                        }
+
+                        cx.spawn(async move |ui, cx| {
+                            let doc = cx.iroh().create_doc(cx);
+
+                            //
+                            anyhow::Ok(())
+                        })
+                        .detach_and_log_err(cx);
+                    }))
                     .child(self.input_editor.clone()),
             )
     }

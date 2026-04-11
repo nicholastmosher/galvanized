@@ -105,6 +105,22 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 April 10
+
+Chat workflow
+
+- Create Iroh endpoint
+- Create Samod (automerge-repo) instance
+- Register IrohRepo protocol with iroh Router
+- **Spawn task that polls `proto.sync_with(addr)`**
+- Add `.when_connected` trigger with UI indicator
+- Operations:
+  - Create
+  - Upsert
+  - Delete
+  - Read
+  - Subscribe
+
 # 2026 April 9
 
 Tweaking Seminar, still want to mention:

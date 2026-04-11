@@ -9,10 +9,10 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use iroh::EndpointAddr;
-use tracing::{info, warn};
+use tracing::info;
 use zed::unstable::{
     editor::Editor,
-    gpui::{AppContext as _, ClipboardItem, Entity, KeyDownEvent, img},
+    gpui::{AppContext as _, ClipboardItem, Entity, Global, KeyDownEvent, img},
     ui::{
         ActiveTheme as _, App, Context, FluentBuilder, Icon, IconName, IconSize,
         InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Render,
@@ -21,34 +21,41 @@ use zed::unstable::{
     },
     ui_input::InputField,
     util::ResultExt as _,
+    workspace::Workspace,
 };
 
-use crate::{Ticket, iroh::IrohExt};
+use crate::{Ticket, chat::ChatUi, iroh::IrohExt};
 
+struct GlobalWorkspace(Entity<Workspace>);
+impl Global for GlobalWorkspace {}
 pub fn init(cx: &mut App) {
-    //
+    // Store the workspace entity in a local global (lol) to pass it to ConnectionsUi construction
+    cx.observe_new::<Workspace>(|workspace, window, cx| {
+        let workspace_entity = cx.entity();
+        cx.set_global(GlobalWorkspace(workspace_entity));
+    })
+    .detach();
 }
 
 pub struct ConnectionsUi {
-    //
     input_local_name: Entity<InputField>,
-    // input_ticket: Entity<InputField>,
     input_ticket: Entity<Editor>,
+    workspace: Entity<Workspace>,
 }
 
 impl ConnectionsUi {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        //
-        // let input_ticket = cx.new(|cx| InputField::new(window, cx, "Paste remote ticket"));
         let input_ticket = cx.new(|cx| {
             let mut editor = Editor::single_line(window, cx);
             editor.set_placeholder_text("Paste remote ticket", window, cx);
             editor
         });
         let input_local_name = cx.new(|cx| InputField::new(window, cx, "Local peer name"));
+        let workspace = cx.global::<GlobalWorkspace>().0.clone();
         Self {
             input_ticket,
             input_local_name,
+            workspace,
         }
     }
 }
@@ -135,11 +142,7 @@ impl Render for ConnectionsUi {
                     .border_color(cx.theme().colors().border)
                     .rounded_md()
                     .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
-                        info!(?e, "KEYDOWN");
-
                         if e.keystroke.key == "enter" {
-                            info!("Do the thing on ENTER");
-
                             let ticket_text = this.input_ticket.read(cx).text(cx);
                             let ticket = ticket_text
                                 .parse::<Ticket>()
@@ -152,7 +155,7 @@ impl Render for ConnectionsUi {
                                 return;
                             };
 
-                            cx.iroh().connect(cx, endpoint_addr.clone());
+                            let it = cx.iroh().sync(cx, endpoint_addr.clone());
                         }
                     }))
                     .child(
@@ -183,9 +186,9 @@ impl Render for ConnectionsUi {
                                 //
                                 el
                                     //
-                                    .children(peers.iter().map(|it| {
+                                    .children(peers.iter().map(|endpoint_id| {
                                         h_flex()
-                                            .id(format!("remote-peer-{it}"))
+                                            .id(format!("remote-peer-{endpoint_id}"))
                                             //
                                             .p_2()
                                             .rounded_md()
@@ -201,15 +204,35 @@ impl Render for ConnectionsUi {
                                             })
                                             .child({
                                                 //
-                                                let mut string = it.to_string();
+                                                let mut string = endpoint_id.to_string();
                                                 let suffix = string.split_off(string.len() - 8);
                                                 SharedString::from(suffix)
                                             })
                                             .child(div().flex_grow())
                                             .child(
                                                 //
-                                                img(PathBuf::from(".assets/chat-bubble.svg"))
-                                                    .size(px(24.)),
+                                                div()
+                                                    .id(format!("open-chat-{endpoint_id}"))
+                                                    //
+                                                    .on_click(cx.listener({
+                                                        let endpoint_id = endpoint_id.to_string();
+                                                        move |this, e, window, cx| {
+                                                            let chat_ui = cx.new(|cx| {
+                                                                ChatUi::new(
+                                                                    endpoint_id.to_string(),
+                                                                    window,
+                                                                    cx,
+                                                                )
+                                                            });
+                                                        }
+                                                    }))
+                                                    .child(
+                                                        //
+                                                        img(PathBuf::from(
+                                                            ".assets/chat-bubble.svg",
+                                                        ))
+                                                        .size(px(24.)),
+                                                    ),
                                             )
                                     }))
                             }),

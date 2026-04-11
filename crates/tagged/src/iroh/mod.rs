@@ -10,6 +10,7 @@ use iroh::{
 };
 use iroh_automerge::iroh_repo::IrohSamod;
 use samod::{DocHandle, PeerId, storage::TokioFilesystemStorage};
+use tracing::info;
 use zed::unstable::{
     gpui::{AppContext, Global, Task},
     ui::App,
@@ -106,20 +107,34 @@ impl Iroh {
         Some(remote_peers)
     }
 
-    pub fn connect(&self, cx: &mut App, addr: impl Into<EndpointAddr>) {
+    pub fn sync(&self, cx: &mut App, addr: impl Into<EndpointAddr>) {
         let Some(state) = &self.state else {
             return;
         };
 
         let addr = addr.into();
+        cx.background_executor()
+            .spawn({
+                let addr = addr.clone();
+                let proto = state.protocol_automerge.clone();
+                async move {
+                    let peer_id = addr.id.clone();
+                    let conn_finished_reason = proto.sync_with(addr).await?;
+                    info!(?peer_id, ?conn_finished_reason, "Connection finished");
+                    anyhow::Ok(())
+                }
+            })
+            .detach_and_log_err(cx);
+
         cx.spawn({
             let state = state.clone();
             async move |_cx| {
-                let id = addr.id.clone();
-                let connection = state.endpoint.connect(addr, TaggedProtocol::ALPN).await?;
-
-                state.protocol_tagged.peer_state.insert(id, connection);
-
+                state
+                    .protocol_automerge
+                    .repo()
+                    .when_connected(PeerId::from_string(addr.id.to_string()))
+                    .await?;
+                info!(peer_id = ?addr.id, "Connected to automerge-repo peer");
                 anyhow::Ok(())
             }
         })

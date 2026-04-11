@@ -21,6 +21,7 @@ mod willow;
 // mod willow_whimsy;
 
 pub fn init(cx: &mut App) {
+    chat::init(cx);
     components::init(cx);
     contacts::init(cx);
     csh_demo::init(cx);
