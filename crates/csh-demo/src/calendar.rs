@@ -1,7 +1,9 @@
+use std::time::Duration;
+
 use zed::unstable::{
     gpui::{
-        self, AppContext as _, EventEmitter, FocusHandle, Focusable, SharedString, actions, rgb,
-        white,
+        self, Animation, AnimationExt, AppContext as _, EventEmitter, FocusHandle, Focusable,
+        SharedString, actions, linear_color_stop, linear_gradient, rgb, white,
     },
     ui::{
         ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement as _,
@@ -83,14 +85,16 @@ impl Render for CalendarItem {
                 v_flex()
                     .size_full()
                     //
-                    .bg(rgb(0xff2056))
+                    // .bg(rgb(0xff2056))
+                    .p_2()
                     .rounded_xl()
                     .child(
                         //
                         div()
                             .w_full()
-                            .p_2()
                             //
+                            .p_2()
+                            .rounded_xl()
                             .child(
                                 div()
                                     //
@@ -107,7 +111,7 @@ impl Render for CalendarItem {
                             //
                             .bg(cx.theme().colors().panel_background)
                             .p_2()
-                            .rounded_b_lg()
+                            .rounded_lg()
                             .child(
                                 div()
                                     .flex_grow()
@@ -144,6 +148,20 @@ impl Render for CalendarItem {
                                             )
                                     })),
                             ),
+                    )
+                    .with_animation(
+                        "calendar-animation",
+                        Animation::new(Duration::from_secs(60)).repeat(),
+                        |el, t| {
+                            //
+                            el
+                                //
+                                .bg(linear_gradient(
+                                    360. * t,
+                                    linear_color_stop(rgb(0xec003f), 0.0),
+                                    linear_color_stop(rgb(0x8200db), 1.0),
+                                ))
+                        },
                     ),
             )
     }

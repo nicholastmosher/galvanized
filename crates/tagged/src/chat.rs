@@ -1,4 +1,7 @@
+use automerge::AutoCommit;
 use autosurgeon::{Hydrate, Reconcile};
+use iroh::{EndpointAddr, EndpointId};
+use samod::DocHandle;
 /// ChatUi is a `Workspace` item, rendering into the tab window
 use zed::unstable::{
     editor::Editor,
@@ -8,9 +11,9 @@ use zed::unstable::{
     },
     ui::{
         ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
-        RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div, v_flex,
+        RenderOnce, SharedString, Styled, Window, div, v_flex,
     },
-    workspace::{Item, Workspace},
+    workspace::Item,
 };
 
 use crate::iroh::IrohExt;
@@ -24,15 +27,15 @@ actions!(
 );
 
 pub fn init(cx: &mut App) {
-    cx.observe_new::<Workspace>(|workspace, window, cx| {
-        let Some(window) = window else { return };
-        let chat = cx.new(|cx| ChatUi::new("MyChat", window, cx));
-        workspace.add_item_to_active_pane(Box::new(chat.clone()), Some(0), true, window, cx);
-        workspace.register_action(move |workspace, _: &OpenChat, window, cx| {
-            workspace.add_item_to_active_pane(Box::new(chat.clone()), Some(0), true, window, cx);
-        });
-    })
-    .detach();
+    // cx.observe_new::<Workspace>(|workspace, window, cx| {
+    //     let Some(window) = window else { return };
+    //     let chat = cx.new(|cx| ChatUi::new("MyChat", window, cx));
+    //     workspace.add_item_to_active_pane(Box::new(chat.clone()), Some(0), true, window, cx);
+    //     workspace.register_action(move |workspace, _: &OpenChat, window, cx| {
+    //         workspace.add_item_to_active_pane(Box::new(chat.clone()), Some(0), true, window, cx);
+    //     });
+    // })
+    // .detach();
 }
 
 #[derive(IntoElement)]
@@ -70,9 +73,9 @@ impl RenderOnce for ChatBubble {
 /// let ChatBubble be one item in the feed
 pub struct ChatUi {
     document: ChatDocument,
+    endpoint_id: EndpointId,
     focus_handle: FocusHandle,
     input_editor: Entity<Editor>,
-    title: SharedString,
 }
 
 #[derive(Hydrate, Reconcile)]
@@ -84,14 +87,20 @@ pub struct ChatDocument {
 #[derive(Hydrate, Reconcile)]
 pub struct ChatMessage {
     //
-    from: String,
+    sender_id: String,
+    sender_name: String,
     body: String,
 }
 
 impl ChatMessage {
-    pub fn new(from: impl Into<String>, message: impl Into<String>) -> Self {
+    pub fn new(
+        sender_id: impl Into<String>,
+        sender_name: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
         Self {
-            from: from.into(),
+            sender_id: sender_id.into(),
+            sender_name: sender_name.into(),
             body: message.into(),
         }
     }
@@ -99,13 +108,14 @@ impl ChatMessage {
 
 impl ChatUi {
     pub fn new(
-        title: impl Into<SharedString>,
+        endpoint_id: EndpointId,
+        doc_handle: DocHandle,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         let messages = vec![
-            ChatMessage::new("John", "Hey what's up?"),
-            ChatMessage::new("Mary", "Nothing much"),
+            // ChatMessage::new("John", "Hey what's up?"),
+            // ChatMessage::new("Mary", "Nothing much"),
         ];
 
         let document = ChatDocument { messages };
@@ -118,9 +128,9 @@ impl ChatUi {
 
         Self {
             document,
+            endpoint_id,
             focus_handle: cx.focus_handle(),
             input_editor,
-            title: title.into(),
         }
     }
 }
@@ -140,7 +150,7 @@ impl Render for ChatUi {
                     .gap_2()
                     .children(self.document.messages.iter().map(|message| {
                         //
-                        ChatBubble::new(&message.from, &message.body)
+                        ChatBubble::new(&message.sender_id, &message.body)
                     })),
             )
             .child(
@@ -160,7 +170,17 @@ impl Render for ChatUi {
                         }
 
                         cx.spawn(async move |ui, cx| {
-                            let doc = cx.iroh().create_doc(cx);
+                            let doc = cx.iroh().create_doc(cx).await?;
+
+                            cx.background_spawn(async move {
+                                doc.with_document(|am| {
+                                    let auto_commit = AutoCommit::load(&am.save())?;
+                                    anyhow::Ok(())
+                                })?;
+
+                                anyhow::Ok(())
+                            })
+                            .detach();
 
                             //
                             anyhow::Ok(())
@@ -183,6 +203,6 @@ impl Item for ChatUi {
     type Event = ChatEvent;
 
     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-        SharedString::from(&self.title)
+        SharedString::from(self.endpoint_id.to_string())
     }
 }

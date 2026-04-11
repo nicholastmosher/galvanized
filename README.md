@@ -238,13 +238,18 @@ $ cd csh-demo
 
 ### Install Dependencies
 
-On Ubuntu, run this to install the necessary system libraries,
-on Mac look on brew, on Windows, good luck (just kidding feel
-free to ask for help)
+On Ubuntu, run this to install the necessary system libraries:
 
 ```
 $ sudo apt update
 $ sudo apt install pkg-config libx11-dev cmake libglib2.0-dev
+```
+
+On Mac:
+
+```
+$ brew install cmake
+$ xcodebuild -downloadComponent metalToolchain
 ```
 
 In Cargo.toml, add a git dependency to my fork of Zed:

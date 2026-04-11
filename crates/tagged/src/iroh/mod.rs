@@ -9,10 +9,11 @@ use iroh::{
     protocol::{ProtocolHandler, Router},
 };
 use iroh_automerge::iroh_repo::IrohSamod;
-use samod::{DocHandle, PeerId, storage::TokioFilesystemStorage};
+use samod::{DocHandle, DocumentId, PeerId, storage::TokioFilesystemStorage};
 use tracing::info;
 use zed::unstable::{
     gpui::{AppContext, Global, Task},
+    gpui_tokio::Tokio,
     ui::App,
 };
 
@@ -38,6 +39,7 @@ pub fn init(cx: &mut App) {
         let router = Router::builder(endpoint.clone())
             .accept(IrohSamod::SYNC_ALPN, protocol_automerge.clone())
             .accept(TaggedProtocol::ALPN, protocol_tagged.clone())
+            // .accept(IrohSamod::SYNC_ALPN, protocol_tagged.clone())
             .spawn();
 
         let state = IrohState {
@@ -113,18 +115,38 @@ impl Iroh {
         };
 
         let addr = addr.into();
-        cx.background_executor()
-            .spawn({
-                let addr = addr.clone();
-                let proto = state.protocol_automerge.clone();
-                async move {
-                    let peer_id = addr.id.clone();
-                    let conn_finished_reason = proto.sync_with(addr).await?;
-                    info!(?peer_id, ?conn_finished_reason, "Connection finished");
-                    anyhow::Ok(())
-                }
-            })
-            .detach_and_log_err(cx);
+        Tokio::spawn(cx, {
+            let addr = addr.clone();
+            let state = state.clone();
+            async move {
+                let peer_id = addr.id.clone();
+                let conn_finished_reason = state.protocol_automerge.sync_with(addr).await?;
+                info!(?peer_id, ?conn_finished_reason, "Connection finished");
+                anyhow::Ok(())
+            }
+        })
+        .detach_and_log_err(cx);
+
+        Tokio::spawn(cx, {
+            let addr = addr.clone();
+            let state = state.clone();
+            async move {
+                let peer_id = addr.id.clone();
+                // let conn_finished_reason = state.protocol_automerge.sync_with(addr).await?;
+                let connection = state
+                    .endpoint
+                    .connect(addr.clone(), TaggedProtocol::ALPN)
+                    .await?;
+                state
+                    .protocol_tagged
+                    .peer_state
+                    .entry(addr.id)
+                    .or_insert(Some(connection));
+                info!(?peer_id, "Connected TaggedProtocol");
+                anyhow::Ok(())
+            }
+        })
+        .detach_and_log_err(cx);
 
         cx.spawn({
             let state = state.clone();
@@ -134,6 +156,13 @@ impl Iroh {
                     .repo()
                     .when_connected(PeerId::from_string(addr.id.to_string()))
                     .await?;
+
+                state
+                    .protocol_tagged
+                    .peer_state
+                    .entry(addr.id)
+                    .or_insert(None);
+
                 info!(peer_id = ?addr.id, "Connected to automerge-repo peer");
                 anyhow::Ok(())
             }
@@ -141,12 +170,12 @@ impl Iroh {
         .detach_and_log_err(cx);
     }
 
-    pub fn create_doc(&self, cx: &mut App) -> Task<anyhow::Result<DocHandle>> {
+    pub fn create_doc<C: AppContext>(&self, cx: &mut C) -> Task<anyhow::Result<DocHandle>> {
         let Some(state) = self.state.clone() else {
             return Task::ready(Err(anyhow!("Missing IrohState")));
         };
 
-        let task = cx.spawn(async move |cx| {
+        let task = cx.background_spawn(async move {
             // TODO embed initial doc for global document
             let initial_content = Automerge::new();
             let handle = state
@@ -160,12 +189,28 @@ impl Iroh {
 
         task
     }
+
+    pub fn find_doc<C: AppContext>(
+        &self,
+        doc_id: DocumentId,
+        cx: &mut C,
+    ) -> Task<anyhow::Result<Option<DocHandle>>> {
+        let Some(state) = self.state.clone() else {
+            return Task::ready(Err(anyhow!("Missing IrohState")));
+            // return;
+        };
+
+        cx.background_spawn(async move {
+            let doc_handle = state.protocol_automerge.repo().find(doc_id).await?;
+            anyhow::Ok(doc_handle)
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
 struct TaggedProtocol {
     // Connection state by remote peer EndpointId
-    peer_state: Arc<DashMap<EndpointId, Connection>>,
+    peer_state: Arc<DashMap<EndpointId, Option<Connection>>>,
 }
 
 impl TaggedProtocol {
@@ -185,7 +230,7 @@ impl ProtocolHandler for TaggedProtocol {
     ) -> impl Future<Output = Result<(), iroh::protocol::AcceptError>> + Send {
         async move {
             let remote_id = connection.remote_id();
-            self.peer_state.entry(remote_id).or_insert(connection);
+            self.peer_state.entry(remote_id).or_insert(Some(connection));
             //
             Ok(())
         }

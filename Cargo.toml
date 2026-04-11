@@ -42,7 +42,8 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 tracing = "0.1.43"
 ufotofu = { version = "0.8.8", features = ["compat_futures_io"] }
 willow25 = { git = "https://codeberg.org/worm-blossom/willow_rs.git", rev = "5b4eb0f31942535f9c163dd8ae884d82508cc1fe" }
-zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+# zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+zed = { path = "../zed/crates/zed" }
 
 # Path dependencies
 csh-demo = { path = "crates/csh-demo" }

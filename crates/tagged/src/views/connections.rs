@@ -7,12 +7,12 @@
 
 use std::path::PathBuf;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use iroh::EndpointAddr;
 use tracing::info;
 use zed::unstable::{
     editor::Editor,
-    gpui::{AppContext as _, ClipboardItem, Entity, Global, KeyDownEvent, img},
+    gpui::{AppContext as _, AsyncApp, ClipboardItem, Entity, Global, KeyDownEvent, img},
     ui::{
         ActiveTheme as _, App, Context, FluentBuilder, Icon, IconName, IconSize,
         InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Render,
@@ -141,6 +141,8 @@ impl Render for ConnectionsUi {
                     .border_1()
                     .border_color(cx.theme().colors().border)
                     .rounded_md()
+                    // Establish connection with Endpoint
+                    // DON'T create new doc yet
                     .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
                         if e.keystroke.key == "enter" {
                             let ticket_text = this.input_ticket.read(cx).text(cx);
@@ -155,7 +157,18 @@ impl Render for ConnectionsUi {
                                 return;
                             };
 
-                            let it = cx.iroh().sync(cx, endpoint_addr.clone());
+                            cx.iroh().sync(cx, endpoint_addr.clone());
+
+                            // let chat = cx.new(|cx| ChatUi::new(endpoint_addr.id, window, cx));
+                            // this.workspace.update(cx, |workspace, cx| {
+                            //     workspace.add_item_to_active_pane(
+                            //         Box::new(chat),
+                            //         Some(0),
+                            //         true,
+                            //         window,
+                            //         cx,
+                            //     );
+                            // });
                         }
                     }))
                     .child(
@@ -202,6 +215,59 @@ impl Render for ConnectionsUi {
                                                     //
                                                     .bg(cx.theme().colors().ghost_element_active)
                                             })
+                                            // Connect to the clicked peer
+                                            // - Create a document for the chat
+                                            // -
+                                            .on_click(cx.listener({
+                                                let endpoint_id = *endpoint_id;
+                                                move |this, e, window, cx| {
+                                                    let window_handle = window.window_handle();
+                                                    cx.spawn_in(window, async move |it, cx| {
+                                                        let doc = cx.iroh().create_doc(cx).await?;
+
+                                                        cx.update_window(
+                                                            window_handle,
+                                                            |it, window, cx| {
+                                                                info!("Updating Window on Create Chat");
+
+                                                                let Ok(this) =
+                                                                    it.downcast::<Self>() else {
+                                                                        bail!("failed to downcast ConnectionsUi");
+                                                                    };
+
+                                                                info!("Updating Window on Create Chat");
+
+                                                                let chat_ui = cx.new(|cx| {
+                                                                    ChatUi::new(
+                                                                        endpoint_id,
+                                                                        doc,
+                                                                        window,
+                                                                        cx,
+                                                                    )
+                                                                });
+
+                                                                this.read(cx).workspace.clone().update(
+                                                                    cx,
+                                                                    |workspace, cx| {
+                                                                        workspace.add_item_to_active_pane(
+                                                                            Box::new(chat_ui),
+                                                                            Some(0),
+                                                                            true,
+                                                                            window,
+                                                                            cx,
+                                                                        );
+                                                                    },
+                                                                );
+
+                                                                anyhow::Ok(())
+                                                            },
+                                                        )??;
+
+                                                        anyhow::Ok(())
+                                                    })
+                                                    .detach_and_log_err(cx);
+                                                }
+                                            }))
                                             .child({
                                                 //
                                                 let mut string = endpoint_id.to_string();
@@ -212,20 +278,7 @@ impl Render for ConnectionsUi {
                                             .child(
                                                 //
                                                 div()
-                                                    .id(format!("open-chat-{endpoint_id}"))
                                                     //
-                                                    .on_click(cx.listener({
-                                                        let endpoint_id = endpoint_id.to_string();
-                                                        move |this, e, window, cx| {
-                                                            let chat_ui = cx.new(|cx| {
-                                                                ChatUi::new(
-                                                                    endpoint_id.to_string(),
-                                                                    window,
-                                                                    cx,
-                                                                )
-                                                            });
-                                                        }
-                                                    }))
                                                     .child(
                                                         //
                                                         img(PathBuf::from(
