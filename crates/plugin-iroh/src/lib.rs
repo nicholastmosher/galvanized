@@ -8,7 +8,7 @@ use iroh::{
     endpoint::Connection,
     protocol::{ProtocolHandler, Router},
 };
-use iroh_automerge::iroh_repo::IrohSamod;
+use iroh_repo::IrohSamod;
 use samod::{DocHandle, DocumentId, PeerId, storage::TokioFilesystemStorage};
 use tracing::info;
 use zed::unstable::{
@@ -16,6 +16,9 @@ use zed::unstable::{
     gpui_tokio::Tokio,
     ui::App,
 };
+
+pub mod codec;
+pub mod iroh_repo;
 
 pub fn init(cx: &mut App) {
     // Global Iroh state includes Endpoint, but it's not available synchronously at startup

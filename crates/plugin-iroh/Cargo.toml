@@ -6,10 +6,13 @@ edition = "2024"
 [dependencies]
 anyhow.workspace = true
 automerge.workspace = true
+bytes.workspace = true
 dashmap.workspace = true
+derive_more.workspace = true
 iroh.workspace = true
-iroh-automerge.workspace = true
+rand.workspace = true
 samod.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 tracing.workspace = true
 zed.workspace = true

@@ -13,7 +13,7 @@ anyhow.workspace = true
 automerge.workspace = true
 autosurgeon.workspace = true
 bytes.workspace = true
-csh-demo.workspace = true
+# csh-demo.workspace = true
 dashmap.workspace = true
 data-encoding.workspace = true
 derive_more.workspace = true
@@ -23,7 +23,7 @@ flume.workspace = true
 futures-concurrency.workspace = true
 hex.workspace = true
 iroh.workspace = true
-iroh-automerge.workspace = true
+# iroh-automerge.workspace = true
 iroh-blobs.workspace = true
 iroh-docs.workspace = true
 iroh-gossip.workspace = true
@@ -44,7 +44,7 @@ tracing-subscriber.workspace = true
 tracing.workspace = true
 ufotofu.workspace = true
 willow25.workspace = true
-willow-api-derive.workspace = true
+# willow-api-derive.workspace = true
 zed.workspace = true
 
 # Path dependencies
