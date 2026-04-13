@@ -1,0 +1,13 @@
+[package]
+name = "plugin-chat"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+automerge.workspace = true
+autosurgeon.workspace = true
+iroh.workspace = true
+plugin-iroh.workspace = true
+samod.workspace = true
+zed.workspace = true

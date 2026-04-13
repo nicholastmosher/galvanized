@@ -21,13 +21,12 @@ use zed::unstable::{
 
 use crate::{
     components::{profile_bar::ProfileBar, space_header::SpaceHeader},
-    state::space::Space,
     views::{
         connections::ConnectionsUi, create_profile_modal::CreateProfileModal,
         create_space_modal::CreateSpaceModal,
     },
-    willow::WillowExt as _,
 };
+use plugin_willow::{WillowExt as _, space::Space};
 
 actions!(workspace, [ToggleTaggedPanel]);
 

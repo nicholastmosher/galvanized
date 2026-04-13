@@ -1,5 +1,4 @@
 use ::iroh::EndpointAddr;
-use iroh_gossip::TopicId;
 use rand::Rng as _;
 use serde::{Deserialize, Serialize};
 use zed::unstable::{
@@ -7,31 +6,25 @@ use zed::unstable::{
     ui::Styled,
 };
 
-mod chat;
 mod components;
 mod contacts;
-mod iroh;
 // mod iroh_automerge_chat_ui;
 // mod iroh_panel_ui;
 // mod iroh_topic_chat_ui;
 // mod object_widget;
-mod state;
+// mod state;
 mod views;
-mod willow;
 // mod willow_whimsy;
 
 pub fn init(cx: &mut App) {
-    chat::init(cx);
-    components::init(cx);
-    contacts::init(cx);
-    csh_demo::init(cx);
-    iroh::init(cx);
+    // components::init(cx);
+    // contacts::init(cx);
+    // csh_demo::init(cx);
     // iroh_panel_ui::init(cx);
     // iroh_topic_chat_ui::init(cx);
     // object_widget::init(cx);
+    // state::init(cx);
     views::init(cx);
-    state::init(cx);
-    willow::init(cx);
 }
 
 impl<T: Styled> DebugViewExt for T {}

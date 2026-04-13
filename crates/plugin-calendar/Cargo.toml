@@ -1,5 +1,5 @@
 [package]
-name = "csh-demo"
+name = "plugin-calendar"
 version = "0.0.0"
 edition = "2024"
 

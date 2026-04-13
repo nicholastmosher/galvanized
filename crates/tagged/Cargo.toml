@@ -1,6 +1,6 @@
 [package]
 name = "tagged" # this is taken on crates.io, but tagt isn't...
-version = "0.1.0"
+version = "0.0.0"
 edition = "2024"
 default-run = "tagged"
 
@@ -27,6 +27,10 @@ iroh-automerge.workspace = true
 iroh-blobs.workspace = true
 iroh-docs.workspace = true
 iroh-gossip.workspace = true
+plugin-calendar.workspace = true
+plugin-chat.workspace = true
+plugin-iroh.workspace = true
+plugin-willow.workspace = true
 rand.workspace = true
 rand_core_0_6_4.workspace = true
 rand_core.workspace = true

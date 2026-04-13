@@ -24,7 +24,9 @@ use zed::unstable::{
     workspace::Workspace,
 };
 
-use crate::{Ticket, chat::ChatUi, iroh::IrohExt};
+use crate::Ticket;
+use plugin_chat::ChatUi;
+use plugin_iroh::IrohExt as _;
 
 struct GlobalWorkspace(Entity<Workspace>);
 impl Global for GlobalWorkspace {}

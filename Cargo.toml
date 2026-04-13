@@ -47,6 +47,11 @@ zed = { path = "../zed/crates/zed" }
 
 # Path dependencies
 csh-demo = { path = "crates/csh-demo" }
+plugin-calendar = { path = "crates/plugin-calendar" }
+plugin-chat = { path = "crates/plugin-chat" }
+plugin-iroh = { path = "crates/plugin-iroh" }
+plugin-willow = { path = "crates/plugin-willow" }
+
 iroh-automerge = { path = "crates/iroh-automerge" }
 # iroh-automerge = { path = "../../../../n0-computer/iroh-examples/iroh-automerge" }
 # iroh-automerge-repo = { path = "../../../../n0-computer/iroh-examples/iroh-automerge-repo" }

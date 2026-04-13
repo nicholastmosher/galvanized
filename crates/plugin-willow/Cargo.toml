@@ -1,0 +1,16 @@
+[package]
+name = "plugin-willow"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+hex.workspace = true
+rand_core_0_6_4.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+willow25.workspace = true
+zed.workspace = true

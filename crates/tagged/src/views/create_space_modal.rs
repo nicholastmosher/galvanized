@@ -19,7 +19,7 @@ use zed::unstable::{
     workspace::{ModalView, Workspace},
 };
 
-use crate::{state::profile::Profile, willow::WillowExt as _};
+use plugin_willow::{WillowExt as _, profile::Profile};
 
 pub struct CreateSpaceModal {
     focus_handle: FocusHandle,

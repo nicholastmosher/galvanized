@@ -19,7 +19,7 @@ use zed::unstable::{
     ui::{InteractiveElement, IntoElement, StatefulInteractiveElement},
 };
 
-use crate::willow::WillowExt;
+use crate::WillowExt;
 
 /// External API, handle to send/receive events to the spawned WillowTask
 pub struct WillowTask {
@@ -200,7 +200,7 @@ mod usage {
         ui::{InteractiveElement as _, IntoElement, StatefulInteractiveElement as _},
     };
 
-    use crate::willow::tasks::willow_task::{AsyncCx, BarAction, FooAction};
+    use crate::tasks::willow_task::{AsyncCx, BarAction, FooAction};
 
     impl Global for GlobalWillow {}
     struct GlobalWillow(Willow);

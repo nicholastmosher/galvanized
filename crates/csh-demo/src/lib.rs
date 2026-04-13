@@ -3,11 +3,9 @@ use zed::unstable::{
     ui::{App, Context, SharedString},
 };
 
-pub mod calendar;
 pub mod chat_bubble;
 
 pub fn init(cx: &mut App) {
-    calendar::init(cx);
     chat_bubble::init(cx);
 
     // Create a new Entity using `cx.new`

@@ -1,18 +1,15 @@
 [package]
-name = "iroh-automerge"
-version = "0.0.0"
+name = "plugin-iroh"
+version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
 automerge.workspace = true
-bytes.workspace = true
-derive_more.workspace = true
-hex.workspace = true
+dashmap.workspace = true
 iroh.workspace = true
-rand.workspace = true
+iroh-automerge.workspace = true
 samod.workspace = true
 tokio.workspace = true
-tokio-util.workspace = true
 tracing.workspace = true
 zed.workspace = true

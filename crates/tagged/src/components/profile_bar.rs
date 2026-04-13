@@ -10,7 +10,7 @@ use zed::unstable::{
     },
 };
 
-use crate::{state::profile::Profile, willow::WillowExt as _};
+use plugin_willow::{WillowExt as _, profile::Profile};
 
 pub fn init(_cx: &mut App) {
     //

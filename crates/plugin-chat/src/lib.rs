@@ -1,6 +1,7 @@
 use automerge::AutoCommit;
 use autosurgeon::{Hydrate, Reconcile};
-use iroh::{EndpointAddr, EndpointId};
+use iroh::EndpointId;
+use plugin_iroh::IrohExt as _;
 use samod::DocHandle;
 /// ChatUi is a `Workspace` item, rendering into the tab window
 use zed::unstable::{
@@ -15,8 +16,6 @@ use zed::unstable::{
     },
     workspace::Item,
 };
-
-use crate::iroh::IrohExt;
 
 actions!(
     chat,

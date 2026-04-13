@@ -7,7 +7,8 @@ use zed::unstable::{
     },
 };
 
-use crate::{components::space_dropdown::SpaceDropdown, state::space::Space};
+use crate::components::space_dropdown::SpaceDropdown;
+use plugin_willow::space::Space;
 
 pub fn init(_cx: &mut App) {
     // cx.observe_new(|workspace: &mut Workspace, window, cx| {

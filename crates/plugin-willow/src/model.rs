@@ -7,7 +7,7 @@ use zed::unstable::{
     ui::App,
 };
 
-use crate::willow::WillowExt;
+use crate::WillowExt;
 
 // Need a name for "types which "
 pub trait Willowize: 'static + JsonSchema + Serialize + for<'de> Deserialize<'de> {

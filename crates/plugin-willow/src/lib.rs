@@ -15,11 +15,13 @@ use zed::unstable::{
 };
 
 use crate::{
-    state::{profile::Profile, space::Space},
-    willow::model::Willowize,
+    model::Willowize,
+    {profile::Profile, space::Space},
 };
 
 pub mod model;
+pub mod profile;
+pub mod space;
 pub mod tasks;
 
 pub fn init(cx: &mut App) {
