@@ -1,4 +1,4 @@
-# Tagged
+# Galvanized
 
 An experiment, to figure out a way to put human beings back in charge of their own data.
 

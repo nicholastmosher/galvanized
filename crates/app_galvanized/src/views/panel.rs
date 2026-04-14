@@ -28,7 +28,7 @@ use crate::{
 };
 use plugin_willow::{WillowExt as _, space::Space};
 
-actions!(workspace, [ToggleTaggedPanel]);
+actions!(workspace, [ToggleGalvanizedPanel]);
 
 pub fn init(cx: &mut App) {
     cx.observe_new(|workspace: &mut Workspace, window, cx| {
@@ -38,18 +38,17 @@ pub fn init(cx: &mut App) {
 
         let workspace_entity = cx.entity();
         let connections_ui = cx.new(|cx| ConnectionsUi::new(window, cx));
-        let tagged_panel =
-            cx.new(|cx| TaggedPanel::new(workspace_entity, connections_ui, window, cx));
-        workspace.add_panel(tagged_panel, window, cx);
-        workspace.focus_panel::<TaggedPanel>(window, cx);
-        workspace.register_action(|workspace, _: &ToggleTaggedPanel, window, cx| {
-            workspace.toggle_panel_focus::<TaggedPanel>(window, cx);
+        let panel = cx.new(|cx| PanelUi::new(workspace_entity, connections_ui, window, cx));
+        workspace.add_panel(panel, window, cx);
+        workspace.focus_panel::<PanelUi>(window, cx);
+        workspace.register_action(|workspace, _: &ToggleGalvanizedPanel, window, cx| {
+            workspace.toggle_panel_focus::<PanelUi>(window, cx);
         });
     })
     .detach();
 }
 
-pub struct TaggedPanel {
+pub struct PanelUi {
     connections_ui: Entity<ConnectionsUi>,
     content: PanelContent,
     focus_handle: FocusHandle,
@@ -62,7 +61,7 @@ pub enum PanelContent {
     Space(Entity<Space>),
 }
 
-impl TaggedPanel {
+impl PanelUi {
     pub fn new(
         workspace: Entity<Workspace>,
         connections_ui: Entity<ConnectionsUi>,
@@ -79,7 +78,7 @@ impl TaggedPanel {
     }
 }
 
-impl Render for TaggedPanel {
+impl Render for PanelUi {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .h_full()
@@ -89,7 +88,7 @@ impl Render for TaggedPanel {
     }
 }
 
-impl TaggedPanel {
+impl PanelUi {
     fn render_active_panel(
         &mut self,
         window: &mut Window,
@@ -383,20 +382,20 @@ impl TaggedPanel {
     }
 }
 
-impl EventEmitter<PanelEvent> for TaggedPanel {}
-impl Focusable for TaggedPanel {
+impl EventEmitter<PanelEvent> for PanelUi {}
+impl Focusable for PanelUi {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
 
-impl Panel for TaggedPanel {
+impl Panel for PanelUi {
     fn persistent_name() -> &'static str {
-        "TaggedPanel"
+        "Galvanized"
     }
 
     fn panel_key() -> &'static str {
-        "tagged-panel"
+        "galvanized"
     }
 
     fn position(&self, _window: &Window, _cx: &App) -> DockPosition {
@@ -428,11 +427,11 @@ impl Panel for TaggedPanel {
     }
 
     fn icon_tooltip(&self, _window: &Window, _cx: &App) -> Option<&'static str> {
-        Some("Tagged")
+        Some("Galvanized")
     }
 
     fn toggle_action(&self) -> Box<dyn Action> {
-        Box::new(ToggleTaggedPanel)
+        Box::new(ToggleGalvanizedPanel)
     }
 
     fn activation_priority(&self) -> u32 {
