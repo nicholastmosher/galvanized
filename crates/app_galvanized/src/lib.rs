@@ -7,31 +7,10 @@ use zed::unstable::{
 };
 
 mod components;
-mod contacts;
-// mod iroh_automerge_chat_ui;
-// mod iroh_panel_ui;
-// mod iroh_topic_chat_ui;
-// mod object_widget;
-// mod state;
 mod views;
-// mod willow_whimsy;
 
 pub fn init(cx: &mut App) {
-    // components::init(cx);
-    // contacts::init(cx);
-    // csh_demo::init(cx);
-    // iroh_panel_ui::init(cx);
-    // iroh_topic_chat_ui::init(cx);
-    // object_widget::init(cx);
-    // state::init(cx);
     views::init(cx);
-}
-
-impl<T: Styled> DebugViewExt for T {}
-pub trait DebugViewExt: Styled {
-    fn debug_border(self) -> Self {
-        self.border_1().border_color(rgb(rand::rng().random()))
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

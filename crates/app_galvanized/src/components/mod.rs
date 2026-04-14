@@ -10,11 +10,4 @@ pub fn init(cx: &mut App) {
     profile_bar::init(cx);
     // space_header::init(cx);
     // space_icon::init(cx);
-
-    // cx.observe_new(|workspace: &mut Workspace, window, cx| {
-    //     let Some(window) = window else {
-    //         return;
-    //     };
-    // })
-    // .detach();
 }
