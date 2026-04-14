@@ -36,6 +36,18 @@ pub fn init(cx: &mut App) {
 impl Global for GlobalWillow {}
 struct GlobalWillow(Willow);
 
+/// Extension trait to add a convenient `cx.willow()` API for Willow
+// Make WillowExt<T> to allow impls with third-party marker types?
+pub trait WillowExt {
+    fn willow(&mut self) -> Willow;
+}
+
+impl<C: AppContext> WillowExt for C {
+    fn willow(&mut self) -> Willow {
+        self.read_global::<GlobalWillow, _>(|it, _cx| it.0.clone())
+    }
+}
+
 /// Willow API entrypoint
 ///
 /// Willow "store" level operations
@@ -296,18 +308,6 @@ impl WillowState {
             paths: Default::default(),
             store,
         }
-    }
-}
-
-/// Extension trait to add a convenient `cx.willow()` API for Willow
-// Make WillowExt<T> to allow impls with third-party marker types?
-pub trait WillowExt {
-    fn willow(&mut self) -> Willow;
-}
-
-impl<C: AppContext> WillowExt for C {
-    fn willow(&mut self) -> Willow {
-        self.read_global::<GlobalWillow, _>(|it, _cx| it.0.clone())
     }
 }
 

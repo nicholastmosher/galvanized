@@ -1,15 +1,16 @@
 use ::iroh::EndpointAddr;
-use rand::Rng as _;
 use serde::{Deserialize, Serialize};
-use zed::unstable::{
-    gpui::{App, rgb},
-    ui::Styled,
-};
+use zed::unstable::gpui::App;
 
 mod components;
 mod views;
 
 pub fn init(cx: &mut App) {
+    zed::init(cx);
+    plugin_willow::init(cx);
+    plugin_iroh::init(cx);
+    plugin_calendar::init(cx);
+    plugin_chat::init(cx);
     views::init(cx);
 }
 

@@ -1,4 +1,4 @@
-# Galvanized
+# GalvaniZed
 
 An experiment, to figure out a way to put human beings back in charge of their own data.
 
@@ -15,14 +15,59 @@ An experiment, to figure out a way to put human beings back in charge of their o
 
 ## Getting Started
 
-I have a fork of Zed that allows for externally composing modules into an `Application`,
-so this project depends on that fork of Zed. This project links to the zed fork via
-cargo git dependency.
+### Install Dependencies
+
+On Ubuntu, run this to install the necessary system libraries:
 
 ```
-git clone https://github.com/nicholastmosher/tagged
-cd tagged
+$ sudo apt update
+$ sudo apt install pkg-config libx11-dev cmake libglib2.0-dev
+```
+
+On Mac:
+
+```
+$ brew install cmake
+$ xcodebuild -downloadComponent metalToolchain
+```
+
+### Running Directly
+
+You can clone this repo and `cargo run` it directly:
+
+```
+git clone https://github.com/nicholastmosher/galvanized
+cd galvanized
 cargo run
+```
+
+### Adding as a Plugin
+
+Or, you can create your own plugins and stack them on top of Galvanized. Add it as
+a crate git dependency on your project:
+
+```toml
+# Cargo.toml
+[dependencies]
+galvanized = { git = "https://github.com/nicholastmosher/galvanized" }
+```
+
+Then, in your app, use your `lib.rs` to publish a `fn init(cx: &mut App) {}`, and
+use your `main.rs` to stack your plugin on Galvanized as a base:
+
+```rust
+// lib.rs
+pub fn init(cx: &mut App) {
+    // Your plugin begins
+}
+
+// main.rs
+fn main() {
+    application()
+        .add_plugins(galvanized::init)
+        .add_plugins(your_plugin::init)
+        .run();
+}
 ```
 
 ## Project Vision and Values
@@ -94,16 +139,31 @@ considering is this:
 
 > TODO: Write more about why I chose Zed and Willow as the basis for the stack
 
-<div align="center">
-  <a href="https://discord.gg/9rs3XvFJrC">
-    <img src=".assets/tagged.svg" alt="My goofy project icon" width="300" height="300">
-  </a>
-</div>
+# 2026 April 13
 
-> I needed an icon and this is what came out of me playing with Inkscape >:D
->
-> I was going for a hash-looking thing, and `t`s for "tagged", and this came out
-> also looking to me like DNA if you squint which is dope so for now I'm keeping it
+- Renaming Tagged to Galvanized
+
+---
+
+idea: For any given 
+
+```rust
+impl PineapplePlugin for &mut App {}
+```
+
+We could then write:
+
+```rust
+// When PineapplePlugin is implemented for &mut App, then also implement PineappleSlicesPlugin
+impl<P: PineapplePlugin> PineappleSlicesPlugin for &mut App
+where &mut App: P,
+{}
+```
+
+If this works, it means we can use blanket impls as a way to trait-mark plugins which require
+other plugins to be installed.
+
+- Tested, it does in fact work
 
 # 2026 April 13
 
@@ -440,7 +500,7 @@ impl ChatBubble {
         Self {
             display_name: "Alice".into(),
             message: "Hey, are you online?".into(),
-            icon_path: PathBuf::from(".assets/tagged.svg"),
+            icon_path: PathBuf::from(".assets/galvanized.png"),
         }
     }
 }
@@ -1157,6 +1217,17 @@ Screenshot from the start of today
 # 2026 March 2
 
 > am
+
+<div align="center">
+  <a href="https://discord.gg/9rs3XvFJrC">
+    <img src=".assets/galvanized.png" alt="My goofy project icon" width="300" height="300">
+  </a>
+</div>
+
+> I needed an icon and this is what came out of me playing with Inkscape >:D
+>
+> I was going for a hash-looking thing, and `t`s for "tagged", and this came out
+> also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
 Screenshot from today
 

@@ -63,10 +63,10 @@ pub fn init(cx: &mut App) {
 struct GlobalIroh(Iroh);
 impl Global for GlobalIroh {}
 pub trait IrohExt {
-    fn iroh(&self) -> Iroh;
+    fn iroh(&mut self) -> Iroh;
 }
-impl<'a, C: AppContext> IrohExt for &'a mut C {
-    fn iroh(&self) -> Iroh {
+impl<C: AppContext> IrohExt for C {
+    fn iroh(&mut self) -> Iroh {
         self.read_global::<GlobalIroh, _>(|it, _cx| it.0.clone())
     }
 }

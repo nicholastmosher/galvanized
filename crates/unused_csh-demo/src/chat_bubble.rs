@@ -27,7 +27,7 @@ impl ChatBubble {
         Self {
             display_name: "Alice".into(),
             message: "Hey, are you online?".into(),
-            icon_path: PathBuf::from(".assets/tagged.svg"),
+            icon_path: PathBuf::from(".assets/galvanized.png"),
         }
     }
 }

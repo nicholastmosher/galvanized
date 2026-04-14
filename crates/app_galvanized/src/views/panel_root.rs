@@ -6,7 +6,8 @@ use std::{
 use zed::unstable::{
     gpui::{
         self, Action, Animation, AnimationExt as _, AppContext as _, Entity, EventEmitter,
-        FocusHandle, Focusable, actions, bounce, img, quadratic,
+        FocusHandle, Focusable, actions, bounce, img, linear_color_stop, linear_gradient,
+        quadratic, rgb,
     },
     ui::{
         ActiveTheme, App, Context, FluentBuilder as _, IconName, InteractiveElement as _,
@@ -26,9 +27,9 @@ use crate::{
         create_space_modal::CreateSpaceModal,
     },
 };
-use plugin_willow::{WillowExt as _, space::Space};
+use plugin_willow::{WillowExt, space::Space};
 
-actions!(workspace, [ToggleGalvanizedPanel]);
+actions!(workspace, [ToggleRootPanel]);
 
 pub fn init(cx: &mut App) {
     cx.observe_new(|workspace: &mut Workspace, window, cx| {
@@ -38,17 +39,17 @@ pub fn init(cx: &mut App) {
 
         let workspace_entity = cx.entity();
         let connections_ui = cx.new(|cx| ConnectionsUi::new(window, cx));
-        let panel = cx.new(|cx| PanelUi::new(workspace_entity, connections_ui, window, cx));
+        let panel = cx.new(|cx| PanelRoot::new(workspace_entity, connections_ui, window, cx));
         workspace.add_panel(panel, window, cx);
-        workspace.focus_panel::<PanelUi>(window, cx);
-        workspace.register_action(|workspace, _: &ToggleGalvanizedPanel, window, cx| {
-            workspace.toggle_panel_focus::<PanelUi>(window, cx);
+        workspace.focus_panel::<PanelRoot>(window, cx);
+        workspace.register_action(|workspace, _: &ToggleRootPanel, window, cx| {
+            workspace.toggle_panel_focus::<PanelRoot>(window, cx);
         });
     })
     .detach();
 }
 
-pub struct PanelUi {
+pub struct PanelRoot {
     connections_ui: Entity<ConnectionsUi>,
     content: PanelContent,
     focus_handle: FocusHandle,
@@ -61,7 +62,7 @@ pub enum PanelContent {
     Space(Entity<Space>),
 }
 
-impl PanelUi {
+impl PanelRoot {
     pub fn new(
         workspace: Entity<Workspace>,
         connections_ui: Entity<ConnectionsUi>,
@@ -78,7 +79,7 @@ impl PanelUi {
     }
 }
 
-impl Render for PanelUi {
+impl Render for PanelRoot {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .h_full()
@@ -88,7 +89,7 @@ impl Render for PanelUi {
     }
 }
 
-impl PanelUi {
+impl PanelRoot {
     fn render_active_panel(
         &mut self,
         window: &mut Window,
@@ -235,9 +236,49 @@ impl PanelUi {
                     .rounded_xl()
                     .child(
                         //
-                        img(PathBuf::from(".assets/tagged.svg"))
-                            .size(px(48.))
-                            .rounded_xl(),
+                        div()
+                            //
+                            .p(px(1.))
+                            .rounded_xl()
+                            .child(
+                                //
+                                img(PathBuf::from(".assets/galvanized.png"))
+                                    .size(px(48.))
+                                    .rounded_xl(),
+                            )
+                            .with_animation(
+                                "title-icon-animation",
+                                Animation::new(Duration::from_secs(10 * 6))
+                                    .repeat()
+                                    .with_easing(|t| {
+                                        // // t: [0.0, 1.0]
+                                        // if t < 0.10 {
+                                        //     //
+                                        //     // quadratic(10. * t)
+                                        //     quadratic(10. * t)
+                                        // } else {
+                                        //     //
+                                        //     // t
+                                        //     1.0
+                                        // }
+                                        quadratic(
+                                            //
+                                            t,
+                                        )
+                                    }),
+                                |el, t| {
+                                    //
+                                    el
+                                        //
+                                        .bg(linear_gradient(
+                                            360. * t,
+                                            //
+                                            linear_color_stop(rgb(0xff6600), 0.0),
+                                            // linear_color_stop(rgb(0x000000), 1.0),
+                                            linear_color_stop(rgb(0x00002b), 1.0),
+                                        ))
+                                },
+                            ),
                     ),
             )
             .child(ListSeparator)
@@ -267,7 +308,7 @@ impl PanelUi {
                             .read(cx)
                             .icon_path()
                             .unwrap_or_else(|| Path::new(&".assets/create-space.svg")))
-                        // img(PathBuf::from(".assets/tagged.svg"))
+                        // img(PathBuf::from(".assets/galvanized.png"))
                         .size(px(48.))
                         .map(|el| {
                             if space.read(cx).is_communal() {
@@ -382,14 +423,14 @@ impl PanelUi {
     }
 }
 
-impl EventEmitter<PanelEvent> for PanelUi {}
-impl Focusable for PanelUi {
+impl EventEmitter<PanelEvent> for PanelRoot {}
+impl Focusable for PanelRoot {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
 
-impl Panel for PanelUi {
+impl Panel for PanelRoot {
     fn persistent_name() -> &'static str {
         "Galvanized"
     }
@@ -431,7 +472,7 @@ impl Panel for PanelUi {
     }
 
     fn toggle_action(&self) -> Box<dyn Action> {
-        Box::new(ToggleGalvanizedPanel)
+        Box::new(ToggleRootPanel)
     }
 
     fn activation_priority(&self) -> u32 {

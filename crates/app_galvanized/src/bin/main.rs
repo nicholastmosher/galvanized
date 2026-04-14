@@ -10,11 +10,11 @@ async fn main() {
         .init();
 
     application()
-        .add_plugins(zed::init)
         .add_plugins(gzed::init)
-        .add_plugins(plugin_calendar::init)
-        .add_plugins(plugin_chat::init)
-        .add_plugins(plugin_iroh::init)
-        .add_plugins(plugin_willow::init)
+        // .add_plugins(zed::init)
+        // .add_plugins(plugin_calendar::init)
+        // .add_plugins(plugin_chat::init)
+        // .add_plugins(plugin_iroh::init)
+        // .add_plugins(plugin_willow::init)
         .run();
 }

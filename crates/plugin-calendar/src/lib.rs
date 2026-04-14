@@ -7,7 +7,7 @@ use zed::unstable::{
     },
     ui::{
         ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement as _,
-        Render, StatefulInteractiveElement as _, Styled as _, Window, div, v_flex,
+        Render, StatefulInteractiveElement as _, Styled as _, Window, div, px, v_flex,
     },
     workspace::{Item, Workspace},
 };
@@ -86,7 +86,7 @@ impl Render for CalendarItem {
                     .size_full()
                     //
                     // .bg(rgb(0xff2056))
-                    .p_2()
+                    .p(px(1.))
                     .rounded_xl()
                     .child(
                         //
@@ -111,7 +111,7 @@ impl Render for CalendarItem {
                             //
                             .bg(cx.theme().colors().panel_background)
                             .p_2()
-                            .rounded_lg()
+                            .rounded_xl()
                             .child(
                                 div()
                                     .flex_grow()
@@ -157,9 +157,11 @@ impl Render for CalendarItem {
                             el
                                 //
                                 .bg(linear_gradient(
-                                    360. * t,
-                                    linear_color_stop(rgb(0xec003f), 0.0),
-                                    linear_color_stop(rgb(0x8200db), 1.0),
+                                    90. + 360. * t,
+                                    // linear_color_stop(rgb(0xec003f), 0.0),
+                                    // linear_color_stop(rgb(0x8200db), 1.0),
+                                    linear_color_stop(rgb(0xff6600), 0.0),
+                                    linear_color_stop(rgb(0x000000), 1.0),
                                 ))
                         },
                     ),
