@@ -1,12 +1,36 @@
 # GalvaniZed
 
-An experiment, to figure out a way to put human beings back in charge of their own data.
+An experiment to put human beings back in charge of their own data.
 
-> Right now, this is mostly just a shitty fork of Zed
->
-> Please know that this is a passion project and is highly experimental. My motivation for
-> this project is to find a way for human beings to take back control over our digital lives.
->
+<div align="center">
+  <a href="https://discord.gg/9rs3XvFJrC">
+    <img src=".assets/galvanized.svg" alt="Galvanized logo, an orange vertical GZ" width="300" height="300">
+  </a>
+</div>
+
+> This is a passion project and is highly experimental/alpha, do not use with any important
+> data. I make no promises about the quality of the app yet, nor do I promise that this won't
+> experience data corruption, so proceed with caution.
+
+Galvanized is aspiring to be a next-generation peer-to-peer social and productivity app platform. 
+
+As an application, I want this to become a tool for local community organization, providing
+a safe and secure way to collaborate with a group in a digital space while avoiding prying eyes.
+My initial goal is to provide simple collaborative features such as chat, a calendar, and simple
+shared document editing. Later, I hope to integrate some of Zed's native features into the p2p
+model, such as calling/screensharing and Zed buffer collaboration.
+
+As a platform, I intend for Galvanized to be a family of plugins which provide peer-to-peer
+collaboration and data protection. Galvanized uses a simple fork of [Zed][0] which turns Zed's
+internal modularity into external composability, providing the ability to build arbitrary new
+behavior into the app by stacking Plugins. Galvanized will provide foundational plugins such as
+peer-to-peer communication, data modeling and storage, and CRDT-based live collaboration.
+Higher-level "application plugins" will define a data model and a way to render it, effectively
+injecting arbitrary new UI objects into the application. Some of the tech I'm using or evaluating
+so far includes Zed, Willow, Iroh, Automerge, and plenty of other Rust community crates.
+
+[0]: https://zed.dev
+
 > I do happen to be looking for help from any whole-hearted humans who see the vision I see
 > and want to help because they think it's the right thing to do. Between now and later, that
 > will hopefully include some inspired Rustaceans and aspiring users. An express goal of this
@@ -1220,7 +1244,7 @@ Screenshot from the start of today
 
 <div align="center">
   <a href="https://discord.gg/9rs3XvFJrC">
-    <img src=".assets/galvanized.png" alt="My goofy project icon" width="300" height="300">
+    <img src=".assets/tagged.svg" alt="My goofy project icon" width="300" height="300">
   </a>
 </div>
 
