@@ -180,7 +180,7 @@ considering is this:
 Below is where I write down all of my brainstorming and task lists so I remember everything
 later on. For a long time I never would write my ideas down unless it were well-formed as
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
-quickly and let it be a mess rather than be a perfectionist and never get ideas written.
+quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
 # 2026 April 13
 
@@ -188,6 +188,12 @@ quickly and let it be a mess rather than be a perfectionist and never get ideas 
 
 - Renaming Tagged to Galvanized
 - New icon, new intro, need TOC with jump links
+
+Screenshot from today:
+
+<div align="center">
+  <img src=".assets/screenshot-gzed-orange-gradient-20260415.png" alt="Panel and Calendar with orange black gradients" width="600">
+</div>
 
 ---
 
