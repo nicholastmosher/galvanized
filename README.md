@@ -12,6 +12,18 @@ An experiment to put human beings back in charge of their own data.
 > data. I make no promises about the quality of the app yet, nor do I promise that this won't
 > experience data corruption, so proceed with caution.
 
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Getting Started](#getting-started)
+- [Project Vision and Values](#project-vision-and-values)
+- [CSH Seminar](#csh-seminar-first-class-plugins-for-gpui-and-zed-vision-for-tagged)
+  - I gave a seminar on this project while visiting RIT's Computer Science House for it's 50th
+    anniversary this year! These are my notes from before the seminar, and include a practical
+    introduction to writing GPUI plugins.
+
+## Introduction
+
 Galvanized is aspiring to be a next-generation peer-to-peer social and productivity app platform. 
 
 As an application, I want this to become a tool for local community organization, providing
@@ -163,9 +175,19 @@ considering is this:
 
 > TODO: Write more about why I chose Zed and Willow as the basis for the stack
 
+# Dev Log
+
+Below is where I write down all of my brainstorming and task lists so I remember everything
+later on. For a long time I never would write my ideas down unless it were well-formed as
+code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
+quickly and let it be a mess rather than be a perfectionist and never get ideas written.
+
 # 2026 April 13
 
+> pm
+
 - Renaming Tagged to Galvanized
+- New icon, new intro, need TOC with jump links
 
 ---
 
@@ -189,7 +211,7 @@ other plugins to be installed.
 
 - Tested, it does in fact work
 
-# 2026 April 13
+> am
 
 I've been working on chat via automerge but struggling to get the mental model right.
 Let me try to identify where state should live and sketch out the structure of the workflow:
@@ -1064,11 +1086,11 @@ So 5 dimensions:
 Digital lives
 
 - Content, what the user cares about. 
-- Replicated content
+- Replicated content: owned by one user but stored/backed-up by another
 
 App machinery (the behavior of the GPUI app)
 
-- Local state: Application internals that don't need syncing or aren't beneficial to
+- Local state: Application internals that don't need syncing or which aren't beneficial to
 - Shared state: Zed remote entity sync such as is done in shared sessions.
   - I need to dig in more to how that's all done
 - Durable state: Like Zed's `Settings` getting serialized between 
