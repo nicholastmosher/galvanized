@@ -182,9 +182,13 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
-# 2026 April 13
+# 2026 April 15
 
-> pm
+Claim hash: make an assertion about a data structure after calculating and then viewing it,
+then hash that data structure and use the hash as the name. This is content addressing, but
+consider using it as a form of distributed compute memoization or caching. 
+
+# 2026 April 14
 
 - Renaming Tagged to Galvanized
 - New icon, new intro, need TOC with jump links
@@ -217,7 +221,7 @@ other plugins to be installed.
 
 - Tested, it does in fact work
 
-> am
+# 2026 April 13
 
 I've been working on chat via automerge but struggling to get the mental model right.
 Let me try to identify where state should live and sketch out the structure of the workflow:
@@ -302,9 +306,9 @@ Giving a seminar about this project at CSH! Need to plan it out:
   - I should use a VM to check what dependencies are needed from scratch
 - Have an exercise already planned out, such as making a calendar UI
 
-# CSH Seminar: First-class plugins for GPUI and Zed, Vision for Tagged
+# CSH Seminar: Plugins for GPUI and Zed, Project Vision
 
-GPUI is a pure-rust Desktop app framework that provides a Tailwind-like styling API,
+GPUI is a pure-Rust Desktop app framework that provides a Tailwind-like styling API,
 meaning that it's both a breeze to work with and highly capable. The experience
 I've had with writing GPUI code is one of being in the flow and actually being able to
 experiment and prototype UI on the fly. With a little practice, building new visual
