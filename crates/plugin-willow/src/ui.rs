@@ -3,11 +3,11 @@ use std::time::Duration;
 use zed::unstable::{
     gpui::{
         self, Animation, AnimationExt, AppContext as _, EventEmitter, FocusHandle, Focusable,
-        actions, linear_color_stop, linear_gradient, quadratic, rgb,
+        actions, linear_color_stop, linear_gradient, rgb,
     },
     ui::{
         ActiveTheme, App, Context, IntoElement, ParentElement as _, Render, SharedString, Styled,
-        Window, div, px,
+        Window, div, px, v_flex,
     },
     workspace::{Item, Workspace},
 };

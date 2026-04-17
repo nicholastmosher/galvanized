@@ -14,7 +14,6 @@ use tokio_util::codec::{FramedRead, FramedWrite};
 use zed::unstable::gpui::{App, AsyncApp, Global};
 
 pub fn init(cx: &mut App) {
-    let base_path = "/tmp/iroh-automerge";
     cx.set_global(GlobalIrohRepo(None));
     cx.spawn(async move |cx: &mut AsyncApp| {
         let secret_key = iroh::SecretKey::generate(&mut rand::rng());
