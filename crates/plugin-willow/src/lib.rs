@@ -23,14 +23,14 @@ pub mod model;
 pub mod profile;
 pub mod space;
 pub mod tasks;
+pub mod ui;
 
 pub fn init(cx: &mut App) {
     let store_path = zed::unstable::paths::data_dir();
     let willow = Willow::new(store_path, cx);
     cx.set_global(GlobalWillow(willow));
 
-    // Insert dummy data to store
-    cx.willow();
+    ui::init(cx);
 }
 
 impl Global for GlobalWillow {}
