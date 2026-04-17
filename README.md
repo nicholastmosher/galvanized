@@ -21,6 +21,7 @@ An experiment to put human beings back in charge of their own data.
   - I gave a seminar on this project while visiting RIT's Computer Science House for it's 50th
     anniversary this year! These are my notes from before the seminar, and include a practical
     introduction to writing GPUI plugins.
+- [Plugin Ideas](#plugin-ideas)
 
 ## Introduction
 
@@ -184,10 +185,73 @@ quickly and let it be a mess rather than be a perfectionist and never get ideas 
 
 # 2026 April 16
 
+If people start showing up wondering what cool things can be done, here are
+some ideas for plugins that would be great to have. It could be a lot of fun to
+prototype the UI and interactions to express the underlying info, while I'm working
+out how to sync things just right.
+
+## Plugin Ideas
+
+- Timeline viewer
+  - (actually I call dibs on this one, I have specific ideas)
+- Calendar (started, barely)
+  - Event planning, like you can send an invite to a proposed event,
+    and mark things as up-in-the air like where or when or what to do
+- Team task assignment and followup pings
+  - Accountability web, who is responsible for checking on progress
+    from others, holding deliverables accountable. Would otherwise be
+    a hierarchy, but in distributed organizations we can choose our own
+    topology of responsibility management, but a web/graph is cooler
+- Shared checklists
+- Photo album
+- Timers and Alarms (like iOS widgets)
+- Document editor
+- SVG editor? Inkscape clone?
+- Bevy-as-an-Element. render scenes onto components
+- Object viewer. Tree or graph view mode
+- Widget for editing animation timing fns / splines, cookbook of animations
+- Canvass planning. Rust open source map crate? Plan walking paths for groups
+- Call list reminders: interactive checklist that sorts by least recently contacted
+  - Compose with Timers or Alarms to get reminders to call folks again
+- Element wrapper that rotates arbitrary elements
+  - I want sideways tabs with words like jetbrains and vscode
+  - Then I think there's no need for panels, just items with tabs that can go around
+    any split on screen
+- Overlay/HUD? toggle popover desktop, like steam overlay. 
+- Store disk usage analyzer for Willow
+- Willow full well-polished plugin and UI
+- 
+
 Today I want to work on Automerge stuff again.
 
 - Finish implementing workflows from April 13 notes
 - Aiming for basic e2e sync for chat
+
+---
+
+Metrics:
+
+What do I want to keep track of when thinking about monitoring my own instance?
+What kind of power-user interface do I want? Practical, intuitive, elegant.
+
+- When dialing last-known addresses, count:
+  - how many times the peer is available at a stable address
+  - how many times the peer appears via a different address (than previous)
+  - the length of time between a peer obtaining its last address and its new address?
+    - trying to measure reliability? there is probably research done on this,
+      I should look for it instead of/before inventing something new
+- How many GPUI tasks are running? What are their names and stats? Task Stats.
+
+---
+
+Reasons to make every subspace key a valid owned namespace key:
+
+- Imagine using the subspace's namespace to store persistent, private (or public) shared state
+- Example: Keep map of p2p peers you've connected with and a short history of where you last saw them
+  - E.g. In case of wanting to increase anonymity and preventing association between profiles on the same peer endpoint/node
+  - Independently configure a p2p endpoint/node per subspace and maintain distinct identity and other persistent state info in each subspace's respective namespace
+- So a user's subspace key allows their identity to become the guardian of a user's secure, persisted metadata
+- Could be a good spot for an audit log to be maintained, though there'd need to be a cleanup policy e.g. rolling over time
 
 # 2026 April 15
 
