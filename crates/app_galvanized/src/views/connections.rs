@@ -112,7 +112,7 @@ impl ConnectionsUi {
                                 h_flex()
                                     .id("local-endpoint-id")
                                     .text_color(cx.theme().colors().text_muted)
-                                    .when_some(endpoint_id.clone(), |el, endpoint_id| {
+                                    .when_some(endpoint_id.ok().clone(), |el, endpoint_id| {
                                         //
                                         el
                                             //
@@ -144,7 +144,7 @@ impl ConnectionsUi {
                                                     }),
                                             )
                                     })
-                                    .when_none(&endpoint_id, |el| {
+                                    .when_none(&endpoint_id.ok(), |el| {
                                         //
                                         el.child("Local endpoint unavailable")
                                     }),
