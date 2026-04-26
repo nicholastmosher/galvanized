@@ -185,6 +185,246 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 April 24
+
+Ok, so a lot of the notes below in about the last week are not going to make
+sense, because they come from a branch that I've learned a lot from but
+abandoned. I may pull some of these ideas back in later, but for now I'm leaving
+them out on an unmerged branch. However, I did pull the README updates that I
+wrote during that time so I know what I was thinking through and what worked and
+what didn't.
+
+# 2026 April 24
+
+- Ok, cleaning up the second iteration of Actor, I'm now wondering about calling it
+  AsyncCx or something similar
+- Trying to generalize the "protocols" API so that there's a "client" side which is a
+  plugin on `&mut App`, and a "server" side which is a handler in the actor / `AsyncCx`
+
+# 2026 April 22
+
+> pm
+
+Let me sketch what a new e2e plugin might look like:
+
+Needs:
+
+- UI definiton
+- Data model
+- Protocol message types / state transitions
+
+Let's do a checklist as a simple example
+
+```rust
+pub fn init(cx: &mut App) {
+    //
+    let protocol = ChecklistProtocol::new();
+}
+
+trait ChecklistRepository {
+    fn create_checklist(&mut self) -> impl Future<Output = Result<ChecklistModel>>;
+}
+impl<C: AppContext> ChecklistRepository for C {
+    fn create_checklist(&mut self) -> impl Future<Output = Result<ChecklistModel>> {
+        //
+    }
+}
+
+/// UI definition for one checklist instance
+pub struct ChecklistUi {
+    model: Entity<ChecklistModel>, // Entity or no?
+}
+
+// At one point I was imagining a kind of meta-model for "objects"
+// which might span mulitple Willow file paths. Each "field" on the
+// meta-object would map to a file, and if the file contained an
+// encoded object (e.g. JSON or Automerge), the meta-object could
+// be aware of that and sync different types appropriately.
+/// Data definition for one checklist instance
+pub struct ChecklistModel {
+    id: String, // TODO what ID type to use for documents?
+    name: String,
+    items: Vec<ChecklistItem>,
+}
+
+/// Data definition for one item on a checklist
+pub struct ChecklistItem {
+    title: String,
+    done: bool,
+}
+
+/// Protocol definition for checklists, should handle multiple instances
+pub struct ChecklistProtocol {}
+impl ChecklistProtocol {
+    pub fn new() -> Self { Self {} }
+}
+trait Protocol {
+    const ALPN: &'static [u8];
+    type IncomingHandler: ProtocolHandler;
+    fn connect(&self) -> impl Future<Output = Result<Connection, ConnectError>> {
+        async move {
+            //
+        }
+    }
+}
+impl Protocol for ChecklistProtocol {
+    const ALPN: &'static [u8] = b"/checklist/1";
+    type IncomingHandler = 
+}
+impl ProtocolHandler for ChecklistProtocol {
+    fn accept(
+        &self,
+        connection: Connection,
+    ) -> impl Future<Output = Result<(), AcceptError>> + Send {
+        async move {
+            //
+        }
+    }
+}
+
+pub struct ChecklistPlugin {}
+impl ChecklistPlugin {
+    pub fn new() -> Self {
+        //
+    }
+}
+
+trait Plugin {
+    type Ui;
+    type Model;
+    type Protocol;
+    
+    fn init(&self, cx: &mut App);
+}
+impl Plugin for ChecklistPlugin {
+    type Ui = ChecklistUi;
+    type Model = ChecklistModel;
+    type Protocol = ChecklistProtocol;
+    
+    fn init(&self, cx: &mut App) {
+        //
+    }
+}
+```
+
+> am
+
+- Still trying to get e2e chat, but learning about patterns and workflows for p2p
+- I think what I need is something where one "plugin" can define its own end-to-end everything
+  - UI, data types, protocol/messages/state, handlers
+- Right now the Iroh plugin is taking on specific concerns from chat, which is worrying
+- I think I need the Iroh plugin/actor to be like a dynamic version of Iroh's Router
+- It can accept new protocols from plugins, and define the end-to-end flow all in a plugin
+
+- Need to iterate on the entire Iroh plugin I think
+  - Make it possible for higher plugins to register protocols with Iroh
+  - Protocols should be able to build on lower protocols seamlessly
+  - Need custom Router, build into actor
+  - Protocols should expose Control objects, available via type-map/entities
+    - `let chat_control = p2p_actor.control::<Chat>()`
+
+# 2026 April 20
+
+So many detours...
+
+- I'm restructuring how the Iroh plugin is configured
+- Using an actor / state-machine on a background thread with channels
+- I was going to do this before but thought it was too heavy, but then I took a
+  peek at how other Iroh protocols are implemented and Docs is very similar
+- I needed to do this in order to have a proper async context for receiving doc
+  updates, plus it creates a layer of separation from UI/foreground to background
+- Still ultimately trying to implement working chat on Automerge
+
+# 2026 April 19
+
+> am
+
+I'm really trying to crack the right mental model for associating Entities and Entries.
+I feel like there's a 1:1 bridge that could be made for keeping durable objects up to date
+in memory and on disk. Thinking about orthogonal axes of the problem space, I see:
+
+- 1) Entities are in-memory state/data,
+- 2) Entries can be protected and durable,
+- 3) Some consideration for "remote sync", there may need to be flavors
+  - Willow p2p sync
+    - How and when do Entries get synced? What control does Willow offer here?
+  - CRDT live sessions
+    - Need a way to "lift" Willow permissioning (Namespaces, Subspaces, Capabilities)
+      to new domains, such as CRDT participation.
+    - Simplest way I can think of is writing CRDT live session info/token into Willow,
+      then only Willow peers with permission to read where that token was written will
+      have the knowledge to join the group
+    - This feels like security through obscurity though, if the token was leaked any
+      CRDT peer could still connect and sync. I think there has to be a consideration
+      baked into the CRDT sync protocol.
+
+---
+
+- If integration with Bevy is possible - and I believe I've seen it demonstrated that
+  it is - imagine GPUI elements that can render an arbitrary 3D scene from Bevy.
+  Conversely, imagine taking a zed Editor and taking it as a texture (I think? I need
+  to learn more GPU fundamentals) and wrapping it around the surface of 3D shapes
+  like a cylinder or cone or whichever. Just playing with the idea of GPUI/Bevy is fun
+
+- Tags as a little sticky square that can attach to arbitrary (entities? elements?)
+  views. Tags live in a sidebar and hovering over one shows a line to any corresponding
+  entity on screen and draw a connecting spline
+
+- Make a UI that's entirely based on hexagons and hexagonal traversal of tiles
+
+# 2026 April 18
+
+Todo
+
+- Willow Flows:
+  - Create Entity `let entity = cx.new(|cx| PieceOfState::new(cx));`
+  - Write Entity to Willow store: `let task = entity.save(cx)`;
+  - Read Entry to update Entity:
+    - Will eventually need subscription or observer kind of API from Willow
+    - In the meantime, do it manually? Bind to action or keybind. Like "save"
+      but actually "load"
+    - Having trouble thinking about what the read path looks like
+      - Program starts up
+      - Program loads persistence
+      - Authentication to unlock keys is given
+      - We have keys available to unlock / read / write in Willow ?
+      - How does one navigate Willow? Is there a list entries API?
+
+```rust
+let task = entity.load(cx); // Task<Result<Option<()>>>
+let result = task.await;
+match result {
+    Ok(Some(())) => {
+        // Just know that Entity value is updated from Entry?
+    }
+    Ok(None) => {
+        // 
+    }
+    Err(_) => {
+        //
+    }
+}
+```
+
+---
+
+Recursive trait derive for Entity composition. Or rather, traversing a graph of Entities by
+following Entity handles and exploring the reachable Entity space.
+
+```rust
+trait Traverse {
+    type Context;
+    fn traverse(&self, cx: &mut Self::Context);
+}
+
+#[derive(Traverse)]
+struct MyThing {
+    thing: Entity<Thing>,
+    #[traverse(skip)]
+    excluded_thing: Entity<Thing>,
+}
+```
+
 # 2026 April 16
 
 If people start showing up wondering what cool things can be done, here are
