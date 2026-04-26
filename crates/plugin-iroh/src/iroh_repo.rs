@@ -130,6 +130,7 @@ impl iroh::protocol::ProtocolHandler for IrohSamod {
             lock.insert(endpoint_id.clone());
         }
 
+        tracing::info!("Samod starting inbound sync");
         let conn_finished = self
             .repo
             .connect(

@@ -5,16 +5,14 @@
 // - Allowing adding new peers
 // - Allowing removing peers
 
-use std::{any::TypeId, path::PathBuf};
+use std::{ops::Not, path::PathBuf};
 
-use anyhow::{anyhow, bail};
+use anyhow::anyhow;
 use iroh::{EndpointAddr, EndpointId};
-use tracing::{info, warn};
+use tracing::info;
 use zed::unstable::{
     editor::Editor,
-    gpui::{
-        AppContext as _, AsyncApp, ClickEvent, ClipboardItem, Entity, Global, KeyDownEvent, img,
-    },
+    gpui::{AppContext as _, ClickEvent, ClipboardItem, Entity, Global, KeyDownEvent, img},
     ui::{
         ActiveTheme as _, App, Context, FluentBuilder, Icon, IconName, IconSize,
         InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Render,
@@ -26,7 +24,7 @@ use zed::unstable::{
     workspace::Workspace,
 };
 
-use crate::{Ticket, views::panel_root::PanelRoot};
+use crate::Ticket;
 use plugin_chat::ChatUi;
 use plugin_iroh::IrohExt as _;
 
@@ -34,7 +32,7 @@ struct GlobalWorkspace(Entity<Workspace>);
 impl Global for GlobalWorkspace {}
 pub fn init(cx: &mut App) {
     // Store the workspace entity in a local global (lol) to pass it to ConnectionsUi construction
-    cx.observe_new::<Workspace>(|workspace, window, cx| {
+    cx.observe_new::<Workspace>(|_workspace, _window, cx| {
         let workspace_entity = cx.entity();
         cx.set_global(GlobalWorkspace(workspace_entity));
     })
@@ -81,7 +79,7 @@ impl Render for ConnectionsUi {
 impl ConnectionsUi {
     fn render_connection_header(
         &mut self,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let endpoint_id = cx.iroh().endpoint_id();
@@ -112,42 +110,30 @@ impl ConnectionsUi {
                                 h_flex()
                                     .id("local-endpoint-id")
                                     .text_color(cx.theme().colors().text_muted)
-                                    .when_some(endpoint_id.ok().clone(), |el, endpoint_id| {
+                                    .hover(|style| style.text_color(cx.theme().colors().text))
+                                    .tooltip(Tooltip::text("Copy peer ticket"))
+                                    .on_click(cx.listener(move |_this, _e, _window, cx| {
+                                        let endpoints =
+                                            vec![EndpointAddr::from_parts(endpoint_id, [])];
+                                        let ticket = Ticket { endpoints };
+                                        let ticket_text = ticket.to_string();
+                                        cx.write_to_clipboard(ClipboardItem::new_string(
+                                            ticket_text,
+                                        ));
+                                    }))
+                                    .child(Icon::new(IconName::Copy).size(IconSize::Medium))
+                                    .child(div().px_1())
+                                    .child(
                                         //
-                                        el
+                                        div()
                                             //
-                                            .hover(|style| {
-                                                style.text_color(cx.theme().colors().text)
-                                            })
-                                            .tooltip(Tooltip::text("Copy peer ticket"))
-                                            .on_click(cx.listener(move |_this, _e, _window, cx| {
-                                                let endpoints =
-                                                    vec![EndpointAddr::from_parts(endpoint_id, [])];
-                                                let ticket = Ticket { endpoints };
-                                                let ticket_text = ticket.to_string();
-                                                cx.write_to_clipboard(ClipboardItem::new_string(
-                                                    ticket_text,
-                                                ));
-                                            }))
-                                            .child(Icon::new(IconName::Copy).size(IconSize::Medium))
-                                            .child(div().px_1())
-                                            .child(
-                                                //
-                                                div()
-                                                    //
-                                                    .text_sm()
-                                                    .child({
-                                                        let mut string = endpoint_id.to_string();
-                                                        let suffix =
-                                                            string.split_off(string.len() - 8);
-                                                        suffix
-                                                    }),
-                                            )
-                                    })
-                                    .when_none(&endpoint_id.ok(), |el| {
-                                        //
-                                        el.child("Local endpoint unavailable")
-                                    }),
+                                            .text_sm()
+                                            .child({
+                                                let mut string = endpoint_id.to_string();
+                                                let suffix = string.split_off(string.len() - 8);
+                                                suffix
+                                            }),
+                                    ),
                             ),
                     ),
             )
@@ -159,35 +145,11 @@ impl ConnectionsUi {
                     .border_1()
                     .border_color(cx.theme().colors().border)
                     .rounded_md()
-                    // Establish connection with Endpoint
-                    // DON'T create new doc yet
                     .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
-                        if e.keystroke.key == "enter" {
-                            let ticket_text = this.input_ticket.read(cx).text(cx);
-                            let ticket = ticket_text
-                                .parse::<Ticket>()
-                                .map_err(|e| anyhow!("failed to parse Ticket: {e}"))
-                                .log_err();
-                            let Some(ticket) = ticket else {
-                                return;
-                            };
-                            let Some(endpoint_addr) = ticket.endpoints.get(0) else {
-                                return;
-                            };
-
-                            cx.iroh().sync(cx, endpoint_addr.clone());
-
-                            // let chat = cx.new(|cx| ChatUi::new(endpoint_addr.id, window, cx));
-                            // this.workspace.update(cx, |workspace, cx| {
-                            //     workspace.add_item_to_active_pane(
-                            //         Box::new(chat),
-                            //         Some(0),
-                            //         true,
-                            //         window,
-                            //         cx,
-                            //     );
-                            // });
+                        if e.keystroke.key != "enter" {
+                            return;
                         }
+                        this.connect_peer(window, cx);
                     }))
                     .child(
                         //
@@ -202,21 +164,23 @@ impl ConnectionsUi {
 
     fn render_connected_peers(
         &mut self,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let peers = cx.iroh().galvanized().remote_peers();
+
         div()
             .size_full()
             //
             .child(
                 div()
                     //
-                    .when_none(&cx.iroh().remote_peers(), |el| {
+                    .when(peers.is_empty(), |el| {
                         el
                             //
                             .child("No remote peers")
                     })
-                    .when_some(cx.iroh().remote_peers(), |el, peers| {
+                    .when(peers.is_empty().not(), |el| {
                         //
                         el
                             //
@@ -268,6 +232,38 @@ impl ConnectionsUi {
             )
     }
 
+    /// Attempt to connect to a peer using the ticket pasted by the user
+    fn connect_peer(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        let ticket_text = self.input_ticket.read(cx).text(cx);
+        let ticket = ticket_text
+            .parse::<Ticket>()
+            .map_err(|e| anyhow!("failed to parse Ticket: {e}"))
+            .log_err();
+        let Some(ticket) = ticket else {
+            return;
+        };
+        let Some(addr) = ticket.endpoints.get(0).cloned() else {
+            return;
+        };
+
+        cx.spawn(async move |_this, cx| {
+            cx.iroh().galvanized().connect(addr).await?;
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
+
+        // let chat = cx.new(|cx| ChatUi::new(endpoint_addr.id, window, cx));
+        // this.workspace.update(cx, |workspace, cx| {
+        //     workspace.add_item_to_active_pane(
+        //         Box::new(chat),
+        //         Some(0),
+        //         true,
+        //         window,
+        //         cx,
+        //     );
+        // });
+    }
+
     fn open_chat(
         &mut self,
         endpoint_id: EndpointId,
@@ -276,15 +272,18 @@ impl ConnectionsUi {
         cx: &mut Context<Self>,
     ) {
         cx.spawn_in(window, async move |this_weak, cx| {
-            let Some(peer_state) = cx.iroh().galvanized().peer_state(&endpoint_id) else {
-                bail!("Cannot open chat, not connected to peer");
-            };
-            let doc_handle = peer_state.read().unwrap().create_or_open_doc(cx).await?;
-            info!("Successfully got doc_handle for peer");
-            // let doc_handle = cx.iroh().create_doc(cx).await?;
+            let doc_handle = cx
+                .iroh()
+                .galvanized()
+                .create_or_open_doc(&endpoint_id)
+                .await?;
+            info!(
+                doc_id = ?doc_handle.document_id(),
+                "Successfully got doc_handle for peer"
+            );
 
             cx.update(|window, cx| {
-                let workspace = this_weak.read_with(cx, |it, cx| it.workspace.clone())?;
+                let workspace = this_weak.read_with(cx, |it, _cx| it.workspace.clone())?;
                 let chat_ui = cx.new(|cx| ChatUi::new(endpoint_id, doc_handle, window, cx));
                 workspace.update(cx, |workspace, cx| {
                     workspace.add_item_to_active_pane(Box::new(chat_ui), Some(0), true, window, cx);

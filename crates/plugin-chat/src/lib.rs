@@ -144,6 +144,8 @@ impl ChatUi {
             async move |this, cx| {
                 let (tx, rx) = flume::bounded(10);
                 cx.background_spawn(async move {
+                    info!(doc_id = ?doc_handle.document_id(), "Starting Automerge listen loop");
+
                     let mut doc_stream = doc_handle.changes();
                     while let Some(changes) = doc_stream.next().await {
                         info!(?changes, "Received Automerge update for Chat");
@@ -152,6 +154,7 @@ impl ChatUi {
                             // let ac = AutoCommit::load(&automerge.save())?;
                             let chat_document: ChatDocument = hydrate(am)?;
                             tx.send(chat_document).log_err();
+                            info!("Automerge document listen loop sent update to UI");
                             anyhow::Ok(())
                         })?;
                     }
@@ -162,6 +165,7 @@ impl ChatUi {
 
                 let mut rx_stream = rx.into_stream();
                 while let Some(chat_document) = rx_stream.next().await {
+                    info!("Automerge UI listen loop received update");
                     this.update(cx, |this, _cx| {
                         // Update the UI's document with the new chat document
                         this.document = chat_document;

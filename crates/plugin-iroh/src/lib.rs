@@ -1,20 +1,31 @@
-use std::sync::{Arc, RwLock};
+use std::{collections::BTreeSet, sync::Arc};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, bail};
 use automerge::Automerge;
+use bytes::BytesMut;
 use dashmap::DashMap;
+use futures::{SinkExt as _, Stream};
 use iroh::{
     Endpoint, EndpointAddr, EndpointId,
     endpoint::{Connection, RecvStream, SendStream},
     protocol::{AcceptError, ProtocolHandler, Router},
 };
 use iroh_repo::IrohSamod;
-use samod::{DocHandle, DocumentId, PeerId, storage::TokioFilesystemStorage};
+use samod::{
+    DocHandle, DocumentId, PeerId,
+    storage::{InMemoryStorage, TokioFilesystemStorage},
+};
+use serde::{Deserialize, Serialize};
+use tokio::runtime::Handle;
+use tokio_util::codec::{Decoder, Framed, LengthDelimitedCodec};
 use tracing::info;
+use uuid::Uuid;
 use zed::unstable::{
-    gpui::{AppContext, Entity, Global, Task},
+    db::smol::stream::StreamExt,
+    gpui::{AppContext, Entity, Global},
     gpui_tokio::Tokio,
     ui::App,
+    util::{ResultExt, TryFutureExt},
 };
 
 pub mod codec;
@@ -27,23 +38,26 @@ pub fn init(cx: &mut App) {
     let iroh_entity = iroh.entity.clone();
     cx.set_global(GlobalIroh(iroh_entity.clone()));
 
+    let tokio_handle = Tokio::handle(cx);
     cx.spawn(async move |cx| {
-        let base_path = "/tmp/iroh-automerge";
+        let uuid = Uuid::new_v4();
+        let base_path = format!("/tmp/iroh-automerge-{uuid}");
         let endpoint = Endpoint::builder().bind().await?;
 
         let automerge_repo = samod::Repo::build_tokio()
             .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
-            .with_storage(TokioFilesystemStorage::new(format!(
-                "{}/{}",
-                base_path,
-                endpoint.id(),
-            )))
+            // .with_storage(TokioFilesystemStorage::new(format!(
+            //     "{}/{}",
+            //     base_path,
+            //     endpoint.id(),
+            // )))
+            .with_storage(InMemoryStorage::new())
             .load()
             .await;
 
         let protocol_automerge = IrohSamod::new(endpoint.clone(), automerge_repo);
         let protocol_galvanized =
-            GalvanizedProtocol::new(endpoint.clone(), protocol_automerge.clone());
+            GalvanizedProtocol::new(endpoint.clone(), protocol_automerge.clone(), tokio_handle);
         let router = Router::builder(endpoint.clone())
             .accept(IrohSamod::SYNC_ALPN, protocol_automerge.clone())
             .accept(GalvanizedProtocol::ALPN, protocol_galvanized.clone())
@@ -56,8 +70,8 @@ pub fn init(cx: &mut App) {
             router,
         };
 
-        iroh_entity.update(cx, |it, _cx| {
-            it.state = Some(state);
+        iroh_entity.update(cx, |entity, _cx| {
+            entity.state = Some(state);
         });
 
         anyhow::Ok(())
@@ -98,21 +112,24 @@ impl<'a, C: AppContext> Iroh<'a, C> {
         Iroh { cx, entity }
     }
 
-    pub fn endpoint_id(&self) -> Result<EndpointId> {
+    pub fn endpoint_id(&self) -> EndpointId {
         self.cx.read_entity(&self.entity, |it, _cx| {
             it.state
                 .as_ref()
-                .map(|it| it.endpoint.id())
-                .ok_or_else(|| anyhow!("Iroh should be initialized"))
+                .expect("Iroh should be initialized")
+                .endpoint
+                .id()
         })
     }
 
-    pub fn galvanized(&self) -> Result<GalvanizedProtocol> {
-        self.cx.read_entity(&self.entity, |it, _cx| {
-            it.state
+    pub fn galvanized(&self) -> GalvanizedProtocol {
+        self.cx.read_entity(&self.entity, |entity, _cx| {
+            entity
+                .state
                 .as_ref()
-                .map(|it| it.protocol_galvanized.clone())
-                .ok_or_else(|| anyhow!("Iroh should be initialized"))
+                .expect("Iroh should be initialized")
+                .protocol_galvanized
+                .clone()
         })
     }
 }
@@ -132,17 +149,19 @@ pub struct GalvanizedProtocol {
     endpoint: Endpoint,
     protocol_automerge: IrohSamod,
     // Connection state by remote peer EndpointId
-    peer_state: Arc<DashMap<EndpointId, Arc<RwLock<PeerState>>>>,
+    peer_state: Arc<DashMap<EndpointId, PeerState>>,
+    tokio_handle: Handle,
 }
 
 impl GalvanizedProtocol {
     const ALPN: &'static [u8] = b"/galvanized/1";
 
-    fn new(endpoint: Endpoint, protocol_automerge: IrohSamod) -> Self {
+    fn new(endpoint: Endpoint, protocol_automerge: IrohSamod, tokio_handle: Handle) -> Self {
         Self {
             endpoint,
             protocol_automerge,
             peer_state: Arc::new(DashMap::new()),
+            tokio_handle,
         }
     }
 
@@ -150,9 +169,88 @@ impl GalvanizedProtocol {
         let addr = addr.into();
         let endpoint_id = addr.id.clone();
         let connection = self.endpoint.connect(addr, Self::ALPN).await?;
-        let (send_stream, recv_stream) = connection.open_bi().await?;
+        let (mut send_stream, recv_stream) = connection.open_bi().await?;
+
+        {
+            let message = Envelope::from(GalvanizedMessage::CreatedStream);
+            let message_bytes = serde_json::to_vec(&message).unwrap();
+            let mut framed = Framed::new(&mut send_stream, LengthDelimitedCodec::new());
+            framed.send(message_bytes.into()).await?;
+        }
+
+        let peer_state = PeerState {
+            connection,
+            send_stream,
+            recv_stream: Some(recv_stream),
+            doc_handle: None,
+        };
+        self.peer_state.insert(endpoint_id, peer_state);
 
         Ok(())
+    }
+
+    pub fn remote_peers(&self) -> BTreeSet<EndpointId> {
+        self
+            //
+            .peer_state
+            .iter()
+            .map(|it| it.key().clone())
+            .collect()
+    }
+
+    /// Creates a shared document with the given peer, or opens an existing one if it exists.
+    pub async fn create_or_open_doc(&self, peer: &EndpointId) -> Result<DocHandle> {
+        // Connect task needs continuous polling on a task
+        let _join_handle = self.tokio_handle.spawn({
+            let addr = EndpointAddr::from(*peer);
+            let automerge = self.protocol_automerge.clone();
+            async move {
+                info!("Starting outbound Automerge sync_with");
+                if let Some(finished_reason) = automerge.sync_with(addr).await.log_err() {
+                    info!(?finished_reason, "Sync finished");
+                }
+            }
+        });
+
+        // Open path: Dashmap entry read lock
+        {
+            let peer_read = self
+                .peer_state
+                .get(peer)
+                .with_context(|| format!("read: No Peer State for {peer}"))?;
+
+            if let Some(doc_handle) = peer_read.doc_handle.clone() {
+                return Ok(doc_handle);
+            }
+        }
+
+        // Create path: Dashmap entry write lock
+        let doc_handle = {
+            let doc_handle = self
+                .protocol_automerge
+                .repo()
+                .create(Automerge::new())
+                .await
+                .context("failed to create doc")?;
+
+            let mut peer_write = self
+                .peer_state
+                .get_mut(peer)
+                .with_context(|| format!("write: No Peer State for {peer}"))?;
+            peer_write.doc_handle = Some(doc_handle.clone());
+
+            let message = Envelope::from(GalvanizedMessage::CreatedDoc(
+                doc_handle.document_id().clone(),
+            ));
+            let message_bytes = serde_json::to_vec(&message).unwrap();
+            let mut framed = Framed::new(&mut peer_write.send_stream, LengthDelimitedCodec::new());
+            // WARN: Holding peer_state write lock during sending
+            framed.send(message_bytes.into()).await?;
+
+            doc_handle
+        };
+
+        Ok(doc_handle)
     }
 }
 
@@ -169,15 +267,99 @@ impl ProtocolHandler for GalvanizedProtocol {
             let peer_state = PeerState {
                 connection,
                 send_stream,
-                recv_stream: Some(recv_stream),
+                recv_stream: None,
                 doc_handle: None,
             };
+            self.peer_state.entry(endpoint_id).or_insert(peer_state);
 
-            self.peer_state
-                .entry(endpoint_id)
-                .or_insert(Arc::new(RwLock::new(peer_state)));
+            self.run_loop(endpoint_id, recv_stream).await;
             Ok(())
         }
+    }
+}
+
+type FrameItem = Result<BytesMut, <LengthDelimitedCodec as Decoder>::Error>;
+
+// Receiving-end handlers
+impl GalvanizedProtocol {
+    //
+    async fn run_loop(&self, peer: EndpointId, mut recv_stream: RecvStream) {
+        let mut stream = Framed::new(&mut recv_stream, LengthDelimitedCodec::new());
+        loop {
+            self.try_run_loop(&peer, &mut stream).await.log_err();
+        }
+    }
+
+    async fn try_run_loop(
+        &self,
+        peer: &EndpointId,
+        stream: &mut (impl Unpin + Stream<Item = FrameItem>),
+    ) -> anyhow::Result<()> {
+        while let Some(frame) = stream.try_next().await? {
+            self.try_handle_frame(peer, frame).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn try_handle_frame(&self, peer: &EndpointId, frame: BytesMut) -> anyhow::Result<()> {
+        let envelope = serde_json::from_slice::<Envelope>(&frame)?;
+        match &envelope.message {
+            GalvanizedMessage::CreatedStream => {
+                // Only used to satisfy `.accept_bi`
+                info!(?peer, "Received CreatedStream event");
+            }
+            GalvanizedMessage::CreatedDoc(doc_id) => {
+                self.try_handle_created_doc(*peer, doc_id.clone()).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn try_handle_created_doc(
+        &self,
+        peer: EndpointId,
+        doc_id: DocumentId,
+    ) -> anyhow::Result<()> {
+        // Handler implementation on task to avoid blocking handling other incoming connections
+        let _join_handle = self.tokio_handle.spawn({
+            let automerge = self.protocol_automerge.clone();
+            let doc_id = doc_id.clone();
+            let peer = peer.clone();
+            let peer_state = self.peer_state.clone();
+            async move {
+                info!("Accept: CreateDoc started");
+
+                automerge
+                    .repo()
+                    .when_connected(PeerId::from_string(peer.to_string()))
+                    .await?;
+                info!("Accept: Connected to Automerge peer");
+
+                let maybe_doc = automerge
+                    .repo()
+                    .find(doc_id.clone())
+                    .await
+                    .with_context(|| {
+                        format!("unexpected error while trying to find Automerge document peer={peer} doc_id={doc_id:?}")
+                    })?;
+
+                let Some(doc_handle) = maybe_doc else {
+                    bail!("failed to find Automerge document peer={peer} doc_id={doc_id:?}");
+                };
+                info!("Accept: Found Automerge document!");
+
+                let Some(mut peer_state) = peer_state.get_mut(&peer) else {
+                    bail!("Missing PeerState for peer {peer}");
+                };
+
+                peer_state.doc_handle = Some(doc_handle);
+                anyhow::Ok(())
+            }.log_err()
+        });
+
+        anyhow::Ok(())
     }
 }
 
@@ -188,6 +370,37 @@ pub struct PeerState {
     recv_stream: Option<RecvStream>,
     #[debug("DocHandle")]
     doc_handle: Option<DocHandle>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Envelope {
+    //
+    message: GalvanizedMessage,
+}
+
+impl From<GalvanizedMessage> for Envelope {
+    fn from(message: GalvanizedMessage) -> Self {
+        Self { message }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum GalvanizedMessage {
+    CreatedStream,
+    CreatedDoc(DocumentId),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_serialize_message() {
+        let message = GalvanizedMessage::CreatedStream;
+        let envelope = Envelope { message };
+        let serialized = serde_json::to_string(&envelope).unwrap();
+        println!("Serialized: {}", serialized);
+    }
 }
 
 // ---
