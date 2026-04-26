@@ -7,7 +7,7 @@
 
 use std::{ops::Not, path::PathBuf};
 
-use anyhow::anyhow;
+use anyhow::{Context as _, anyhow, bail};
 use iroh::{EndpointAddr, EndpointId};
 use tracing::info;
 use zed::unstable::{
@@ -82,7 +82,7 @@ impl ConnectionsUi {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let endpoint_id = cx.iroh().endpoint_id();
+        let endpoint_id = cx.iroh().endpoint_id().ok();
 
         v_flex()
             //
@@ -106,34 +106,56 @@ impl ConnectionsUi {
                             //
                             .child("Connections")
                             .child(
-                                //
-                                h_flex()
-                                    .id("local-endpoint-id")
-                                    .text_color(cx.theme().colors().text_muted)
-                                    .hover(|style| style.text_color(cx.theme().colors().text))
-                                    .tooltip(Tooltip::text("Copy peer ticket"))
-                                    .on_click(cx.listener(move |_this, _e, _window, cx| {
-                                        let endpoints =
-                                            vec![EndpointAddr::from_parts(endpoint_id, [])];
-                                        let ticket = Ticket { endpoints };
-                                        let ticket_text = ticket.to_string();
-                                        cx.write_to_clipboard(ClipboardItem::new_string(
-                                            ticket_text,
-                                        ));
-                                    }))
-                                    .child(Icon::new(IconName::Copy).size(IconSize::Medium))
-                                    .child(div().px_1())
-                                    .child(
+                                div()
+                                    .when_none(&endpoint_id, |el| {
                                         //
-                                        div()
+                                        el.child("Iroh not yet initialized")
+                                    })
+                                    .when_some(endpoint_id, |el, endpoint_id| {
+                                        //
+                                        el.child(
                                             //
-                                            .text_sm()
-                                            .child({
-                                                let mut string = endpoint_id.to_string();
-                                                let suffix = string.split_off(string.len() - 8);
-                                                suffix
-                                            }),
-                                    ),
+                                            h_flex()
+                                                .id("local-endpoint-id")
+                                                .text_color(cx.theme().colors().text_muted)
+                                                .hover(|style| {
+                                                    style.text_color(cx.theme().colors().text)
+                                                })
+                                                .tooltip(Tooltip::text("Copy peer ticket"))
+                                                .on_click(cx.listener(
+                                                    move |_this, _e, _window, cx| {
+                                                        let endpoints =
+                                                            vec![EndpointAddr::from_parts(
+                                                                endpoint_id,
+                                                                [],
+                                                            )];
+                                                        let ticket = Ticket { endpoints };
+                                                        let ticket_text = ticket.to_string();
+                                                        cx.write_to_clipboard(
+                                                            ClipboardItem::new_string(ticket_text),
+                                                        );
+                                                    },
+                                                ))
+                                                .child(
+                                                    Icon::new(IconName::Copy)
+                                                        .size(IconSize::Medium),
+                                                )
+                                                .child(div().px_1())
+                                                .child(
+                                                    //
+                                                    div()
+                                                        //
+                                                        .text_sm()
+                                                        .child({
+                                                            let mut string =
+                                                                endpoint_id.to_string();
+                                                            let suffix =
+                                                                string.split_off(string.len() - 8);
+                                                            suffix
+                                                        }),
+                                                ),
+                                        )
+                                    }),
                             ),
                     ),
             )
@@ -167,7 +189,8 @@ impl ConnectionsUi {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let peers = cx.iroh().galvanized().remote_peers();
+        // let peers = cx.iroh().galvanized().remote_peers();
+        let peers = cx.iroh().galvanized().ok().map(|gzed| gzed.remote_peers());
 
         div()
             .size_full()
@@ -175,12 +198,12 @@ impl ConnectionsUi {
             .child(
                 div()
                     //
-                    .when(peers.is_empty(), |el| {
+                    .when_none(&peers, |el| {
                         el
                             //
                             .child("No remote peers")
                     })
-                    .when(peers.is_empty().not(), |el| {
+                    .when_some(peers, |el, peers| {
                         //
                         el
                             //
@@ -247,7 +270,10 @@ impl ConnectionsUi {
         };
 
         cx.spawn(async move |_this, cx| {
-            cx.iroh().galvanized().connect(addr).await?;
+            let Some(gzed) = cx.iroh().galvanized().ok() else {
+                bail!("Iroh not yet initialized");
+            };
+            gzed.connect(addr).await?;
             anyhow::Ok(())
         })
         .detach_and_log_err(cx);
@@ -272,11 +298,12 @@ impl ConnectionsUi {
         cx: &mut Context<Self>,
     ) {
         cx.spawn_in(window, async move |this_weak, cx| {
-            let doc_handle = cx
+            let gzed = cx
                 .iroh()
                 .galvanized()
-                .create_or_open_doc(&endpoint_id)
-                .await?;
+                .context("Iroh not initialized when trying to open chat")?;
+
+            let doc_handle = gzed.create_or_open_doc(&endpoint_id).await?;
             info!(
                 doc_id = ?doc_handle.document_id(),
                 "Successfully got doc_handle for peer"

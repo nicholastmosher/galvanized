@@ -46,12 +46,12 @@ pub fn init(cx: &mut App) {
 
         let automerge_repo = samod::Repo::build_tokio()
             .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
-            // .with_storage(TokioFilesystemStorage::new(format!(
-            //     "{}/{}",
-            //     base_path,
-            //     endpoint.id(),
-            // )))
-            .with_storage(InMemoryStorage::new())
+            .with_storage(TokioFilesystemStorage::new(format!(
+                "{}/{}",
+                base_path,
+                endpoint.id(),
+            )))
+            // .with_storage(InMemoryStorage::new())
             .load()
             .await;
 
@@ -112,24 +112,27 @@ impl<'a, C: AppContext> Iroh<'a, C> {
         Iroh { cx, entity }
     }
 
-    pub fn endpoint_id(&self) -> EndpointId {
+    pub fn endpoint_id(&self) -> Result<EndpointId> {
         self.cx.read_entity(&self.entity, |it, _cx| {
-            it.state
+            let state = it
+                .state
                 .as_ref()
-                .expect("Iroh should be initialized")
+                .context("Iroh is not yet initialized")?
                 .endpoint
-                .id()
+                .id();
+            anyhow::Ok(state)
         })
     }
 
-    pub fn galvanized(&self) -> GalvanizedProtocol {
+    pub fn galvanized(&self) -> Result<GalvanizedProtocol> {
         self.cx.read_entity(&self.entity, |entity, _cx| {
-            entity
+            let galvanized = entity
                 .state
                 .as_ref()
-                .expect("Iroh should be initialized")
+                .context("Iroh is not yet initialized")?
                 .protocol_galvanized
-                .clone()
+                .clone();
+            anyhow::Ok(galvanized)
         })
     }
 }
@@ -211,6 +214,12 @@ impl GalvanizedProtocol {
                 }
             }
         });
+
+        self.protocol_automerge
+            .repo()
+            .when_connected(PeerId::from_string(peer.to_string()))
+            .await?;
+        info!("Dial: Connected to Automerge peer");
 
         // Open path: Dashmap entry read lock
         {
