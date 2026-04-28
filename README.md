@@ -185,7 +185,18 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
-# 2026 April 24
+# 2026 April 28
+
+- I was feeling quite close to having an Automerge-backed Chat working
+- Everything was wired up, then I noticed `samod` throwing erros about protocol problems
+- I noticed I was using samod `0.5.0` and latest is at `0.9.0` so now I'm working
+  on upgrading to the new samod, there's a few breaking changes I need to figure out.
+- Other than that, I think I finally realized the easiest thing to do about composable
+  protocols for now is to just use Iroh's Router and make the protocol handler object
+  clonable with `Arc`'d shared state.
+  - One protocol instance goes to the Router, one stays to be the client/caller object
+
+# 2026 April 26
 
 Ok, so a lot of the notes below in about the last week are not going to make
 sense, because they come from a branch that I've learned a lot from but
