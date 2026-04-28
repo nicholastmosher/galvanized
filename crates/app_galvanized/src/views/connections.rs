@@ -230,6 +230,7 @@ impl ConnectionsUi {
                                         let endpoint_id = *endpoint_id;
                                         cx.listener(move |this, e, window, cx| {
                                             //
+                                            info!(remote = ?endpoint_id, "Clicked open chat");
                                             this.open_chat(endpoint_id, e, window, cx);
                                         })
                                     })

@@ -11,7 +11,10 @@ use iroh::{
     protocol::{AcceptError, ProtocolHandler, Router},
 };
 use iroh_repo::IrohSamod;
-use samod::{DocHandle, DocumentId, PeerId, storage::TokioFilesystemStorage};
+use samod::{
+    DocHandle, DocumentId, PeerId,
+    storage::{InMemoryStorage, TokioFilesystemStorage},
+};
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Handle;
 use tokio_util::codec::{Decoder, Framed, LengthDelimitedCodec};
@@ -43,12 +46,12 @@ pub fn init(cx: &mut App) {
 
         let automerge_repo = samod::Repo::build_tokio()
             .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
-            .with_storage(TokioFilesystemStorage::new(format!(
-                "{}/{}",
-                base_path,
-                endpoint.id(),
-            )))
-            // .with_storage(InMemoryStorage::new())
+            // .with_storage(TokioFilesystemStorage::new(format!(
+            //     "{}/{}",
+            //     base_path,
+            //     endpoint.id(),
+            // )))
+            .with_storage(InMemoryStorage::new())
             .load()
             .await;
 
@@ -201,7 +204,8 @@ impl GalvanizedProtocol {
     /// Creates a shared document with the given peer, or opens an existing one if it exists.
     pub async fn create_or_open_doc(&self, peer: &EndpointId) -> Result<DocHandle> {
         let addr = EndpointAddr::from(*peer);
-        let _dialer_handle = self.protocol_automerge.dial_peer(addr)?;
+        info!(?peer, "create_or_open_doc: Dialing peer");
+        let _connection_handle = self.protocol_automerge.dial_peer(addr)?;
 
         // // Connect task needs continuous polling on a task
         // let _join_handle = self.tokio_handle.spawn({
@@ -215,6 +219,7 @@ impl GalvanizedProtocol {
         //     }
         // });
 
+        info!("Connecting to Automerge peer");
         self.protocol_automerge
             .repo()
             .when_connected(PeerId::from_string(peer.to_string()))
@@ -319,6 +324,7 @@ impl GalvanizedProtocol {
                 info!(?peer, "Received CreatedStream event");
             }
             GalvanizedMessage::CreatedDoc(doc_id) => {
+                info!("Received CreatedDoc event");
                 self.try_handle_created_doc(*peer, doc_id.clone()).await?;
             }
         }
