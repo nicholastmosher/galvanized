@@ -11,6 +11,11 @@ pub fn init(_cx: &mut App) {
     //
 }
 
+pub trait ProfileRepository {
+    //
+    fn create_profile(&mut self, name: impl Into<SharedString>, key: SubspaceSecret, _cx: &mut App);
+}
+
 pub struct ProfileKey(SubspaceSecret);
 impl ProfileKey {
     // TODO: plumb RNG? or is this fine

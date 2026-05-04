@@ -184,6 +184,51 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 May 3
+
+- Now that automerge e2e is ready to prototype with, I find that immediately I'm faced with
+  needing to readily needing to know how identity works. Right now the prototype is identifying
+  each peer by its node address (`EndpointId`i in Iroh), where I think it _should_ be using a
+  Willow profile/subspace as the source-of-truth identity.
+
+UI / UX / User flow brainstorming
+
+- Need to figure out the relationship between Contacts, Connections, Chats, and Endpoints
+  - A Contact is a remote representation/proxy for a Profile (subspace) on another peer.
+  - A Connection is as of now an Iroh holepunched QUIC connection. More generally, it's the
+    link between two nodes, or in this case Iroh Endpoints.
+  - An Endpoint is essentially an Iroh peer, also represented by a keypair's public key
+
+First time user's experience (brainstorm)
+
+- Download the app and run it
+- Need to create a Profile
+- Open question: Whether to require creating a personal Space for every Profile
+- Need a way to store/handle the Profile's key
+  - I want an integrated key agent, something with timeout and password unlock
+  - Open question: how to programmatically/statically enforce that protected APIs are
+    only accessed with the correct authority. Thinking about capsec-like patterns
+  - Some implementation of:
+    - When trying to read or write, prompt the password/key agent unlock UI as needed
+- Chat:
+  - Needs to be a Profile-oriented application, not Endpoint-oriented like it is now
+  - Open chat for the first time, need to add Contact
+  - Chat uses a ticket of some sort to communicate Profile ID (pubkey) and EndpointId?
+    - In a system like this, through a privacy lens, is it a good idea for
+      Profiles and Endpoints to be associated? Is it even aviodable? I'm not
+      sure. My gut feeling says if it's somehow possible to avoid associating
+      endpoint (location) with profile (identity), that it would be best to do so.
+  - Have a Contact list and a Chat list
+  - I actually think that Contacts might be its own app that Chat sits on top of
+    - Add Contact: Paste ticket containing remote Endpoint and Profile pubkeys
+  - Create Chat: Select set of Profiles to include. Question: Open a new Space?
+  - Contacts app is feeling very central to the entire application
+  - It feels like Contacts should be under lock and key. Who you know is some of the
+    most personal information there is.
+  - This seems to imply that I do indeed need to find some kind of password/secret
+    management solution. I think an API which might prompt a password entry modal
+    on a timeout could work.
+
 # 2026 May 1
 
 - The "Automerge/samod" problem I was having was actually a user-error,
