@@ -6905,6 +6905,7 @@ dependencies = [
  "automerge",
  "autosurgeon",
  "bytes",
+ "capsec",
  "clap",
  "culpa",
  "dashmap",

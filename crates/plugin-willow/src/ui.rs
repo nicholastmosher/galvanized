@@ -182,7 +182,7 @@ impl WillowUi {
                                     })
                                     .on_click(cx.listener(|this, e, window, cx| {
                                         info!("Clicked Unlock");
-                                        let task = cx.vault().unlock_profile();
+                                        let task = cx.vault().unlock();
                                         cx.spawn(async move |this, cx| {
                                             let timed_profile_cap = task.await?;
                                             info!("Profile unlocked");
