@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
+use std::{collections::HashMap, path::PathBuf};
 
 use willow25::{
     entry::{
@@ -7,7 +7,7 @@ use willow25::{
     },
     path,
     prelude::{AuthorisedEntry, WriteCapability},
-    storage::{MemoryStore, Store},
+    storage::MemoryStore,
 };
 use zed::unstable::{
     gpui::{AnyEntity, AppContext, Entity, Global},
@@ -27,35 +27,43 @@ pub mod ui;
 
 pub fn init(cx: &mut App) {
     let store_path = zed::unstable::paths::data_dir();
-    let willow = Willow::new(store_path, cx);
-    cx.set_global(GlobalWillow(willow));
+    let state = cx.new(|_cx| WillowState::new(store_path.to_path_buf()));
+    cx.set_global(GlobalWillow(state));
 
     ui::init(cx);
 }
 
 impl Global for GlobalWillow {}
-struct GlobalWillow(Willow);
+struct GlobalWillow(Entity<WillowState>);
 
 /// Extension trait to add a convenient `cx.willow()` API for Willow
 // Make WillowExt<T> to allow impls with third-party marker types?
 pub trait WillowExt {
-    fn willow(&mut self) -> Willow;
+    type Context: AppContext;
+    fn willow(&mut self) -> WillowCx<'_, Self::Context>;
 }
 
 impl<C: AppContext> WillowExt for C {
-    fn willow(&mut self) -> Willow {
-        self.read_global::<GlobalWillow, _>(|it, _cx| it.0.clone())
+    type Context = C;
+    fn willow(&mut self) -> WillowCx<'_, Self::Context> {
+        let state = self.read_global::<GlobalWillow, _>(|it, _cx| it.0.clone());
+        WillowCx {
+            cx: self,
+            entity: state,
+        }
     }
 }
 
 /// Willow API entrypoint
 ///
 /// Willow "store" level operations
-#[derive(Clone)]
-pub struct Willow {
+// #[derive(Clone)]
+pub struct WillowCx<'a, C: AppContext> {
+    cx: &'a mut C,
     /// Local state per Willow instance
     // state: Arc<Mutex<WillowState>>,
-    state: Rc<RefCell<WillowState>>,
+    // state: Rc<RefCell<WillowState>>,
+    entity: Entity<WillowState>,
 }
 
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
@@ -77,114 +85,77 @@ struct WillowState {
     store: MemoryStore,
 }
 
-impl Willow {
-    fn new(store_path: impl Into<PathBuf>, cx: &mut App) -> Self {
-        // let state = cx.new(|cx| WillowState::new(store_path.into(), cx));
-        // let state = Arc::new(Mutex::new(WillowState::new(store_path.into())));
-        let state = Rc::new(RefCell::new(WillowState::new(store_path.into())));
-        Self { state }
-    }
-
+impl<'a, C: AppContext> WillowCx<'a, C> {
     // TODO: Better profile creation API
     pub fn create_profile(
         //
-        &self,
+        &mut self,
         name: impl Into<SharedString>,
-        cx: &mut App,
     ) -> Entity<Profile> {
         let (_subspace_id, sub_secret) = randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
-        let profile = cx.new(move |cx| {
+        let profile = self.cx.new(move |cx| {
             //
             Profile::new(name, sub_secret, cx)
         });
 
-        {
-            // let mut state = self.state.lock().expect("lock WillowState");
-            let mut state = self.state.borrow_mut();
+        self.cx.update_entity(&self.entity, |state, _cx| {
             state.profiles.push(profile.clone());
             if state.active_profile.is_none() {
                 state.active_profile = Some(profile.clone());
             }
-        }
+        });
 
         profile
     }
 
-    pub fn create_owned_space(&self, name: impl Into<SharedString>, cx: &mut App) -> Entity<Space> {
+    pub fn create_owned_space(&mut self, name: impl Into<SharedString>) -> Entity<Space> {
         let (_namespace_id, ns_secret) =
             randomly_generate_owned_namespace(&mut rand_core_0_6_4::OsRng);
-        let space = cx.new(move |cx| Space::new(name, ns_secret, cx));
+        let space = self.cx.new(move |cx| Space::new(name, ns_secret, cx));
 
-        {
-            // let mut state = self.state.lock().expect("lock WillowState");
-            let mut state = self.state.borrow_mut();
+        self.cx.update_entity(&self.entity, |state, _cx| {
             state.spaces.push(space.clone());
-        }
+        });
 
         space
     }
 
-    pub fn create_communal_space(
-        &self,
-        name: impl Into<SharedString>,
-        cx: &mut App,
-    ) -> Entity<Space> {
+    pub fn create_communal_space(&mut self, name: impl Into<SharedString>) -> Entity<Space> {
         let (_namespace_id, ns_secret) =
             randomly_generate_communal_namespace(&mut rand_core_0_6_4::OsRng);
-        let space = cx.new(move |cx| Space::new(name, ns_secret, cx));
+        let space = self.cx.new(move |cx| Space::new(name, ns_secret, cx));
 
-        {
-            // let mut state = self.state.lock().expect("lock WillowState");
-            let mut state = self.state.borrow_mut();
+        self.cx.update_entity(&self.entity, |state, _cx| {
             state.spaces.push(space.clone());
-        }
+        });
 
         space
     }
 
-    pub fn active_profile_entity(&self) -> Option<Entity<Profile>> {
-        // let state = self.state.lock().expect("lock WillowState");
-        let state = self.state.borrow_mut();
-        state.active_profile.clone()
-    }
-
-    pub fn active_profile<'a>(&self, cx: &'a mut App) -> Option<&'a Profile> {
-        // let state = self.state.lock().expect("lock WillowState");
-        let state = self.state.borrow_mut();
-        let active_profile_entity = state.active_profile.clone()?;
-        let profile = active_profile_entity.read(cx);
-        Some(profile)
+    pub fn active_profile(&self) -> Option<Entity<Profile>> {
+        self.cx
+            .read_entity(&self.entity, |state, _cx| state.active_profile.clone())
     }
 
     pub fn profiles(&self) -> Vec<Entity<Profile>> {
-        // let state = self.state.lock().expect("lock WillowState");
-        let state = self.state.borrow_mut();
-        state.profiles.clone()
+        self.cx
+            .read_entity(&self.entity, |state, _cx| state.profiles.clone())
     }
 
-    pub fn active_space_entity(&self) -> Option<Entity<Space>> {
-        // let state = self.state.lock().expect("lock WillowState");
-        let state = self.state.borrow_mut();
-        state.active_space.clone()
+    pub fn active_space(&self) -> Option<Entity<Space>> {
+        self.cx
+            .read_entity(&self.entity, |state, _cx| state.active_space.clone())
     }
 
-    pub fn set_active_space(&self, space: Entity<Space>) {
-        let mut state = self.state.borrow_mut();
-        state.active_space = Some(space);
-    }
-
-    pub fn active_space<'a>(&self, cx: &'a mut App) -> Option<&'a Space> {
-        // let state = self.state.lock().expect("lock WillowState");
-        let state = self.state.borrow_mut();
-        let active_space_entity = state.active_space.clone()?;
-        let space = active_space_entity.read(cx);
-        Some(space)
+    pub fn set_active_space(&mut self, space: Entity<Space>) {
+        self.cx.update_entity(&self.entity, |state, _cx| {
+            state.active_space = Some(space);
+        });
     }
 
     pub fn spaces(&self) -> Vec<Entity<Space>> {
-        // let state = self.state.lock().expect("lock WillowState");
-        let state = self.state.borrow_mut();
-        state.spaces.clone()
+        self.cx
+            .read_entity(&self.entity, |state, _cx| state.spaces.clone())
     }
 
     // Todo
@@ -214,9 +185,9 @@ impl Willow {
         let serialized = serde_json::to_string(value).unwrap();
 
         // TODO: Use explicit parameters rather than "active" context?
-        let profile_entity = cx.willow().active_profile_entity().unwrap();
+        let profile_entity = cx.willow().active_profile().unwrap();
         let (sub_id, sub_key) = cx.read_entity(&profile_entity, |it, cx| it.parts());
-        let space_entity = cx.willow().active_space_entity().unwrap();
+        let space_entity = cx.willow().active_space().unwrap();
         let (ns_id, ns_key) = cx.read_entity(&space_entity, |it, cx| it.parts());
 
         let entry = Entry::builder()
@@ -235,19 +206,11 @@ impl Willow {
             .into_authorised_entry(&write_capability, &sub_key)
             .unwrap();
 
-        let willow = cx.willow();
-
         // Foreground: no Sync requirement, but shouldn't do heavy lifting
         cx.spawn({
             let authorized_entry = authorized_entry.clone();
             async move |cx| {
-                {
-                    let state = cx.willow().state.clone();
-                    // let mut state = state.lock().unwrap();
-                    let mut state = state.borrow_mut();
-                    let write_visible = state.store.insert_entry(authorized_entry).await?;
-                }
-
+                //
                 anyhow::Ok(())
             }
         })
@@ -270,16 +233,6 @@ impl Willow {
     // Memory -> Willow: Entity<T>
     // Willow -> Memory: WillowEntity<T> ? To encode space/subspace/path?
     fn todo_read_from_willow<T: Willowize>(&self, cx: &mut App) -> anyhow::Result<T> {
-        {
-            let state = cx.willow().state.clone();
-            // let mut state = state.lock().unwrap();
-            let mut state = state.borrow_mut();
-            let space = self.active_space(cx).unwrap();
-            let ns_id = space.namespace_id();
-            // let it = state.store.get_entry(&ns_id, key, expected_digest, &..);
-        }
-
-        //
         todo!()
     }
 }

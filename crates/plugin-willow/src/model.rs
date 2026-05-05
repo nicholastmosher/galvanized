@@ -1,6 +1,5 @@
 use schemars::{JsonSchema, schema_for};
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 use willow25::{entry::Entry, path, prelude::WriteCapability, storage::Store as _};
 use zed::unstable::{
     gpui::{AppContext, Entity, Subscription},
@@ -24,9 +23,9 @@ pub trait EntryHandle {
 impl<T: Willowize> EntryHandle for Entity<T> {
     fn load(&self, cx: &mut App) {
         // TODO: Use explicit parameters rather than "active" context?
-        let profile_entity = cx.willow().active_profile_entity().unwrap();
+        let profile_entity = cx.willow().active_profile().unwrap();
         let (sub_id, sub_key) = cx.read_entity(&profile_entity, |it, cx| it.parts());
-        let space_entity = cx.willow().active_space_entity().unwrap();
+        let space_entity = cx.willow().active_space().unwrap();
         let (ns_id, ns_key) = cx.read_entity(&space_entity, |it, cx| it.parts());
 
         // let maybe_entry = cx
@@ -53,9 +52,9 @@ impl<T: Willowize> EntryHandle for Entity<T> {
         let serialized = serde_json::to_string(value).unwrap();
 
         // TODO: Use explicit parameters rather than "active" context?
-        let profile_entity = cx.willow().active_profile_entity().unwrap();
+        let profile_entity = cx.willow().active_profile().unwrap();
         let (sub_id, sub_key) = cx.read_entity(&profile_entity, |it, cx| it.parts());
-        let space_entity = cx.willow().active_space_entity().unwrap();
+        let space_entity = cx.willow().active_space().unwrap();
         let (ns_id, ns_key) = cx.read_entity(&space_entity, |it, cx| it.parts());
 
         let entry = Entry::builder()
@@ -80,12 +79,12 @@ impl<T: Willowize> EntryHandle for Entity<T> {
         cx.spawn({
             let authorized_entry = authorized_entry.clone();
             async move |cx| {
-                {
-                    let state = cx.willow().state.clone();
-                    // let mut state = state.lock().unwrap();
-                    let mut state = state.borrow_mut();
-                    let write_visible = state.store.insert_entry(authorized_entry).await?;
-                }
+                // {
+                //     let state = cx.willow().entity.clone();
+                //     // let mut state = state.lock().unwrap();
+                //     let mut state = state.borrow_mut();
+                //     let write_visible = state.store.insert_entry(authorized_entry).await?;
+                // }
 
                 anyhow::Ok(())
             }

@@ -137,7 +137,7 @@ impl PanelRoot {
             //
             .p_1()
             .map(|el| {
-                match cx.willow().active_profile_entity() {
+                match cx.willow().active_profile() {
                     None => {
                         //
                         el
@@ -327,8 +327,8 @@ impl PanelRoot {
             .child(div().flex_grow())
             .child({
                 // Bounce when empty to prompt user to create a space
-                let new_space_bounces = cx.willow().active_profile_entity().is_some()
-                    && cx.willow().spaces().is_empty();
+                let new_space_bounces =
+                    cx.willow().active_profile().is_some() && cx.willow().spaces().is_empty();
 
                 div()
                     //

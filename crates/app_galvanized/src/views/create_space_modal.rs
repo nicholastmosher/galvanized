@@ -396,10 +396,10 @@ impl Render for CreateSpaceModal {
 
                                                 let space = match this.input.space_kind {
                                                     SpaceKind::Owned => {
-                                                        cx.willow().create_owned_space(name, cx)
+                                                        cx.willow().create_owned_space(name)
                                                     },
                                                     SpaceKind::Communal => {
-                                                        cx.willow().create_communal_space(name, cx)
+                                                        cx.willow().create_communal_space(name)
                                                     },
                                                 };
                                                 if let Some(icon_path) = &this.icon_path {

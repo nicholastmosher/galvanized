@@ -61,7 +61,7 @@ impl EventEmitter<()> for ProfileBar {}
 
 impl Component for ProfileBar {
     fn preview(_window: &mut Window, cx: &mut App) -> Option<AnyElement> {
-        let profile = cx.willow().create_profile("Myselfandi", cx);
+        let profile = cx.willow().create_profile("Myselfandi");
         let canvas = div()
             //
             .p_4()

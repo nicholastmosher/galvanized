@@ -180,7 +180,7 @@ impl Render for CreateProfileModal {
                                                 }
 
                                                 // Create Profile
-                                                let profile = cx.willow().create_profile(name, cx);
+                                                let profile = cx.willow().create_profile(name);
                                                 if let Some(icon) = &this.icon_path {
                                                     profile.update(cx, |profile, _cx| {
                                                         profile.set_avatar(icon);
