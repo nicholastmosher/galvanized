@@ -5,6 +5,8 @@ edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
+capsec.workspace = true
+capsec-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

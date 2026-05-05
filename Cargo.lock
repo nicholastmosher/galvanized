@@ -2688,6 +2688,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "capsec"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d626cc471d7ce0f89a5d84837d9f39473bae1f796f66512f36ccf2c47b89eabc"
+dependencies = [
+ "capsec-core",
+ "capsec-macro",
+ "capsec-std",
+]
+
+[[package]]
+name = "capsec-core"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ce0ec20bc217c72ccffa33b30688cea55c217bce9f2570daae1226bfe09c114"
+dependencies = [
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "capsec-macro"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2f94c1897e68bc8c44c84e86678cd3a4dafd6a4297b7f8079e17561d71e439c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "capsec-std"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e054a142baa7e877842c4892b0c89cfde94de9f2432c2fcc0ca2062972502c4"
+dependencies = [
+ "capsec-core",
+]
+
+[[package]]
 name = "cbc"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6885,6 +6925,7 @@ dependencies = [
  "plugin-calendar",
  "plugin-chat",
  "plugin-p2p",
+ "plugin-vault",
  "plugin-willow",
  "rand 0.9.2",
  "rand_core 0.6.4",
@@ -14716,6 +14757,8 @@ name = "plugin-vault"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "capsec",
+ "capsec-core",
  "serde",
  "serde_json",
  "tokio",
@@ -14728,6 +14771,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "hex",
+ "plugin-vault",
  "rand_core 0.6.4",
  "schemars",
  "serde",

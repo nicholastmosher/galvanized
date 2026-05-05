@@ -184,6 +184,37 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 May 4
+
+Here's what I'm currently thinking for order-of-operations of next to build:
+
+- Need a live auth agent, something that password-protects access to Profile and Space keys
+  - Something like an embedded 1Password. I think actually I could integrate to 1Password,
+    but that's a proprietary and subscription-based dependency, so I'd
+    ultimately need something else.
+  - Need "unlocked" status to view any Willow state, need to enforce with API
+    - Just checked, [capsec](https://github.com/auths-dev/capsec) allows defining
+      custom permissions, going to prototype with it
+    - Also has timed capabilities, seems like good foundation
+- Unlocked auth agent provides access to Willow Space and Profile operations, including:
+  - Read: Browse accessible regions of the subspace in a given namespace
+  - Write: Update entries at paths accessible to the subspace in a given namespace
+
+- Ok, general plan with the vault:
+  - Using `capsec` with custom `Permission`s to represent the capability to
+    unlock secrets
+  - Requesting a capability will prompt a popup unlock window if vault is locked
+  - Need to design an API that _requires_ all Space or Profile operations to go
+    through the vault, should be generalizable to other kinds of secrets
+  - Willow operations already require their own read/write capabilities, how to
+    compose that with capabilities oriented at unlocking a Profile or Space key?
+  - Willow read/write capabilities might also be stored in the vault, need unlock
+
+- I already see that I want this generalizable, not tied directly to Willow
+- Other plugins should be able to integrate with the vault to store their own secrets
+- Not sure how that looks yet. Gonna do it manually with one use-case and see what works,
+  then will revisit after seeing what patterns are useful
+
 # 2026 May 3
 
 - Now that automerge e2e is ready to prototype with, I find that immediately I'm faced with

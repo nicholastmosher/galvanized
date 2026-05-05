@@ -1,13 +1,14 @@
 use std::time::Duration;
 
+use plugin_vault::VaultExt as _;
 use zed::unstable::{
     gpui::{
         self, Animation, AnimationExt, AppContext as _, EventEmitter, FocusHandle, Focusable,
         actions, linear_color_stop, linear_gradient, rgb,
     },
     ui::{
-        ActiveTheme, App, Context, IntoElement, ParentElement as _, Render, SharedString, Styled,
-        Window, div, px, v_flex,
+        ActiveTheme, App, Context, InteractiveElement, IntoElement, ParentElement as _, Render,
+        SharedString, StatefulInteractiveElement as _, Styled, Window, div, px, v_flex,
     },
     workspace::{Item, Workspace},
 };
@@ -17,9 +18,13 @@ const WILLOW_YELLOW_RGB: u32 = 0xF5DF48;
 
 pub fn init(cx: &mut App) {
     cx.observe_new::<Workspace>(|workspace, window, cx| {
-        let Some(_window) = window else { return };
+        let Some(window) = window else { return };
 
         let willow_ui = cx.new(|cx| WillowUi::new(cx));
+
+        // Open Willow on init for dev purposes
+        workspace.add_item_to_active_pane(Box::new(willow_ui.clone()), Some(0), true, window, cx);
+
         workspace.register_action(move |workspace, _: &OpenWillow, window, cx| {
             workspace.add_item_to_active_pane(
                 Box::new(willow_ui.clone()),
@@ -91,7 +96,8 @@ impl Render for WillowUi {
                             //
                             .bg(cx.theme().colors().panel_background)
                             .rounded_lg()
-                            .size_full(),
+                            .size_full()
+                            .child(self.render_panel(window, cx)),
                     )
                     .with_animation(
                         "willow-bg",
@@ -106,6 +112,52 @@ impl Render for WillowUi {
                                     linear_color_stop(rgb(WILLOW_YELLOW_RGB), 1.0),
                                 ))
                         },
+                    ),
+            )
+    }
+}
+
+impl WillowUi {
+    //
+    fn render_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        //
+        div()
+            .size_full()
+            //
+            .p_2()
+            .child(
+                //
+                div()
+                    .debug()
+                    .size_full()
+                    //
+                    .p_2()
+                    .grid()
+                    .grid_cols(4)
+                    .grid_rows(4)
+                    .child(
+                        //
+                        div()
+                            //
+                            .id("unlock-vault")
+                            .bg(cx.theme().colors().element_background)
+                            .rounded_lg()
+                            .border_1()
+                            .border_color(cx.theme().colors().border)
+                            .rounded_lg()
+                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                            .on_click(cx.listener(|this, e, window, cx| {
+                                let task = cx.vault().unlock_profile();
+                                cx.spawn(async move |this, cx| {
+                                    let timed_profile_cap = task.await?;
+                                    //
+                                    anyhow::Ok(())
+                                })
+                                .detach_and_log_err(cx);
+                                //
+                            }))
+                            .child("Unlock Vault"),
                     ),
             )
     }

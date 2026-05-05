@@ -9,6 +9,7 @@ mod views;
 pub fn init(cx: &mut App) {
     observability::init(cx);
     zed::init(cx);
+    plugin_vault::init(cx);
     plugin_willow::init(cx);
     plugin_p2p::init(cx);
     plugin_calendar::init(cx);

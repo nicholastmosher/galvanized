@@ -12,6 +12,8 @@ anyhow = "1.0.100"
 automerge = "0.8"
 autosurgeon = { version = "0.11.0", features = ["uuid"] }
 bytes = "1.11.0"
+capsec = "0.2.2"
+capsec-core = "0.2.2"
 culpa = "1.0.2"
 clap = { version = "4.6", features = ["derive", "env"] }
 dashmap = "6.1.0"
@@ -63,6 +65,7 @@ zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-pl
 plugin-calendar = { path = "crates/plugin-calendar" }
 plugin-chat = { path = "crates/plugin-chat" }
 plugin-p2p = { path = "crates/plugin-p2p" }
+plugin-vault = { path = "crates/plugin-vault" }
 plugin-willow = { path = "crates/plugin-willow" }
 
 # iroh-automerge = { path = "crates/iroh-automerge" }
