@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use plugin_vault::VaultExt as _;
+use tracing::info;
 use zed::unstable::{
     gpui::{
         self, Animation, AnimationExt, AppContext as _, EventEmitter, FocusHandle, Focusable,
@@ -8,7 +9,7 @@ use zed::unstable::{
     },
     ui::{
         ActiveTheme, App, Context, InteractiveElement, IntoElement, ParentElement as _, Render,
-        SharedString, StatefulInteractiveElement as _, Styled, Window, div, px, v_flex,
+        SharedString, StatefulInteractiveElement as _, Styled, Window, div, h_flex, px, v_flex,
     },
     workspace::{Item, Workspace},
 };
@@ -126,38 +127,73 @@ impl WillowUi {
             //
             .p_2()
             .child(
-                //
-                div()
+                h_flex()
                     .debug()
                     .size_full()
-                    //
-                    .p_2()
-                    .grid()
-                    .grid_cols(4)
-                    .grid_rows(4)
+                    .child(
+                        //
+                        v_flex()
+                            .debug()
+                            .w_80()
+                            .h_full()
+                            //
+                            .p_2()
+                            .child(
+                                //
+                                h_flex()
+                                    //
+                                    .debug()
+                                    .child("LeftTopOne")
+                                    .child("LeftTopTwo"),
+                            )
+                            .child(
+                                //
+                                div()
+                                    .debug()
+                                    //
+                                    .child("Left bottom"),
+                            ),
+                    )
                     .child(
                         //
                         div()
+                            .debug()
+                            .size_full()
                             //
-                            .id("unlock-vault")
-                            .bg(cx.theme().colors().element_background)
-                            .rounded_lg()
-                            .border_1()
-                            .border_color(cx.theme().colors().border)
-                            .rounded_lg()
-                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                            .on_click(cx.listener(|this, e, window, cx| {
-                                let task = cx.vault().unlock_profile();
-                                cx.spawn(async move |this, cx| {
-                                    let timed_profile_cap = task.await?;
-                                    //
-                                    anyhow::Ok(())
-                                })
-                                .detach_and_log_err(cx);
+                            .p_2()
+                            .grid()
+                            .grid_cols(4)
+                            .grid_rows(4)
+                            .child(
                                 //
-                            }))
-                            .child("Unlock Vault"),
+                                div()
+                                    //
+                                    .id("unlock-vault")
+                                    .bg(cx.theme().colors().element_background)
+                                    .rounded_lg()
+                                    .border_1()
+                                    .border_color(cx.theme().colors().border)
+                                    .rounded_lg()
+                                    .hover(|style| {
+                                        style.bg(cx.theme().colors().ghost_element_hover)
+                                    })
+                                    .active(|style| {
+                                        style.bg(cx.theme().colors().ghost_element_active)
+                                    })
+                                    .on_click(cx.listener(|this, e, window, cx| {
+                                        info!("Clicked Unlock");
+                                        let task = cx.vault().unlock_profile();
+                                        cx.spawn(async move |this, cx| {
+                                            let timed_profile_cap = task.await?;
+                                            info!("Profile unlocked");
+                                            //
+                                            anyhow::Ok(())
+                                        })
+                                        .detach_and_log_err(cx);
+                                        //
+                                    }))
+                                    .child("Unlock Vault"),
+                            ),
                     ),
             )
     }

@@ -184,6 +184,20 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 May 5
+
+- I think I've got a good starter pattern for the vault
+- I noticed that the variations on capsec capabilities don't compose (that I can tell)
+  - E.g. can't create a Timed + Attenuated (scoped) capability. patch?
+  - Attenuated could be useful to have distinct capabilities per profile or space key
+- Vault / Willow TODO: (take inspiration from vault crate)
+  - Actual password verification
+  - Need to assign master password
+  - Create Willow Profile via vault
+  - In some sense I want the entire application to be barred behind the vault
+    - After locking or timeout, user's content should be visually unavailable
+      and the data access should be revoked from all plugin applications
+
 # 2026 May 4
 
 Here's what I'm currently thinking for order-of-operations of next to build:

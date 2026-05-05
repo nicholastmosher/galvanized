@@ -10,4 +10,5 @@ capsec-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+tracing.workspace = true
 zed.workspace = true
