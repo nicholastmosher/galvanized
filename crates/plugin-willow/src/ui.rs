@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use plugin_vault::VaultExt as _;
+use plugin_vault::{VaultExt as _, unlock_ui::Locked as _};
 use tracing::info;
 use zed::unstable::{
     gpui::{
@@ -126,75 +126,79 @@ impl WillowUi {
             .size_full()
             //
             .p_2()
-            .child(
-                h_flex()
-                    .debug()
-                    .size_full()
+            .locked(cx, |el, cx| {
+                el
+                    //
                     .child(
-                        //
-                        v_flex()
+                        h_flex()
                             .debug()
-                            .w_80()
-                            .h_full()
-                            //
-                            .p_2()
+                            .size_full()
                             .child(
                                 //
-                                h_flex()
-                                    //
+                                v_flex()
                                     .debug()
-                                    .child("LeftTopOne")
-                                    .child("LeftTopTwo"),
+                                    .w_80()
+                                    .h_full()
+                                    //
+                                    .p_2()
+                                    .child(
+                                        //
+                                        h_flex()
+                                            //
+                                            .debug()
+                                            .child("LeftTopOne")
+                                            .child("LeftTopTwo"),
+                                    )
+                                    .child(
+                                        //
+                                        div()
+                                            .debug()
+                                            //
+                                            .child("Left bottom"),
+                                    ),
                             )
                             .child(
                                 //
                                 div()
                                     .debug()
+                                    .size_full()
                                     //
-                                    .child("Left bottom"),
+                                    .p_2()
+                                    .grid()
+                                    .grid_cols(4)
+                                    .grid_rows(4)
+                                    .child(
+                                        //
+                                        div()
+                                            //
+                                            .id("unlock-vault")
+                                            .bg(cx.theme().colors().element_background)
+                                            .rounded_lg()
+                                            .border_1()
+                                            .border_color(cx.theme().colors().border)
+                                            .rounded_lg()
+                                            .hover(|style| {
+                                                style.bg(cx.theme().colors().ghost_element_hover)
+                                            })
+                                            .active(|style| {
+                                                style.bg(cx.theme().colors().ghost_element_active)
+                                            })
+                                            .on_click(cx.listener(|this, e, window, cx| {
+                                                info!("Clicked Unlock");
+                                                let task = cx.vault().unlock();
+                                                cx.spawn(async move |this, cx| {
+                                                    let timed_profile_cap = task.await?;
+                                                    info!("Profile unlocked");
+                                                    //
+                                                    anyhow::Ok(())
+                                                })
+                                                .detach_and_log_err(cx);
+                                                //
+                                            }))
+                                            .child("Unlock Vault"),
+                                    ),
                             ),
                     )
-                    .child(
-                        //
-                        div()
-                            .debug()
-                            .size_full()
-                            //
-                            .p_2()
-                            .grid()
-                            .grid_cols(4)
-                            .grid_rows(4)
-                            .child(
-                                //
-                                div()
-                                    //
-                                    .id("unlock-vault")
-                                    .bg(cx.theme().colors().element_background)
-                                    .rounded_lg()
-                                    .border_1()
-                                    .border_color(cx.theme().colors().border)
-                                    .rounded_lg()
-                                    .hover(|style| {
-                                        style.bg(cx.theme().colors().ghost_element_hover)
-                                    })
-                                    .active(|style| {
-                                        style.bg(cx.theme().colors().ghost_element_active)
-                                    })
-                                    .on_click(cx.listener(|this, e, window, cx| {
-                                        info!("Clicked Unlock");
-                                        let task = cx.vault().unlock();
-                                        cx.spawn(async move |this, cx| {
-                                            let timed_profile_cap = task.await?;
-                                            info!("Profile unlocked");
-                                            //
-                                            anyhow::Ok(())
-                                        })
-                                        .detach_and_log_err(cx);
-                                        //
-                                    }))
-                                    .child("Unlock Vault"),
-                            ),
-                    ),
-            )
+            })
     }
 }

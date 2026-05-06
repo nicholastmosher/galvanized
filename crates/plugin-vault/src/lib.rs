@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use capsec::{CapProvider, CapRoot, TimedCap, root};
 use tokio::sync::{broadcast, oneshot};
 use tracing::{debug, info};
@@ -10,6 +10,7 @@ use zed::unstable::{
         WindowHandle, WindowKind, WindowOptions, actions, size,
     },
     ui::{App, px},
+    util::ResultExt,
     workspace::Workspace,
 };
 
@@ -61,7 +62,10 @@ pub struct VaultState {
     root: CapRoot,
     repo: Arc<dyn DynSecretRepository>,
     vault_cap: Option<TimedCap<VaultAll>>,
-    pending_unlock: Option<broadcast::Sender<TimedCap<VaultAll>>>,
+    pending_unlock: Option<(
+        broadcast::Sender<TimedCap<VaultAll>>,
+        WindowHandle<VaultUnlockUi>,
+    )>,
 }
 
 impl VaultState {
@@ -90,6 +94,19 @@ pub struct VaultRead;
 pub struct VaultWrite;
 
 impl<'a> VaultCx<'a> {
+    pub fn lock(&mut self) {
+        self.cx
+            .update_entity(&self.state, |state, cx| {
+                if let Some((_tx, window)) = state.pending_unlock.take() {
+                    window.update(cx, |_view, window, _cx| {
+                        window.remove_window();
+                    })?;
+                }
+                anyhow::Ok(())
+            })
+            .log_err();
+    }
+
     /// Time-bounded permission to full profile access
     pub fn unlock(&mut self) -> Task<Result<TimedCap<VaultAll>>> {
         // Three possible states:
@@ -115,7 +132,10 @@ impl<'a> VaultCx<'a> {
         // 2) If there's an open Unlock window, return a task subscribed to it
         {
             let pending_rx = self.cx.update_entity(&self.state, |state, _cx| {
-                state.pending_unlock.as_ref().map(|tx| tx.subscribe())
+                state
+                    .pending_unlock
+                    .as_ref()
+                    .map(|(tx, _window)| tx.subscribe())
             });
 
             // If an Unlock window is already open, return a task that yields the result
@@ -137,10 +157,10 @@ impl<'a> VaultCx<'a> {
         // - Vault broadcasts capability to all waiting client tasks
         let (unlock_tx, unlock_rx) = oneshot::channel();
         let unlock_init_result = (|| {
-            let _window = self.open_unlock_window(unlock_tx)?;
+            let window = self.open_unlock_window(unlock_tx)?;
             let (tx, _rx) = broadcast::channel(1);
             self.state.update(self.cx, |state, _cx| {
-                state.pending_unlock = Some(tx);
+                state.pending_unlock = Some((tx, window));
             });
             anyhow::Ok(())
         })();
@@ -153,7 +173,7 @@ impl<'a> VaultCx<'a> {
             // Wait for unlock to complete
             unlock_rx.await?;
 
-            let cap = cx.update_entity(&state, |state, _cx| {
+            let cap = cx.update_entity(&state, |state, cx| {
                 // Newly minted capability
                 let cap = state.root.grant::<VaultAll>();
                 let ttl = Duration::from_secs(10);
@@ -161,12 +181,17 @@ impl<'a> VaultCx<'a> {
                 state.vault_cap = Some(cap.clone());
 
                 // Take the receiver, so future unlocks prompt a new window
-                if let Some(tx) = state.pending_unlock.take() {
+                if let Some((tx, window)) = state.pending_unlock.take() {
                     tx.send(cap.clone()).ok();
+
+                    // Close unlock window in case it wasn't already scheduled
+                    window.update(cx, |_view, window, _cx| {
+                        window.remove_window();
+                    })?;
                 }
 
-                cap
-            });
+                anyhow::Ok(cap)
+            })?;
 
             anyhow::Ok(cap)
         });

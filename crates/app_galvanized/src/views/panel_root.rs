@@ -3,8 +3,7 @@ use std::{
     time::Duration,
 };
 
-use capsec::TimedCap;
-use plugin_vault::{Unlock, VaultAll, VaultExt as _};
+use plugin_vault::unlock_ui::Locked as _;
 use zed::unstable::{
     gpui::{
         self, Action, Animation, AnimationExt as _, AppContext as _, Entity, EventEmitter,
@@ -57,7 +56,6 @@ pub struct PanelRoot {
     focus_handle: FocusHandle,
     width: Option<Pixels>,
     workspace: Entity<Workspace>,
-    vault_cap: Option<TimedCap<VaultAll>>,
 }
 
 pub enum PanelContent {
@@ -72,96 +70,31 @@ impl PanelRoot {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let task = cx.vault().unlock();
-        cx.spawn(async move |this, cx| {
-            let cap = task.await?;
-            if cap.is_active() {
-                this.update(cx, |this, cx| {
-                    this.vault_cap = Some(cap);
-                    cx.notify();
-                })?;
-            }
-            anyhow::Ok(())
-        })
-        .detach_and_log_err(cx);
-
         Self {
             connections_ui,
             content: PanelContent::Home,
             focus_handle: cx.focus_handle(),
             width: None,
             workspace,
-            vault_cap: None,
         }
     }
 }
 
 impl Render for PanelRoot {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let unlocked = cx.vault().is_unlocked();
-
         div()
             .h_full()
             .bg(cx.theme().colors().editor_background)
             .w(self.width.unwrap_or(px(300.)) - px(1.))
-            .when(unlocked, |el| {
+            .locked(cx, |el, cx| {
                 el
                     //
                     .child(self.render_active_panel(window, cx))
-            })
-            .when(!unlocked, |el| {
-                el
-                    //
-                    .child(self.render_locked_panel(window, cx))
             })
     }
 }
 
 impl PanelRoot {
-    fn render_locked_panel(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        h_flex()
-            .size_full()
-            //
-            .items_center()
-            .child(
-                //
-                v_flex()
-                    // .debug()
-                    //
-                    .mx_auto()
-                    .items_center()
-                    .gap_2()
-                    .child(
-                        //
-                        div()
-                            //
-                            .text_color(cx.theme().colors().text)
-                            .text_3xl()
-                            .child("Locked"),
-                    )
-                    .child(
-                        //
-                        div()
-                            //
-                            .id("unlock-button")
-                            .p_2()
-                            .border_1()
-                            .border_color(cx.theme().colors().border)
-                            .rounded_lg()
-                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                            .on_click(cx.listener(|_this, _e, window, cx| {
-                                window.dispatch_action(Box::new(Unlock), cx);
-                            }))
-                            .child("Unlock"),
-                    ),
-            )
-    }
-
     fn render_active_panel(
         &mut self,
         window: &mut Window,
