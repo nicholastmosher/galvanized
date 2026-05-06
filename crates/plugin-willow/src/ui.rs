@@ -1,15 +1,14 @@
 use std::time::Duration;
 
-use plugin_vault::{VaultExt as _, unlock_ui::Locked as _};
-use tracing::info;
+use plugin_vault::unlock_ui::Locked as _;
 use zed::unstable::{
     gpui::{
         self, Animation, AnimationExt, AppContext as _, EventEmitter, FocusHandle, Focusable,
         actions, linear_color_stop, linear_gradient, rgb,
     },
     ui::{
-        ActiveTheme, App, Context, InteractiveElement, IntoElement, ParentElement as _, Render,
-        SharedString, StatefulInteractiveElement as _, Styled, Window, div, h_flex, px, v_flex,
+        ActiveTheme, App, Context, IntoElement, ParentElement as _, Render, SharedString, Styled,
+        Window, div, h_flex, px, v_flex,
     },
     workspace::{Item, Workspace},
 };
@@ -120,13 +119,13 @@ impl Render for WillowUi {
 
 impl WillowUi {
     //
-    fn render_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_panel(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         //
         div()
             .size_full()
             //
             .p_2()
-            .locked(cx, |el, cx| {
+            .locked(cx, |el, _cx| {
                 el
                     //
                     .child(
@@ -140,22 +139,7 @@ impl WillowUi {
                                     .w_80()
                                     .h_full()
                                     //
-                                    .p_2()
-                                    .child(
-                                        //
-                                        h_flex()
-                                            //
-                                            .debug()
-                                            .child("LeftTopOne")
-                                            .child("LeftTopTwo"),
-                                    )
-                                    .child(
-                                        //
-                                        div()
-                                            .debug()
-                                            //
-                                            .child("Left bottom"),
-                                    ),
+                                    .p_2(),
                             )
                             .child(
                                 //
@@ -163,40 +147,7 @@ impl WillowUi {
                                     .debug()
                                     .size_full()
                                     //
-                                    .p_2()
-                                    .grid()
-                                    .grid_cols(4)
-                                    .grid_rows(4)
-                                    .child(
-                                        //
-                                        div()
-                                            //
-                                            .id("unlock-vault")
-                                            .bg(cx.theme().colors().element_background)
-                                            .rounded_lg()
-                                            .border_1()
-                                            .border_color(cx.theme().colors().border)
-                                            .rounded_lg()
-                                            .hover(|style| {
-                                                style.bg(cx.theme().colors().ghost_element_hover)
-                                            })
-                                            .active(|style| {
-                                                style.bg(cx.theme().colors().ghost_element_active)
-                                            })
-                                            .on_click(cx.listener(|this, e, window, cx| {
-                                                info!("Clicked Unlock");
-                                                let task = cx.vault().unlock();
-                                                cx.spawn(async move |this, cx| {
-                                                    let timed_profile_cap = task.await?;
-                                                    info!("Profile unlocked");
-                                                    //
-                                                    anyhow::Ok(())
-                                                })
-                                                .detach_and_log_err(cx);
-                                                //
-                                            }))
-                                            .child("Unlock Vault"),
-                                    ),
+                                    .p_2(),
                             ),
                     )
             })

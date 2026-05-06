@@ -198,6 +198,45 @@ quickly and let it be a mess rather than be a perfectionist and never get ideas 
     - After locking or timeout, user's content should be visually unavailable
       and the data access should be revoked from all plugin applications
 
+---
+
+- Ok I'm pretty happy with how the vault plugin is coming along:
+  - `cx.unlock()` prompts an Unlock window (only if locked, only one instance)
+  - `Locked` extension trait allows `el.locked(...)` to wrap elements
+    - Automatically ceases rendering internal element when vault locks
+  - All locking state is maintained in `VaultState`, source of truth
+  - Vault access is controlled using [capsec](https://github.com/auths-dev/capsec)
+    - Reading or writing secrets may only be done with a valid capability
+  - For now, password is `password`, until I get around to actual encryption
+- Next up: Managing Willow namespace and subspace keys (Spaces and Profiles) with the vault
+
+<div align="center">
+  <img src=".assets/vault-locking.gif" alt="UI showing lock screen, unlocking with password, and timeout relocking" width="600">
+</div>
+
+> Vault unlock timer set to 3 seconds for this demo
+
+Here's a quick snippet showing how to wrap a sensitive element that should be locked
+
+```rust
+fn render_something_sensitive(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    //
+    div()
+        .size_full()
+        //
+        .p_2()
+        .locked(cx, |el, cx| {
+            // Anything added here is replaced with a Lock screen when the vault locks
+            el
+                //
+                .child(
+                    //
+                    div()
+                )
+        })
+}
+```
+
 # 2026 May 4
 
 Here's what I'm currently thinking for order-of-operations of next to build:

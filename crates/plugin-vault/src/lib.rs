@@ -176,7 +176,8 @@ impl<'a> VaultCx<'a> {
             let cap = cx.update_entity(&state, |state, cx| {
                 // Newly minted capability
                 let cap = state.root.grant::<VaultAll>();
-                let ttl = Duration::from_secs(10);
+                // let ttl = Duration::from_secs(3);
+                let ttl = Duration::from_secs(60 * 10); // 10m lock
                 let cap = TimedCap::new(cap, ttl);
                 state.vault_cap = Some(cap.clone());
 

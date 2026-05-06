@@ -400,58 +400,13 @@ impl PanelRoot {
 
     fn render_content_home(
         &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
     ) -> impl IntoElement {
         v_flex()
             .size_full()
             //
             .p_1()
-            .child(
-                //
-                v_flex()
-                    //
-                    .gap_2()
-                    .child(
-                        // Contacts
-                        div()
-                            // .debug()
-                            .w_full()
-                            //
-                            .child(
-                                //
-                                div()
-                                    //
-                                    .p_1()
-                                    // .bg(cx.theme().colors().panel_background)
-                                    .rounded_lg()
-                                    .hover(|style| {
-                                        style.bg(cx.theme().colors().ghost_element_hover)
-                                    })
-                                    .child("Contacts"),
-                            ),
-                    )
-                    .child(
-                        // Connections
-                        div()
-                            // .debug()
-                            .w_full()
-                            //
-                            .child(
-                                //
-                                div()
-                                    //
-                                    .p_1()
-                                    // .bg(cx.theme().colors().panel_background)
-                                    .rounded_lg()
-                                    .hover(|style| {
-                                        style.bg(cx.theme().colors().ghost_element_hover)
-                                    })
-                                    .child("Connections"),
-                            ),
-                    ),
-            )
-            .child(ListSeparator)
             .child(self.connections_ui.clone())
     }
 
