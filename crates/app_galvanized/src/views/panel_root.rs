@@ -4,6 +4,7 @@ use std::{
 };
 
 use plugin_vault::unlock_ui::Locked as _;
+use tracing::info;
 use zed::unstable::{
     gpui::{
         self, Action, Animation, AnimationExt as _, AppContext as _, Entity, EventEmitter,
@@ -11,10 +12,12 @@ use zed::unstable::{
         quadratic, rgb, rgba,
     },
     ui::{
-        ActiveTheme, App, Context, FluentBuilder as _, IconName, InteractiveElement as _,
-        IntoElement, ListSeparator, ParentElement as _, Pixels, Render, SharedString,
-        StatefulInteractiveElement, Styled, Tooltip, Window, div, h_flex, px, v_flex,
+        ActiveTheme, App, Context, ContextMenu, FluentBuilder as _, IconName,
+        InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Pixels,
+        PopoverMenu, Render, SharedString, StatefulInteractiveElement, Styled, Tooltip, Window,
+        div, h_flex, px, v_flex,
     },
+    ui_input::InputField,
     workspace::{
         Panel, Workspace,
         dock::{DockPosition, PanelEvent},
@@ -22,7 +25,7 @@ use zed::unstable::{
 };
 
 use crate::{
-    components::{profile_bar::ProfileBar, space_header::SpaceHeader},
+    components::{dropdown::Dropdown, profile_bar::ProfileBar, space_header::SpaceHeader},
     views::{
         connections::ConnectionsUi, create_profile_modal::CreateProfileModal,
         create_space_modal::CreateSpaceModal,
@@ -30,7 +33,16 @@ use crate::{
 };
 use plugin_willow::{WillowExt, space::Space};
 
-actions!(workspace, [ToggleRootPanel]);
+actions!(
+    galvanized,
+    [
+        //
+        TogglePanel,
+        FocusConnections,
+        FocusDirectMessages,
+        FocusSettings,
+    ]
+);
 
 pub fn init(cx: &mut App) {
     cx.observe_new(|workspace: &mut Workspace, window, cx| {
@@ -41,11 +53,41 @@ pub fn init(cx: &mut App) {
         let workspace_entity = cx.entity();
         let connections_ui = cx.new(|cx| ConnectionsUi::new(window, cx));
         let panel = cx.new(|cx| PanelRoot::new(workspace_entity, connections_ui, window, cx));
-        workspace.add_panel(panel, window, cx);
+        workspace.add_panel(panel.clone(), window, cx);
         workspace.focus_panel::<PanelRoot>(window, cx);
-        workspace.register_action(|workspace, _: &ToggleRootPanel, window, cx| {
+        workspace.register_action(|workspace, _: &TogglePanel, window, cx| {
             workspace.toggle_panel_focus::<PanelRoot>(window, cx);
         });
+        // .register_action({
+        //     let panel = panel.clone();
+        //     move |_workspace, _: &FocusConnections, _window, cx| {
+        //         panel.update(cx, |panel, _cx| {
+        //             //
+        //             info!("Focus Connections");
+        //             panel.content = PanelContent::Home(HomeContent::Connections);
+        //         })
+        //     }
+        // })
+        // .register_action({
+        //     let panel = panel.clone();
+        //     move |_workspace, _: &FocusDirectMessages, _window, cx| {
+        //         panel.update(cx, |panel, _cx| {
+        //             //
+        //             info!("Focus Direct Messages");
+        //             panel.content = PanelContent::Home(HomeContent::DirectMessages);
+        //         })
+        //     }
+        // })
+        // .register_action({
+        //     let panel = panel.clone();
+        //     move |_workspace, _: &FocusSettings, _window, cx| {
+        //         panel.update(cx, |panel, _cx| {
+        //             //
+        //             info!("Focus Settings");
+        //             panel.content = PanelContent::Home(HomeContent::Settings);
+        //         })
+        //     }
+        // });
     })
     .detach();
 }
@@ -54,26 +96,47 @@ pub struct PanelRoot {
     connections_ui: Entity<ConnectionsUi>,
     content: PanelContent,
     focus_handle: FocusHandle,
+    password_input: Entity<InputField>,
     width: Option<Pixels>,
     workspace: Entity<Workspace>,
 }
 
 pub enum PanelContent {
-    Home,
+    Home(HomeContent),
     Space(Entity<Space>),
+}
+
+#[derive(Debug, Clone)]
+pub enum HomeContent {
+    Connections,
+    DirectMessages,
+    Settings,
+}
+
+impl HomeContent {
+    //
+    fn title(&self) -> &'static str {
+        match self {
+            HomeContent::Connections => "Connections",
+            HomeContent::DirectMessages => "Direct Messages",
+            HomeContent::Settings => "Settings",
+        }
+    }
 }
 
 impl PanelRoot {
     pub fn new(
         workspace: Entity<Workspace>,
         connections_ui: Entity<ConnectionsUi>,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let password_input = cx.new(|cx| InputField::new(window, cx, "Password"));
         Self {
             connections_ui,
-            content: PanelContent::Home,
+            content: PanelContent::Home(HomeContent::Settings),
             focus_handle: cx.focus_handle(),
+            password_input,
             width: None,
             workspace,
         }
@@ -86,7 +149,24 @@ impl Render for PanelRoot {
             .h_full()
             .bg(cx.theme().colors().editor_background)
             .w(self.width.unwrap_or(px(300.)) - px(1.))
-            .locked(cx, |el, cx| {
+            .on_action(cx.listener(|this, _: &FocusConnections, window, cx| {
+                info!("Action: FocusConnections");
+                this.content = PanelContent::Home(HomeContent::Connections);
+            }))
+            .on_action(cx.listener(|this, _: &FocusDirectMessages, window, cx| {
+                info!("Action: FocusDirectMessages");
+                this.content = PanelContent::Home(HomeContent::DirectMessages);
+            }))
+            .on_action(cx.listener(|this, _: &FocusSettings, window, cx| {
+                info!("Action: FocusSettings");
+                this.content = PanelContent::Home(HomeContent::Settings);
+            }))
+            // .locked(cx, |el, cx| {
+            //     el
+            //         //
+            //         .child(self.render_active_panel(window, cx))
+            // })
+            .locked_prompt(self.password_input.clone(), window, cx, |el, window, cx| {
                 el
                     //
                     .child(self.render_active_panel(window, cx))
@@ -235,7 +315,7 @@ impl PanelRoot {
                     .hover(|style| style.opacity(0.6))
                     .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                     .on_click(cx.listener(|this, _e, _window, _cx| {
-                        this.content = PanelContent::Home;
+                        this.content = PanelContent::Home(HomeContent::Connections);
                     }))
                     //
                     .rounded_xl()
@@ -297,13 +377,16 @@ impl PanelRoot {
                     .id(SharedString::from(format!("space-icon-{i}")))
                     .hover(|style| style.opacity(0.6))
                     .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                    .map(|el| {
-                        if space.read(cx).is_communal() {
-                            el.rounded_lg()
-                        } else {
-                            el.rounded_full()
-                        }
-                    })
+                    .rounded_lg()
+                    // .map(|el| {
+                    //     if space.read(cx).is_communal() {
+                    //         el.rounded_lg()
+                    //     } else {
+                    //         el.rounded_full()
+                    //     }
+                    // })
+                    .border_1()
+                    .border_color(cx.theme().colors().border)
                     .tooltip(Tooltip::text(space.read(cx).name()))
                     .on_click(cx.listener({
                         let space = space.clone();
@@ -320,13 +403,15 @@ impl PanelRoot {
                             .unwrap_or_else(|| Path::new(&".assets/create-space.svg")))
                         // img(PathBuf::from(".assets/galvanized.png"))
                         .size(px(48.))
-                        .map(|el| {
-                            if space.read(cx).is_communal() {
-                                el.rounded_lg()
-                            } else {
-                                el.rounded_full()
-                            }
-                        }),
+                        .rounded_lg(),
+                        //
+                        // .map(|el| {
+                        //     if space.read(cx).is_communal() {
+                        //         el.rounded_lg()
+                        //     } else {
+                        //         el.rounded_full()
+                        //     }
+                        // }),
                     )
             }))
             .child(div().flex_grow())
@@ -386,9 +471,10 @@ impl PanelRoot {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         match &self.content {
-            PanelContent::Home => {
+            PanelContent::Home(content) => {
                 //
-                self.render_content_home(window, cx).into_any_element()
+                self.render_home_content(content.clone(), window, cx)
+                    .into_any_element()
             }
             PanelContent::Space(space) => {
                 //
@@ -398,16 +484,139 @@ impl PanelRoot {
         }
     }
 
-    fn render_content_home(
+    fn render_home_content(
         &mut self,
-        _window: &mut Window,
-        _cx: &mut Context<Self>,
+        content: HomeContent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        // v_flex()
+        //     .size_full()
+        //     //
+        //     .p_1()
+        //     .child(self.connections_ui.clone())
+
+        let panel = cx.entity();
+        let menu = ContextMenu::build(window, cx, |this, window, cx| {
+            this.custom_entry(
+                |window, cx| {
+                    //
+                    div()
+                        //
+                        .p_2()
+                        .child("Connections")
+                        .into_any_element()
+                },
+                {
+                    let panel = panel.clone();
+                    move |window, cx| {
+                        //
+                        info!("Focus Connections");
+                        panel.update(cx, |panel, cx| {
+                            //
+                            panel.content = PanelContent::Home(HomeContent::Connections);
+                        });
+                    }
+                },
+            )
+            .custom_entry(
+                |window, cx| {
+                    //
+                    div()
+                        //
+                        .p_2()
+                        .child("Direct Messages")
+                        .into_any_element()
+                },
+                {
+                    let panel = panel.clone();
+                    move |window, cx| {
+                        //
+                        info!("Focus Direct Messages");
+                        panel.update(cx, |panel, cx| {
+                            //
+                            panel.content = PanelContent::Home(HomeContent::DirectMessages);
+                        });
+                    }
+                },
+            )
+            .custom_entry(
+                move |window, cx| {
+                    //
+                    div()
+                        //
+                        .p_2()
+                        .child("Settings")
+                        .into_any_element()
+                },
+                {
+                    let panel = panel.clone();
+                    move |window, cx| {
+                        //
+                        info!("Focus Settings");
+                        panel.update(cx, |panel, cx| {
+                            //
+                            panel.content = PanelContent::Home(HomeContent::Settings);
+                        });
+                    }
+                },
+            )
+        });
+
         v_flex()
-            .size_full()
             //
-            .p_1()
-            .child(self.connections_ui.clone())
+            .debug()
+            .size_full()
+            .p_2()
+            .gap_2()
+            .child(
+                //
+                PopoverMenu::new("home-panel-dropdown")
+                    .menu(move |window, cx| {
+                        //
+                        Some(menu.clone())
+                    })
+                    .trigger(Dropdown::new(
+                        "home-panel-dropdown-trigger",
+                        content.title(),
+                    )),
+            )
+            .map(|el| match &content {
+                HomeContent::Connections => {
+                    el
+                        //
+                        .child(
+                            //
+                            self.connections_ui.clone(),
+                        )
+                }
+                HomeContent::DirectMessages => {
+                    el
+                        //
+                        .child(
+                            //
+                            div()
+                                .debug()
+                                .size_full()
+                                //
+                                .p_2()
+                                .child("Direct Messages"),
+                        )
+                }
+                HomeContent::Settings => {
+                    el
+                        //
+                        .child(
+                            //
+                            div()
+                                .debug()
+                                .size_full()
+                                //
+                                .p_2()
+                                .child("Settings"),
+                        )
+                }
+            })
     }
 
     fn render_content_space(
@@ -476,7 +685,7 @@ impl Panel for PanelRoot {
     }
 
     fn toggle_action(&self) -> Box<dyn Action> {
-        Box::new(ToggleRootPanel)
+        Box::new(TogglePanel)
     }
 
     fn activation_priority(&self) -> u32 {

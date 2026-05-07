@@ -14760,10 +14760,12 @@ dependencies = [
  "anyhow",
  "capsec",
  "capsec-core",
+ "rand_core 0.6.4",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
+ "willow25",
  "zed",
 ]
 

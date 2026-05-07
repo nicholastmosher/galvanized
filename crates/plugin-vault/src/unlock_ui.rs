@@ -3,8 +3,9 @@ use tracing::{info, warn};
 use zed::unstable::{
     gpui::{AppContext as _, Entity, KeyDownEvent},
     ui::{
-        ActiveTheme as _, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
-        StatefulInteractiveElement as _, Styled as _, Window, div, h_flex, v_flex,
+        ActiveTheme as _, Context, FluentBuilder as _, InteractiveElement as _, IntoElement,
+        ParentElement, Render, StatefulInteractiveElement as _, Styled as _, Window, div, h_flex,
+        v_flex,
     },
     ui_input::InputField,
     util::ResultExt,
@@ -108,7 +109,11 @@ pub trait Locked {
     /// Render the inner element only when the vault is unlocked.
     ///
     /// When the vault is locked, this renders a standard locked element with an unlock button.
-    fn locked<C>(self, cx: &mut Context<C>, f: impl FnOnce(Self, &mut Context<C>) -> Self) -> Self
+    fn locked<C: 'static>(
+        self,
+        cx: &mut Context<C>,
+        f: impl FnOnce(Self, &mut Context<C>) -> Self,
+    ) -> Self
     where
         Self: Sized,
         Self: ParentElement,
@@ -119,27 +124,63 @@ pub trait Locked {
 
         self
             //
-            .child(
-                h_flex()
-                    .size_full()
+            .child(locked_ui(None, cx))
+    }
+
+    /// Render the inner element only when the vault is unlocked.
+    ///
+    /// When the vault is locked, this renders a standard locked element with an unlock button.
+    fn locked_prompt<C: 'static>(
+        self,
+        password_input: Entity<InputField>,
+        window: &mut Window,
+        cx: &mut Context<C>,
+        f: impl FnOnce(Self, &mut Window, &mut Context<C>) -> Self,
+    ) -> Self
+    where
+        Self: Sized,
+        Self: ParentElement,
+    {
+        if cx.vault().is_unlocked() {
+            return f(self, window, cx);
+        }
+
+        // Enforce input field to be masked
+        password_input.update(cx, |input, cx| input.set_masked(true, window, cx));
+        self
+            //
+            .child(locked_ui(Some(password_input), cx))
+    }
+}
+
+fn locked_ui<C: 'static>(
+    password_prompt: Option<Entity<InputField>>,
+    cx: &mut Context<C>,
+) -> impl IntoElement {
+    h_flex()
+        .size_full()
+        //
+        .items_center()
+        .child(
+            //
+            v_flex()
+                // .debug()
+                //
+                .mx_auto()
+                .items_center()
+                .gap_2()
+                .child(
                     //
-                    .items_center()
-                    .child(
+                    div()
                         //
-                        v_flex()
-                            // .debug()
+                        .text_color(cx.theme().colors().text)
+                        .text_3xl()
+                        .child("Locked"),
+                )
+                .map(|el| match password_prompt {
+                    None => {
+                        el
                             //
-                            .mx_auto()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                //
-                                div()
-                                    //
-                                    .text_color(cx.theme().colors().text)
-                                    .text_3xl()
-                                    .child("Locked"),
-                            )
                             .child(
                                 //
                                 div()
@@ -159,8 +200,35 @@ pub trait Locked {
                                         window.dispatch_action(Box::new(Unlock), cx);
                                     })
                                     .child("Unlock"),
-                            ),
-                    ),
-            )
-    }
+                            )
+                    }
+                    Some(input) => {
+                        //
+                        el.child(
+                            div()
+                                //
+                                .id("unlock-password")
+                                .w_full()
+                                //
+                                .p_2()
+                                .items_center()
+                                .on_key_down(cx.listener({
+                                    let input = input.clone();
+                                    move |_this, e: &KeyDownEvent, window, cx| {
+                                        if e.keystroke.key != "enter" {
+                                            return;
+                                        }
+
+                                        let text = input.read(cx).text(cx);
+                                        input.update(cx, |input, cx| input.clear(window, cx));
+                                        if cx.vault().unlock(&text).is_err() {
+                                            warn!("Incorrect password");
+                                        }
+                                    }
+                                }))
+                                .child(input.clone()),
+                        )
+                    }
+                }),
+        )
 }

@@ -1,9 +1,10 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 use capsec::{CapProvider, CapRoot, TimedCap, root};
 use tokio::sync::{broadcast, oneshot};
 use tracing::{debug, info};
+use willow25::entry::{SubspaceId, randomly_generate_subspace};
 use zed::unstable::{
     gpui::{
         self, AppContext, Bounds, Entity, Global, Task, TitlebarOptions, WindowBounds,
@@ -22,7 +23,9 @@ use crate::{
 pub mod secret_repository;
 pub mod unlock_ui;
 
-actions!(vault, [Unlock]);
+const LOCK_TIMEOUT: Duration = Duration::from_secs(60 * 10);
+
+actions!(vault, [Lock, Unlock]);
 
 pub fn init(cx: &mut App) {
     let root = root();
@@ -33,7 +36,7 @@ pub fn init(cx: &mut App) {
     cx.observe_new::<Workspace>(move |workspace, _window, _cx| {
         workspace.register_action(move |_this, _: &Unlock, _window, cx| {
             info!("Begin unlock action");
-            let task = cx.vault().unlock();
+            let task = cx.vault().unlock_window();
             cx.spawn(async move |_this, _cx| {
                 // `vault.unlock()` caches the cap internally so we don't need to do anything with it
                 let _cap = task.await?;
@@ -107,8 +110,29 @@ impl<'a> VaultCx<'a> {
             .log_err();
     }
 
+    pub fn unlock(&mut self, password: &str) -> Result<TimedCap<VaultAll>> {
+        // TODO: Obviously we need to do a check here
+        if password != "password" {
+            bail!("invalid password");
+        }
+
+        let cap = self.cx.update_entity(&self.state, |state, cx| {
+            if let Some((_tx, window)) = state.pending_unlock.take() {
+                window.update(cx, |_view, window, _cx| {
+                    window.remove_window();
+                })?;
+            }
+
+            let cap = state.root.grant();
+            let cap = TimedCap::new(cap, LOCK_TIMEOUT);
+            state.vault_cap = Some(cap.clone());
+            anyhow::Ok(cap)
+        })?;
+        Ok(cap)
+    }
+
     /// Time-bounded permission to full profile access
-    pub fn unlock(&mut self) -> Task<Result<TimedCap<VaultAll>>> {
+    pub fn unlock_window(&mut self) -> Task<Result<TimedCap<VaultAll>>> {
         // Three possible states:
         // 1) Vault is already unlocked, return cached capability
         // 2) Vault is locked and no pending unlock exists, open a new unlock window
@@ -176,9 +200,7 @@ impl<'a> VaultCx<'a> {
             let cap = cx.update_entity(&state, |state, cx| {
                 // Newly minted capability
                 let cap = state.root.grant::<VaultAll>();
-                // let ttl = Duration::from_secs(3);
-                let ttl = Duration::from_secs(60 * 10); // 10m lock
-                let cap = TimedCap::new(cap, ttl);
+                let cap = TimedCap::new(cap, LOCK_TIMEOUT);
                 state.vault_cap = Some(cap.clone());
 
                 // Take the receiver, so future unlocks prompt a new window
@@ -207,6 +229,14 @@ impl<'a> VaultCx<'a> {
             .as_ref()
             .map(|cap| cap.is_active())
             .unwrap_or(false)
+    }
+
+    pub fn create_subspace(&mut self, cap: &impl CapProvider<VaultWrite>) -> Result<SubspaceId> {
+        let _proof = cap.provide_cap("")?;
+        let (_subspace_id, sub_secret) = randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
+        todo!()
+        // self.cx.read_entity(handle, read)
+        //
     }
 
     fn list_profiles(

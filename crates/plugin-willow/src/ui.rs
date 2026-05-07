@@ -130,12 +130,12 @@ impl WillowUi {
                     //
                     .child(
                         h_flex()
-                            .debug()
+                            // .debug()
                             .size_full()
                             .child(
                                 //
                                 v_flex()
-                                    .debug()
+                                    // .debug()
                                     .w_80()
                                     .h_full()
                                     //
@@ -144,7 +144,7 @@ impl WillowUi {
                             .child(
                                 //
                                 div()
-                                    .debug()
+                                    // .debug()
                                     .size_full()
                                     //
                                     .p_2(),

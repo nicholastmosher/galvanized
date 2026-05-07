@@ -7,7 +7,7 @@ use zed::unstable::{
     },
 };
 
-use crate::components::space_dropdown::SpaceDropdown;
+use crate::components::dropdown::Dropdown;
 use plugin_willow::space::Space;
 
 pub fn init(_cx: &mut App) {
@@ -75,7 +75,7 @@ impl RenderOnce for SpaceHeader {
                 PopoverMenu::new("space-header-popover-menu")
                     .full_width(false)
                     .menu(move |_window, _cx| Some(menu.clone()))
-                    .trigger(SpaceDropdown::new(
+                    .trigger(Dropdown::new(
                         "space-header-dropdown",
                         self.space.read(cx).name(),
                     )),
