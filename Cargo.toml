@@ -65,6 +65,7 @@ zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-pl
 plugin-calendar = { path = "crates/plugin-calendar" }
 plugin-chat = { path = "crates/plugin-chat" }
 plugin-p2p = { path = "crates/plugin-p2p" }
+plugin-theme-palette = { path = "crates/plugin-theme-palette" }
 plugin-vault = { path = "crates/plugin-vault" }
 plugin-willow = { path = "crates/plugin-willow" }
 

@@ -6926,6 +6926,7 @@ dependencies = [
  "plugin-calendar",
  "plugin-chat",
  "plugin-p2p",
+ "plugin-theme-palette",
  "plugin-vault",
  "plugin-willow",
  "rand 0.9.2",
@@ -14750,6 +14751,13 @@ dependencies = [
  "tokio-util",
  "tracing",
  "uuid",
+ "zed",
+]
+
+[[package]]
+name = "plugin-theme-palette"
+version = "0.1.0"
+dependencies = [
  "zed",
 ]
 

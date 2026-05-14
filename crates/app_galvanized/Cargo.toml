@@ -42,6 +42,7 @@ opentelemetry_sdk.workspace = true
 plugin-calendar.workspace = true
 plugin-chat.workspace = true
 plugin-p2p.workspace = true
+plugin-theme-palette.workspace = true
 plugin-vault.workspace = true
 plugin-willow.workspace = true
 rand.workspace = true
