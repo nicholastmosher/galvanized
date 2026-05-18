@@ -20,6 +20,7 @@ use crate::{
     unlock_ui::VaultUnlockUi,
 };
 
+pub mod secret_cap;
 pub mod secret_repository;
 pub mod unlock_ui;
 
