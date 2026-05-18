@@ -184,6 +184,23 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 May 15
+
+- There's a race condition on Connection -> Chat opening
+  - If both peers open a chat to the other before the document ID of the chat
+    has been transmitted, they'll end up with different documents for chat
+
+# 2026 May 15
+
+- It's been a rough week, needed a break
+- Thinking about lock/vault again, I want locking to be per-profile
+- I think this implies that rather than one `.locked(|el| ...)` wrapper, I need
+  something like `.with_profile(&profile, |profile, el| ...)`, where the
+  profile's inner data is only accessible when it's in the unlocked state
+  - Further implies separate types for "profile id" and "profile state", so the
+    ID is used to specify which profile is being accessed, and the profile state
+    is only available via the unlock mechanism
+
 # 2026 May 5
 
 - I think I've got a good starter pattern for the vault
