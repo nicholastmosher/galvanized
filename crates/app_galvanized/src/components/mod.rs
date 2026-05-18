@@ -5,6 +5,7 @@ pub mod dropdown;
 pub mod profile_bar;
 pub mod space_header;
 // pub mod space_icon;
+pub mod profile_login_picker;
 
 pub fn init(cx: &mut App) {
     profile_bar::init(cx);
