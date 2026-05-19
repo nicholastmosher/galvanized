@@ -1,21 +1,15 @@
 use std::{collections::HashMap, time::Duration};
 
-use anyhow::{Context, Result};
-use capsec::{CapRoot, CapSecError, Scope};
-use derive_more::Display;
+use anyhow::{Context as _, Result, anyhow};
+use capsec::CapRoot;
 use futures::{Stream, StreamExt as _};
-use serde::{Deserialize, Serialize};
-use serde_json::{Value as JsonValue, json};
-use thiserror::Error;
 use tokio::sync::oneshot;
-use uuid::Uuid;
-use zed::unstable::db::kvp::KEY_VALUE_STORE;
+use tracing::info;
+use zed::unstable::util::ResultExt;
 
 use crate::{
-    secret_repository::encrypted_repository::encryption::{
-        CryptError, decrypt, encrypt, generate_salt, hash_password,
-    },
-    vault_cap::VaultSendCap,
+    vault_cap::{VaultAccess, VaultCap, VaultSendCap},
+    vault_data::{UnlockedSecretVaultContent, Vault, VaultError, VaultHandle, VaultId, VaultState},
 };
 
 const VAULTS_PREFIX: &str = "gzed/vaults";
@@ -23,16 +17,7 @@ const VAULTS_INDEX: &str = "gzed/vaults/index";
 
 // TODO: Make configurable
 const DEFAULT_VAULT_TIMEOUT: Duration = Duration::from_secs(60 * 10);
-
-#[derive(Debug, Error)]
-pub enum VaultError {
-    #[error("failed to create vault: duplicate vault ID")]
-    DuplicateVaultId(VaultId),
-    #[error("failed vault encryption or decryption")]
-    CryptoError(#[from] CryptError),
-    #[error(transparent)]
-    Other(anyhow::Error),
-}
+const ACTOR_CHANNEL_CAPACITY: usize = 50;
 
 /// External handle API for interacting with the vault actor
 pub struct VaultActor {
@@ -42,8 +27,8 @@ pub struct VaultActor {
 
 impl VaultActor {
     pub fn spawn(root: CapRoot) -> Result<Self> {
-        let (tx, rx) = flume::bounded(10);
-        let state = VaultActorState::new(root, rx);
+        let (tx, rx) = flume::bounded(ACTOR_CHANNEL_CAPACITY);
+        let state = VaultActorState::new(root, tx.clone(), rx);
         let future = state.run();
         let _join_handle = tokio::spawn(future);
         Ok(Self { _join_handle, tx })
@@ -53,38 +38,32 @@ impl VaultActor {
     ///
     /// A single vault may have multiple data entries associated with it,
     /// the defining feature of a vault is the protection under one password.
-    pub async fn create_vault(
-        &self,
-        password: String,
-        vault_id: VaultId,
-    ) -> Result<VaultSendCap<VaultAccess, VaultId>> {
+    pub async fn create_vault(&self, password: String) -> Result<VaultHandle> {
         let (tx, rx) = oneshot::channel();
         self.tx
-            .send_async(VaultActorInput::CreateVault {
-                password,
-                vault_id,
-                tx,
-            })
+            .send_async(VaultActorInput::CreateVault { password, tx })
             .await
-            .context("failed to send create_vault request to actor")?;
-        let cap = rx
+            .map_err(|_error| anyhow::anyhow!("failed to send create_vault request to actor"))?;
+        let handle = rx
             .await
             .context("failed to receive create_vault response from actor")??;
-        Ok(cap)
+        Ok(handle)
     }
 
+    /// Get a list of all vault IDs
     pub async fn list_vaults(&self) -> Result<Vec<VaultId>> {
         let (tx, rx) = oneshot::channel();
         self.tx
-            .send_async(VaultActorInput::ListVaults { tx })
+            .send_async(VaultActorInput::ListVaults { client_tx: tx })
             .await
-            .context("failed to send list_vaults request to actor")?;
+            .map_err(|_error| anyhow::anyhow!("failed to send list_vaults request to actor"))?;
         let secrets = rx
             .await
             .context("failed to receive list_vaults response from actor")?;
         Ok(secrets)
     }
 
+    /// Unlock the vault with the given vault ID using the given password
     pub async fn unlock_vault(
         &self,
         password: String,
@@ -109,11 +88,14 @@ impl VaultActor {
 pub enum VaultActorInput {
     CreateVault {
         password: String,
-        vault_id: VaultId,
-        tx: oneshot::Sender<Result<VaultSendCap<VaultAccess, VaultId>, VaultError>>,
+        tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+    },
+    VaultCreated {
+        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+        vault: Box<Vault>,
     },
     ListVaults {
-        tx: oneshot::Sender<Vec<VaultId>>,
+        client_tx: oneshot::Sender<Vec<VaultId>>,
     },
     LockVault {
         vault_id: VaultId,
@@ -133,44 +115,6 @@ pub enum VaultActorInput {
     },
 }
 
-/// Read/write permission for a vault
-#[capsec::permission]
-pub struct VaultAccess;
-
-/// A unique ID for a [`Vault`]
-///
-/// This is also used as a [`Scope`] for narrowing capabilities
-/// such that they only apply to a specific vault
-#[derive(Debug, Display, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct VaultId(Uuid);
-impl VaultId {
-    pub fn new() -> Self {
-        Self(Uuid::new_v4())
-    }
-}
-
-impl Scope for VaultId {
-    fn check(&self, target: &str) -> Result<(), CapSecError> {
-        let target_uuid =
-            target
-                .parse::<Uuid>()
-                .map_err(|_parse_error| CapSecError::OutOfScope {
-                    target: target.to_string(),
-                    scope: self.0.to_string(),
-                })?;
-
-        // VaultId matches iff the target is exactly the same as the VaultId
-        if self.0 == target_uuid {
-            return Ok(());
-        }
-
-        Err(CapSecError::OutOfScope {
-            target: target.to_string(),
-            scope: self.0.to_string(),
-        })
-    }
-}
-
 /// Internal state machine of the vault actor
 pub struct VaultActorState {
     /// State of capabilities for vaults
@@ -187,23 +131,36 @@ pub struct VaultActorState {
     /// Root capability, used for creating new capabilities for accessing vaults
     root: CapRoot,
 
+    /// Hold a clone of our own event sender, used for dispatched tasks to return
+    /// results back to the actor.
+    tx: flume::Sender<VaultActorInput>,
+
     /// Receiver for incoming input events.
     // THIS IS CURRENTLY HIGHLY SENSITIVE SINCE IT RECEIVES PLAINTEXT PASSWORDS
     // IN EVENTS. RESTRICT CLONING OR ACCESS, CONSIDER CHANGING THIS PROCESS TO
     // ONLY HANDLING HASHED PASSWORDS.
     rx: flume::Receiver<VaultActorInput>,
 
-    /// Unlocked in-memory vaults, keyed by vault ID
-    vaults: HashMap<VaultId, Vault>,
+    /// Locked vaults, keyed by vault ID
+    locked_vaults: HashMap<VaultId, VaultState>,
+
+    /// Unlocked vaults, keyed by vault ID
+    unlocked_vaults: HashMap<VaultId, VaultState<UnlockedSecretVaultContent>>,
 }
 
 impl VaultActorState {
-    pub fn new(root: CapRoot, rx: flume::Receiver<VaultActorInput>) -> Self {
+    pub fn new(
+        root: CapRoot,
+        tx: flume::Sender<VaultActorInput>,
+        rx: flume::Receiver<VaultActorInput>,
+    ) -> Self {
         Self {
             root,
             capabilities: Default::default(),
+            tx,
             rx,
-            vaults: Default::default(),
+            locked_vaults: Default::default(),
+            unlocked_vaults: Default::default(),
         }
     }
 
@@ -244,19 +201,17 @@ impl VaultActorState {
     /// Dispatches an input event to the appropriate handler.
     async fn try_handle_input(&mut self, input: VaultActorInput) -> Result<()> {
         match input {
-            VaultActorInput::CreateVault {
-                password,
-                vault_id,
-                tx,
-            } => {
-                let result = self.try_handle_create_vault(password, vault_id).await;
-                tx.send(result).ok();
+            VaultActorInput::CreateVault { password, tx } => {
+                self.try_create_vault(password, tx).await;
             }
-            VaultActorInput::ListVaults { tx } => {
-                self.try_handle_list_vaults(tx).await?;
+            VaultActorInput::VaultCreated { client_tx, vault } => {
+                self.try_finish_create_vault(client_tx, vault).await?;
+            }
+            VaultActorInput::ListVaults { client_tx } => {
+                self.try_list_vaults(client_tx).await?;
             }
             VaultActorInput::LockVault { vault_id, tx } => {
-                self.try_handle_lock_vault(vault_id).await?;
+                self.try_lock_vault(vault_id).await?;
                 if let Some(tx) = tx {
                     tx.send(()).ok();
                 }
@@ -266,47 +221,66 @@ impl VaultActorState {
                 vault_id,
                 tx,
             } => {
-                self.try_handle_unlock_vault(password, vault_id, tx).await?;
+                self.try_unlock_vault(password, vault_id, tx).await?;
             }
         }
         Ok(())
     }
 
-    async fn try_handle_create_vault(
+    async fn try_create_vault(
         &mut self,
         password: String,
-        vault_id: VaultId,
-    ) -> Result<VaultSendCap<VaultAccess, VaultId>, VaultError> {
-        let key = format!("{VAULTS_PREFIX}/{vault_id}");
-        let preexisting_vault = KEY_VALUE_STORE.read_kvp(&key).map_err(|error| {
-            VaultError::Other(error.context("error reading vault from key-value store"))
-        })?;
+        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+    ) {
+        let actor_tx = self.tx.clone();
+        tokio::spawn(create_vault_task(actor_tx, client_tx, password));
+    }
 
-        // Check that a vault with this ID does not already exist
-        if preexisting_vault.is_some() {
-            return Err(VaultError::DuplicateVaultId(vault_id));
-        }
+    /// Upon a Vault being successfully created, store the Vault in the actor's
+    /// state and generate a [`VaultHandle`] to return to the client.
+    async fn try_finish_create_vault(
+        &mut self,
+        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+        vault: Box<Vault>,
+    ) -> Result<()> {
+        let vault_id = vault.id();
+        let handle = {
+            let cap = self.root.grant::<VaultAccess>();
+            let ttl = DEFAULT_VAULT_TIMEOUT;
+            let (cap, revoker) = VaultCap::new(cap, ttl, vault_id.clone());
+            let cap = cap.make_send();
+            VaultHandle::new(vault_id.clone(), cap, revoker)
+        };
 
-        let vault = Vault::new(&password).map_err(VaultError::Other)?;
+        let vault_state = VaultState::new(handle.clone(), vault);
+        self.locked_vaults.insert(vault_id.clone(), vault_state);
 
-        // TODO
-        // - Spawn task to lock in-memory vault after timeout
-        // - Encrypt only the `encrypted` field, leave `unencrypted` in plaintext
-        //   - Figure out type states to represent this
-        // self.vaults.insert(vault_id, vault_content);
+        client_tx
+            //
+            .send(Ok(handle))
+            .map_err(|_| {
+                VaultError::Other(anyhow!("failed to return the vault handle to the client"))
+            })?;
+        Ok(())
+    }
 
+    async fn try_list_vaults(&mut self, client_tx: oneshot::Sender<Vec<VaultId>>) -> Result<()> {
         todo!()
     }
 
-    async fn try_handle_list_vaults(&mut self, tx: oneshot::Sender<Vec<VaultId>>) -> Result<()> {
-        todo!()
+    async fn try_lock_vault(&mut self, vault_id: VaultId) -> Result<()> {
+        let Some(unlocked) = self.unlocked_vaults.remove(&vault_id) else {
+            info!("VaultActor: Vault {vault_id} is already locked");
+            return Ok(());
+        };
+
+        // TODO use spawn_blocking
+        let locked = unlocked.lock()?;
+        self.locked_vaults.insert(vault_id, locked);
+        Ok(())
     }
 
-    async fn try_handle_lock_vault(&mut self, vault_id: VaultId) -> Result<()> {
-        todo!()
-    }
-
-    async fn try_handle_unlock_vault(
+    async fn try_unlock_vault(
         &mut self,
         password: String,
         vault_id: VaultId,
@@ -316,219 +290,51 @@ impl VaultActorState {
     }
 }
 
-/// Top-level Vault object, containing both secret and public portions.
+/// Task to be spawned to create a new [`Vault`]
 ///
-/// A `Vault` may be in a locked or unlocked state.
+/// Creating a Vault involves cryptographic operations, so needs to take place
+/// on a worker task and use `spawn_blocking` to avoid blocking the executor.
 ///
-/// - In the locked state, the secret content is serialized, encrypted, and
-/// base64-encoded.
-/// - In the unlocked state, the secret content is a deserialized in-memory
-/// object.
-/// - In both locked and unlocked states, the public content is a deserialized
-/// in-memory object.
+/// On success, the Vault is sent via channel back to the [`VaultActor`] to be
+/// persisted and to complete the client request.
 ///
-/// In both locked and unlocked states, there is a distinction between "vault"
-/// content and "user" content. The vault content may include machinery data to
-/// help the locking and unlocking process (such as holding the salt or password
-/// hash), whereas the "user" content is the actual data the user requests to
-/// store in the vault.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Vault<S = LockedSecretVaultContent> {
-    /// The public / unencrypted portion of the vault's content
-    ///
-    /// This may be used to store display data about the object, such as the
-    /// name of a vault
-    public: PublicVaultContent,
-
-    /// The secret / encrypted portion of the vault's content
-    ///
-    /// This may exist in a locked or unlocked state.
-    ///
-    /// - When locked, the secret is serialized, encrypted, and base64-encoded.
-    /// - When unlocked, the secret is a deserialized in-memory object.
-    secret: S,
-}
-
-impl Vault<LockedSecretVaultContent> {
-    /// Construct a new locked vault with the given password.
-    pub fn new(password: &str) -> Result<Vault<LockedSecretVaultContent>> {
-        let salt = generate_salt();
-        Self::with_salt(password, &salt)
-    }
-
-    /// Construct a new locked vault with the given password and salt.
-    pub fn with_salt(password: &str, salt: &str) -> Result<Vault<LockedSecretVaultContent>> {
-        let password_hash = hash_password(password, &salt)
-            .context("failed to hash password while creating vault")?;
-
-        // Create empty user content
-        let secret_user_content = SecretUserContent::new();
-
-        // Create unlocked vault content, holding the password hash in order to
-        // allow locking without prompting for the password again
-        let vault = Vault {
-            public: PublicVaultContent::new(salt.to_string()),
-            secret: UnlockedSecretVaultContent::new(password_hash, secret_user_content),
-        };
-
-        // Newly constructed vaults should be locked by default
-        let vault = vault.lock()?;
-        Ok(vault)
-    }
-}
-
-impl<S> Vault<S> {
-    pub fn id(&self) -> VaultId {
-        self.public.id.clone()
-    }
-}
-
-impl Vault<LockedSecretVaultContent> {
-    /// Attempt to unlock the vault using the given password
-    ///
-    /// Consider this a blocking operation which should be executed within the
-    /// scope of a `spawn_blocking` call or similar, due to the serialization
-    /// and decryption work done here.
-    pub fn unlock(self, password: &str) -> Result<Vault<UnlockedSecretVaultContent>> {
-        let salt = &self.public.salt;
-        let password_hash = hash_password(password, salt).context("failed to hash password")?;
-        let encrypted_text = self.secret.0;
-        let decrypted_string =
-            decrypt(encrypted_text, password_hash).context("failed to decrypt vault")?;
-        let secret_user_content = serde_json::from_str::<SecretUserContent>(&decrypted_string)
-            .context("failed to deserialize unlocked vault content")?;
-        let unlocked_vault_content = UnlockedSecretVaultContent {
-            password_hash,
-            user_content: secret_user_content,
-        };
-
-        Ok(Vault {
-            secret: unlocked_vault_content,
-            public: self.public,
-        })
-    }
-}
-
-impl Vault<UnlockedSecretVaultContent> {
-    /// Lock the vault, returning it to the locked state which must be unlocked
-    /// with the correct password to access the user's secret content
-    ///
-    /// Consider this a blocking operation which should be executed within the
-    /// scope of a `spawn_blocking` call or similar, due to the serialization
-    /// and encryption work done here.
-    pub fn lock(self) -> Result<Vault<LockedSecretVaultContent>> {
-        let password_hash = self.secret.password_hash;
-        let secret_content = self.secret.user_content;
-        let serialized_secret_content = serde_json::to_string(&secret_content)
-            .context("failed to serialize user secret content")?;
-        let encrypted_base64 = encrypt(serialized_secret_content, password_hash)
-            .context("failed to encrypt user secret content")?;
-
-        Ok(Vault {
-            secret: LockedSecretVaultContent(encrypted_base64),
-            public: self.public,
-        })
-    }
-
-    /// Returns a reference to the vault user's public content
-    pub fn public_content(&self) -> &PublicUserContent {
-        &self.public.user_content
-    }
-
-    /// Returns a mutable reference to the vault user's public content
-    pub fn public_content_mut(&mut self) -> &mut PublicUserContent {
-        &mut self.public.user_content
-    }
-
-    /// Returns a reference to the vault user's secret content
-    pub fn secret_content(&self) -> &SecretUserContent {
-        &self.secret.user_content
-    }
-
-    /// Returns a mutable reference to the vault user's secret content
-    pub fn secret_content_mut(&mut self) -> &mut SecretUserContent {
-        &mut self.secret.user_content
-    }
-}
-
-/// The serialized, encrypted, base64-encoded form of a vault's content.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LockedSecretVaultContent(String);
-
-/// The deserialized, in-memory form of a vault's content.
-///
-/// This includes both vault machinery (password hash) and the user's actual
-/// secret content.
-// DO NOT IMPLEMENT SERIALIZE / DESERIALIZE, ONLY LOCKED STATE SHOULD SERIALIZE
-#[derive(Debug)]
-pub struct UnlockedSecretVaultContent {
-    /// Hold the password hash while unlocked to allow auto-locking without
-    /// prompting for the password again
-    password_hash: [u8; 32],
-
-    /// The user's actual secret stored content, without any vault machinery
-    /// included
-    user_content: SecretUserContent,
-}
-
-impl UnlockedSecretVaultContent {
-    /// Create a new unlocked vault content with the given password hash and
-    /// user content
-    pub fn new(password_hash: [u8; 32], user_content: SecretUserContent) -> Self {
-        Self {
-            password_hash,
-            user_content,
+/// On error, we send the error directly back to the client.
+async fn create_vault_task(
+    actor_tx: flume::Sender<VaultActorInput>,
+    client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+    password: String,
+) {
+    let result = try_create_vault(password).await;
+    match result {
+        // Vault created successfully, send it back to the actor to persist
+        Ok(vault) => {
+            let vault = Box::new(vault);
+            actor_tx
+                .send_async(VaultActorInput::VaultCreated { client_tx, vault })
+                .await
+                .map_err(|error| anyhow!(error))
+                .log_err();
+        }
+        // Vault creation failed, send the error back to the client
+        Err(error) => {
+            client_tx.send(Err(error)).ok();
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PublicVaultContent {
-    /// The unique ID of this vault
-    id: VaultId,
+async fn try_create_vault(password: String) -> Result<Vault, VaultError> {
+    // Future to create the vault, using spawn_blocking due to cryptographic operations
+    let vault = tokio::task::spawn_blocking(move || {
+        let vault = Vault::new(&password).map_err(VaultError::Other)?;
+        anyhow::Ok(vault)
+    })
+    .await
+    .map_err(|error| {
+        VaultError::Other(
+            anyhow!(error).context("failed to join spawn_blocking while creating vault"),
+        )
+    })?
+    .map_err(VaultError::Other)?;
 
-    /// The salt that was used to hash this vault's password
-    salt: String,
-
-    /// The user's public content, without any vault machinery included
-    ///
-    /// This may include items such as a display name or a vault avater
-    user_content: PublicUserContent,
-}
-
-impl PublicVaultContent {
-    /// Create a new public vault content, including the salt used to hash the
-    /// vault's password.
-    pub fn new(salt: String) -> Self {
-        Self {
-            id: VaultId::new(),
-            salt,
-            user_content: PublicUserContent::new(),
-        }
-    }
-}
-
-/// The user's public content, without any vault machinery included
-///
-/// This may include items such as a display name or a vault avatar
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct PublicUserContent(JsonValue);
-impl PublicUserContent {
-    /// Create a new empty public user content object
-    pub fn new() -> Self {
-        Self(json!({}))
-    }
-}
-
-/// The user's secret content, without any vault machinery included
-///
-/// This content will be encrypted and stored securely in the vault
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SecretUserContent(JsonValue);
-impl SecretUserContent {
-    /// Create a new empty secret user content object
-    pub fn new() -> Self {
-        Self(json!({}))
-    }
+    Ok(vault)
 }

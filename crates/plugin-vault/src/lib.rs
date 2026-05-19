@@ -24,6 +24,7 @@ pub mod secret_repository;
 pub mod unlock_ui;
 pub mod vault_actor;
 pub mod vault_cap;
+pub mod vault_data;
 
 const LOCK_TIMEOUT: Duration = Duration::from_secs(60 * 10);
 

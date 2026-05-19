@@ -18,6 +18,10 @@ use std::{
 
 use capsec::{Cap, CapProvider, CapSecError, Permission, Scope};
 
+/// Read/write permission for a vault
+#[capsec::permission]
+pub struct VaultAccess;
+
 /// A revocable, timed, scoped capability token proving the holder has permission `P`.
 ///
 /// Created via [`VaultCap::new`], which consumes a [`Cap<P>`] as proof of
