@@ -20,9 +20,10 @@ use crate::{
     unlock_ui::VaultUnlockUi,
 };
 
-pub mod secret_cap;
 pub mod secret_repository;
 pub mod unlock_ui;
+pub mod vault_actor;
+pub mod vault_cap;
 
 const LOCK_TIMEOUT: Duration = Duration::from_secs(60 * 10);
 
@@ -243,7 +244,7 @@ impl<'a> VaultCx<'a> {
     fn list_profiles(
         &mut self,
         cap: &impl CapProvider<VaultRead>,
-    ) -> Result<Task<Result<Vec<(String, String)>>>> {
+    ) -> Result<Task<Result<Vec<String>>>> {
         let _proof = cap.provide_cap("")?;
         let task = self.cx.read_entity(&self.state, |state, cx| {
             let repo = state.repo.clone();

@@ -4,12 +4,23 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+aes-gcm-siv.workspace = true
 anyhow.workspace = true
+argon2.workspace = true
+base64.workspace = true
 capsec.workspace = true
 capsec-core.workspace = true
+crypto-common.workspace = true
+derive_more.workspace = true
+dirs.workspace = true
+flume.workspace = true
+futures.workspace = true
+rand_0_8_5.workspace = true
+rand_core.workspace = true
 rand_core_0_6_4.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 willow25.workspace = true

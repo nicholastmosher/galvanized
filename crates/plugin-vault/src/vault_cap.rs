@@ -1,11 +1,11 @@
-//! Capabilities for secrets management.
+//! Capabilities for vault management.
 //!
 //! These capabilities are a combination of the following primitive caps:
 //!
 //! - Revokable capabilities
 //! - Timed capabilities
 //! - Attenuated capabilities
-//!   - Scoped to particular unlockable secrets
+//!   - Scoped to particular unlockable vaults
 
 use std::{
     marker::PhantomData,
@@ -20,13 +20,13 @@ use capsec::{Cap, CapProvider, CapSecError, Permission, Scope};
 
 /// A revocable, timed, scoped capability token proving the holder has permission `P`.
 ///
-/// Created via [`SecretCap::new`], which consumes a [`Cap<P>`] as proof of
-/// possession and returns a `(SecretCap<P>, SecretRevoker)` pair.
+/// Created via [`VaultCap::new`], which consumes a [`Cap<P>`] as proof of
+/// possession and returns a `(VaultCap<P>, VaultRevoker)` pair.
 ///
-/// `!Send + !Sync` by default — use [`make_send`](SecretCap::make_send) for
+/// `!Send + !Sync` by default — use [`make_send`](VaultCap::make_send) for
 /// cross-thread transfer. Cloning shares the same revocation state: revoking
 /// one clone revokes all of them.
-pub struct SecretCap<P, S>
+pub struct VaultCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
@@ -41,7 +41,7 @@ where
     expires_at: Instant,
 }
 
-impl<P, S> CapProvider<P> for SecretCap<P, S>
+impl<P, S> CapProvider<P> for VaultCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
@@ -51,18 +51,18 @@ where
     }
 }
 
-impl<P, S> SecretCap<P, S>
+impl<P, S> VaultCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
 {
     /// Creates a revocable capability by consuming a [`Cap<P>`] as proof of possession.
     ///
-    /// Returns a `(SecretCap<P>, SecretRevoker)` pair. The `Revoker` can invalidate
+    /// Returns a `(VaultCap<P>, VaultRevoker)` pair. The `Revoker` can invalidate
     /// this capability (and all its clones) from any thread.
-    pub fn new(cap: Cap<P>, ttl: Duration, scope: S) -> (Self, SecretRevoker) {
+    pub fn new(cap: Cap<P>, ttl: Duration, scope: S) -> (Self, VaultRevoker) {
         let revoked = Arc::new(AtomicBool::new(false));
-        let revoker = SecretRevoker {
+        let revoker = VaultRevoker {
             revoked: Arc::clone(&revoked),
         };
         let secrets_cap = Self {
@@ -77,7 +77,7 @@ where
         (secrets_cap, revoker)
     }
 
-    /// Attempts to obtain a [`Cap<P>`] from this secret capability.
+    /// Attempts to obtain a [`Cap<P>`] from this vault capability.
     ///
     /// Must pass three checks to obtain the capability:
     ///
@@ -107,7 +107,7 @@ where
     /// Advisory check — returns `true` if the capability has been revoked.
     ///
     /// The result is immediately stale; do not use for control flow.
-    /// Always use [`try_cap`](SecretCap::try_cap) for actual access.
+    /// Always use [`try_cap`](VaultCap::try_cap) for actual access.
     pub fn is_revoked(&self) -> bool {
         self.revoked.load(Ordering::Acquire)
     }
@@ -127,12 +127,12 @@ where
         self.expires_at.saturating_duration_since(Instant::now())
     }
 
-    /// Converts this capability into a [`SecretSendCap`] that can cross thread boundaries.
+    /// Converts this capability into a [`VaultSendCap`] that can cross thread boundaries.
     ///
     /// This is an explicit opt-in — you're acknowledging that this capability
     /// will be used in a multi-threaded context.
-    pub fn make_send(self) -> SecretSendCap<P, S> {
-        SecretSendCap {
+    pub fn make_send(self) -> VaultSendCap<P, S> {
+        VaultSendCap {
             _phantom: PhantomData,
             cap: self.cap,
 
@@ -143,7 +143,7 @@ where
     }
 }
 
-impl<P, S> Clone for SecretCap<P, S>
+impl<P, S> Clone for VaultCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
@@ -161,17 +161,17 @@ where
     }
 }
 
-/// A handle that can revoke its associated [`SecretCap`] (and all clones).
+/// A handle that can revoke its associated [`VaultCap`] (and all clones).
 ///
 /// `Revoker` is `Send + Sync` and `Clone` — multiple owners can hold revokers
 /// to the same capability, and any of them can revoke it from any thread.
 /// Revocation is idempotent: calling [`revoke`](Revoker::revoke) multiple times
 /// is safe and has no additional effect.
-pub struct SecretRevoker {
+pub struct VaultRevoker {
     revoked: Arc<AtomicBool>,
 }
 
-impl SecretRevoker {
+impl VaultRevoker {
     /// Revokes the associated capability. All subsequent calls to
     /// [`RuntimeCap::try_cap`] (and clones) will return `Err(CapSecError::Revoked)`.
     ///
@@ -186,7 +186,7 @@ impl SecretRevoker {
     }
 }
 
-impl Clone for SecretRevoker {
+impl Clone for VaultRevoker {
     fn clone(&self) -> Self {
         Self {
             revoked: Arc::clone(&self.revoked),
@@ -197,9 +197,9 @@ impl Clone for SecretRevoker {
 /// A thread-safe, revocable, timed, scoped capability token proving the holder
 /// has permission `P`.
 ///
-/// Created via [`SecretCap::make_send`]. Unlike [`SecretCap`], this implements
+/// Created via [`VaultCap::make_send`]. Unlike [`VaultCap`], this implements
 /// `Send + Sync`, making it usable with `std::thread::spawn`, `tokio::spawn`, etc.
-pub struct SecretSendCap<P, S>
+pub struct VaultSendCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
@@ -212,13 +212,13 @@ where
     expires_at: Instant,
 }
 
-// SAFETY: SecretSendCap is explicitly opted into cross-thread transfer via make_send().
+// SAFETY: VaultSendCap is explicitly opted into cross-thread transfer via make_send().
 // The inner Arc<AtomicBool> is already Send+Sync; PhantomData<P> is Send+Sync when P is.
 // Permission types are marker traits (ZSTs) that are always Send+Sync.
-unsafe impl<P: Permission, S: Scope + Clone> Send for SecretSendCap<P, S> {}
-unsafe impl<P: Permission, S: Scope + Clone> Sync for SecretSendCap<P, S> {}
+unsafe impl<P: Permission, S: Scope + Clone> Send for VaultSendCap<P, S> {}
+unsafe impl<P: Permission, S: Scope + Clone> Sync for VaultSendCap<P, S> {}
 
-impl<P, S> SecretSendCap<P, S>
+impl<P, S> VaultSendCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
@@ -244,7 +244,7 @@ where
     /// Advisory check — returns `true` if the capability has been revoked.
     ///
     /// The result is immediately stale; do not use for control flow.
-    /// Always use [`try_cap`](SecretCap::try_cap) for actual access.
+    /// Always use [`try_cap`](VaultCap::try_cap) for actual access.
     pub fn is_revoked(&self) -> bool {
         self.revoked.load(Ordering::Acquire)
     }
@@ -265,7 +265,7 @@ where
     }
 }
 
-impl<P, S> Clone for SecretSendCap<P, S>
+impl<P, S> Clone for VaultSendCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
