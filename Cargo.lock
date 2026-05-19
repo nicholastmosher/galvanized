@@ -17972,6 +17972,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "uuid",
  "willow25",
  "zed 0.229.0",
 ]

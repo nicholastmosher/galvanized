@@ -24,7 +24,7 @@ pub enum CryptError {
 }
 
 /// Given a plaintext password and a salt, return the hash of the password using Argon2.
-pub fn hash_password(password: String, salt: String) -> Result<[u8; 32], CryptError> {
+pub fn hash_password(password: &str, salt: &str) -> Result<[u8; 32], CryptError> {
     let mut okm = [0u8; 32];
     Argon2::default().hash_password_into(password.as_bytes(), salt.as_bytes(), &mut okm)?;
     Ok(okm)
@@ -167,7 +167,7 @@ value = [[1702851212, \"Some other notes\"]]"#,
     fn get_password_hash() -> [u8; 32] {
         let password = String::from("TestPassword");
         let salt = String::from("TestSalt");
-        hash_password(password, salt).unwrap()
+        hash_password(&password, &salt).unwrap()
     }
 
     #[test]
