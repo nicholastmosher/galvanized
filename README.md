@@ -184,6 +184,48 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 May 19
+
+Status / Plan:
+
+- Continuing work on the vault plugin, with the ultimate goal of storing Willow
+  keys behind password protection.
+- Just added the `Vault` type with a public and secret section.
+  - Public section is always an unencrypted in-memory object representation, and
+    includes vault machinery plus public user content
+  - Secret section may exist in two states: Locked or Unlocked. The Locked state
+    is represented as a serialized, encrypted, base64-encoded string. The
+    Unlocked state is an unencrypted in-memory object representation.
+  - Transition from Locked to Unlock requires a valid password, transition from
+    Unlocked to Locked requires no password or other input.
+  - Vault is only serializable in the Locked state
+- Plan is to use `VaultActor` as the capability manager, acting as the
+  gatekeeper between the Vault and the rest of the application.
+- Clients issue requests to `VaultActor`, such as to create a vault, lock or
+  unlock, and read or write.
+- On successful Unlock, the `VaultActor` will yield a timed, scoped, revokable
+  capability allowing subsequent (e.g. read/write) requests to the inner Vault.
+  - Scope is for matching a capability to an exact `VaultId`
+  - Revoking is used for Locking a vault, preventing any existing capabilities from
+    reading or writing, requiring a fresh password unlock and new capabilities
+    to be minted.
+
+TODO:
+
+- Implement `VaultActor` requests, including:
+  - Create new vault with a given password
+  - Unlock vault with a password, minting/returning a capability
+  - Lock vault, revoking all capabilities to that vault
+  - Read/write iff valid capability is provided
+    - I'm imagining clients pass a `Box<dyn FnOnce(&mut Vault)>` or something,
+      which is only applied on proper capability access
+- Implement locking timeout, e.g. spawn tasks whenever a timed capability is minted,
+  which automatically transitions the corresponding vault to Locked when the
+  timer expires.
+  - This should be defense in depth, clients require both a valid capability
+    that has not timed out, but also the unlocked in-memory representation
+    becomes unavailable after the timeout.
+
 # 2026 May 15
 
 - There's a race condition on Connection -> Chat opening
