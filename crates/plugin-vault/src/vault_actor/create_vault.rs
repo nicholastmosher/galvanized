@@ -4,7 +4,7 @@ use tokio::sync::oneshot;
 use crate::{
     error::VaultError,
     vault_actor::{DEFAULT_VAULT_TIMEOUT, VaultActor, VaultActorHandle, VaultActorInput},
-    vault_cap::{VaultAccess, VaultCap},
+    vault_cap::VaultCap,
     vault_data::{Vault, VaultHandle, VaultPair},
 };
 
@@ -50,7 +50,7 @@ impl VaultActor {
     ) -> Result<()> {
         let vault_id = vault.id();
         let handle = {
-            let cap = self.root.grant::<VaultAccess>();
+            let cap = self.vault_cap.as_cap();
             let ttl = DEFAULT_VAULT_TIMEOUT;
             let (cap, revoker) = VaultCap::new(cap, ttl, vault_id.clone());
             let cap = cap.make_send();

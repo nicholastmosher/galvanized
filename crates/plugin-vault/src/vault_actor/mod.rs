@@ -1,13 +1,13 @@
 use std::{collections::HashMap, time::Duration};
 
 use anyhow::Result;
-use capsec::CapRoot;
+use capsec::SendCap;
 use futures::{Stream, StreamExt as _};
 use tokio::sync::oneshot;
 
 use crate::{
     error::VaultError,
-    vault_cap::{VaultAccess, VaultSendCap},
+    vault_cap::VaultAccess,
     vault_data::{UnlockedSecretVaultContent, Vault, VaultHandle, VaultId, VaultPair},
 };
 
@@ -15,9 +15,6 @@ pub mod create_vault;
 pub mod list_vaults;
 pub mod lock_vault;
 pub mod unlock_vault;
-
-const VAULTS_PREFIX: &str = "gzed/vaults";
-const VAULTS_INDEX: &str = "gzed/vaults/index";
 
 // TODO: Make configurable
 const DEFAULT_VAULT_TIMEOUT: Duration = Duration::from_secs(60 * 10);
@@ -27,16 +24,6 @@ const ACTOR_CHANNEL_CAPACITY: usize = 50;
 pub struct VaultActorHandle {
     _join_handle: tokio::task::JoinHandle<()>,
     tx: flume::Sender<VaultActorInput>,
-}
-
-impl VaultActorHandle {
-    pub fn spawn(root: CapRoot) -> Result<Self> {
-        let (tx, rx) = flume::bounded(ACTOR_CHANNEL_CAPACITY);
-        let state = VaultActor::new(root, tx.clone(), rx);
-        let future = state.run();
-        let _join_handle = tokio::spawn(future);
-        Ok(Self { _join_handle, tx })
-    }
 }
 
 pub enum VaultActorInput {
@@ -79,19 +66,8 @@ pub enum VaultActorInput {
 
 /// Internal state machine of the vault actor
 pub struct VaultActor {
-    /// State of capabilities for vaults
-    ///
-    /// Vault caps contained may be expired or unexpired, revoked or unrevoked.
-    ///
-    /// Vaults are locked by default, but may be unlocked for a period of time
-    /// by password verification for the given vault's entry.
-    ///
-    /// Unlocked vaults may be requested from without password verification for
-    /// as long as the capability is not expired or revoked.
-    capabilities: HashMap<VaultId, VaultSendCap<VaultAccess, VaultId>>,
-
-    /// Root capability, used for creating new capabilities for accessing vaults
-    root: CapRoot,
+    /// Vault capability, used for accessing vaults
+    vault_cap: SendCap<VaultAccess>,
 
     /// Hold a clone of our own event sender, used for dispatched tasks to return
     /// results back to the actor.
@@ -111,14 +87,21 @@ pub struct VaultActor {
 }
 
 impl VaultActor {
+    pub fn spawn(vault_cap: SendCap<VaultAccess>) -> Result<VaultActorHandle> {
+        let (tx, rx) = flume::bounded(ACTOR_CHANNEL_CAPACITY);
+        let state = VaultActor::new(vault_cap, tx.clone(), rx);
+        let future = state.run();
+        let _join_handle = tokio::spawn(future);
+        Ok(VaultActorHandle { _join_handle, tx })
+    }
+
     pub fn new(
-        root: CapRoot,
+        vault_cap: SendCap<VaultAccess>,
         tx: flume::Sender<VaultActorInput>,
         rx: flume::Receiver<VaultActorInput>,
     ) -> Self {
         Self {
-            root,
-            capabilities: Default::default(),
+            vault_cap,
             tx,
             rx,
             locked_vaults: Default::default(),
