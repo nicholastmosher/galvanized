@@ -1,17 +1,20 @@
 use std::{collections::HashMap, time::Duration};
 
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use capsec::CapRoot;
 use futures::{Stream, StreamExt as _};
 use tokio::sync::oneshot;
 
 use crate::{
+    error::VaultError,
     vault_cap::{VaultAccess, VaultSendCap},
-    vault_data::{UnlockedSecretVaultContent, Vault, VaultError, VaultHandle, VaultId, VaultPair},
+    vault_data::{UnlockedSecretVaultContent, Vault, VaultHandle, VaultId, VaultPair},
 };
 
 pub mod create_vault;
+pub mod list_vaults;
 pub mod lock_vault;
+pub mod unlock_vault;
 
 const VAULTS_PREFIX: &str = "gzed/vaults";
 const VAULTS_INDEX: &str = "gzed/vaults/index";
@@ -21,65 +24,18 @@ const DEFAULT_VAULT_TIMEOUT: Duration = Duration::from_secs(60 * 10);
 const ACTOR_CHANNEL_CAPACITY: usize = 50;
 
 /// External handle API for interacting with the vault actor
-pub struct VaultActor {
+pub struct VaultActorHandle {
     _join_handle: tokio::task::JoinHandle<()>,
     tx: flume::Sender<VaultActorInput>,
 }
 
-impl VaultActor {
+impl VaultActorHandle {
     pub fn spawn(root: CapRoot) -> Result<Self> {
         let (tx, rx) = flume::bounded(ACTOR_CHANNEL_CAPACITY);
-        let state = VaultActorState::new(root, tx.clone(), rx);
+        let state = VaultActor::new(root, tx.clone(), rx);
         let future = state.run();
         let _join_handle = tokio::spawn(future);
         Ok(Self { _join_handle, tx })
-    }
-
-    /// Get a list of all vault IDs
-    pub async fn list_vaults(&self) -> Result<Vec<VaultId>> {
-        let (tx, rx) = oneshot::channel();
-        self.tx
-            .send_async(VaultActorInput::ListVaults { client_tx: tx })
-            .await
-            .map_err(|_| anyhow::anyhow!("channel error while sending list_vaults request"))?;
-        let secrets = rx
-            .await
-            .context("channel error while receiving list_vaults response")?;
-        Ok(secrets)
-    }
-
-    /// Lock the vault with the given vault ID
-    pub async fn lock_vault(&self, vault_id: VaultId) -> Result<()> {
-        let (tx, rx) = oneshot::channel();
-        self.tx
-            .send_async(VaultActorInput::LockVault {
-                vault_id,
-                client_tx: tx,
-            })
-            .await
-            .map_err(|_| anyhow::anyhow!("channel error while sending lock_vault request"))?;
-        rx.await
-            .context("channel error while receiving lock_vault response")?
-            .context("error while locking vault")?;
-
-        Ok(())
-    }
-
-    /// Unlock the vault with the given vault ID using the given password
-    pub async fn unlock_vault(&self, password: String, vault_id: VaultId) -> Result<VaultHandle> {
-        let (tx, rx) = oneshot::channel();
-        self.tx
-            .send_async(VaultActorInput::UnlockVault {
-                password,
-                vault_id,
-                client_tx: tx,
-            })
-            .await
-            .context("channel error while sending unlock_vault request")?;
-        let handle = rx
-            .await
-            .context("channel error while receiving unlock_vault response")?;
-        Ok(handle)
     }
 }
 
@@ -93,17 +49,15 @@ pub enum VaultActorInput {
         vault: Box<Vault>,
     },
     LockVault {
-        vault_id: VaultId,
         client_tx: oneshot::Sender<Result<(), VaultError>>,
+        vault_id: VaultId,
     },
     FinishLockVault {
-        vault: VaultPair,
         client_tx: oneshot::Sender<Result<(), VaultError>>,
-    },
-    ListVaults {
-        client_tx: oneshot::Sender<Vec<VaultId>>,
+        vault: VaultPair,
     },
     UnlockVault {
+        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
         // TODO: It feels like I should hash the password before sending it
         // through a channel, but I need to store a salt per secret, which would
         // be stored in the actor state. So the options are an extra round-trip
@@ -113,12 +67,18 @@ pub enum VaultActorInput {
         // eventually fix this.
         password: String,
         vault_id: VaultId,
-        client_tx: oneshot::Sender<VaultHandle>,
+    },
+    FinishUnlockVault {
+        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+        unlock_result: Result<VaultPair<UnlockedSecretVaultContent>, (VaultPair, VaultError)>,
+    },
+    ListVaults {
+        client_tx: oneshot::Sender<Vec<VaultId>>,
     },
 }
 
 /// Internal state machine of the vault actor
-pub struct VaultActorState {
+pub struct VaultActor {
     /// State of capabilities for vaults
     ///
     /// Vault caps contained may be expired or unexpired, revoked or unrevoked.
@@ -150,7 +110,7 @@ pub struct VaultActorState {
     unlocked_vaults: HashMap<VaultId, VaultPair<UnlockedSecretVaultContent>>,
 }
 
-impl VaultActorState {
+impl VaultActor {
     pub fn new(
         root: CapRoot,
         tx: flume::Sender<VaultActorInput>,
@@ -218,9 +178,6 @@ impl VaultActorState {
             VaultActorInput::FinishLockVault { vault, client_tx } => {
                 self.try_finish_lock_vault(vault, client_tx).await?;
             }
-            VaultActorInput::ListVaults { client_tx } => {
-                self.try_list_vaults(client_tx).await?;
-            }
             VaultActorInput::UnlockVault {
                 password,
                 vault_id,
@@ -228,20 +185,17 @@ impl VaultActorState {
             } => {
                 self.try_unlock_vault(password, vault_id, client_tx).await?;
             }
+            VaultActorInput::FinishUnlockVault {
+                client_tx,
+                unlock_result,
+            } => {
+                self.try_finish_unlock_vault(client_tx, unlock_result)
+                    .await?;
+            }
+            VaultActorInput::ListVaults { client_tx } => {
+                self.try_list_vaults(client_tx).await?;
+            }
         }
         Ok(())
-    }
-
-    async fn try_list_vaults(&mut self, client_tx: oneshot::Sender<Vec<VaultId>>) -> Result<()> {
-        todo!()
-    }
-
-    async fn try_unlock_vault(
-        &mut self,
-        password: String,
-        vault_id: VaultId,
-        client_tx: oneshot::Sender<VaultHandle>,
-    ) -> Result<()> {
-        todo!()
     }
 }

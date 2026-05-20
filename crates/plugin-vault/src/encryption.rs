@@ -2,7 +2,7 @@
 
 use aes_gcm_siv::{
     Aes256GcmSiv, Nonce, aead,
-    aead::{Aead, AeadCore, KeyInit, OsRng},
+    aead::{Aead, KeyInit, OsRng},
 };
 use argon2::Argon2;
 use base64::{Engine as _, engine::general_purpose};
@@ -42,7 +42,7 @@ pub fn encrypt(plaintext: String, hash: [u8; 32]) -> Result<String, CryptError> 
 }
 
 /// Given a base64-encoded encrypted text and a password hash, return the decrypted plaintext.
-pub fn decrypt(encrypted_text: String, hash: [u8; 32]) -> Result<String, CryptError> {
+pub fn decrypt(encrypted_text: &str, hash: [u8; 32]) -> Result<String, CryptError> {
     let cipher = Aes256GcmSiv::new_from_slice(hash.as_slice())?;
 
     let cyphertext_from_string = general_purpose::STANDARD_NO_PAD.decode(encrypted_text)?;
@@ -103,6 +103,7 @@ pub fn get_random_string(length: usize) -> String {
 
 #[cfg(not(test))]
 fn generate_nonce() -> Nonce {
+    use aes_gcm_siv::aead::AeadCore;
     Aes256GcmSiv::generate_nonce(&mut OsRng)
 }
 
@@ -190,6 +191,7 @@ value = [[1702851212, \"Some other notes\"]]"#,
     fn test_decrypt_vault() {
         let hash = get_password_hash();
         let expected = get_decrypted_vault();
-        assert_eq!(decrypt(get_encrypted_vault(), hash).unwrap(), expected);
+        let encrypted_vault = get_encrypted_vault();
+        assert_eq!(decrypt(&encrypted_vault, hash).unwrap(), expected);
     }
 }

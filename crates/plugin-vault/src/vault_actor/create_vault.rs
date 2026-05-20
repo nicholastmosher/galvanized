@@ -1,33 +1,32 @@
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Result, anyhow};
 use tokio::sync::oneshot;
-use zed::unstable::util::ResultExt as _;
 
 use crate::{
-    vault_actor::{DEFAULT_VAULT_TIMEOUT, VaultActor, VaultActorInput, VaultActorState},
+    error::VaultError,
+    vault_actor::{DEFAULT_VAULT_TIMEOUT, VaultActor, VaultActorHandle, VaultActorInput},
     vault_cap::{VaultAccess, VaultCap},
-    vault_data::{Vault, VaultError, VaultHandle, VaultPair},
+    vault_data::{Vault, VaultHandle, VaultPair},
 };
 
-impl VaultActor {
+impl VaultActorHandle {
     /// Creates a new password-protected vault with the given password.
     ///
     /// A single vault may have multiple data entries associated with it,
     /// the defining feature of a vault is the protection under one password.
-    pub async fn create_vault(&self, password: String) -> Result<VaultHandle> {
+    pub async fn create_vault(&self, password: String) -> Result<VaultHandle, VaultError> {
         let (tx, rx) = oneshot::channel();
         self.tx
             .send_async(VaultActorInput::CreateVault { password, tx })
             .await
-            .map_err(|_| anyhow::anyhow!("channel error while sending create_vault request"))?;
+            .expect("channel error while sending create_vault reqest");
         let handle = rx
             .await
-            .context("channel error while receiving create_vault response")?
-            .context("error while creating new vault")?;
+            .expect("channel error while receiving create_vault response")?;
         Ok(handle)
     }
 }
 
-impl VaultActorState {
+impl VaultActor {
     /// Kick off vault creation in a spawned task
     ///
     /// When the vault creation task finishes, it will send back an
@@ -93,12 +92,14 @@ async fn create_vault_task(
             actor_tx
                 .send_async(VaultActorInput::FinishCreateVault { client_tx, vault })
                 .await
-                .map_err(|error| anyhow!(error))
-                .log_err();
+                .expect("channel error while sending finish_create_vault event to actor");
         }
         // Vault creation failed, send the error back to the client
         Err(error) => {
-            client_tx.send(Err(error)).ok();
+            client_tx
+                .send(Err(error))
+                .map_err(|_| anyhow!("channel error while sending create_vault error to client"))
+                .unwrap();
         }
     }
 }
@@ -110,11 +111,7 @@ async fn try_create_vault(password: String) -> Result<Vault, VaultError> {
         anyhow::Ok(vault)
     })
     .await
-    .map_err(|error| {
-        VaultError::Other(
-            anyhow!(error).context("failed to join spawn_blocking while creating vault"),
-        )
-    })?
+    .expect("failed to join spawn_blocking while creating vault")
     .map_err(VaultError::Other)?;
 
     Ok(vault)

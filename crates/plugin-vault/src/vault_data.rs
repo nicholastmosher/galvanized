@@ -1,6 +1,7 @@
-use crate::secret_repository::encrypted_repository::encryption::{
-    CryptError, decrypt, encrypt, generate_salt, hash_password,
-};
+use std::sync::Arc;
+
+use crate::encryption::{decrypt, encrypt, generate_salt, hash_password};
+use crate::error::VaultError;
 use crate::vault_actor::VaultActorInput;
 use crate::vault_cap::{VaultAccess, VaultRevoker, VaultSendCap};
 use anyhow::{Context as _, Result, anyhow};
@@ -10,20 +11,8 @@ use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use serde_json::json;
-use thiserror::Error;
 use tokio::sync::oneshot;
 use uuid::Uuid;
-
-/// Errors that can occur when interacting with a [`Vault`].
-#[derive(Debug, Error)]
-pub enum VaultError {
-    #[error("failed to create vault: duplicate vault ID")]
-    DuplicateVaultId(VaultId),
-    #[error("failed vault encryption or decryption")]
-    CryptoError(#[from] CryptError),
-    #[error(transparent)]
-    Other(anyhow::Error),
-}
 
 /// A pair of a [`VaultHandle`] and its corresponding [`Vault`].
 ///
@@ -34,12 +23,19 @@ pub struct VaultPair<S = LockedSecretVaultContent> {
 }
 
 impl<S> VaultPair<S> {
+    /// Creates a new [`VaultPair`] from the given [`VaultHandle`] and [`Vault`].
     pub fn new(handle: VaultHandle, vault: Box<Vault<S>>) -> Self {
         Self { handle, vault }
     }
 
+    /// Returns the [`VaultId`] of the vault.
     pub fn id(&self) -> VaultId {
         self.vault.id()
+    }
+
+    /// Returns a [`VaultHandle`] to the vault.
+    pub fn handle(&self) -> VaultHandle {
+        self.handle.clone()
     }
 }
 
@@ -48,8 +44,37 @@ impl VaultPair<UnlockedSecretVaultContent> {
     pub fn lock(self) -> Result<VaultPair<LockedSecretVaultContent>> {
         self.handle.revoker.revoke();
         let locked = self.vault.lock()?;
-        let locked_state = VaultPair::new(self.handle, Box::new(locked));
-        Ok(locked_state)
+        let locked_pair = VaultPair::new(self.handle, Box::new(locked));
+        Ok(locked_pair)
+    }
+}
+
+impl VaultPair<LockedSecretVaultContent> {
+    /// Unlocks the vault using the given password and returns an
+    /// [`UnlockedSecretVaultContent`] vault.
+    ///
+    /// This method should be considered a blocking operation and should be
+    /// called using `spawn_blocking` or a similar mechanism to avoid blocking
+    /// the main thread.
+    ///
+    /// On error, this returns the original Locked VaultPair and the error.
+    pub fn unlock(
+        self,
+        password: &str,
+    ) -> Result<
+        VaultPair<UnlockedSecretVaultContent>,
+        (VaultPair<LockedSecretVaultContent>, VaultError),
+    > {
+        let result = self.vault.unlock(password);
+        let unlocked = match result {
+            Ok(unlocked) => unlocked,
+            Err((vault, error)) => {
+                // On error, return the original vault and the error
+                return Err((VaultPair::new(self.handle, Box::new(vault)), error));
+            }
+        };
+        let unlocked_pair = VaultPair::new(self.handle, Box::new(unlocked));
+        Ok(unlocked_pair)
     }
 }
 
@@ -223,17 +248,35 @@ impl Vault<LockedSecretVaultContent> {
     /// Consider this a blocking operation which should be executed within the
     /// scope of a `spawn_blocking` call or similar, due to the serialization
     /// and decryption work done here.
-    pub fn unlock(self, password: &str) -> Result<Vault<UnlockedSecretVaultContent>> {
-        let salt = &self.public.salt;
-        let password_hash = hash_password(password, salt).context("failed to hash password")?;
-        let encrypted_text = self.secret.0;
-        let decrypted_string =
-            decrypt(encrypted_text, password_hash).context("failed to decrypt vault")?;
-        let secret_user_content = serde_json::from_str::<SecretUserContent>(&decrypted_string)
-            .context("failed to deserialize unlocked vault content")?;
-        let unlocked_vault_content = UnlockedSecretVaultContent {
-            password_hash,
-            user_content: secret_user_content,
+    ///
+    /// On error, returns the still-locked vault and the error that occurred.
+    pub fn unlock(
+        self,
+        password: &str,
+    ) -> Result<Vault<UnlockedSecretVaultContent>, (Vault, VaultError)> {
+        // Catch all errors together, because if we return error we also need to
+        // return the original locked Vault.
+        let result = (|| {
+            let salt = &self.public.salt;
+            let password_hash = hash_password(password, salt).context("failed to hash password")?;
+            let encrypted_text = self.secret.0.clone();
+            let decrypted_string =
+                decrypt(&encrypted_text, password_hash).context("failed to decrypt vault")?;
+            let secret_user_content = serde_json::from_str::<SecretUserContent>(&decrypted_string)
+                .context("failed to deserialize unlocked vault content")?;
+            let unlocked_vault_content = UnlockedSecretVaultContent {
+                password_hash,
+                user_content: secret_user_content,
+            };
+            Ok(unlocked_vault_content)
+        })()
+        .map_err(VaultError::Other);
+
+        let unlocked_vault_content = match result {
+            Ok(content) => content,
+            Err(e) => {
+                return Err((self, e));
+            }
         };
 
         Ok(Vault {
@@ -259,7 +302,7 @@ impl Vault<UnlockedSecretVaultContent> {
             .context("failed to encrypt user secret content")?;
 
         Ok(Vault {
-            secret: LockedSecretVaultContent(encrypted_base64),
+            secret: LockedSecretVaultContent(encrypted_base64.into()),
             public: self.public,
         })
     }
@@ -287,7 +330,7 @@ impl Vault<UnlockedSecretVaultContent> {
 
 /// The serialized, encrypted, base64-encoded form of a vault's content.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LockedSecretVaultContent(String);
+pub struct LockedSecretVaultContent(Arc<str>);
 
 /// The deserialized, in-memory form of a vault's content.
 ///

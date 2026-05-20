@@ -8,8 +8,6 @@ use zed::unstable::db::kvp::KEY_VALUE_STORE;
 
 use crate::secret_repository::SecretRepository;
 
-pub mod encryption;
-
 const SECRETS_PREFIX: &str = "gzed/secrets";
 const SECRETS_INDEX: &str = "gzed/secrets/index";
 

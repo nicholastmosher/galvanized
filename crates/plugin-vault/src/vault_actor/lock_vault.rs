@@ -1,14 +1,40 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Context as _, Result};
 use tokio::sync::oneshot;
 use tracing::info;
-use zed::unstable::util::ResultExt as _;
 
 use crate::{
-    vault_actor::{VaultActorInput, VaultActorState},
-    vault_data::{UnlockedSecretVaultContent, VaultError, VaultId, VaultPair},
+    error::VaultError,
+    vault_actor::{VaultActor, VaultActorHandle, VaultActorInput},
+    vault_data::{UnlockedSecretVaultContent, VaultId, VaultPair},
 };
 
-impl VaultActorState {
+impl VaultActorHandle {
+    /// Lock the vault with the given vault ID
+    pub async fn lock_vault(&self, vault_id: VaultId) -> Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send_async(VaultActorInput::LockVault {
+                vault_id,
+                client_tx: tx,
+            })
+            .await
+            .map_err(|_| anyhow::anyhow!("channel error while sending lock_vault request"))?;
+        rx.await
+            .context("channel error while receiving lock_vault response")?
+            .context("error while locking vault")?;
+
+        Ok(())
+    }
+}
+
+impl VaultActor {
+    /// Handle a LockVault request from a client.
+    ///
+    /// - Check `unlocked_vaults` for a vault with the given ID.
+    /// - If found, send the vault to a lock task, needed due to blocking crypto ops.
+    /// - After successful locking, task sends the locked vault back to actor via
+    ///   a [`FinishLockVault`] message.
+    /// - Finish request by inserting locked vault into `locked_vaults` and responding to client.
     pub async fn try_lock_vault(
         &mut self,
         client_tx: oneshot::Sender<Result<(), VaultError>>,
@@ -16,13 +42,14 @@ impl VaultActorState {
     ) -> Result<()> {
         let Some(unlocked) = self.unlocked_vaults.remove(&vault_id) else {
             info!("VaultActor: Vault {vault_id} is already locked");
-            client_tx.send(Ok(())).log_err();
+            client_tx
+                .send(Ok(()))
+                .expect("channel error while sending lock_vault response (already locked)");
             return Ok(());
         };
 
         let actor_tx = self.tx.clone();
         tokio::spawn(lock_vault_task(actor_tx, client_tx, unlocked));
-
         Ok(())
     }
 
@@ -33,7 +60,9 @@ impl VaultActorState {
     ) -> Result<()> {
         let vault_id = vault.id();
         self.locked_vaults.insert(vault_id, vault);
-        client_tx.send(Ok(())).log_err();
+        client_tx
+            .send(Ok(()))
+            .expect("channel error while sending lock_vault response (locked successfully)");
         Ok(())
     }
 }
@@ -45,18 +74,20 @@ impl VaultActorState {
 async fn lock_vault_task(
     actor_tx: flume::Sender<VaultActorInput>,
     client_tx: oneshot::Sender<Result<(), VaultError>>,
-    unlocked_vault: VaultPair<UnlockedSecretVaultContent>,
+    unlocked: VaultPair<UnlockedSecretVaultContent>,
 ) {
-    let result = try_lock_vault(unlocked_vault).await;
+    let result = try_lock_vault(unlocked).await;
     match result {
         Ok(vault) => {
             actor_tx
                 .send_async(VaultActorInput::FinishLockVault { vault, client_tx })
                 .await
-                .log_err();
+                .expect("channel error while finishing unlock_vault");
         }
         Err(error) => {
-            client_tx.send(Err(error)).log_err();
+            client_tx
+                .send(Err(error))
+                .expect("channel error while sending lock_vault error response");
         }
     }
 }
@@ -69,11 +100,7 @@ async fn try_lock_vault(
         anyhow::Ok(locked)
     })
     .await
-    .map_err(|error| {
-        VaultError::Other(anyhow!(
-            "error while awaiting spawn_blocking for locking vault: {error}"
-        ))
-    })?
+    .expect("failed to join spawn_blocking for locking vault")
     .map_err(|error| VaultError::Other(error.context("error while locking vault")))?;
 
     Ok(locked)
