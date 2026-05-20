@@ -20,10 +20,10 @@ impl VaultActorHandle {
                 client_tx,
             })
             .await
-            .context("channel error while sending unlock_vault request")?;
+            .expect("channel error while sending unlock_vault request");
         let handle = rx
             .await
-            .context("channel error while receiving unlock_vault response")?
+            .expect("channel error while receiving unlock_vault response")
             .context("failed to unlock vault")?;
         Ok(handle)
     }

@@ -11,6 +11,10 @@ pub enum VaultError {
     CryptoError(#[from] CryptError),
     #[error("failed to find vault with ID {0}")]
     MissingVault(VaultId),
+    #[error("vault is locked")]
+    VaultLocked(VaultId),
+    #[error("failed to validate vault capability")]
+    InvalidCapability(#[from] capsec::CapSecError),
     #[error(transparent)]
     Other(anyhow::Error),
 }

@@ -14,9 +14,12 @@ impl VaultActorHandle {
     /// A single vault may have multiple data entries associated with it,
     /// the defining feature of a vault is the protection under one password.
     pub async fn create_vault(&self, password: String) -> Result<VaultHandle, VaultError> {
-        let (tx, rx) = oneshot::channel();
+        let (client_tx, rx) = oneshot::channel();
         self.tx
-            .send_async(VaultActorInput::CreateVault { password, tx })
+            .send_async(VaultActorInput::CreateVault {
+                password,
+                client_tx,
+            })
             .await
             .expect("channel error while sending create_vault reqest");
         let handle = rx

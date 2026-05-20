@@ -7,6 +7,7 @@ use tokio::sync::oneshot;
 
 use crate::{
     error::VaultError,
+    vault_actor::read_vault::ReadVaultRequest,
     vault_cap::VaultAccess,
     vault_data::{UnlockedSecretVaultContent, Vault, VaultHandle, VaultId, VaultPair},
 };
@@ -14,6 +15,7 @@ use crate::{
 pub mod create_vault;
 pub mod list_vaults;
 pub mod lock_vault;
+pub mod read_vault;
 pub mod unlock_vault;
 
 // TODO: Make configurable
@@ -29,7 +31,7 @@ pub struct VaultActorHandle {
 pub enum VaultActorInput {
     CreateVault {
         password: String,
-        tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
     },
     FinishCreateVault {
         client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
@@ -62,6 +64,7 @@ pub enum VaultActorInput {
     ListVaults {
         client_tx: oneshot::Sender<Vec<VaultId>>,
     },
+    ReadVault(ReadVaultRequest),
 }
 
 /// Internal state machine of the vault actor
@@ -146,8 +149,11 @@ impl VaultActor {
     /// Dispatches an input event to the appropriate handler.
     async fn try_handle_input(&mut self, input: VaultActorInput) -> Result<()> {
         match input {
-            VaultActorInput::CreateVault { password, tx } => {
-                self.try_create_vault(password, tx).await;
+            VaultActorInput::CreateVault {
+                password,
+                client_tx,
+            } => {
+                self.try_create_vault(password, client_tx).await;
             }
             VaultActorInput::FinishCreateVault { client_tx, vault } => {
                 self.try_finish_create_vault(client_tx, vault).await?;
@@ -178,7 +184,40 @@ impl VaultActor {
             VaultActorInput::ListVaults { client_tx } => {
                 self.try_list_vaults(client_tx).await?;
             }
+            VaultActorInput::ReadVault(read_vault) => {
+                self.try_read_vault(read_vault).await?;
+            }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_create_vault() {
+        let root = capsec::test_root();
+        let vault_cap = root.grant::<VaultAccess>().make_send();
+        let (actor_tx, actor_rx) = flume::bounded(100);
+        let mut actor = VaultActor::new(vault_cap, actor_tx.clone(), actor_rx.clone());
+
+        let (client_tx, client_rx) = oneshot::channel();
+        actor
+            .try_handle_input(VaultActorInput::CreateVault {
+                password: "deadbeef".to_string(),
+                client_tx,
+            })
+            .await
+            .unwrap();
+
+        let input = actor_rx.recv_async().await.unwrap();
+        assert!(matches!(input, VaultActorInput::FinishCreateVault { .. }));
+
+        actor.try_handle_input(input).await.unwrap();
+        assert_eq!(actor.locked_vaults.len(), 1);
+
+        let _handle = client_rx.await.unwrap().unwrap();
     }
 }

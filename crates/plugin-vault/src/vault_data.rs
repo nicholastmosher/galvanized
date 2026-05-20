@@ -19,7 +19,7 @@ use uuid::Uuid;
 /// Used to store a [`Vault`]'s data and handle together in the [`VaultActor`] state.
 pub struct VaultPair<S = LockedSecretVaultContent> {
     handle: VaultHandle,
-    vault: Box<Vault<S>>,
+    pub(crate) vault: Box<Vault<S>>,
 }
 
 impl<S> VaultPair<S> {
@@ -307,6 +307,16 @@ impl Vault<UnlockedSecretVaultContent> {
         })
     }
 
+    /// Returns a reference to the vault user's secret content
+    pub fn user_content(&self) -> UserContentRef {
+        (&self.public.user_content, &self.secret.user_content)
+    }
+
+    /// Returns a mutable reference to the vault user's secret content
+    pub fn user_content_mut(&mut self) -> UserContentMut {
+        (&mut self.public.user_content, &mut self.secret.user_content)
+    }
+
     /// Returns a reference to the vault user's public content
     pub fn public_content(&self) -> &PublicUserContent {
         &self.public.user_content
@@ -385,12 +395,15 @@ impl PublicVaultContent {
     }
 }
 
+pub type UserContentRef<'a> = (&'a PublicUserContent, &'a SecretUserContent);
+pub type UserContentMut<'a> = (&'a mut PublicUserContent, &'a mut SecretUserContent);
+
 /// The user's public content, without any vault machinery included
 ///
 /// This may include items such as a display name or a vault avatar
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct PublicUserContent(JsonValue);
+pub struct PublicUserContent(pub JsonValue);
 impl PublicUserContent {
     /// Create a new empty public user content object
     pub fn new() -> Self {
@@ -402,7 +415,7 @@ impl PublicUserContent {
 ///
 /// This content will be encrypted and stored securely in the vault
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SecretUserContent(JsonValue);
+pub struct SecretUserContent(pub JsonValue);
 impl SecretUserContent {
     /// Create a new empty secret user content object
     pub fn new() -> Self {
