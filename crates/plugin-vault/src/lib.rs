@@ -33,7 +33,7 @@ actions!(vault, [Lock, Unlock]);
 pub fn init(cx: &mut App) {
     let root = root();
     let repo = InsecureSecretRepository::new();
-    let state = cx.new(|_cx| VaultState::new(root, repo));
+    let state = cx.new(|_cx| VaultCxState::new(root, repo));
     cx.set_global(GlobalVault(state.clone()));
 
     cx.observe_new::<Workspace>(move |workspace, _window, _cx| {
@@ -52,7 +52,7 @@ pub fn init(cx: &mut App) {
     .detach();
 }
 
-struct GlobalVault(Entity<VaultState>);
+struct GlobalVault(Entity<VaultCxState>);
 impl Global for GlobalVault {}
 
 pub trait VaultExt {
@@ -61,10 +61,10 @@ pub trait VaultExt {
 
 pub struct VaultCx<'a> {
     cx: &'a mut App,
-    state: Entity<VaultState>,
+    state: Entity<VaultCxState>,
 }
 
-pub struct VaultState {
+pub struct VaultCxState {
     root: CapRoot,
     repo: Arc<dyn DynSecretRepository>,
     vault_cap: Option<TimedCap<VaultAll>>,
@@ -74,7 +74,7 @@ pub struct VaultState {
     )>,
 }
 
-impl VaultState {
+impl VaultCxState {
     pub fn new(root: CapRoot, repo: impl SecretRepository) -> Self {
         Self {
             root,

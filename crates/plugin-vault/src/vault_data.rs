@@ -1,8 +1,9 @@
 use crate::secret_repository::encrypted_repository::encryption::{
     CryptError, decrypt, encrypt, generate_salt, hash_password,
 };
+use crate::vault_actor::VaultActorInput;
 use crate::vault_cap::{VaultAccess, VaultRevoker, VaultSendCap};
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, anyhow};
 use capsec::CapSecError;
 use capsec::Scope;
 use derive_more::Display;
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use serde_json::json;
 use thiserror::Error;
+use tokio::sync::oneshot;
 use uuid::Uuid;
 
 /// Errors that can occur when interacting with a [`Vault`].
@@ -23,27 +25,30 @@ pub enum VaultError {
     Other(anyhow::Error),
 }
 
-/// A wrapper around a [`Vault`] and its corresponding [`VaultHandle`].
+/// A pair of a [`VaultHandle`] and its corresponding [`Vault`].
 ///
-/// This is used to revoke the capabilities of clones of the [`VaultHandle`]
-/// when the [`Vault`] is locked.
-pub struct VaultState<S = LockedSecretVaultContent> {
+/// Used to store a [`Vault`]'s data and handle together in the [`VaultActor`] state.
+pub struct VaultPair<S = LockedSecretVaultContent> {
     handle: VaultHandle,
     vault: Box<Vault<S>>,
 }
 
-impl<S> VaultState<S> {
+impl<S> VaultPair<S> {
     pub fn new(handle: VaultHandle, vault: Box<Vault<S>>) -> Self {
         Self { handle, vault }
     }
+
+    pub fn id(&self) -> VaultId {
+        self.vault.id()
+    }
 }
 
-impl VaultState<UnlockedSecretVaultContent> {
+impl VaultPair<UnlockedSecretVaultContent> {
     /// Consumes the Unlocked vault and returns a new [`VaultState`] with the locked vault.
-    pub fn lock(self) -> anyhow::Result<VaultState<LockedSecretVaultContent>> {
-        self.handle.revoke();
+    pub fn lock(self) -> Result<VaultPair<LockedSecretVaultContent>> {
+        self.handle.revoker.revoke();
         let locked = self.vault.lock()?;
-        let locked_state = VaultState::new(self.handle, Box::new(locked));
+        let locked_state = VaultPair::new(self.handle, Box::new(locked));
         Ok(locked_state)
     }
 }
@@ -51,24 +56,31 @@ impl VaultState<UnlockedSecretVaultContent> {
 /// A handle granting access to a particular [`Vault`]
 #[derive(Clone)]
 pub struct VaultHandle {
-    id: VaultId,
+    vault_id: VaultId,
     cap: VaultSendCap<VaultAccess, VaultId>,
     revoker: VaultRevoker,
+    actor_tx: flume::Sender<VaultActorInput>,
 }
 
 impl VaultHandle {
     /// Creates a new [`VaultHandle`] with the given ID, capability, and revoker.
     pub fn new(
-        id: VaultId,
+        vault_id: VaultId,
         cap: VaultSendCap<VaultAccess, VaultId>,
         revoker: VaultRevoker,
+        actor_tx: flume::Sender<VaultActorInput>,
     ) -> Self {
-        Self { id, cap, revoker }
+        Self {
+            vault_id,
+            cap,
+            revoker,
+            actor_tx,
+        }
     }
 
     /// Returns the ID of the vault this handle grants access to
     pub fn id(&self) -> VaultId {
-        self.id.clone()
+        self.vault_id.clone()
     }
 
     /// Returns a reference to the vault's send capability
@@ -76,12 +88,31 @@ impl VaultHandle {
         &self.cap
     }
 
-    /// Revokes the capability associated with this handle.
+    /// Locks the vault associated with this handle.
+    ///
+    /// This immediately revokes the capability associated with this handle, and
+    /// sends a lock event to the [`VaultActor`] to kick off the lock process.
     ///
     /// Any subsequent attempt to use any capability returned by
     /// [`VaultHandle::cap`] will return `Err(CapSecError::Revoked)`.
-    pub fn revoke(&self) {
+    pub fn lock(&self) -> impl Future<Output = Result<()>> {
+        // Immediately revoke capability
         self.revoker.revoke();
+
+        async move {
+            let (client_tx, rx) = oneshot::channel();
+            self.actor_tx
+                .send_async(VaultActorInput::LockVault {
+                    vault_id: self.vault_id.clone(),
+                    client_tx,
+                })
+                .await
+                .map_err(|_| anyhow!("channel error while sending lock request"))?;
+            rx.await
+                .context("channel error while sending lock request")?
+                .context("error while locking vault")?;
+            Ok(())
+        }
     }
 }
 

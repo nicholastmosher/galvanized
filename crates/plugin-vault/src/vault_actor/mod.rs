@@ -1,16 +1,17 @@
 use std::{collections::HashMap, time::Duration};
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Context as _, Result};
 use capsec::CapRoot;
 use futures::{Stream, StreamExt as _};
 use tokio::sync::oneshot;
-use tracing::info;
-use zed::unstable::util::ResultExt;
 
 use crate::{
-    vault_cap::{VaultAccess, VaultCap, VaultSendCap},
-    vault_data::{UnlockedSecretVaultContent, Vault, VaultError, VaultHandle, VaultId, VaultState},
+    vault_cap::{VaultAccess, VaultSendCap},
+    vault_data::{UnlockedSecretVaultContent, Vault, VaultError, VaultHandle, VaultId, VaultPair},
 };
+
+pub mod create_vault;
+pub mod lock_vault;
 
 const VAULTS_PREFIX: &str = "gzed/vaults";
 const VAULTS_INDEX: &str = "gzed/vaults/index";
@@ -34,54 +35,51 @@ impl VaultActor {
         Ok(Self { _join_handle, tx })
     }
 
-    /// Creates a new password-protected vault with the given ID.
-    ///
-    /// A single vault may have multiple data entries associated with it,
-    /// the defining feature of a vault is the protection under one password.
-    pub async fn create_vault(&self, password: String) -> Result<VaultHandle> {
-        let (tx, rx) = oneshot::channel();
-        self.tx
-            .send_async(VaultActorInput::CreateVault { password, tx })
-            .await
-            .map_err(|_error| anyhow::anyhow!("failed to send create_vault request to actor"))?;
-        let handle = rx
-            .await
-            .context("failed to receive create_vault response from actor")??;
-        Ok(handle)
-    }
-
     /// Get a list of all vault IDs
     pub async fn list_vaults(&self) -> Result<Vec<VaultId>> {
         let (tx, rx) = oneshot::channel();
         self.tx
             .send_async(VaultActorInput::ListVaults { client_tx: tx })
             .await
-            .map_err(|_error| anyhow::anyhow!("failed to send list_vaults request to actor"))?;
+            .map_err(|_| anyhow::anyhow!("channel error while sending list_vaults request"))?;
         let secrets = rx
             .await
-            .context("failed to receive list_vaults response from actor")?;
+            .context("channel error while receiving list_vaults response")?;
         Ok(secrets)
     }
 
+    /// Lock the vault with the given vault ID
+    pub async fn lock_vault(&self, vault_id: VaultId) -> Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send_async(VaultActorInput::LockVault {
+                vault_id,
+                client_tx: tx,
+            })
+            .await
+            .map_err(|_| anyhow::anyhow!("channel error while sending lock_vault request"))?;
+        rx.await
+            .context("channel error while receiving lock_vault response")?
+            .context("error while locking vault")?;
+
+        Ok(())
+    }
+
     /// Unlock the vault with the given vault ID using the given password
-    pub async fn unlock_vault(
-        &self,
-        password: String,
-        vault_id: VaultId,
-    ) -> Result<VaultSendCap<VaultAccess, VaultId>> {
+    pub async fn unlock_vault(&self, password: String, vault_id: VaultId) -> Result<VaultHandle> {
         let (tx, rx) = oneshot::channel();
         self.tx
             .send_async(VaultActorInput::UnlockVault {
                 password,
                 vault_id,
-                tx,
+                client_tx: tx,
             })
             .await
-            .context("failed to send unlock_vault request to actor")?;
-        let cap = rx
+            .context("channel error while sending unlock_vault request")?;
+        let handle = rx
             .await
-            .context("failed to receive unlock_vault response from actor")?;
-        Ok(cap)
+            .context("channel error while receiving unlock_vault response")?;
+        Ok(handle)
     }
 }
 
@@ -90,16 +88,20 @@ pub enum VaultActorInput {
         password: String,
         tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
     },
-    VaultCreated {
+    FinishCreateVault {
         client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
         vault: Box<Vault>,
     },
-    ListVaults {
-        client_tx: oneshot::Sender<Vec<VaultId>>,
-    },
     LockVault {
         vault_id: VaultId,
-        tx: Option<oneshot::Sender<()>>,
+        client_tx: oneshot::Sender<Result<(), VaultError>>,
+    },
+    FinishLockVault {
+        vault: VaultPair,
+        client_tx: oneshot::Sender<Result<(), VaultError>>,
+    },
+    ListVaults {
+        client_tx: oneshot::Sender<Vec<VaultId>>,
     },
     UnlockVault {
         // TODO: It feels like I should hash the password before sending it
@@ -111,7 +113,7 @@ pub enum VaultActorInput {
         // eventually fix this.
         password: String,
         vault_id: VaultId,
-        tx: oneshot::Sender<VaultSendCap<VaultAccess, VaultId>>,
+        client_tx: oneshot::Sender<VaultHandle>,
     },
 }
 
@@ -142,10 +144,10 @@ pub struct VaultActorState {
     rx: flume::Receiver<VaultActorInput>,
 
     /// Locked vaults, keyed by vault ID
-    locked_vaults: HashMap<VaultId, VaultState>,
+    locked_vaults: HashMap<VaultId, VaultPair>,
 
     /// Unlocked vaults, keyed by vault ID
-    unlocked_vaults: HashMap<VaultId, VaultState<UnlockedSecretVaultContent>>,
+    unlocked_vaults: HashMap<VaultId, VaultPair<UnlockedSecretVaultContent>>,
 }
 
 impl VaultActorState {
@@ -204,63 +206,29 @@ impl VaultActorState {
             VaultActorInput::CreateVault { password, tx } => {
                 self.try_create_vault(password, tx).await;
             }
-            VaultActorInput::VaultCreated { client_tx, vault } => {
+            VaultActorInput::FinishCreateVault { client_tx, vault } => {
                 self.try_finish_create_vault(client_tx, vault).await?;
+            }
+            VaultActorInput::LockVault {
+                vault_id,
+                client_tx,
+            } => {
+                self.try_lock_vault(client_tx, vault_id).await?;
+            }
+            VaultActorInput::FinishLockVault { vault, client_tx } => {
+                self.try_finish_lock_vault(vault, client_tx).await?;
             }
             VaultActorInput::ListVaults { client_tx } => {
                 self.try_list_vaults(client_tx).await?;
             }
-            VaultActorInput::LockVault { vault_id, tx } => {
-                self.try_lock_vault(vault_id).await?;
-                if let Some(tx) = tx {
-                    tx.send(()).ok();
-                }
-            }
             VaultActorInput::UnlockVault {
                 password,
                 vault_id,
-                tx,
+                client_tx,
             } => {
-                self.try_unlock_vault(password, vault_id, tx).await?;
+                self.try_unlock_vault(password, vault_id, client_tx).await?;
             }
         }
-        Ok(())
-    }
-
-    async fn try_create_vault(
-        &mut self,
-        password: String,
-        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
-    ) {
-        let actor_tx = self.tx.clone();
-        tokio::spawn(create_vault_task(actor_tx, client_tx, password));
-    }
-
-    /// Upon a Vault being successfully created, store the Vault in the actor's
-    /// state and generate a [`VaultHandle`] to return to the client.
-    async fn try_finish_create_vault(
-        &mut self,
-        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
-        vault: Box<Vault>,
-    ) -> Result<()> {
-        let vault_id = vault.id();
-        let handle = {
-            let cap = self.root.grant::<VaultAccess>();
-            let ttl = DEFAULT_VAULT_TIMEOUT;
-            let (cap, revoker) = VaultCap::new(cap, ttl, vault_id.clone());
-            let cap = cap.make_send();
-            VaultHandle::new(vault_id.clone(), cap, revoker)
-        };
-
-        let vault_state = VaultState::new(handle.clone(), vault);
-        self.locked_vaults.insert(vault_id.clone(), vault_state);
-
-        client_tx
-            //
-            .send(Ok(handle))
-            .map_err(|_| {
-                VaultError::Other(anyhow!("failed to return the vault handle to the client"))
-            })?;
         Ok(())
     }
 
@@ -268,73 +236,12 @@ impl VaultActorState {
         todo!()
     }
 
-    async fn try_lock_vault(&mut self, vault_id: VaultId) -> Result<()> {
-        let Some(unlocked) = self.unlocked_vaults.remove(&vault_id) else {
-            info!("VaultActor: Vault {vault_id} is already locked");
-            return Ok(());
-        };
-
-        // TODO use spawn_blocking
-        let locked = unlocked.lock()?;
-        self.locked_vaults.insert(vault_id, locked);
-        Ok(())
-    }
-
     async fn try_unlock_vault(
         &mut self,
         password: String,
         vault_id: VaultId,
-        tx: oneshot::Sender<VaultSendCap<VaultAccess, VaultId>>,
+        client_tx: oneshot::Sender<VaultHandle>,
     ) -> Result<()> {
         todo!()
     }
-}
-
-/// Task to be spawned to create a new [`Vault`]
-///
-/// Creating a Vault involves cryptographic operations, so needs to take place
-/// on a worker task and use `spawn_blocking` to avoid blocking the executor.
-///
-/// On success, the Vault is sent via channel back to the [`VaultActor`] to be
-/// persisted and to complete the client request.
-///
-/// On error, we send the error directly back to the client.
-async fn create_vault_task(
-    actor_tx: flume::Sender<VaultActorInput>,
-    client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
-    password: String,
-) {
-    let result = try_create_vault(password).await;
-    match result {
-        // Vault created successfully, send it back to the actor to persist
-        Ok(vault) => {
-            let vault = Box::new(vault);
-            actor_tx
-                .send_async(VaultActorInput::VaultCreated { client_tx, vault })
-                .await
-                .map_err(|error| anyhow!(error))
-                .log_err();
-        }
-        // Vault creation failed, send the error back to the client
-        Err(error) => {
-            client_tx.send(Err(error)).ok();
-        }
-    }
-}
-
-async fn try_create_vault(password: String) -> Result<Vault, VaultError> {
-    // Future to create the vault, using spawn_blocking due to cryptographic operations
-    let vault = tokio::task::spawn_blocking(move || {
-        let vault = Vault::new(&password).map_err(VaultError::Other)?;
-        anyhow::Ok(vault)
-    })
-    .await
-    .map_err(|error| {
-        VaultError::Other(
-            anyhow!(error).context("failed to join spawn_blocking while creating vault"),
-        )
-    })?
-    .map_err(VaultError::Other)?;
-
-    Ok(vault)
 }
