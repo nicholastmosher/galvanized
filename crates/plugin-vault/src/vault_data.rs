@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::encryption::{decrypt, encrypt, generate_salt, hash_password};
+use crate::encryption::{decrypt, encrypt, hash_password};
 use crate::error::VaultError;
 use crate::vault_actor::VaultActorInput;
 use crate::vault_actor::lock_vault::LockVault;
@@ -14,6 +14,11 @@ use serde_json::Value as JsonValue;
 use serde_json::json;
 use tokio::sync::oneshot;
 use uuid::Uuid;
+
+pub struct PasswordHash {
+    pub hash: [u8; 32],
+    pub salt: String,
+}
 
 /// A pair of a [`VaultHandle`] and its corresponding [`Vault`].
 ///
@@ -214,24 +219,15 @@ pub struct Vault<S = LockedSecretVaultContent> {
 
 impl Vault<LockedSecretVaultContent> {
     /// Construct a new locked vault with the given password.
-    pub fn new(password: &str) -> Result<Vault<LockedSecretVaultContent>> {
-        let salt = generate_salt();
-        Self::with_salt(password, &salt)
-    }
-
-    /// Construct a new locked vault with the given password and salt.
-    pub fn with_salt(password: &str, salt: &str) -> Result<Vault<LockedSecretVaultContent>> {
-        let password_hash = hash_password(password, &salt)
-            .context("failed to hash password while creating vault")?;
-
+    pub fn new(password_hash: PasswordHash) -> Result<Vault<LockedSecretVaultContent>> {
         // Create empty user content
         let secret_user_content = SecretUserContent::new();
 
         // Create unlocked vault content, holding the password hash in order to
         // allow locking without prompting for the password again
         let vault = Vault {
-            public: PublicVaultContent::new(salt.to_string()),
-            secret: UnlockedSecretVaultContent::new(password_hash, secret_user_content),
+            public: PublicVaultContent::new(password_hash.salt.to_string()),
+            secret: UnlockedSecretVaultContent::new(password_hash.hash, secret_user_content),
         };
 
         // Newly constructed vaults should be locked by default

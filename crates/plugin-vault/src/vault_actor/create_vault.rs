@@ -1,15 +1,17 @@
 use anyhow::{Result, anyhow};
 use tokio::sync::oneshot;
+use zeroize::Zeroize as _;
 
 use crate::{
+    encryption::{generate_salt, hash_password},
     error::VaultError,
     vault_actor::{DEFAULT_VAULT_TIMEOUT, VaultActor, VaultActorHandle, VaultActorInput},
     vault_cap::VaultCap,
-    vault_data::{Vault, VaultHandle, VaultPair},
+    vault_data::{PasswordHash, Vault, VaultHandle, VaultPair},
 };
 
 pub struct CreateVault {
-    pub password: String,
+    pub password_hash: PasswordHash,
     pub client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
 }
 
@@ -23,12 +25,23 @@ impl VaultActorHandle {
     ///
     /// A single vault may have multiple data entries associated with it,
     /// the defining feature of a vault is the protection under one password.
-    pub async fn create_vault(&self, password: String) -> Result<VaultHandle, VaultError> {
+    pub async fn create_vault(&self, mut password: String) -> Result<VaultHandle, VaultError> {
+        let password_hash = tokio::task::spawn_blocking(move || {
+            // Salt and hash this password as quickly as possible so we can
+            // zeroize the plaintext password ASAP
+            let salt = generate_salt();
+            let hash = hash_password(&password, &salt)?;
+            password.zeroize();
+            Ok::<_, VaultError>(PasswordHash { hash, salt })
+        })
+        .await
+        .expect("failed to join spawn_blocking hash_password task")?;
+
         let (client_tx, rx) = oneshot::channel();
         self.tx
             .send_async(
                 CreateVault {
-                    password,
+                    password_hash,
                     client_tx,
                 }
                 .into(),
@@ -51,7 +64,7 @@ impl VaultActor {
     pub async fn try_create_vault(
         &mut self,
         CreateVault {
-            password,
+            password_hash: password,
             client_tx,
         }: CreateVault,
     ) {
@@ -67,7 +80,7 @@ impl VaultActor {
     ) -> Result<()> {
         let vault_id = vault.id();
         let handle = {
-            let cap = self.vault_cap.as_cap();
+            let cap = self.cap.as_cap();
             let ttl = DEFAULT_VAULT_TIMEOUT;
             let (cap, revoker) = VaultCap::new(cap, ttl, vault_id.clone());
             let cap = cap.make_send();
@@ -99,9 +112,9 @@ impl VaultActor {
 async fn create_vault_task(
     actor_tx: flume::Sender<VaultActorInput>,
     client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
-    password: String,
+    password_hash: PasswordHash,
 ) {
-    let result = try_create_vault(password).await;
+    let result = try_create_vault(password_hash).await;
     match result {
         // Vault created successfully, send it back to the actor to persist
         Ok(vault) => {
@@ -124,10 +137,10 @@ async fn create_vault_task(
     }
 }
 
-async fn try_create_vault(password: String) -> Result<Vault, VaultError> {
+async fn try_create_vault(password_hash: PasswordHash) -> Result<Vault, VaultError> {
     // Future to create the vault, using spawn_blocking due to cryptographic operations
     let vault = tokio::task::spawn_blocking(move || {
-        let vault = Vault::new(&password).map_err(VaultError::Other)?;
+        let vault = Vault::new(password_hash).map_err(VaultError::Other)?;
         anyhow::Ok(vault)
     })
     .await

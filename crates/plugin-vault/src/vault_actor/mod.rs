@@ -47,16 +47,16 @@ pub enum VaultActorInput {
 /// Internal state machine of the vault actor
 pub struct VaultActor {
     /// Vault capability, used for accessing vaults
-    vault_cap: SendCap<VaultAccess>,
+    cap: SendCap<VaultAccess>,
+
+    /// Database connection pool for storing vault secrets.
+    db: sqlx::SqlitePool,
 
     /// Hold a clone of our own event sender, used for dispatched tasks to return
     /// results back to the actor.
     tx: flume::Sender<VaultActorInput>,
 
     /// Receiver for incoming input events.
-    // THIS IS CURRENTLY HIGHLY SENSITIVE SINCE IT RECEIVES PLAINTEXT PASSWORDS
-    // IN EVENTS. RESTRICT CLONING OR ACCESS, CONSIDER CHANGING THIS PROCESS TO
-    // ONLY HANDLING HASHED PASSWORDS.
     rx: flume::Receiver<VaultActorInput>,
 
     /// Locked vaults, keyed by vault ID
@@ -67,21 +67,23 @@ pub struct VaultActor {
 }
 
 impl VaultActor {
-    pub fn spawn(vault_cap: SendCap<VaultAccess>) -> Result<VaultActorHandle> {
+    pub fn spawn(db: sqlx::SqlitePool, cap: SendCap<VaultAccess>) -> Result<VaultActorHandle> {
         let (tx, rx) = flume::bounded(ACTOR_CHANNEL_CAPACITY);
-        let state = VaultActor::new(vault_cap, tx.clone(), rx);
+        let state = VaultActor::new(db, cap, tx.clone(), rx);
         let future = state.run();
         let _join_handle = tokio::spawn(future);
         Ok(VaultActorHandle { _join_handle, tx })
     }
 
     pub fn new(
-        vault_cap: SendCap<VaultAccess>,
+        db: sqlx::Pool<sqlx::Sqlite>,
+        cap: SendCap<VaultAccess>,
         tx: flume::Sender<VaultActorInput>,
         rx: flume::Receiver<VaultActorInput>,
     ) -> Self {
         Self {
-            vault_cap,
+            cap,
+            db,
             tx,
             rx,
             locked_vaults: Default::default(),
@@ -158,20 +160,49 @@ impl VaultActor {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        encryption::{generate_salt, hash_password},
+        vault_data::PasswordHash,
+    };
+
     use super::*;
+    use anyhow::Context as _;
+    use std::str::FromStr as _;
     use tokio::sync::oneshot;
 
     #[tokio::test]
     async fn test_create_vault() {
         let root = capsec::test_root();
-        let vault_cap = root.grant::<VaultAccess>().make_send();
+        let db_path = "sqlite:test.db";
+        let db = sqlx::SqlitePool::connect_with(
+            sqlx::sqlite::SqliteConnectOptions::from_str(db_path)
+                .with_context(|| format!("invalid database path {}", db_path))
+                .unwrap()
+                .pragma("foreign_keys", "ON"),
+        )
+        .await
+        .with_context(|| format!("failed to open database at {}", db_path))
+        .unwrap();
+
+        let cap = root.grant::<VaultAccess>().make_send();
         let (actor_tx, actor_rx) = flume::bounded(100);
-        let mut actor = VaultActor::new(vault_cap, actor_tx.clone(), actor_rx.clone());
+        let mut actor = VaultActor::new(db, cap, actor_tx.clone(), actor_rx.clone());
+
+        let password_hash = tokio::task::spawn_blocking(move || {
+            let password = "deadbeef";
+            let salt = generate_salt();
+            let hash = hash_password(password, &salt)?;
+            let password_hash = PasswordHash { hash, salt };
+            anyhow::Ok(password_hash)
+        })
+        .await
+        .unwrap()
+        .expect("error hashing password");
 
         let (client_tx, client_rx) = oneshot::channel();
         actor
             .try_handle_input(CreateVault {
-                password: "deadbeef".to_string(),
+                password_hash,
                 client_tx,
             })
             .await
