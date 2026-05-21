@@ -3,13 +3,17 @@ use std::{collections::HashMap, time::Duration};
 use anyhow::Result;
 use capsec::SendCap;
 use futures::{Stream, StreamExt as _};
-use tokio::sync::oneshot;
 
 use crate::{
-    error::VaultError,
-    vault_actor::read_vault::ReadVaultRequest,
+    vault_actor::{
+        create_vault::{CreateVault, FinishCreateVault},
+        list_vaults::ListVaults,
+        lock_vault::{FinishLockVault, LockVault},
+        read_vault::ReadVaultRequest,
+        unlock_vault::{FinishUnlockVault, UnlockVaultEvent},
+    },
     vault_cap::VaultAccess,
-    vault_data::{UnlockedSecretVaultContent, Vault, VaultHandle, VaultId, VaultPair},
+    vault_data::{UnlockedSecretVaultContent, VaultId, VaultPair},
 };
 
 pub mod create_vault;
@@ -28,43 +32,16 @@ pub struct VaultActorHandle {
     tx: flume::Sender<VaultActorInput>,
 }
 
+#[derive(derive_more::From)]
 pub enum VaultActorInput {
-    CreateVault {
-        password: String,
-        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
-    },
-    FinishCreateVault {
-        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
-        vault: Box<Vault>,
-    },
-    LockVault {
-        client_tx: oneshot::Sender<Result<(), VaultError>>,
-        vault_id: VaultId,
-    },
-    FinishLockVault {
-        client_tx: oneshot::Sender<Result<(), VaultError>>,
-        vault: VaultPair,
-    },
-    UnlockVault {
-        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
-        // TODO: It feels like I should hash the password before sending it
-        // through a channel, but I need to store a salt per secret, which would
-        // be stored in the actor state. So the options are an extra round-trip
-        // to lookup the salt so I can hash before sending via the channel, or
-        // to trust sending sensitive info in the channel. But I can't control
-        // zeroizing semantics in the channel memory, so it feels like I should
-        // eventually fix this.
-        password: String,
-        vault_id: VaultId,
-    },
-    FinishUnlockVault {
-        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
-        unlock_result: Result<VaultPair<UnlockedSecretVaultContent>, (VaultPair, VaultError)>,
-    },
-    ListVaults {
-        client_tx: oneshot::Sender<Vec<VaultId>>,
-    },
-    ReadVault(ReadVaultRequest),
+    CreateVault(#[from] CreateVault),
+    FinishCreateVault(#[from] FinishCreateVault),
+    LockVault(#[from] LockVault),
+    FinishLockVault(#[from] FinishLockVault),
+    UnlockVault(#[from] UnlockVaultEvent),
+    FinishUnlockVault(#[from] FinishUnlockVault),
+    ListVaults(#[from] ListVaults),
+    ReadVault(#[from] ReadVaultRequest),
 }
 
 /// Internal state machine of the vault actor
@@ -147,42 +124,29 @@ impl VaultActor {
     }
 
     /// Dispatches an input event to the appropriate handler.
-    async fn try_handle_input(&mut self, input: VaultActorInput) -> Result<()> {
-        match input {
-            VaultActorInput::CreateVault {
-                password,
-                client_tx,
-            } => {
-                self.try_create_vault(password, client_tx).await;
+    async fn try_handle_input(&mut self, input: impl Into<VaultActorInput>) -> Result<()> {
+        let event = input.into();
+        match event {
+            VaultActorInput::CreateVault(event) => {
+                self.try_create_vault(event).await;
             }
-            VaultActorInput::FinishCreateVault { client_tx, vault } => {
-                self.try_finish_create_vault(client_tx, vault).await?;
+            VaultActorInput::FinishCreateVault(event) => {
+                self.try_finish_create_vault(event).await?;
             }
-            VaultActorInput::LockVault {
-                vault_id,
-                client_tx,
-            } => {
-                self.try_lock_vault(client_tx, vault_id).await?;
+            VaultActorInput::LockVault(event) => {
+                self.try_lock_vault(event).await?;
             }
-            VaultActorInput::FinishLockVault { vault, client_tx } => {
-                self.try_finish_lock_vault(vault, client_tx).await?;
+            VaultActorInput::FinishLockVault(event) => {
+                self.try_finish_lock_vault(event).await?;
             }
-            VaultActorInput::UnlockVault {
-                password,
-                vault_id,
-                client_tx,
-            } => {
-                self.try_unlock_vault(password, vault_id, client_tx).await?;
+            VaultActorInput::UnlockVault(event) => {
+                self.try_unlock_vault(event).await?;
             }
-            VaultActorInput::FinishUnlockVault {
-                client_tx,
-                unlock_result,
-            } => {
-                self.try_finish_unlock_vault(client_tx, unlock_result)
-                    .await?;
+            VaultActorInput::FinishUnlockVault(event) => {
+                self.try_finish_unlock_vault(event).await?;
             }
-            VaultActorInput::ListVaults { client_tx } => {
-                self.try_list_vaults(client_tx).await?;
+            VaultActorInput::ListVaults(event) => {
+                self.try_list_vaults(event).await?;
             }
             VaultActorInput::ReadVault(read_vault) => {
                 self.try_read_vault(read_vault).await?;
@@ -195,6 +159,7 @@ impl VaultActor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::sync::oneshot;
 
     #[tokio::test]
     async fn test_create_vault() {
@@ -205,7 +170,7 @@ mod tests {
 
         let (client_tx, client_rx) = oneshot::channel();
         actor
-            .try_handle_input(VaultActorInput::CreateVault {
+            .try_handle_input(CreateVault {
                 password: "deadbeef".to_string(),
                 client_tx,
             })

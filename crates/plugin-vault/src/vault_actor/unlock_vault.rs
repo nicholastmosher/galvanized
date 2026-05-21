@@ -9,16 +9,37 @@ use crate::{
     },
 };
 
+pub struct UnlockVaultEvent {
+    pub client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+    // TODO: It feels like I should hash the password before sending it
+    // through a channel, but I need to store a salt per secret, which would
+    // be stored in the actor state. So the options are an extra round-trip
+    // to lookup the salt so I can hash before sending via the channel, or
+    // to trust sending sensitive info in the channel. But I can't control
+    // zeroizing semantics in the channel memory, so it feels like I should
+    // eventually fix this.
+    pub password: String,
+    pub vault_id: VaultId,
+}
+
+pub struct FinishUnlockVault {
+    pub client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+    pub unlock_result: Result<VaultPair<UnlockedSecretVaultContent>, (VaultPair, VaultError)>,
+}
+
 impl VaultActorHandle {
     /// Unlock the vault with the given vault ID using the given password
     pub async fn unlock_vault(&self, password: String, vault_id: VaultId) -> Result<VaultHandle> {
         let (client_tx, rx) = oneshot::channel();
         self.tx
-            .send_async(VaultActorInput::UnlockVault {
-                password,
-                vault_id,
-                client_tx,
-            })
+            .send_async(
+                UnlockVaultEvent {
+                    password,
+                    vault_id,
+                    client_tx,
+                }
+                .into(),
+            )
             .await
             .expect("channel error while sending unlock_vault request");
         let handle = rx
@@ -33,9 +54,11 @@ impl VaultActor {
     /// Event handler for [`VaultActorInput::UnlockVault`]
     pub async fn try_unlock_vault(
         &mut self,
-        password: String,
-        vault_id: VaultId,
-        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+        UnlockVaultEvent {
+            client_tx,
+            password,
+            vault_id,
+        }: UnlockVaultEvent,
     ) -> Result<()> {
         // If the vault exists and is unlocked, send the handle and return
         if let Some(unlocked_vault) = self.unlocked_vaults.get(&vault_id) {
@@ -67,10 +90,12 @@ impl VaultActor {
 
     pub async fn try_finish_unlock_vault(
         &mut self,
-        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
-        result: Result<VaultPair<UnlockedSecretVaultContent>, (VaultPair, VaultError)>,
+        FinishUnlockVault {
+            client_tx,
+            unlock_result,
+        }: FinishUnlockVault,
     ) -> Result<()> {
-        let unlocked = match result {
+        let unlocked = match unlock_result {
             Ok(unlocked) => unlocked,
             // On error, put the locked vault back in the actor state
             Err((locked, error)) => {
@@ -111,10 +136,13 @@ async fn unlock_vault_task(
         Err((locked, error)) => {
             let result = Err((locked, error));
             actor_tx
-                .send_async(VaultActorInput::FinishUnlockVault {
-                    client_tx,
-                    unlock_result: result,
-                })
+                .send_async(
+                    FinishUnlockVault {
+                        client_tx,
+                        unlock_result: result,
+                    }
+                    .into(),
+                )
                 .await
                 .expect("channel error while sending unlock_vault result");
             return;
@@ -123,10 +151,13 @@ async fn unlock_vault_task(
 
     let result = Ok(unlocked);
     actor_tx
-        .send_async(VaultActorInput::FinishUnlockVault {
-            client_tx,
-            unlock_result: result,
-        })
+        .send_async(
+            FinishUnlockVault {
+                client_tx,
+                unlock_result: result,
+            }
+            .into(),
+        )
         .await
         .expect("channel error while sending unlock_vault result");
 }

@@ -2,16 +2,20 @@ use anyhow::{Context as _, Result, anyhow};
 use tokio::sync::oneshot;
 
 use crate::{
-    vault_actor::{VaultActor, VaultActorHandle, VaultActorInput},
+    vault_actor::{VaultActor, VaultActorHandle},
     vault_data::VaultId,
 };
+
+pub struct ListVaults {
+    pub client_tx: oneshot::Sender<Vec<VaultId>>,
+}
 
 impl VaultActorHandle {
     /// Get a list of all vault IDs
     pub async fn list_vaults(&self) -> Result<Vec<VaultId>> {
         let (tx, rx) = oneshot::channel();
         self.tx
-            .send_async(VaultActorInput::ListVaults { client_tx: tx })
+            .send_async(ListVaults { client_tx: tx }.into())
             .await
             .map_err(|_| anyhow!("channel error while sending list_vaults request"))?;
         let secrets = rx
@@ -23,10 +27,7 @@ impl VaultActorHandle {
 
 impl VaultActor {
     /// Event handler for the [`VaultActorInput::ListVaults`] event
-    pub async fn try_list_vaults(
-        &mut self,
-        client_tx: oneshot::Sender<Vec<VaultId>>,
-    ) -> Result<()> {
+    pub async fn try_list_vaults(&mut self, ListVaults { client_tx }: ListVaults) -> Result<()> {
         let vaults = self
             .unlocked_vaults
             .keys()

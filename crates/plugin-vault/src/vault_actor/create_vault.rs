@@ -8,6 +8,16 @@ use crate::{
     vault_data::{Vault, VaultHandle, VaultPair},
 };
 
+pub struct CreateVault {
+    pub password: String,
+    pub client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+}
+
+pub struct FinishCreateVault {
+    pub client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+    pub vault: Box<Vault>,
+}
+
 impl VaultActorHandle {
     /// Creates a new password-protected vault with the given password.
     ///
@@ -16,10 +26,13 @@ impl VaultActorHandle {
     pub async fn create_vault(&self, password: String) -> Result<VaultHandle, VaultError> {
         let (client_tx, rx) = oneshot::channel();
         self.tx
-            .send_async(VaultActorInput::CreateVault {
-                password,
-                client_tx,
-            })
+            .send_async(
+                CreateVault {
+                    password,
+                    client_tx,
+                }
+                .into(),
+            )
             .await
             .expect("channel error while sending create_vault reqest");
         let handle = rx
@@ -37,8 +50,10 @@ impl VaultActor {
     /// completed in [`try_finish_create_vault`].
     pub async fn try_create_vault(
         &mut self,
-        password: String,
-        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
+        CreateVault {
+            password,
+            client_tx,
+        }: CreateVault,
     ) {
         let actor_tx = self.tx.clone();
         tokio::spawn(create_vault_task(actor_tx, client_tx, password));
@@ -48,8 +63,7 @@ impl VaultActor {
     /// state and generate a [`VaultHandle`] to return to the client.
     pub async fn try_finish_create_vault(
         &mut self,
-        client_tx: oneshot::Sender<Result<VaultHandle, VaultError>>,
-        vault: Box<Vault>,
+        FinishCreateVault { client_tx, vault }: FinishCreateVault,
     ) -> Result<()> {
         let vault_id = vault.id();
         let handle = {
@@ -93,7 +107,10 @@ async fn create_vault_task(
         Ok(vault) => {
             let vault = Box::new(vault);
             actor_tx
-                .send_async(VaultActorInput::FinishCreateVault { client_tx, vault })
+                .send_async(VaultActorInput::FinishCreateVault(FinishCreateVault {
+                    client_tx,
+                    vault,
+                }))
                 .await
                 .expect("channel error while sending finish_create_vault event to actor");
         }

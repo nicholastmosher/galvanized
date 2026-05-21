@@ -8,15 +8,28 @@ use crate::{
     vault_data::{UnlockedSecretVaultContent, VaultId, VaultPair},
 };
 
+pub struct LockVault {
+    pub client_tx: oneshot::Sender<Result<(), VaultError>>,
+    pub vault_id: VaultId,
+}
+
+pub struct FinishLockVault {
+    pub client_tx: oneshot::Sender<Result<(), VaultError>>,
+    pub vault: VaultPair,
+}
+
 impl VaultActorHandle {
     /// Lock the vault with the given vault ID
     pub async fn lock_vault(&self, vault_id: VaultId) -> Result<()> {
         let (tx, rx) = oneshot::channel();
         self.tx
-            .send_async(VaultActorInput::LockVault {
-                vault_id,
-                client_tx: tx,
-            })
+            .send_async(
+                LockVault {
+                    vault_id,
+                    client_tx: tx,
+                }
+                .into(),
+            )
             .await
             .map_err(|_| anyhow::anyhow!("channel error while sending lock_vault request"))?;
         rx.await
@@ -37,8 +50,10 @@ impl VaultActor {
     /// - Finish request by inserting locked vault into `locked_vaults` and responding to client.
     pub async fn try_lock_vault(
         &mut self,
-        client_tx: oneshot::Sender<Result<(), VaultError>>,
-        vault_id: VaultId,
+        LockVault {
+            client_tx,
+            vault_id,
+        }: LockVault,
     ) -> Result<()> {
         let Some(unlocked) = self.unlocked_vaults.remove(&vault_id) else {
             info!("VaultActor: Vault {vault_id} is already locked");
@@ -55,8 +70,7 @@ impl VaultActor {
 
     pub async fn try_finish_lock_vault(
         &mut self,
-        vault: VaultPair,
-        client_tx: oneshot::Sender<Result<(), VaultError>>,
+        FinishLockVault { client_tx, vault }: FinishLockVault,
     ) -> Result<()> {
         let vault_id = vault.id();
         self.locked_vaults.insert(vault_id, vault);
@@ -80,7 +94,7 @@ async fn lock_vault_task(
     match result {
         Ok(vault) => {
             actor_tx
-                .send_async(VaultActorInput::FinishLockVault { vault, client_tx })
+                .send_async(FinishLockVault { vault, client_tx }.into())
                 .await
                 .expect("channel error while finishing unlock_vault");
         }

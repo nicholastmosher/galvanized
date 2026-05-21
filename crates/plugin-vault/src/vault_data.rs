@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::encryption::{decrypt, encrypt, generate_salt, hash_password};
 use crate::error::VaultError;
 use crate::vault_actor::VaultActorInput;
+use crate::vault_actor::lock_vault::LockVault;
 use crate::vault_cap::{VaultAccess, VaultRevoker, VaultSendCap};
 use anyhow::{Context as _, Result, anyhow};
 use capsec::CapSecError;
@@ -127,10 +128,13 @@ impl VaultHandle {
         async move {
             let (client_tx, rx) = oneshot::channel();
             self.actor_tx
-                .send_async(VaultActorInput::LockVault {
-                    vault_id: self.vault_id.clone(),
-                    client_tx,
-                })
+                .send_async(
+                    LockVault {
+                        vault_id: self.vault_id.clone(),
+                        client_tx,
+                    }
+                    .into(),
+                )
                 .await
                 .map_err(|_| anyhow!("channel error while sending lock request"))?;
             rx.await
@@ -308,12 +312,12 @@ impl Vault<UnlockedSecretVaultContent> {
     }
 
     /// Returns a reference to the vault user's secret content
-    pub fn user_content(&self) -> UserContentRef {
+    pub fn user_content(&self) -> UserContentRef<'_> {
         (&self.public.user_content, &self.secret.user_content)
     }
 
     /// Returns a mutable reference to the vault user's secret content
-    pub fn user_content_mut(&mut self) -> UserContentMut {
+    pub fn user_content_mut(&mut self) -> UserContentMut<'_> {
         (&mut self.public.user_content, &mut self.secret.user_content)
     }
 
