@@ -1,6 +1,11 @@
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    str::FromStr as _,
+    time::Duration,
+};
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use capsec::SendCap;
 use futures::{Stream, StreamExt as _};
 
@@ -67,20 +72,37 @@ pub struct VaultActor {
 }
 
 impl VaultActor {
-    pub fn spawn(db: sqlx::SqlitePool, cap: SendCap<VaultAccess>) -> Result<VaultActorHandle> {
-        let (tx, rx) = flume::bounded(ACTOR_CHANNEL_CAPACITY);
-        let state = VaultActor::new(db, cap, tx.clone(), rx);
-        let future = state.run();
+    pub fn spawn(db_path: PathBuf, cap: SendCap<VaultAccess>) -> Result<VaultActorHandle> {
+        let (actor_tx, rx) = flume::bounded(ACTOR_CHANNEL_CAPACITY);
+        let tx = actor_tx.clone();
+        let future = async move {
+            let actor = VaultActor::new(&db_path, cap, tx, rx).await;
+            actor.run().await;
+        };
         let _join_handle = tokio::spawn(future);
-        Ok(VaultActorHandle { _join_handle, tx })
+        Ok(VaultActorHandle {
+            _join_handle,
+            tx: actor_tx,
+        })
     }
 
-    pub fn new(
-        db: sqlx::Pool<sqlx::Sqlite>,
+    pub async fn new(
+        db_path: &Path,
         cap: SendCap<VaultAccess>,
         tx: flume::Sender<VaultActorInput>,
         rx: flume::Receiver<VaultActorInput>,
     ) -> Self {
+        let db = sqlx::SqlitePool::connect_with(
+            sqlx::sqlite::SqliteConnectOptions::from_str(&format!("sqlite:{}", db_path.display()))
+                .with_context(|| format!("invalid database path {}", db_path.display()))
+                .unwrap()
+                .pragma("foreign_keys", "ON")
+                .pragma("secure_delete", "ON"),
+        )
+        .await
+        .with_context(|| format!("failed to open database at {}", db_path.display()))
+        .unwrap();
+
         Self {
             cap,
             db,
@@ -160,33 +182,21 @@ impl VaultActor {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{
         encryption::{generate_salt, hash_password},
         vault_data::PasswordHash,
     };
-
-    use super::*;
-    use anyhow::Context as _;
-    use std::str::FromStr as _;
     use tokio::sync::oneshot;
 
     #[tokio::test]
     async fn test_create_vault() {
         let root = capsec::test_root();
         let db_path = "sqlite:test.db";
-        let db = sqlx::SqlitePool::connect_with(
-            sqlx::sqlite::SqliteConnectOptions::from_str(db_path)
-                .with_context(|| format!("invalid database path {}", db_path))
-                .unwrap()
-                .pragma("foreign_keys", "ON"),
-        )
-        .await
-        .with_context(|| format!("failed to open database at {}", db_path))
-        .unwrap();
-
         let cap = root.grant::<VaultAccess>().make_send();
         let (actor_tx, actor_rx) = flume::bounded(100);
-        let mut actor = VaultActor::new(db, cap, actor_tx.clone(), actor_rx.clone());
+        let mut actor =
+            VaultActor::new(Path::new(db_path), cap, actor_tx.clone(), actor_rx.clone()).await;
 
         let password_hash = tokio::task::spawn_blocking(move || {
             let password = "deadbeef";

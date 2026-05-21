@@ -31,33 +31,49 @@ pub fn hash_password(password: &str, salt: &str) -> Result<[u8; 32], CryptError>
 }
 
 /// Given a plaintext String and a password hash, return a base64-encoded encrypted text.
-pub fn encrypt(plaintext: String, hash: [u8; 32]) -> Result<String, CryptError> {
-    let cipher = Aes256GcmSiv::new_from_slice(hash.as_slice())?;
-    let nonce = generate_nonce();
-
-    let ciphertext = cipher.encrypt(&nonce, plaintext.as_bytes().as_ref())?;
-    let payload = [&nonce, ciphertext.as_slice()].concat();
-    let b64_payload = general_purpose::STANDARD_NO_PAD.encode(payload).to_string();
+pub fn encrypt_base64(plaintext: String, hash: [u8; 32]) -> Result<String, CryptError> {
+    let cypher_payload = encrypt(plaintext.as_bytes(), hash)?;
+    let b64_payload = general_purpose::STANDARD_NO_PAD
+        .encode(cypher_payload)
+        .to_string();
     Ok(b64_payload)
 }
 
-/// Given a base64-encoded encrypted text and a password hash, return the decrypted plaintext.
-pub fn decrypt(encrypted_text: &str, hash: [u8; 32]) -> Result<String, CryptError> {
+pub fn encrypt(plaintext: &[u8], hash: [u8; 32]) -> Result<Vec<u8>, CryptError> {
     let cipher = Aes256GcmSiv::new_from_slice(hash.as_slice())?;
+    let nonce = generate_nonce();
+    let ciphertext = cipher.encrypt(&nonce, plaintext)?;
+    let cypher_payload = [&nonce, ciphertext.as_slice()].concat();
+    Ok(cypher_payload)
+}
 
+/// Given a base64-encoded encrypted text and a password hash, return the decrypted plaintext.
+pub fn decrypt_base64(encrypted_text: &str, hash: [u8; 32]) -> Result<String, CryptError> {
     let cyphertext_from_string = general_purpose::STANDARD_NO_PAD.decode(encrypted_text)?;
-    let (nonce_bytes, cyphertext) = cyphertext_from_string.split_at(12);
-    let nonce = Nonce::from_slice(nonce_bytes);
-
-    let plaintext = cipher.decrypt(nonce, cyphertext)?;
+    let plaintext = decrypt(cyphertext_from_string.as_slice(), hash)?;
     let utf8_string = from_utf8(plaintext.as_slice())?.to_string();
     Ok(utf8_string)
+}
+
+pub fn decrypt(cypher_payload: &[u8], hash: [u8; 32]) -> Result<Vec<u8>, CryptError> {
+    let cipher = Aes256GcmSiv::new_from_slice(hash.as_slice())?;
+    let (nonce_bytes, cyphertext) = cypher_payload.split_at(12);
+    let nonce = Nonce::from_slice(nonce_bytes);
+    let plaintext = cipher.decrypt(nonce, cyphertext)?;
+    Ok(plaintext)
 }
 
 const SALT_LETTER_COUNT: usize = 32;
 
 pub fn generate_salt() -> String {
     get_random_string(SALT_LETTER_COUNT)
+}
+
+pub fn generate_aes_key() -> [u8; 32] {
+    use rand_0_8_5::RngCore;
+    let mut key = [0u8; 32];
+    OsRng.fill_bytes(&mut key);
+    key
 }
 
 /// Given a length, return a random string of that length using a predefined
@@ -184,7 +200,10 @@ value = [[1702851212, \"Some other notes\"]]"#,
     fn test_encrypt_vault() {
         let hash = get_password_hash();
         let expected = get_encrypted_vault();
-        assert_eq!(encrypt(get_decrypted_vault(), hash).unwrap(), expected);
+        assert_eq!(
+            encrypt_base64(get_decrypted_vault(), hash).unwrap(),
+            expected
+        );
     }
 
     #[test]
@@ -192,6 +211,6 @@ value = [[1702851212, \"Some other notes\"]]"#,
         let hash = get_password_hash();
         let expected = get_decrypted_vault();
         let encrypted_vault = get_encrypted_vault();
-        assert_eq!(decrypt(&encrypted_vault, hash).unwrap(), expected);
+        assert_eq!(decrypt_base64(&encrypted_vault, hash).unwrap(), expected);
     }
 }

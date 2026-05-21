@@ -184,6 +184,18 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 May 21
+
+Vault progress:
+
+- Started a second-round implementation based on the pseudocode from yesterday
+
+Vault next steps:
+
+- Make "multiple vaults in one database" first class in the API
+- Implement unlock sessions
+- Implement data access and key rotation
+
 # 2026 May 20
 
 - Have implemented create_vault, lock_vault, unlock_vault, list_vault on `VaultActor`
