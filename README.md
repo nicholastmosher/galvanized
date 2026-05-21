@@ -184,6 +184,80 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 May 20
+
+- Have implemented create_vault, lock_vault, unlock_vault, list_vault on `VaultActor`
+- Receiving some review, I want to change a few things to harden the vault
+- On vault creation, generate a vault encryption key randomly
+- Use password protection to encrypt the vault's actual encryption key
+- On every access to the vault, generate a new salt for encrypting the vault's
+  encryption key, discarding the old encrypted vault key.
+
+Let me attempt to pseudocode this
+
+Creating a vault:
+
+```text
+create_vault(db, vault_password) {
+    // Generate 256 bit (32 byte) number to use as AES key
+    let vault_encryption_key = hash_password(generate_password(), generate_salt())
+
+    // The user_password_hash is rotated on every access
+    let vault_key_salt = generate_salt();
+    let vault_key_hash = hash_password(vault_password, vault_key_salt)
+    
+    let vault = { .. } // data object
+
+    let encrypted_vault = encrypt(vault, vault_encryption_key)
+    let encrypted_vault_encryption_key = encrypt(vault_encryption_key, vault_key_hash)
+    vault_encryption_key.zeroize() // immediately zeroize/shred the vault encryption key
+
+    db.vault = encrypted_vault
+    db.vault_key = encrypted_vault_encryption_key
+    db.vault_key_salt = vault_key_salt
+}
+```
+
+Accessing a vault:
+
+```text
+// let f be a function over vault data
+access_vault(db, vault_password, f) {
+    // DB Access #1: Read existing vault data
+    let encrypted_vault = db.encrypted_vault
+    let encrypted_vault_encryption_key = db.encrypted_vault_encryption_key
+    let vault_encryption_key_salt = db.vault_encryption_key_salt
+    
+    // Use old salt to derive old password hash
+    let vault_key_hash = hash_password(vault_password, vault_encryption_key_salt)
+    // Generate new salt and new password hash
+    let new_vault_key_salt = generate_salt()
+    let new_vault_key_hash = hash_password(vault_password, new_vault_key_salt)
+
+    // This should be the earliest opportunity to shred the vault_password
+    vault_password.zeroize()
+    
+    // Decrypt vault
+    let vault_encryption_key = decrypt(encrypted_vault_encryption_key, vault_key_hash)
+    let vault = decrypt(encrypted_vault, vault_encryption_key)
+    
+    // Access (and potentially mutate) vault
+    let new_vault = f(vault)
+
+    // Encrypt new vault blob with the same symmetric vault key
+    let new_encrypted_vault = encrypt(vault_encryption_key, new_vault)
+    let new_encrypted_vault_encryption_key = encrypt(vault_encryption_key, new_vault_key_hash)
+    vault_encryption_key.zeroize()
+
+    // DB Access #2: Update vault blob, encrypted key, and salt
+    db.begin()
+    db.encrypted_vault = new_encrypted_vault
+    db.encrypted_vault_encryption_key = new_encrypted_vault_encryption_key
+    db.vault_encryption_key_salt = new_vault_key_salt
+    db.commit()
+}
+```
+
 # 2026 May 19
 
 Status / Plan:
