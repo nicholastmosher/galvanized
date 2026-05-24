@@ -59,7 +59,7 @@ impl VaultsDb {
     }
 
     /// Create a new vault at the specified path.
-    async fn create(&mut self, password: String) -> Result<VaultId> {
+    pub async fn create(&mut self, password: String) -> Result<VaultId> {
         let data = tokio::task::spawn_blocking(move || VaultData::new(password))
             .await
             .expect("failed to join spawn_blocking while creating vault data")
@@ -69,8 +69,8 @@ impl VaultsDb {
             let vault_id = &data.vault_id;
             let vault_metadata = &data.metadata;
             let encrypted_vault = &data.encrypted_vault;
-            let encrypted_vault_encryption_key = &data.encrypted_vault_encryption_key;
-            let vault_encryption_key_salt = &data.vault_encryption_key_salt;
+            let encrypted_vault_encryption_key = &data.encrypted_vault_encryption_key.0;
+            let vault_encryption_key_salt = &data.vault_encryption_key_salt.0;
             let query = sqlx::query!(
                 "INSERT INTO vaults (vault_id, metadata, encrypted_vault, encrypted_vault_encryption_key, vault_encryption_key_salt) \
             VALUES ($1, $2, $3, $4, $5)",
@@ -116,36 +116,27 @@ impl VaultsDb {
         Ok(())
     }
 
-    async fn unlock(&mut self, vault_id: &VaultId, mut password: String) -> Result<()> {
+    /// Unlocks the [`Vault`] with the given [`VaultId`] using the provided password.
+    ///
+    /// The vault remains encrypted in-memory, but the vault's session key is decrypted,
+    /// then re-encrypted with a session key that is only held in memory, not persisted.
+    /// This means that if the program crashes, the vault on disk remains locked.
+    pub async fn unlock(&mut self, vault_id: &VaultId, password: String) -> Result<()> {
         self.load(vault_id).await?;
-
         let Some(vault) = self.vaults.get_mut(vault_id) else {
             bail!("failed to find vault right after loading vault to unlock vault");
         };
 
-        let mut old_password_hash =
-            hash_password(password.as_bytes(), &vault.data.vault_encryption_key_salt)
-                .context("failed to hash password while unlocking")?;
-        let decrypted_vault_encryption_key = decrypt(
-            &vault.data.encrypted_vault_encryption_key,
-            old_password_hash,
-        )
-        .context("failed to decrypt vault_encryption_key while generating unlock session key")?;
-        old_password_hash.zeroize();
+        let unlock_components = vault.unlock_components();
+        let session = tokio::task::spawn_blocking(move || {
+            let session = unlock_components.unlock(password)?;
+            anyhow::Ok(session)
+        })
+        .await
+        .expect("failed to join spawn_blocking while unlocking vault")
+        .context("failed to generate unlock session")?;
 
-        let vault_encryption_key_unlock_key = generate_256_key();
-        let session_encrypted_vault_encryption_key = encrypt(
-            &decrypted_vault_encryption_key,
-            vault_encryption_key_unlock_key,
-        )
-        .context("failed to encrypt vault encryption key while generating unlock session key")?;
-
-        vault.session = Some(VaultSession {
-            session_encrypted_vault_encryption_key: Some(session_encrypted_vault_encryption_key),
-            vault_encryption_key_session_key: Some(vault_encryption_key_unlock_key),
-        });
-
-        //
+        vault.session = Some(session);
         Ok(())
     }
 
@@ -157,40 +148,30 @@ impl VaultsDb {
     pub async fn rotate_encryption_key(
         &mut self,
         vault_id: &VaultId,
-        mut password: String,
+        password: String,
     ) -> Result<()> {
         self.load(vault_id)
             .await
             .context("failed to load database while rotating encryption key")?;
 
-        let Some(vault) = self.vaults.get(vault_id) else {
+        let Some(vault) = self.vaults.get_mut(vault_id) else {
             bail!("failed to find vault right after loading vault to rotate encryption key");
         };
 
-        let mut old_password_hash =
-            hash_password(password.as_bytes(), &vault.data.vault_encryption_key_salt)
-                .context("failed to hash password while unlocking")?;
-        let new_vault_encryption_key_salt = generate_256_key();
-        let mut new_password_hash =
-            hash_password(password.as_bytes(), &new_vault_encryption_key_salt)
-                .context("failed to hash password while rotating encryption key")?;
-        password.zeroize();
+        let mut unlock_components = vault.unlock_components();
+        let unlock_components = tokio::task::spawn_blocking(move || {
+            unlock_components.rotate_key(password)?;
+            anyhow::Ok(unlock_components)
+        })
+        .await
+        .expect("failed to join spawn_blocking while rotating vault key")
+        .context("failed to rotate vault key")?;
 
-        let decrypted_vault_encryption_key = decrypt(
-            &vault.data.encrypted_vault_encryption_key,
-            old_password_hash,
-        )
-        .context("failed to decrypt vault encryption key while rotating encryption key")?;
-        old_password_hash.zeroize();
-
-        let rotated_encrpyted_vault_encryption_key =
-            encrypt(&decrypted_vault_encryption_key, new_password_hash)
-                .context("failed to encrypt vault encryption key while rotating encryption key")?;
-        new_password_hash.zeroize();
-
+        // DB transaction and execution
         {
-            let encrypted_vault_encryption_key = &rotated_encrpyted_vault_encryption_key;
-            let new_vault_encryption_key_salt = &new_vault_encryption_key_salt;
+            let encrypted_vault_encryption_key =
+                &unlock_components.encrypted_vault_encryption_key.0;
+            let new_vault_encryption_key_salt = &unlock_components.vault_encryption_key_salt.0;
             let mut tx = self
                 .db
                 .begin()
@@ -209,6 +190,16 @@ impl VaultsDb {
             tx.commit()
                 .await
                 .context("failed to commit transaction while rotating encryption key")?;
+        }
+
+        // Update in-memory vault with the new unlock components only after DB transaction succeeds
+        {
+            let Some(vault) = self.vaults.get_mut(vault_id) else {
+                bail!(
+                    "failed to find in-mem vault right after writing rotated encryption key to db"
+                );
+            };
+            vault.set_unlock_components(&unlock_components);
         }
 
         Ok(())
@@ -364,12 +355,24 @@ impl Vault {
         })
     }
 
-    pub fn unlock(&mut self, mut password: String) -> Result<()> {
-        let password_hash =
-            hash_password(password.as_bytes(), &self.data.vault_encryption_key_salt)
-                .context("failed to hash password while unlocking")?;
-        //
-        todo!()
+    /// Returns an owned copy of the components of the vault needed for unlocking.
+    ///
+    /// This is necessary because we need to perform the unlocking cryptography in
+    /// a `spawn_blocking` context, but we don't want to move the whole vault. So
+    /// we just copy the components we need so we can move them into the context to
+    /// perform unlocking.
+    pub fn unlock_components(&self) -> VaultUnlockComponents {
+        VaultUnlockComponents {
+            encrypted_vault_encryption_key: self.data.encrypted_vault_encryption_key.clone(),
+            vault_encryption_key_salt: self.data.vault_encryption_key_salt.clone(),
+        }
+    }
+
+    /// Sets the unlock components of the vault to the given values.
+    pub fn set_unlock_components(&mut self, unlock_components: &VaultUnlockComponents) {
+        self.data.encrypted_vault_encryption_key =
+            unlock_components.encrypted_vault_encryption_key.clone();
+        self.data.vault_encryption_key_salt = unlock_components.vault_encryption_key_salt.clone();
     }
 }
 
@@ -382,12 +385,30 @@ pub struct VaultRow {
     vault_encryption_key_salt: Vec<u8>,
 }
 
+/// The data of a [`Vault`] that gets persisted in the database.
 pub struct VaultData {
+    /// The unique identifier of the vault.
     vault_id: VaultId,
+
+    /// The serialized but unencrypted metadata of the vault.
+    ///
+    /// This is serialized as JSON in the format of a [`VaultMetadata`].
     metadata: Vec<u8>,
+
+    /// The serialized and encrypted contents of the vault.
+    ///
+    /// This is serialized as JSON in the format of a [`VaultContent`].
     encrypted_vault: Vec<u8>,
-    encrypted_vault_encryption_key: Vec<u8>,
-    vault_encryption_key_salt: Vec<u8>,
+
+    /// The symmetric encryption key used to encrypt the vault contents.
+    ///
+    /// The key itself is encrypted using the user's password together
+    /// with [`vault_encryption_key_salt`].
+    encrypted_vault_encryption_key: EncryptedVaultEncryptionKey,
+
+    /// The salt used together with the user's password to derive the key used
+    /// to encrypt the vault's symmetric key.
+    vault_encryption_key_salt: VaultEncryptionKeySalt,
 }
 
 impl TryFrom<VaultRow> for VaultData {
@@ -398,8 +419,10 @@ impl TryFrom<VaultRow> for VaultData {
             vault_id: row.vault_id.parse()?,
             metadata: row.metadata,
             encrypted_vault: row.encrypted_vault,
-            encrypted_vault_encryption_key: row.encrypted_vault_encryption_key,
-            vault_encryption_key_salt: row.vault_encryption_key_salt,
+            encrypted_vault_encryption_key: EncryptedVaultEncryptionKey(
+                row.encrypted_vault_encryption_key,
+            ),
+            vault_encryption_key_salt: VaultEncryptionKeySalt(row.vault_encryption_key_salt),
         })
     }
 }
@@ -427,7 +450,9 @@ impl VaultData {
         vault_encryption_key.zeroize();
         password_hash.zeroize();
 
-        let vault_encryption_key_salt = vault_encryption_key_salt.to_vec();
+        let encrypted_vault_encryption_key =
+            EncryptedVaultEncryptionKey(encrypted_vault_encryption_key);
+        let vault_encryption_key_salt = VaultEncryptionKeySalt(vault_encryption_key_salt.to_vec());
         let data = VaultData {
             vault_id: VaultId::generate(),
             metadata,
@@ -444,22 +469,112 @@ impl VaultData {
 pub struct VaultSession {
     /// The vault's symmetric encryption key, which has itself been encrypted by
     /// the [`vault_encryption_key_session_key`] of this session.
-    session_encrypted_vault_encryption_key: Option<Vec<u8>>,
+    session_encrypted_vault_encryption_key: Option<EncryptedVaultEncryptionKey>,
 
     /// An encryption key used to lock and unlock the vault's symmetric
     /// encryption key.
-    vault_encryption_key_session_key: Option<[u8; 32]>,
+    vault_encryption_key_session_key: Option<VaultSessionKey>,
 }
 
 impl VaultSession {
     pub fn new(
-        session_encrypted_vault_encryption_key: Vec<u8>,
-        vault_encryption_key_session_key: [u8; 32],
+        session_encrypted_vault_encryption_key: EncryptedVaultEncryptionKey,
+        vault_encryption_key_session_key: VaultSessionKey,
     ) -> Self {
         Self {
             session_encrypted_vault_encryption_key: Some(session_encrypted_vault_encryption_key),
             vault_encryption_key_session_key: Some(vault_encryption_key_session_key),
         }
+    }
+}
+
+/// The encrypted symmetric key used to encrypt the vault's contents.
+#[derive(Clone, Zeroize)]
+pub struct EncryptedVaultEncryptionKey(Vec<u8>);
+
+/// The salt stored alongside a vault, combined with the user's password to
+/// unlock the vault's own symmetric key.
+#[derive(Clone)]
+pub struct VaultEncryptionKeySalt(Vec<u8>);
+
+/// 256-bit AES encryption key used for encrypting the vault's own symmetric key.
+#[derive(Zeroize)]
+pub struct VaultSessionKey([u8; 32]);
+
+/// The components of [`VaultData`] that are needed to unlock the vault.
+pub struct VaultUnlockComponents {
+    pub encrypted_vault_encryption_key: EncryptedVaultEncryptionKey,
+    pub vault_encryption_key_salt: VaultEncryptionKeySalt,
+}
+
+impl VaultUnlockComponents {
+    /// Unlocking the vault by its components yields a [`VaultSession`]
+    pub fn unlock(&self, mut password: String) -> Result<VaultSession> {
+        let mut password_hash =
+            hash_password(password.as_bytes(), &self.vault_encryption_key_salt.0)
+                .context("failed to hash password while unlocking")?;
+        password.zeroize();
+
+        let decrypted_vault_encryption_key =
+            decrypt(&self.encrypted_vault_encryption_key.0, password_hash).context(
+                "failed to decrypt vault_encryption_key while generating unlock session key",
+            )?;
+        password_hash.zeroize();
+
+        let vault_encryption_key_session_key = generate_256_key();
+        let vault_encryption_key_session_key = VaultSessionKey(vault_encryption_key_session_key);
+
+        let session_encrypted_vault_encryption_key = encrypt(
+            &decrypted_vault_encryption_key,
+            vault_encryption_key_session_key.0,
+        )
+        .context("failed to encrypt vault encryption key while generating unlock session key")?;
+        let session_encrypted_vault_encryption_key =
+            EncryptedVaultEncryptionKey(session_encrypted_vault_encryption_key);
+
+        let session = VaultSession::new(
+            session_encrypted_vault_encryption_key,
+            vault_encryption_key_session_key,
+        );
+
+        Ok(session)
+    }
+
+    /// Rotates the vault's encryption key using the given password.
+    ///
+    /// The key rotation process is as follows:
+    ///
+    /// - Derive the old password hash using the password and current salt.
+    /// - Derive a new password hash using the password and a newly generated salt.
+    /// - Decrypt the vault's symmetric key using the old password hash.
+    /// - Encrypt the vault's encryption key with the new password hash.
+    /// - Update the encrypted symmetric key and salt fields in-place
+    ///   in this [`VaultUnlockComponents`].
+    pub fn rotate_key(&mut self, mut password: String) -> Result<()> {
+        let mut old_password_hash =
+            hash_password(password.as_bytes(), &self.vault_encryption_key_salt.0)
+                .context("failed to hash password while unlocking")?;
+
+        let new_password_salt = generate_256_key().to_vec();
+        let new_password_hash = hash_password(password.as_bytes(), &new_password_salt)
+            .context("failed to hash password while rotating key")?;
+        password.zeroize();
+
+        let decrypted_vault_encryption_key =
+            decrypt(&self.encrypted_vault_encryption_key.0, old_password_hash).context(
+                "failed to decrypt vault_encryption_key while generating unlock session key",
+            )?;
+        old_password_hash.zeroize();
+
+        let new_encrypted_vault_encryption_key =
+            encrypt(&decrypted_vault_encryption_key, new_password_hash)
+                .context("failed to encrypt vault_encryption_key while rotating key")?;
+
+        self.encrypted_vault_encryption_key =
+            EncryptedVaultEncryptionKey(new_encrypted_vault_encryption_key);
+        self.vault_encryption_key_salt = VaultEncryptionKeySalt(new_password_salt);
+
+        Ok(())
     }
 }
 
@@ -479,6 +594,7 @@ pub struct VaultContent {
     entries: HashMap<VaultEntryId, VaultEntry>,
 }
 
+/// A unique identifier for one entry in a vault.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct VaultEntryId(Uuid);
@@ -488,18 +604,21 @@ impl VaultEntryId {
     }
 }
 
+/// Each entry in a vault contains a name and a list of fields.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VaultEntry {
     name: String,
     fields: Vec<VaultEntryField>,
 }
 
+/// Each field in a vault entry contains a name and a value.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VaultEntryField {
     name: String,
     value: VaultEntryFieldValue,
 }
 
+/// The value of a field in a vault entry.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum VaultEntryFieldValue {
     Username(String),
@@ -507,17 +626,4 @@ pub enum VaultEntryFieldValue {
     Email(String),
     Url(String),
     File(Vec<u8>),
-}
-
-/// A 256-bit AES encryption key used for symmetric encryption of vault
-/// contents or for encrypting other keys.
-pub struct EncryptionKey([u8; 32]);
-impl EncryptionKey {
-    /// Generate a new random encryption key.
-    pub fn generate() -> Self {
-        use rand_0_8_5::RngCore;
-        let mut key = [0u8; 32];
-        rand_core_0_6_4::OsRng.fill_bytes(&mut key);
-        Self(key)
-    }
 }
