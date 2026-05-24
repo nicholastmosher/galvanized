@@ -1,47 +1,12 @@
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 use derive_more::{Debug, Display};
 use serde::{Deserialize, Serialize};
-use sqlx::{Executor, sqlite::SqliteConnectOptions};
-use std::collections::HashMap;
+use sqlx::{Executor, Sqlite, sqlite::SqliteConnectOptions};
+use std::{collections::HashMap, str::FromStr};
 use uuid::Uuid;
 use zeroize::Zeroize;
 
-use crate::encryption::{encrypt, generate_aes_key, generate_salt, hash_password};
-
-/// A helper for hashing passwords which carries the salt used for hashing.
-#[derive(Debug)]
-pub struct PasswordHash {
-    hash: [u8; 32],
-    salt: String,
-}
-
-impl PasswordHash {
-    /// Generates a salt and hashes the given password together with it.
-    ///
-    /// The password is taken by ownership and the memory is zeroized after hashing.
-    pub fn new(password: String) -> Result<Self> {
-        let salt = generate_salt();
-        Self::with_salt(password, salt)
-    }
-
-    /// Creates a new `PasswordHash` with the given salt and hashes the password.
-    pub fn with_salt(mut password: String, salt: String) -> Result<Self> {
-        let hash_result = hash_password(&password, &salt);
-        password.zeroize();
-        let hash = hash_result?;
-        Ok(Self { hash, salt })
-    }
-
-    /// Returns the hash of the password and salt.
-    pub fn hash(&self) -> [u8; 32] {
-        self.hash
-    }
-
-    /// Returns the salt used for hashing.
-    pub fn salt(&self) -> &str {
-        &self.salt
-    }
-}
+use crate::encryption::{decrypt, encrypt, generate_256_key, hash_password};
 
 /// A unique ID for a [`Vault`]
 ///
@@ -54,6 +19,224 @@ impl VaultId {
     /// Generates a new random [`VaultId`].
     pub fn generate() -> Self {
         Self(Uuid::new_v4())
+    }
+}
+
+impl FromStr for VaultId {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        Ok(Self(Uuid::from_str(s)?))
+    }
+}
+
+/// Database manager for the vaults database, which may store zero to many vaults.
+pub struct VaultsDb {
+    /// The database connection used to store the vaults
+    db: sqlx::SqlitePool,
+
+    /// The vaults that have been loaded into memory.
+    vaults: HashMap<VaultId, Vault>,
+}
+
+impl VaultsDb {
+    /// Construct a [`VaultsDb`] by opening a connection to the vaults database
+    /// at the specified path, creating the database if it does not exist.
+    pub async fn open(path: &str) -> Result<Self> {
+        let options = path
+            .parse::<SqliteConnectOptions>()
+            .with_context(|| format!("invalid database path {}", path))?
+            .create_if_missing(true)
+            .pragma("foreign_keys", "ON")
+            .pragma("secure_delete", "ON");
+        let db = sqlx::SqlitePool::connect_with(options)
+            .await
+            .with_context(|| format!("failed to open database at {}", path))?;
+
+        Ok(Self {
+            db,
+            vaults: Default::default(),
+        })
+    }
+
+    /// Create a new vault at the specified path.
+    async fn create(&mut self, password: String) -> Result<VaultId> {
+        let data = tokio::task::spawn_blocking(move || VaultData::new(password))
+            .await
+            .expect("failed to join spawn_blocking while creating vault data")
+            .context("failed to initialize vault data")?;
+
+        {
+            let vault_id = &data.vault_id;
+            let vault_metadata = &data.metadata;
+            let encrypted_vault = &data.encrypted_vault;
+            let encrypted_vault_encryption_key = &data.encrypted_vault_encryption_key;
+            let vault_encryption_key_salt = &data.vault_encryption_key_salt;
+            let query = sqlx::query!(
+                "INSERT INTO vaults (vault_id, metadata, encrypted_vault, encrypted_vault_encryption_key, vault_encryption_key_salt) \
+            VALUES ($1, $2, $3, $4, $5)",
+                vault_id,
+                vault_metadata,
+                encrypted_vault,
+                encrypted_vault_encryption_key,
+                vault_encryption_key_salt,
+            );
+            let _query_result = self
+                .db
+                .execute(query)
+                .await
+                .context("failed to write vault to db")?;
+        }
+
+        let vault_id = data.vault_id.clone();
+        let vault = Vault::new(data);
+        self.vaults.insert(vault_id.clone(), vault);
+
+        Ok(vault_id)
+    }
+
+    /// Loads the [`Vault`] with the given [`VaultId`] from the database file to
+    /// this in-memory [`VaultsDb]`.
+    async fn load(&mut self, vault_id: &VaultId) -> Result<()> {
+        let query = sqlx::query_as!(
+            VaultRow,
+            "SELECT * FROM vaults WHERE vault_id = $1",
+            vault_id
+        );
+        let row = query
+            .fetch_one(&self.db)
+            .await
+            .context("failed to load vault from db")?;
+
+        let data = VaultData::try_from(row)?;
+        debug_assert_eq!(vault_id, &data.vault_id);
+        let vault_id = data.vault_id.clone();
+        let vault = Vault::load(data)?;
+        self.vaults.insert(vault_id.clone(), vault);
+
+        Ok(())
+    }
+
+    async fn unlock(&mut self, vault_id: &VaultId, mut password: String) -> Result<()> {
+        self.load(vault_id).await?;
+
+        let Some(vault) = self.vaults.get_mut(vault_id) else {
+            bail!("failed to find vault right after loading vault to unlock vault");
+        };
+
+        let mut old_password_hash =
+            hash_password(password.as_bytes(), &vault.data.vault_encryption_key_salt)
+                .context("failed to hash password while unlocking")?;
+        let decrypted_vault_encryption_key = decrypt(
+            &vault.data.encrypted_vault_encryption_key,
+            old_password_hash,
+        )
+        .context("failed to decrypt vault_encryption_key while generating unlock session key")?;
+        old_password_hash.zeroize();
+
+        let vault_encryption_key_unlock_key = generate_256_key();
+        let session_encrypted_vault_encryption_key = encrypt(
+            &decrypted_vault_encryption_key,
+            vault_encryption_key_unlock_key,
+        )
+        .context("failed to encrypt vault encryption key while generating unlock session key")?;
+
+        vault.session = Some(VaultSession {
+            session_encrypted_vault_encryption_key: Some(session_encrypted_vault_encryption_key),
+            vault_encryption_key_session_key: Some(vault_encryption_key_unlock_key),
+        });
+
+        //
+        Ok(())
+    }
+
+    /// Rotates the encryption on the vault symmetric key
+    ///
+    /// This requires the password from the user. The password and old salt are
+    /// used to decrypt the vault's symmetric key, then a new salt is generated
+    /// and the password and new salt are used to re-encrypt the symmetric key.
+    pub async fn rotate_encryption_key(
+        &mut self,
+        vault_id: &VaultId,
+        mut password: String,
+    ) -> Result<()> {
+        self.load(vault_id)
+            .await
+            .context("failed to load database while rotating encryption key")?;
+
+        let Some(vault) = self.vaults.get(vault_id) else {
+            bail!("failed to find vault right after loading vault to rotate encryption key");
+        };
+
+        let mut old_password_hash =
+            hash_password(password.as_bytes(), &vault.data.vault_encryption_key_salt)
+                .context("failed to hash password while unlocking")?;
+        let new_vault_encryption_key_salt = generate_256_key();
+        let mut new_password_hash =
+            hash_password(password.as_bytes(), &new_vault_encryption_key_salt)
+                .context("failed to hash password while rotating encryption key")?;
+        password.zeroize();
+
+        let decrypted_vault_encryption_key = decrypt(
+            &vault.data.encrypted_vault_encryption_key,
+            old_password_hash,
+        )
+        .context("failed to decrypt vault encryption key while rotating encryption key")?;
+        old_password_hash.zeroize();
+
+        let rotated_encrpyted_vault_encryption_key =
+            encrypt(&decrypted_vault_encryption_key, new_password_hash)
+                .context("failed to encrypt vault encryption key while rotating encryption key")?;
+        new_password_hash.zeroize();
+
+        {
+            let encrypted_vault_encryption_key = &rotated_encrpyted_vault_encryption_key;
+            let new_vault_encryption_key_salt = &new_vault_encryption_key_salt;
+            let mut tx = self
+                .db
+                .begin()
+                .await
+                .context("failed to begin transaction while rotating encryption key")?;
+
+            let vault_id = &vault.data.vault_id.clone();
+            self.db_rotate_encryption_key(
+                &mut tx,
+                vault_id,
+                encrypted_vault_encryption_key,
+                new_vault_encryption_key_salt,
+            )
+            .await
+            .context("failed to update vault while rotation encryption key")?;
+            tx.commit()
+                .await
+                .context("failed to commit transaction while rotating encryption key")?;
+        }
+
+        Ok(())
+    }
+
+    /// Within a transaction, rotate the encryption key for a vault.
+    async fn db_rotate_encryption_key(
+        &mut self,
+        tx: &mut sqlx::Transaction<'_, Sqlite>,
+        vault_id: &VaultId,
+        encrypted_vault_encryption_key: &[u8],
+        new_vault_encryption_key_salt: &[u8],
+    ) -> Result<()> {
+        let query = sqlx::query!(
+            "UPDATE vaults \
+            SET encrypted_vault_encryption_key = $1, \
+            vault_encryption_key_salt = $2 \
+            WHERE vault_id = $3",
+            encrypted_vault_encryption_key,
+            new_vault_encryption_key_salt,
+            vault_id,
+        );
+        let _query_result = tx
+            .execute(query)
+            .await
+            .context("failed to execute update query while rotating encryption key")?;
+
+        Ok(())
     }
 }
 
@@ -136,14 +319,11 @@ impl VaultId {
 /// `vault_encryption_key`. To lock the vault / end the unlock session, we
 /// can simply shred/zeroize the `session_encryption_key`
 pub struct Vault {
-    /// The database connection for the vault.
-    db: sqlx::SqlitePool,
-
     /// The encrypted contents of the vault, together with the encrypted vault
     /// key and the salt used to encrypt the vault's key.
     data: VaultData,
 
-    /// Unencrypted visible metadata about the vault, such as name and icon.
+    /// The vault's unencrypted metadata, if it's loaded in memory.
     metadata: Option<VaultMetadata>,
 
     /// A session unlock key for the vault's encryption key.
@@ -158,75 +338,88 @@ pub struct Vault {
 }
 
 impl Vault {
-    /// Create a new vault at the specified path.
-    async fn create(path: &str, password: String) -> Result<Self> {
-        let data = tokio::task::spawn_blocking(move || VaultData::new(password))
-            .await
-            .expect("failed to join spawn_blocking while creating vault data")
-            .context("failed to initialize vault data")?;
+    /// Create a new [`Vault`] with the given [`VaultData`].
+    ///
+    /// This method does not deserialize the metadata or unlock the vault.
+    pub fn new(data: VaultData) -> Self {
+        Self {
+            data,
+            metadata: None,
+            session: None,
+        }
+    }
 
-        let options = path
-            .parse::<SqliteConnectOptions>()
-            .with_context(|| format!("invalid database path {}", path))?
-            .create_if_missing(true)
-            .pragma("foreign_keys", "ON")
-            .pragma("secure_delete", "ON");
-        let db = sqlx::SqlitePool::connect_with(options)
-            .await
-            .with_context(|| format!("failed to open database at {}", path))?;
-
-        let vault_id = &data.vault_id;
-        let encrypted_vault = &data.encrypted_vault;
-        let encrypted_vault_encryption_key = &data.encrypted_vault_encryption_key;
-        let vault_encryption_key_salt = &data.vault_encryption_key_salt;
-        let query = sqlx::query!(
-            "INSERT INTO vaults VALUES ($1, $2, $3, $4)",
-            vault_id,
-            encrypted_vault,
-            encrypted_vault_encryption_key,
-            vault_encryption_key_salt,
-        );
-        let _query_result = db
-            .execute(query)
-            .await
-            .context("failed to write vault to db")?;
+    /// Load a [`Vault`] from the given [`VaultData`].
+    ///
+    /// This method deserializes and caches the vault metadata, but does not
+    /// unlock the vault.
+    fn load(data: VaultData) -> Result<Self> {
+        let metadata = serde_json::from_slice::<VaultMetadata>(&data.metadata)
+            .context("failed to deserialize vault metadata")?;
 
         Ok(Self {
-            db,
             data,
-            metadata: Default::default(),
+            metadata: Some(metadata),
             session: None,
         })
+    }
+
+    pub fn unlock(&mut self, mut password: String) -> Result<()> {
+        let password_hash =
+            hash_password(password.as_bytes(), &self.data.vault_encryption_key_salt)
+                .context("failed to hash password while unlocking")?;
+        //
+        todo!()
     }
 }
 
 /// Sqlx query representation of a vault in the database.
 pub struct VaultRow {
     vault_id: String,
+    metadata: Vec<u8>,
     encrypted_vault: Vec<u8>,
     encrypted_vault_encryption_key: Vec<u8>,
-    vault_encryption_key_salt: String,
+    vault_encryption_key_salt: Vec<u8>,
 }
 
 pub struct VaultData {
     vault_id: VaultId,
+    metadata: Vec<u8>,
     encrypted_vault: Vec<u8>,
     encrypted_vault_encryption_key: Vec<u8>,
-    vault_encryption_key_salt: String,
+    vault_encryption_key_salt: Vec<u8>,
+}
+
+impl TryFrom<VaultRow> for VaultData {
+    type Error = anyhow::Error;
+
+    fn try_from(row: VaultRow) -> Result<Self> {
+        Ok(Self {
+            vault_id: row.vault_id.parse()?,
+            metadata: row.metadata,
+            encrypted_vault: row.encrypted_vault,
+            encrypted_vault_encryption_key: row.encrypted_vault_encryption_key,
+            vault_encryption_key_salt: row.vault_encryption_key_salt,
+        })
+    }
 }
 
 impl VaultData {
     /// Initialize the data for a new vault using the given password
     pub fn new(mut password: String) -> Result<Self> {
-        let vault_encryption_key_salt = generate_salt();
-        let mut password_hash = hash_password(&password, &vault_encryption_key_salt)?;
+        let vault_encryption_key_salt = generate_256_key();
+        let mut password_hash = hash_password(password.as_bytes(), &vault_encryption_key_salt)?;
         password.zeroize();
 
         let vault_content = VaultContent::default();
         let vault_content_bytes = serde_json::to_vec(&vault_content)
             .context("failed to serialize empty vault content")?;
 
-        let mut vault_encryption_key = generate_aes_key();
+        let vault_metadata = VaultMetadata::default();
+        let metadata =
+            serde_json::to_vec(&vault_metadata).context("failed to serialize vault metadata")?;
+
+        let mut vault_encryption_key = generate_256_key();
         let encrypted_vault = encrypt(&vault_content_bytes, vault_encryption_key)
             .context("failed to encrypt initial vault content")?;
         let encrypted_vault_encryption_key = encrypt(&vault_encryption_key, password_hash)
@@ -234,8 +427,10 @@ impl VaultData {
         vault_encryption_key.zeroize();
         password_hash.zeroize();
 
+        let vault_encryption_key_salt = vault_encryption_key_salt.to_vec();
         let data = VaultData {
             vault_id: VaultId::generate(),
+            metadata,
             encrypted_vault,
             encrypted_vault_encryption_key,
             vault_encryption_key_salt,
@@ -245,20 +440,36 @@ impl VaultData {
     }
 }
 
+#[derive(Zeroize)]
 pub struct VaultSession {
     /// The vault's symmetric encryption key, which has itself been encrypted by
-    /// the [`vault_encryption_key_unlock_key`] of this session.
-    encrypted_vault_encryption_key: Option<Vec<u8>>,
+    /// the [`vault_encryption_key_session_key`] of this session.
+    session_encrypted_vault_encryption_key: Option<Vec<u8>>,
 
     /// An encryption key used to lock and unlock the vault's symmetric
     /// encryption key.
-    vault_encryption_key_unlock_key: Option<[u8; 32]>,
+    vault_encryption_key_session_key: Option<[u8; 32]>,
+}
+
+impl VaultSession {
+    pub fn new(
+        session_encrypted_vault_encryption_key: Vec<u8>,
+        vault_encryption_key_session_key: [u8; 32],
+    ) -> Self {
+        Self {
+            session_encrypted_vault_encryption_key: Some(session_encrypted_vault_encryption_key),
+            vault_encryption_key_session_key: Some(vault_encryption_key_session_key),
+        }
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct VaultMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
     name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     icon: Option<Vec<u8>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     custom: Option<serde_json::Value>,
 }
 

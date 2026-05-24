@@ -24,9 +24,9 @@ pub enum CryptError {
 }
 
 /// Given a plaintext password and a salt, return the hash of the password using Argon2.
-pub fn hash_password(password: &str, salt: &str) -> Result<[u8; 32], CryptError> {
+pub fn hash_password(password: &[u8], salt: &[u8]) -> Result<[u8; 32], CryptError> {
     let mut okm = [0u8; 32];
-    Argon2::default().hash_password_into(password.as_bytes(), salt.as_bytes(), &mut okm)?;
+    Argon2::default().hash_password_into(password, salt, &mut okm)?;
     Ok(okm)
 }
 
@@ -63,13 +63,7 @@ pub fn decrypt(cypher_payload: &[u8], hash: [u8; 32]) -> Result<Vec<u8>, CryptEr
     Ok(plaintext)
 }
 
-const SALT_LETTER_COUNT: usize = 32;
-
-pub fn generate_salt() -> String {
-    get_random_string(SALT_LETTER_COUNT)
-}
-
-pub fn generate_aes_key() -> [u8; 32] {
+pub fn generate_256_key() -> [u8; 32] {
     use rand_0_8_5::RngCore;
     let mut key = [0u8; 32];
     OsRng.fill_bytes(&mut key);
@@ -184,7 +178,7 @@ value = [[1702851212, \"Some other notes\"]]"#,
     fn get_password_hash() -> [u8; 32] {
         let password = String::from("TestPassword");
         let salt = String::from("TestSalt");
-        hash_password(&password, &salt).unwrap()
+        hash_password(password.as_bytes(), salt.as_bytes()).unwrap()
     }
 
     #[test]
