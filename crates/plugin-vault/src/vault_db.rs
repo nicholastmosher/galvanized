@@ -1,15 +1,17 @@
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use derive_more::{Debug, Display};
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Sqlite, sqlite::SqliteConnectOptions};
-use std::{collections::HashMap, path::Path, str::FromStr};
+use std::{any::Any, collections::HashMap, path::Path, str::FromStr};
 use uuid::Uuid;
+use zed::unstable::util::ResultExt;
 use zeroize::Zeroize;
 
 use crate::{
     encryption::{CryptError, decrypt, encrypt, generate_256_key, hash_password},
     error::{
-        CreateVaultError, LoadVaultError, OpenVaultError, RotateKeyError, UnlockError, VaultError,
+        CreateVaultError, ListVaultsError, LoadVaultError, OpenVaultError, ReadVaultError,
+        RotateKeyError, UnlockError, VaultError,
     },
 };
 
@@ -24,6 +26,11 @@ impl VaultId {
     /// Generates a new random [`VaultId`].
     pub fn generate() -> Self {
         Self(Uuid::new_v4())
+    }
+
+    /// Returns the underlying [`Uuid`] of this [`VaultId`].
+    pub fn uuid(&self) -> Uuid {
+        self.0
     }
 }
 
@@ -101,6 +108,32 @@ impl VaultsDb {
         Ok(vault_id)
     }
 
+    /// Return a list of all valid vault ids in the database.
+    pub async fn list(&self) -> Result<Vec<VaultId>, VaultError> {
+        let rows = sqlx::query!("SELECT vault_id FROM vaults")
+            .fetch_all(&self.db)
+            .await
+            .map_err(|error| ListVaultsError::Database(error))?;
+
+        // Parse the vault ids from the database rows, filtering out and logging any invalid ones.
+        let vault_ids = rows
+            .into_iter()
+            .filter_map(|row| {
+                row.vault_id
+                    .parse::<VaultId>()
+                    .with_context(|| {
+                        format!(
+                            "invalid vault id found while listing vaults: '{}'",
+                            row.vault_id,
+                        )
+                    })
+                    .log_err()
+            })
+            .collect::<Vec<_>>();
+
+        Ok(vault_ids)
+    }
+
     /// Loads the [`Vault`] with the given [`VaultId`] from the database file to
     /// this in-memory [`VaultsDb]`.
     async fn load(&mut self, vault_id: &VaultId) -> Result<(), LoadVaultError> {
@@ -147,6 +180,31 @@ impl VaultsDb {
 
         vault.session = Some(session);
         Ok(())
+    }
+
+    pub async fn read(
+        &mut self,
+        vault_id: VaultId,
+        read_fn: impl 'static + Send + FnOnce(&VaultContent) -> Box<dyn Any + 'static + Send>,
+    ) -> Result<(), VaultError> {
+        let Some(vault) = self.vaults.remove(&vault_id) else {
+            //
+            todo!("Vault not loaded in memory, therefore not unlocked")
+        };
+
+        let Some(session) = &vault.session else {
+            //
+            todo!("Vault has no session, therefore not unlocked")
+        };
+
+        // tokio::task::spawn_blocking(move || {
+        //     vault.data.read_critical(vault_id, session, read_fn)?;
+        //     Ok::<_, VaultError>(())
+        // })
+        // .await
+        // .expect("failed to join spawn_blocking when reading from vault")?;
+
+        todo!()
     }
 
     /// Rotates the encryption on the vault symmetric key
@@ -467,17 +525,53 @@ impl VaultData {
 
         Ok(data)
     }
+
+    /// Critical path where vault is actually decrypted and read access is granted.
+    pub fn read_critical(
+        &self,
+        vault_id: &VaultId,
+        session: &VaultSession,
+        read_fn: impl FnOnce(&VaultContent) -> Box<dyn Any + 'static + Send>,
+    ) -> Result<(), VaultError> {
+        let critical_decrypted_vault_encryption_key = decrypt(
+            &session.session_encrypted_vault_encryption_key.0,
+            session.vault_encryption_key_session_key.0,
+        )
+        .map_err(|error| ReadVaultError::Crypto(vault_id.clone(), error))?;
+
+        // Decrypted symmetric key should be a 256-bit key, aka [u8; 32]
+        let mut critical_decrypted_vault_encryption_key =
+            <[u8; 32]>::try_from(critical_decrypted_vault_encryption_key)
+                .map_err(|vec| ReadVaultError::MalformedKey(vault_id.clone(), vec.len()))?;
+
+        let critical_decrypted_vault = decrypt(
+            &self.encrypted_vault,
+            critical_decrypted_vault_encryption_key,
+        )
+        .map_err(|error| ReadVaultError::Crypto(vault_id.clone(), error))?;
+        critical_decrypted_vault_encryption_key.zeroize();
+
+        let mut critical_vault_content =
+            serde_json::from_slice::<VaultContent>(&critical_decrypted_vault)
+                .map_err(|error| ReadVaultError::Serde(vault_id.clone(), error))?;
+
+        read_fn(&critical_vault_content);
+        critical_vault_content.zeroize();
+        drop(critical_vault_content);
+
+        Ok(())
+    }
 }
 
 #[derive(Zeroize)]
 pub struct VaultSession {
     /// The vault's symmetric encryption key, which has itself been encrypted by
     /// the [`vault_encryption_key_session_key`] of this session.
-    session_encrypted_vault_encryption_key: Option<EncryptedVaultEncryptionKey>,
+    session_encrypted_vault_encryption_key: EncryptedVaultEncryptionKey,
 
     /// An encryption key used to lock and unlock the vault's symmetric
     /// encryption key.
-    vault_encryption_key_session_key: Option<VaultSessionKey>,
+    vault_encryption_key_session_key: VaultSessionKey,
 }
 
 impl VaultSession {
@@ -486,8 +580,8 @@ impl VaultSession {
         vault_encryption_key_session_key: VaultSessionKey,
     ) -> Self {
         Self {
-            session_encrypted_vault_encryption_key: Some(session_encrypted_vault_encryption_key),
-            vault_encryption_key_session_key: Some(vault_encryption_key_session_key),
+            session_encrypted_vault_encryption_key,
+            vault_encryption_key_session_key,
         }
     }
 }
@@ -586,39 +680,32 @@ pub struct VaultMetadata {
 /// The secret contents of the vault that gets encrpyted and stored
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct VaultContent {
-    entries: HashMap<VaultEntryId, VaultEntry>,
+    entries: Vec<(String, String)>,
 }
 
-/// A unique identifier for one entry in a vault.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct VaultEntryId(Uuid);
-impl VaultEntryId {
-    pub fn generate() -> Self {
-        Self(Uuid::new_v4())
+impl Zeroize for VaultContent {
+    fn zeroize(&mut self) {
+        for (name, value) in &mut self.entries {
+            name.zeroize();
+            value.zeroize();
+        }
+        self.entries.zeroize();
     }
 }
 
-/// Each entry in a vault contains a name and a list of fields.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VaultEntry {
-    name: String,
-    fields: Vec<VaultEntryField>,
-}
+impl VaultContent {
+    /// Returns a clone of the entries in the vault.
+    pub fn entries_vec(&self) -> Vec<(String, String)> {
+        self.entries.clone()
+    }
 
-/// Each field in a vault entry contains a name and a value.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VaultEntryField {
-    name: String,
-    value: VaultEntryFieldValue,
-}
+    /// Returns an iterator over the entries in the vault.
+    pub fn iter(&self) -> impl Iterator<Item = &(String, String)> {
+        self.entries.iter()
+    }
 
-/// The value of a field in a vault entry.
-#[derive(Debug, Serialize, Deserialize)]
-pub enum VaultEntryFieldValue {
-    Username(String),
-    Password(String),
-    Email(String),
-    Url(String),
-    File(Vec<u8>),
+    /// Returns a mutable iterator over the entries in the vault.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut (String, String)> {
+        self.entries.iter_mut()
+    }
 }

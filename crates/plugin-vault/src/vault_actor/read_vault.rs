@@ -5,8 +5,8 @@ use tokio::sync::oneshot;
 
 use crate::{
     error::VaultError,
-    vault_actor::{VaultActor, VaultActorHandle, VaultActorInput},
-    vault_data::{UserContentRef, VaultHandle},
+    vault_actor::{VaultActor, VaultHandle},
+    vault_db::VaultContent,
 };
 
 /// Request to read from a vault using a provided read function.
@@ -20,7 +20,7 @@ pub struct ReadVaultRequest {
 pub struct ReadVaultResponse(Result<Box<dyn Any + 'static + Send>, VaultError>);
 
 pub struct ReadVaultFn(
-    pub Box<dyn 'static + Send + FnOnce(UserContentRef) -> Box<dyn Any + 'static + Send>>,
+    pub Box<dyn 'static + Send + FnOnce(&VaultContent) -> Box<dyn Any + 'static + Send>>,
 );
 
 impl VaultActorHandle {
@@ -28,9 +28,9 @@ impl VaultActorHandle {
     pub async fn read_vault<R: Any + 'static + Send>(
         &self,
         vault_handle: VaultHandle,
-        f: impl 'static + Send + FnOnce(UserContentRef) -> R,
+        f: impl 'static + Send + FnOnce(&VaultContent) -> R,
     ) -> Result<R, VaultError> {
-        let read_fn = move |content: UserContentRef| -> Box<dyn Any + 'static + Send> {
+        let read_fn = move |content: &VaultContent| -> Box<dyn Any + 'static + Send> {
             let ret = f(content);
             Box::new(ret)
         };
@@ -64,8 +64,13 @@ impl VaultActor {
             read_fn: ReadVaultFn(read_fn),
         }: ReadVaultRequest,
     ) -> Result<()> {
-        let id = vault_handle.id().to_string();
-        if let Err(cap_error) = vault_handle.cap().try_cap(&id) {
+        let vault_id = vault_handle.id().to_string();
+
+        // Very first thing is to validate the capability of the vault handle If
+        // the capability is invalid, we immediately return an error and do not
+        // proceed. We also check the capability at the end to ensure it has not
+        // expired or been revoked during the execution time
+        if let Err(cap_error) = vault_handle.cap().try_cap(&vault_id) {
             client_tx
                 .send(ReadVaultResponse(Err(VaultError::InvalidCapability(
                     cap_error,
@@ -75,30 +80,6 @@ impl VaultActor {
             // State machine still in valid state
             return Ok(());
         }
-
-        let vault_id = vault_handle.id();
-        let Some(unlocked) = self.unlocked_vaults.get(&vault_id) else {
-            // Vault is either still locked or missing altogether
-            let error = if self.locked_vaults.contains_key(&vault_id) {
-                VaultError::VaultLocked(vault_id)
-            } else {
-                VaultError::MissingVault(vault_id)
-            };
-
-            client_tx
-                .send(ReadVaultResponse(Err(error)))
-                .map_err(|_| anyhow!("channel error while sending read_vault error response"))
-                .unwrap();
-            // State machine still in valid state
-            return Ok(());
-        };
-
-        let user_content = unlocked.vault.user_content();
-        let ret = read_fn(user_content);
-        client_tx
-            .send(ReadVaultResponse(Ok(ret)))
-            .map_err(|_| anyhow!("channel error while sending read_vault response"))
-            .unwrap();
 
         Ok(())
     }

@@ -16,11 +16,36 @@ use std::{
     time::{Duration, Instant},
 };
 
-use capsec::{Cap, CapProvider, CapSecError, Permission, Scope};
+use capsec::{Cap, CapProvider, CapSecError, Permission, Scope, SendCap};
+use uuid::Uuid;
+
+use crate::vault_db::VaultId;
 
 /// Read/write permission for a vault
 #[capsec::permission]
 pub struct VaultAccess;
+
+impl Scope for VaultId {
+    fn check(&self, target: &str) -> Result<(), CapSecError> {
+        let target_uuid =
+            target
+                .parse::<Uuid>()
+                .map_err(|_parse_error| CapSecError::OutOfScope {
+                    target: target.to_string(),
+                    scope: self.to_string(),
+                })?;
+
+        // VaultId matches iff the target is exactly the same as the VaultId
+        if self.uuid() == target_uuid {
+            return Ok(());
+        }
+
+        Err(CapSecError::OutOfScope {
+            target: target.to_string(),
+            scope: self.to_string(),
+        })
+    }
+}
 
 /// A revocable, timed, scoped capability token proving the holder has permission `P`.
 ///
@@ -227,6 +252,26 @@ where
     P: Permission,
     S: Scope + Clone,
 {
+    /// Creates a revocable capability by consuming a [`Cap<P>`] as proof of possession.
+    ///
+    /// Returns a `(VaultCap<P>, VaultRevoker)` pair. The `Revoker` can invalidate
+    /// this capability (and all its clones) from any thread.
+    pub fn new(cap: SendCap<P>, ttl: Duration, scope: S) -> (Self, VaultRevoker) {
+        let revoked = Arc::new(AtomicBool::new(false));
+        let revoker = VaultRevoker {
+            revoked: Arc::clone(&revoked),
+        };
+        let secrets_cap = Self {
+            _phantom: PhantomData,
+            cap: cap.as_cap(),
+
+            revoked,
+            scope,
+            expires_at: Instant::now() + ttl,
+        };
+        (secrets_cap, revoker)
+    }
+
     /// Attempts to obtain a [`Cap<P>`] from this revocable capability.
     ///
     /// Returns `Ok(Cap<P>)` if still active, or `Err(CapSecError::Revoked)` if

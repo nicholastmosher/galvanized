@@ -31,16 +31,18 @@ pub fn hash_password(password: &[u8], salt: &[u8]) -> Result<[u8; 32], CryptErro
 }
 
 /// Given a plaintext String and a password hash, return a base64-encoded encrypted text.
-pub fn encrypt_base64(plaintext: String, hash: [u8; 32]) -> Result<String, CryptError> {
+pub fn encrypt_base64(plaintext: String, mut hash: [u8; 32]) -> Result<String, CryptError> {
     let cypher_payload = encrypt(plaintext.as_bytes(), hash)?;
+    zeroize::Zeroize::zeroize(&mut hash);
     let b64_payload = general_purpose::STANDARD_NO_PAD
         .encode(cypher_payload)
         .to_string();
     Ok(b64_payload)
 }
 
-pub fn encrypt(plaintext: &[u8], hash: [u8; 32]) -> Result<Vec<u8>, CryptError> {
+pub fn encrypt(plaintext: &[u8], mut hash: [u8; 32]) -> Result<Vec<u8>, CryptError> {
     let cipher = Aes256GcmSiv::new_from_slice(hash.as_slice())?;
+    zeroize::Zeroize::zeroize(&mut hash);
     let nonce = generate_nonce();
     let ciphertext = cipher.encrypt(&nonce, plaintext)?;
     let cypher_payload = [&nonce, ciphertext.as_slice()].concat();
@@ -48,15 +50,17 @@ pub fn encrypt(plaintext: &[u8], hash: [u8; 32]) -> Result<Vec<u8>, CryptError> 
 }
 
 /// Given a base64-encoded encrypted text and a password hash, return the decrypted plaintext.
-pub fn decrypt_base64(encrypted_text: &str, hash: [u8; 32]) -> Result<String, CryptError> {
+pub fn decrypt_base64(encrypted_text: &str, mut hash: [u8; 32]) -> Result<String, CryptError> {
     let cyphertext_from_string = general_purpose::STANDARD_NO_PAD.decode(encrypted_text)?;
     let plaintext = decrypt(cyphertext_from_string.as_slice(), hash)?;
+    zeroize::Zeroize::zeroize(&mut hash);
     let utf8_string = from_utf8(plaintext.as_slice())?.to_string();
     Ok(utf8_string)
 }
 
-pub fn decrypt(cypher_payload: &[u8], hash: [u8; 32]) -> Result<Vec<u8>, CryptError> {
+pub fn decrypt(cypher_payload: &[u8], mut hash: [u8; 32]) -> Result<Vec<u8>, CryptError> {
     let cipher = Aes256GcmSiv::new_from_slice(hash.as_slice())?;
+    zeroize::Zeroize::zeroize(&mut hash);
     let (nonce_bytes, cyphertext) = cypher_payload.split_at(12);
     let nonce = Nonce::from_slice(nonce_bytes);
     let plaintext = cipher.decrypt(nonce, cyphertext)?;

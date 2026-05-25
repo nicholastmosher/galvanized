@@ -14,11 +14,20 @@ pub enum VaultError {
     #[error("failed to create new vault")]
     CreateVault(#[from] CreateVaultError),
 
+    #[error("failed to list vaults")]
+    ListVaults(#[from] ListVaultsError),
+
+    #[error("failed vault operation, capability is expired or revoked")]
+    InvalidCapability(#[from] capsec::CapSecError),
+
+    #[error("failed to read vault")]
+    ReadVault(#[from] ReadVaultError),
+
     #[error("failed to rotate encryption key")]
     RotateKey(#[from] RotateKeyError),
 
     #[error("failed to unlock vault")]
-    Unlock(#[from] UnlockError),
+    UnlockVault(#[from] UnlockError),
 }
 
 #[derive(Debug, Error)]
@@ -28,6 +37,15 @@ pub enum CreateVaultError {
 
     #[error("failed initial database setup")]
     Database(#[from] sqlx::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum ListVaultsError {
+    #[error("failed database op while listing vaults")]
+    Database(#[from] sqlx::Error),
+
+    #[error("invalid vault id: '{0}'")]
+    InvalidVaultId(String, #[source] anyhow::Error),
 }
 
 #[derive(Debug, Error)]
@@ -49,6 +67,21 @@ pub enum OpenVaultError {
 
     #[error("failed to parse given database path '{0}'")]
     ParseDatabasePath(PathBuf, #[source] sqlx::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum ReadVaultError {
+    #[error("failed crypto op while reading vault '{0}'")]
+    Crypto(VaultId, #[source] CryptError),
+
+    #[error(
+        "failed to read decrypted symmetric key for vault '{0}'\n\
+        expected 32 bytes, got {1} bytes"
+    )]
+    MalformedKey(VaultId, usize),
+
+    #[error("failed to deserialize vault content while reading vault '{0}'")]
+    Serde(VaultId, #[source] serde_json::Error),
 }
 
 #[derive(Debug, Error)]

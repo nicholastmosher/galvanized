@@ -1,24 +1,24 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    str::FromStr as _,
     time::Duration,
 };
 
 use anyhow::{Context as _, Result};
 use capsec::SendCap;
 use futures::{Stream, StreamExt as _};
+use tokio::sync::oneshot;
 
 use crate::{
     vault_actor::{
-        create_vault::{CreateVault, FinishCreateVault},
+        create_vault::CreateVault,
         list_vaults::ListVaults,
         lock_vault::{FinishLockVault, LockVault},
         read_vault::ReadVaultRequest,
-        unlock_vault::{FinishUnlockVault, UnlockVaultEvent},
+        unlock_vault::UnlockVaultEvent,
     },
-    vault_cap::VaultAccess,
-    vault_data::{UnlockedSecretVaultContent, VaultId, VaultPair},
+    vault_cap::{VaultAccess, VaultRevoker, VaultSendCap},
+    vault_db::{VaultId, VaultsDb},
 };
 
 pub mod create_vault;
@@ -31,20 +31,59 @@ pub mod unlock_vault;
 const DEFAULT_VAULT_TIMEOUT: Duration = Duration::from_secs(60 * 10);
 const ACTOR_CHANNEL_CAPACITY: usize = 50;
 
+/// A handle granting access to a particular [`Vault`]
+#[derive(Clone)]
+pub struct VaultHandle {
+    vault_id: VaultId,
+    cap: VaultSendCap<VaultAccess, VaultId>,
+    revoker: VaultRevoker,
+}
+
+impl VaultHandle {
+    /// Creates a new [`VaultHandle`] with the given ID, capability, and revoker.
+    pub fn new(
+        vault_id: VaultId,
+        cap: VaultSendCap<VaultAccess, VaultId>,
+        revoker: VaultRevoker,
+    ) -> Self {
+        Self {
+            vault_id,
+            cap,
+            revoker,
+        }
+    }
+
+    /// Returns the ID of the vault this handle grants access to
+    pub fn id(&self) -> VaultId {
+        self.vault_id.clone()
+    }
+
+    /// Returns a reference to the vault's send capability
+    pub fn cap(&self) -> &VaultSendCap<VaultAccess, VaultId> {
+        &self.cap
+    }
+
+    /// Locks the vault associated with this handle.
+    ///
+    /// This immediately revokes the capability associated with this handle,
+    /// preventing any new requests to the vault from being accepted by it.
+    pub fn lock(&self) {
+        self.revoker.revoke();
+    }
+}
+
 /// External handle API for interacting with the vault actor
 pub struct VaultActorHandle {
-    _join_handle: tokio::task::JoinHandle<()>,
+    _join_handle: tokio::task::JoinHandle<Result<()>>,
     tx: flume::Sender<VaultActorInput>,
 }
 
 #[derive(derive_more::From)]
 pub enum VaultActorInput {
     CreateVault(#[from] CreateVault),
-    FinishCreateVault(#[from] FinishCreateVault),
     LockVault(#[from] LockVault),
     FinishLockVault(#[from] FinishLockVault),
     UnlockVault(#[from] UnlockVaultEvent),
-    FinishUnlockVault(#[from] FinishUnlockVault),
     ListVaults(#[from] ListVaults),
     ReadVault(#[from] ReadVaultRequest),
 }
@@ -54,9 +93,6 @@ pub struct VaultActor {
     /// Vault capability, used for accessing vaults
     cap: SendCap<VaultAccess>,
 
-    /// Database connection pool for storing vault secrets.
-    db: sqlx::SqlitePool,
-
     /// Hold a clone of our own event sender, used for dispatched tasks to return
     /// results back to the actor.
     tx: flume::Sender<VaultActorInput>,
@@ -64,11 +100,11 @@ pub struct VaultActor {
     /// Receiver for incoming input events.
     rx: flume::Receiver<VaultActorInput>,
 
-    /// Locked vaults, keyed by vault ID
-    locked_vaults: HashMap<VaultId, VaultPair>,
+    /// The vault database manager
+    vaults: VaultsDb,
 
-    /// Unlocked vaults, keyed by vault ID
-    unlocked_vaults: HashMap<VaultId, VaultPair<UnlockedSecretVaultContent>>,
+    /// Active capabilities for access to vaults
+    capabilities: HashMap<VaultId, VaultSendCap<VaultAccess, VaultId>>,
 }
 
 impl VaultActor {
@@ -76,8 +112,9 @@ impl VaultActor {
         let (actor_tx, rx) = flume::bounded(ACTOR_CHANNEL_CAPACITY);
         let tx = actor_tx.clone();
         let future = async move {
-            let actor = VaultActor::new(&db_path, cap, tx, rx).await;
+            let actor = VaultActor::new(&db_path, cap, tx, rx).await?;
             actor.run().await;
+            anyhow::Ok(())
         };
         let _join_handle = tokio::spawn(future);
         Ok(VaultActorHandle {
@@ -91,26 +128,17 @@ impl VaultActor {
         cap: SendCap<VaultAccess>,
         tx: flume::Sender<VaultActorInput>,
         rx: flume::Receiver<VaultActorInput>,
-    ) -> Self {
-        let db = sqlx::SqlitePool::connect_with(
-            sqlx::sqlite::SqliteConnectOptions::from_str(&format!("sqlite:{}", db_path.display()))
-                .with_context(|| format!("invalid database path {}", db_path.display()))
-                .unwrap()
-                .pragma("foreign_keys", "ON")
-                .pragma("secure_delete", "ON"),
-        )
-        .await
-        .with_context(|| format!("failed to open database at {}", db_path.display()))
-        .unwrap();
+    ) -> Result<Self> {
+        let vaults = VaultsDb::open(db_path)
+            .await
+            .context("failed to open or create vaults database")?;
 
-        Self {
+        Ok(Self {
             cap,
-            db,
             tx,
             rx,
-            locked_vaults: Default::default(),
-            unlocked_vaults: Default::default(),
-        }
+            vaults,
+        })
     }
 
     pub fn create_input_stream(&mut self) -> impl Stream<Item = VaultActorInput> + use<> {
@@ -154,9 +182,6 @@ impl VaultActor {
             VaultActorInput::CreateVault(event) => {
                 self.try_create_vault(event).await;
             }
-            VaultActorInput::FinishCreateVault(event) => {
-                self.try_finish_create_vault(event).await?;
-            }
             VaultActorInput::LockVault(event) => {
                 self.try_lock_vault(event).await?;
             }
@@ -165,9 +190,6 @@ impl VaultActor {
             }
             VaultActorInput::UnlockVault(event) => {
                 self.try_unlock_vault(event).await?;
-            }
-            VaultActorInput::FinishUnlockVault(event) => {
-                self.try_finish_unlock_vault(event).await?;
             }
             VaultActorInput::ListVaults(event) => {
                 self.try_list_vaults(event).await?;
@@ -183,11 +205,6 @@ impl VaultActor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        encryption::{generate_salt, hash_password},
-        vault_data::PasswordHash,
-    };
-    use tokio::sync::oneshot;
 
     #[tokio::test]
     async fn test_create_vault() {
@@ -195,35 +212,7 @@ mod tests {
         let db_path = "sqlite:test.db";
         let cap = root.grant::<VaultAccess>().make_send();
         let (actor_tx, actor_rx) = flume::bounded(100);
-        let mut actor =
+        let actor =
             VaultActor::new(Path::new(db_path), cap, actor_tx.clone(), actor_rx.clone()).await;
-
-        let password_hash = tokio::task::spawn_blocking(move || {
-            let password = "deadbeef";
-            let salt = generate_salt();
-            let hash = hash_password(password, &salt)?;
-            let password_hash = PasswordHash { hash, salt };
-            anyhow::Ok(password_hash)
-        })
-        .await
-        .unwrap()
-        .expect("error hashing password");
-
-        let (client_tx, client_rx) = oneshot::channel();
-        actor
-            .try_handle_input(CreateVault {
-                password_hash,
-                client_tx,
-            })
-            .await
-            .unwrap();
-
-        let input = actor_rx.recv_async().await.unwrap();
-        assert!(matches!(input, VaultActorInput::FinishCreateVault { .. }));
-
-        actor.try_handle_input(input).await.unwrap();
-        assert_eq!(actor.locked_vaults.len(), 1);
-
-        let _handle = client_rx.await.unwrap().unwrap();
     }
 }

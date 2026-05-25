@@ -14,7 +14,7 @@ pub struct LockVault {
 }
 
 pub struct FinishLockVault {
-    pub client_tx: oneshot::Sender<Result<(), VaultError>>,
+    pub client_tx: oneshot::Sender<Result<(), InnerVaultError>>,
     pub vault: VaultPair,
 }
 
@@ -87,7 +87,7 @@ impl VaultActor {
 /// which is a blocking operation, so spawn_blocking is needed.
 async fn lock_vault_task(
     actor_tx: flume::Sender<VaultActorInput>,
-    client_tx: oneshot::Sender<Result<(), VaultError>>,
+    client_tx: oneshot::Sender<Result<(), InnerVaultError>>,
     unlocked: VaultPair<UnlockedSecretVaultContent>,
 ) {
     let result = try_lock_vault(unlocked).await;
@@ -108,14 +108,14 @@ async fn lock_vault_task(
 
 async fn try_lock_vault(
     unlocked_vault: VaultPair<UnlockedSecretVaultContent>,
-) -> Result<VaultPair, VaultError> {
+) -> Result<VaultPair, InnerVaultError> {
     let locked = tokio::task::spawn_blocking(move || {
         let locked = unlocked_vault.lock()?;
         anyhow::Ok(locked)
     })
     .await
     .expect("failed to join spawn_blocking for locking vault")
-    .map_err(|error| VaultError::Other(error.context("error while locking vault")))?;
+    .map_err(|error| InnerVaultError::Other(error.context("error while locking vault")))?;
 
     Ok(locked)
 }
