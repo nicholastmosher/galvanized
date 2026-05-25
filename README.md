@@ -184,6 +184,14 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 May 25
+
+- Second-pass of vault is coming along nicely, I like it better than the first
+- Going to keep it a minimal key-value store, since I only need it to store Willow keys
+  at the moment
+- Speaking of which, I should try to get an end-to-end flow working and wired up to Profile unlock
+  - I also want to use identicons (plot_icon) for profile keys
+
 # 2026 May 21
 
 Vault progress:

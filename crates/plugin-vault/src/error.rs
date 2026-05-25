@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 
-// use crate::{encryption::CryptError, vault_data::VaultId};
 use crate::{encryption::CryptError, vault_db::VaultId};
 
 /// Domain-level errors that can occur when interacting with the vault system.
@@ -17,8 +16,8 @@ pub enum VaultError {
     #[error("failed to list vaults")]
     ListVaults(#[from] ListVaultsError),
 
-    #[error("failed vault operation, capability is expired or revoked")]
-    InvalidCapability(#[from] capsec::CapSecError),
+    #[error("failed to lock vault")]
+    LockVault(#[from] LockVaultError),
 
     #[error("failed to read vault")]
     ReadVault(#[from] ReadVaultError),
@@ -61,6 +60,12 @@ pub enum LoadVaultError {
 }
 
 #[derive(Debug, Error)]
+pub enum LockVaultError {
+    #[error("failed to lock vault, no vault with id '{0}'")]
+    MissingVault(VaultId),
+}
+
+#[derive(Debug, Error)]
 pub enum OpenVaultError {
     #[error("failed to connect to database at '{0}'")]
     ConnectDatabase(PathBuf, #[source] sqlx::Error),
@@ -73,6 +78,12 @@ pub enum OpenVaultError {
 pub enum ReadVaultError {
     #[error("failed crypto op while reading vault '{0}'")]
     Crypto(VaultId, #[source] CryptError),
+
+    #[error("failed to provide capability to read vault '{0}'")]
+    Capability(VaultId, #[source] capsec::CapSecError),
+
+    #[error("failed to read, vault '{0}' is locked")]
+    Locked(VaultId),
 
     #[error(
         "failed to read decrypted symmetric key for vault '{0}'\n\

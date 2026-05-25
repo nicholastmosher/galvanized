@@ -1,21 +1,16 @@
 use std::{
-    collections::HashMap,
     path::{Path, PathBuf},
     time::Duration,
 };
 
 use anyhow::{Context as _, Result};
-use capsec::SendCap;
+use capsec::{CapProvider, SendCap};
 use futures::{Stream, StreamExt as _};
-use tokio::sync::oneshot;
 
 use crate::{
     vault_actor::{
-        create_vault::CreateVault,
-        list_vaults::ListVaults,
-        lock_vault::{FinishLockVault, LockVault},
-        read_vault::ReadVaultRequest,
-        unlock_vault::UnlockVaultEvent,
+        create_vault::CreateVault, list_vaults::ListVaults, lock_vault::LockVault,
+        read_vault::ReadVaultRequest, unlock_vault::UnlockVaultEvent,
     },
     vault_cap::{VaultAccess, VaultRevoker, VaultSendCap},
     vault_db::{VaultId, VaultsDb},
@@ -58,9 +53,11 @@ impl VaultHandle {
         self.vault_id.clone()
     }
 
-    /// Returns a reference to the vault's send capability
-    pub fn cap(&self) -> &VaultSendCap<VaultAccess, VaultId> {
-        &self.cap
+    /// Checks the capability of this handle to read from the vault.
+    ///
+    /// The capability may be valid, or it may be expired or revoked.
+    pub fn provide_cap(&self) -> Result<capsec::Cap<VaultAccess>, capsec::CapSecError> {
+        self.cap.provide_cap(&self.vault_id.to_string())
     }
 
     /// Locks the vault associated with this handle.
@@ -82,7 +79,6 @@ pub struct VaultActorHandle {
 pub enum VaultActorInput {
     CreateVault(#[from] CreateVault),
     LockVault(#[from] LockVault),
-    FinishLockVault(#[from] FinishLockVault),
     UnlockVault(#[from] UnlockVaultEvent),
     ListVaults(#[from] ListVaults),
     ReadVault(#[from] ReadVaultRequest),
@@ -95,16 +91,13 @@ pub struct VaultActor {
 
     /// Hold a clone of our own event sender, used for dispatched tasks to return
     /// results back to the actor.
-    tx: flume::Sender<VaultActorInput>,
+    _tx: flume::Sender<VaultActorInput>,
 
     /// Receiver for incoming input events.
     rx: flume::Receiver<VaultActorInput>,
 
     /// The vault database manager
     vaults: VaultsDb,
-
-    /// Active capabilities for access to vaults
-    capabilities: HashMap<VaultId, VaultSendCap<VaultAccess, VaultId>>,
 }
 
 impl VaultActor {
@@ -135,7 +128,7 @@ impl VaultActor {
 
         Ok(Self {
             cap,
-            tx,
+            _tx: tx,
             rx,
             vaults,
         })
@@ -185,9 +178,6 @@ impl VaultActor {
             VaultActorInput::LockVault(event) => {
                 self.try_lock_vault(event).await?;
             }
-            VaultActorInput::FinishLockVault(event) => {
-                self.try_finish_lock_vault(event).await?;
-            }
             VaultActorInput::UnlockVault(event) => {
                 self.try_unlock_vault(event).await?;
             }
@@ -212,7 +202,7 @@ mod tests {
         let db_path = "sqlite:test.db";
         let cap = root.grant::<VaultAccess>().make_send();
         let (actor_tx, actor_rx) = flume::bounded(100);
-        let actor =
+        let _actor =
             VaultActor::new(Path::new(db_path), cap, actor_tx.clone(), actor_rx.clone()).await;
     }
 }

@@ -2,7 +2,7 @@ use anyhow::{Context as _, Result};
 use derive_more::{Debug, Display};
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Sqlite, sqlite::SqliteConnectOptions};
-use std::{any::Any, collections::HashMap, path::Path, str::FromStr};
+use std::{any::Any, collections::HashMap, path::Path, str::FromStr, sync::Arc};
 use uuid::Uuid;
 use zed::unstable::util::ResultExt;
 use zeroize::Zeroize;
@@ -10,8 +10,8 @@ use zeroize::Zeroize;
 use crate::{
     encryption::{CryptError, decrypt, encrypt, generate_256_key, hash_password},
     error::{
-        CreateVaultError, ListVaultsError, LoadVaultError, OpenVaultError, ReadVaultError,
-        RotateKeyError, UnlockError, VaultError,
+        CreateVaultError, ListVaultsError, LoadVaultError, LockVaultError, OpenVaultError,
+        ReadVaultError, RotateKeyError, UnlockError, VaultError,
     },
 };
 
@@ -81,8 +81,8 @@ impl VaultsDb {
 
         {
             let vault_id = &data.vault_id;
-            let vault_metadata = &data.metadata;
-            let encrypted_vault = &data.encrypted_vault;
+            let vault_metadata = &*data.metadata;
+            let encrypted_vault = &*data.encrypted_vault;
             let encrypted_vault_encryption_key = &data.encrypted_vault_encryption_key.0;
             let vault_encryption_key_salt = &data.vault_encryption_key_salt.0;
             let query = sqlx::query!(
@@ -157,6 +157,20 @@ impl VaultsDb {
         Ok(())
     }
 
+    /// Locks the [`Vault`] with the given [`VaultId`].
+    ///
+    /// This deletes the session key used to decrypt the vault's symmetric key,
+    /// preventing further access to the key and vault until the symmetric key
+    /// is unlocked again with the user's password.
+    pub async fn lock(&mut self, vault_id: &VaultId) -> Result<(), VaultError> {
+        let Some(vault) = self.vaults.get_mut(vault_id) else {
+            return Err(LockVaultError::MissingVault(vault_id.clone()).into());
+        };
+
+        vault.lock()?;
+        Ok(())
+    }
+
     /// Unlocks the [`Vault`] with the given [`VaultId`] using the provided password.
     ///
     /// The vault remains encrypted in-memory, but the vault's session key is decrypted,
@@ -184,25 +198,27 @@ impl VaultsDb {
 
     pub async fn read(
         &mut self,
-        vault_id: VaultId,
+        vault_id: &VaultId,
         read_fn: impl 'static + Send + FnOnce(&VaultContent) -> Box<dyn Any + 'static + Send>,
-    ) -> Result<(), VaultError> {
-        let Some(vault) = self.vaults.remove(&vault_id) else {
-            //
-            todo!("Vault not loaded in memory, therefore not unlocked")
+    ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
+        let Some(vault) = self.vaults.get(vault_id) else {
+            return Err(ReadVaultError::Locked(vault_id.clone()).into());
         };
 
-        let Some(session) = &vault.session else {
-            //
-            todo!("Vault has no session, therefore not unlocked")
+        let Some(session) = vault.session.clone() else {
+            return Err(ReadVaultError::Locked(vault_id.clone()).into());
         };
 
-        // tokio::task::spawn_blocking(move || {
-        //     vault.data.read_critical(vault_id, session, read_fn)?;
-        //     Ok::<_, VaultError>(())
-        // })
-        // .await
-        // .expect("failed to join spawn_blocking when reading from vault")?;
+        {
+            let data = vault.data.clone();
+            let vault_id = vault_id.clone();
+            tokio::task::spawn_blocking(move || {
+                data.read_critical(&vault_id, &session, read_fn)?;
+                Ok::<_, VaultError>(())
+            })
+            .await
+            .expect("failed to join spawn_blocking when reading from vault")?;
+        }
 
         todo!()
     }
@@ -376,7 +392,15 @@ impl VaultsDb {
 pub struct Vault {
     /// The encrypted contents of the vault, together with the encrypted vault
     /// key and the salt used to encrypt the vault's key.
-    data: VaultData,
+    ///
+    /// The data is behind an Arc so it can be cheaply cloned and sent to
+    /// `spawn_blocking` contexts for reading cheaply.
+    ///
+    /// To mutate the [`VaultData`], such as when rotating a key or updating
+    /// the contents, we prototype-update the data, i.e. with a pattern like
+    /// `fn(&VaultData, updates) -> VaultData`, then we replace this Arc with
+    /// a new one containing the updated data.
+    data: Arc<VaultData>,
 
     /// The vault's unencrypted metadata, if it's loaded in memory.
     metadata: Option<VaultMetadata>,
@@ -398,7 +422,7 @@ impl Vault {
     /// This method does not deserialize the metadata or unlock the vault.
     pub fn new(data: VaultData) -> Self {
         Self {
-            data,
+            data: Arc::new(data),
             metadata: None,
             session: None,
         }
@@ -413,10 +437,22 @@ impl Vault {
             .map_err(|error| LoadVaultError::Serde(data.vault_id.clone(), error))?;
 
         Ok(Self {
-            data,
+            data: Arc::new(data),
             metadata: Some(metadata),
             session: None,
         })
+    }
+
+    /// Locks the vault by dropping the session with the unlock key.
+    pub fn lock(&mut self) -> Result<(), VaultError> {
+        let Some(mut session) = self.session.take() else {
+            // No existing session, vault is already locked
+            return Ok(());
+        };
+
+        session.zeroize();
+        drop(session);
+        Ok(())
     }
 
     /// Returns an owned copy of the components of the vault needed for unlocking.
@@ -434,9 +470,8 @@ impl Vault {
 
     /// Sets the unlock components of the vault to the given values.
     pub fn set_unlock_components(&mut self, unlock_components: &VaultUnlockComponents) {
-        self.data.encrypted_vault_encryption_key =
-            unlock_components.encrypted_vault_encryption_key.clone();
-        self.data.vault_encryption_key_salt = unlock_components.vault_encryption_key_salt.clone();
+        let next_data = self.data.with_unlock_components(unlock_components);
+        self.data = Arc::new(next_data);
     }
 }
 
@@ -450,6 +485,7 @@ pub struct VaultRow {
 }
 
 /// The data of a [`Vault`] that gets persisted in the database.
+#[derive(Clone)]
 pub struct VaultData {
     /// The unique identifier of the vault.
     vault_id: VaultId,
@@ -457,12 +493,12 @@ pub struct VaultData {
     /// The serialized but unencrypted metadata of the vault.
     ///
     /// This is serialized as JSON in the format of a [`VaultMetadata`].
-    metadata: Vec<u8>,
+    metadata: Arc<Vec<u8>>,
 
     /// The serialized and encrypted contents of the vault.
     ///
     /// This is serialized as JSON in the format of a [`VaultContent`].
-    encrypted_vault: Vec<u8>,
+    encrypted_vault: Arc<Vec<u8>>,
 
     /// The symmetric encryption key used to encrypt the vault contents.
     ///
@@ -481,8 +517,8 @@ impl TryFrom<VaultRow> for VaultData {
     fn try_from(row: VaultRow) -> Result<Self> {
         Ok(Self {
             vault_id: row.vault_id.parse()?,
-            metadata: row.metadata,
-            encrypted_vault: row.encrypted_vault,
+            metadata: Arc::new(row.metadata),
+            encrypted_vault: Arc::new(row.encrypted_vault),
             encrypted_vault_encryption_key: EncryptedVaultEncryptionKey(
                 row.encrypted_vault_encryption_key,
             ),
@@ -517,8 +553,8 @@ impl VaultData {
         let vault_encryption_key_salt = VaultEncryptionKeySalt(vault_encryption_key_salt.to_vec());
         let data = VaultData {
             vault_id: VaultId::generate(),
-            metadata,
-            encrypted_vault,
+            metadata: Arc::new(metadata),
+            encrypted_vault: Arc::new(encrypted_vault),
             encrypted_vault_encryption_key,
             vault_encryption_key_salt,
         };
@@ -561,9 +597,19 @@ impl VaultData {
 
         Ok(())
     }
+
+    fn with_unlock_components(&self, unlock_components: &VaultUnlockComponents) -> Self {
+        let mut next = self.clone();
+
+        next.encrypted_vault_encryption_key =
+            unlock_components.encrypted_vault_encryption_key.clone();
+        next.vault_encryption_key_salt = unlock_components.vault_encryption_key_salt.clone();
+
+        next
+    }
 }
 
-#[derive(Zeroize)]
+#[derive(Clone, Zeroize)]
 pub struct VaultSession {
     /// The vault's symmetric encryption key, which has itself been encrypted by
     /// the [`vault_encryption_key_session_key`] of this session.
@@ -596,7 +642,7 @@ pub struct EncryptedVaultEncryptionKey(Vec<u8>);
 pub struct VaultEncryptionKeySalt(Vec<u8>);
 
 /// 256-bit AES encryption key used for encrypting the vault's own symmetric key.
-#[derive(Zeroize)]
+#[derive(Clone, Zeroize)]
 pub struct VaultSessionKey([u8; 32]);
 
 /// The components of [`VaultData`] that are needed to unlock the vault.

@@ -24,7 +24,7 @@ pub mod encryption;
 pub mod error;
 pub mod secret_repository;
 pub mod unlock_ui;
-// pub mod vault_actor;
+pub mod vault_actor;
 pub mod vault_cap;
 // pub mod vault_data;
 pub mod vault_db;

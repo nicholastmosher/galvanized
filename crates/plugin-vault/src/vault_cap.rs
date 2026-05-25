@@ -247,6 +247,16 @@ where
 unsafe impl<P: Permission, S: Scope + Clone> Send for VaultSendCap<P, S> {}
 unsafe impl<P: Permission, S: Scope + Clone> Sync for VaultSendCap<P, S> {}
 
+impl<P, S> CapProvider<P> for VaultSendCap<P, S>
+where
+    P: Permission,
+    S: Scope + Clone,
+{
+    fn provide_cap(&self, target: &str) -> Result<Cap<P>, CapSecError> {
+        self.try_cap(target)
+    }
+}
+
 impl<P, S> VaultSendCap<P, S>
 where
     P: Permission,

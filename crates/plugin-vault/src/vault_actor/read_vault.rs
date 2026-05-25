@@ -4,8 +4,8 @@ use anyhow::{Result, anyhow};
 use tokio::sync::oneshot;
 
 use crate::{
-    error::VaultError,
-    vault_actor::{VaultActor, VaultHandle},
+    error::{ReadVaultError, VaultError},
+    vault_actor::{VaultActor, VaultActorHandle, VaultHandle},
     vault_db::VaultContent,
 };
 
@@ -30,6 +30,11 @@ impl VaultActorHandle {
         vault_handle: VaultHandle,
         f: impl 'static + Send + FnOnce(&VaultContent) -> R,
     ) -> Result<R, VaultError> {
+        // Immediately verify that the incoming handle has the required capability
+        let _cap_proof = vault_handle
+            .provide_cap()
+            .map_err(|error| ReadVaultError::Capability(vault_handle.id(), error))?;
+
         let read_fn = move |content: &VaultContent| -> Box<dyn Any + 'static + Send> {
             let ret = f(content);
             Box::new(ret)
@@ -37,11 +42,14 @@ impl VaultActorHandle {
 
         let (client_tx, rx) = oneshot::channel();
         self.tx
-            .send_async(VaultActorInput::ReadVault(ReadVaultRequest {
-                client_tx,
-                vault_handle,
-                read_fn: ReadVaultFn(Box::new(read_fn)),
-            }))
+            .send_async(
+                ReadVaultRequest {
+                    client_tx,
+                    vault_handle,
+                    read_fn: ReadVaultFn(Box::new(read_fn)),
+                }
+                .into(),
+            )
             .await
             .expect("channel error while sending read_vault request");
 
@@ -64,22 +72,31 @@ impl VaultActor {
             read_fn: ReadVaultFn(read_fn),
         }: ReadVaultRequest,
     ) -> Result<()> {
-        let vault_id = vault_handle.id().to_string();
+        let vault_id = vault_handle.id();
 
         // Very first thing is to validate the capability of the vault handle If
         // the capability is invalid, we immediately return an error and do not
         // proceed. We also check the capability at the end to ensure it has not
         // expired or been revoked during the execution time
-        if let Err(cap_error) = vault_handle.cap().try_cap(&vault_id) {
+        if let Err(cap_error) = vault_handle.provide_cap() {
             client_tx
-                .send(ReadVaultResponse(Err(VaultError::InvalidCapability(
+                .send(ReadVaultResponse(Err(ReadVaultError::Capability(
+                    vault_id.clone(),
                     cap_error,
-                ))))
+                )
+                .into())))
                 .map_err(|_| anyhow!("channel error while sending read_vault error response"))
                 .unwrap();
-            // State machine still in valid state
+
+            // Response to client is error, but state machine is still in a valid state
             return Ok(());
         }
+        // Beyond this point, the capability of this request to read the vault has been verified
+
+        let result = self.vaults.read(&vault_id, read_fn).await;
+        client_tx
+            .send(ReadVaultResponse(result))
+            .map_err(|_| panic!("channel error while sending read_vault response"));
 
         Ok(())
     }

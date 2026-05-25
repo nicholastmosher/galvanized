@@ -1,9 +1,9 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use tokio::sync::oneshot;
 
 use crate::{
     error::VaultError,
-    vault_actor::{VaultActor, VaultActorHandle, VaultActorInput},
+    vault_actor::{VaultActor, VaultActorHandle},
     vault_db::VaultId,
 };
 
