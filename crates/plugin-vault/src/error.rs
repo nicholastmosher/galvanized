@@ -1,21 +1,79 @@
+use std::path::PathBuf;
+
 use thiserror::Error;
 
 // use crate::{encryption::CryptError, vault_data::VaultId};
-use crate::encryption::CryptError;
+use crate::{encryption::CryptError, vault_db::VaultId};
 
-/// Errors that can occur when interacting with a [`Vault`].
+/// Domain-level errors that can occur when interacting with the vault system.
 #[derive(Debug, Error)]
 pub enum VaultError {
-    // #[error("failed to create vault: duplicate vault ID")]
-    // DuplicateVaultId(VaultId),
-    #[error("failed vault encryption or decryption")]
-    CryptoError(#[from] CryptError),
-    // #[error("failed to find vault with ID {0}")]
-    // MissingVault(VaultId),
-    // #[error("vault is locked")]
-    // VaultLocked(VaultId),
-    #[error("failed to validate vault capability")]
-    InvalidCapability(#[from] capsec::CapSecError),
-    #[error(transparent)]
-    Other(anyhow::Error),
+    #[error("failed to open vault database")]
+    OpenVault(#[from] OpenVaultError),
+
+    #[error("failed to create new vault")]
+    CreateVault(#[from] CreateVaultError),
+
+    #[error("failed to rotate encryption key")]
+    RotateKey(#[from] RotateKeyError),
+
+    #[error("failed to unlock vault")]
+    Unlock(#[from] UnlockError),
+}
+
+#[derive(Debug, Error)]
+pub enum CreateVaultError {
+    #[error("failed initial encryption")]
+    Crypto(#[from] CryptError),
+
+    #[error("failed initial database setup")]
+    Database(#[from] sqlx::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum LoadVaultError {
+    #[error("failed to read vault from database")]
+    Database(VaultId, #[source] sqlx::Error),
+
+    #[error("failed to deserialize vault")]
+    Serde(VaultId, #[source] serde_json::Error),
+
+    #[error("failed to load vault row into memory for vault '{0}'")]
+    ImpedenceMismatch(VaultId, #[source] anyhow::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum OpenVaultError {
+    #[error("failed to connect to database at '{0}'")]
+    ConnectDatabase(PathBuf, #[source] sqlx::Error),
+
+    #[error("failed to parse given database path '{0}'")]
+    ParseDatabasePath(PathBuf, #[source] sqlx::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum RotateKeyError {
+    #[error("failed crypto op while rotating key for vault '{0}'")]
+    Crypto(VaultId, #[source] CryptError),
+
+    #[error("failed database op while rotating key for vault '{0}'")]
+    Database(VaultId, #[source] sqlx::Error),
+
+    #[error("failed to load vault from database for vault '{0}'")]
+    LoadVault(VaultId, #[source] LoadVaultError),
+
+    #[error("failed to find vault '{0}'")]
+    MissingVault(VaultId),
+}
+
+#[derive(Debug, Error)]
+pub enum UnlockError {
+    #[error("failed crypto operation for vault '{0}'")]
+    Crypto(VaultId, #[source] CryptError),
+
+    #[error("failed to load vault for vault '{0}'")]
+    LoadVault(VaultId, #[source] LoadVaultError),
+
+    #[error("failed to find vault '{0}'")]
+    MissingVault(VaultId),
 }
