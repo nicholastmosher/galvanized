@@ -28,3 +28,7 @@ uuid = { workspace = true, features = ["v4", "serde"] }
 willow25.workspace = true
 zed.workspace = true
 zeroize.workspace = true
+
+[dev-dependencies]
+rust-embed.workspace = true
+tempfile.workspace = true
