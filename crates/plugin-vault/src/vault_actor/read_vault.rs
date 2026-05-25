@@ -6,7 +6,6 @@ use tokio::sync::oneshot;
 use crate::{
     error::{ReadVaultError, VaultError},
     vault_actor::{VaultActor, VaultActorHandle, VaultHandle},
-    vault_db::VaultContent,
 };
 
 /// Request to read from a vault using a provided read function.
@@ -20,7 +19,7 @@ pub struct ReadVaultRequest {
 pub struct ReadVaultResponse(Result<Box<dyn Any + 'static + Send>, VaultError>);
 
 pub struct ReadVaultFn(
-    pub Box<dyn 'static + Send + FnOnce(&VaultContent) -> Box<dyn Any + 'static + Send>>,
+    pub Box<dyn 'static + Send + FnOnce(&[u8]) -> Box<dyn Any + 'static + Send>>,
 );
 
 impl VaultActorHandle {
@@ -28,14 +27,14 @@ impl VaultActorHandle {
     pub async fn read_vault<R: Any + 'static + Send>(
         &self,
         vault_handle: VaultHandle,
-        f: impl 'static + Send + FnOnce(&VaultContent) -> R,
+        f: impl 'static + Send + FnOnce(&[u8]) -> R,
     ) -> Result<R, VaultError> {
         // Immediately verify that the incoming handle has the required capability
         let _cap_proof = vault_handle
             .provide_cap()
             .map_err(|error| ReadVaultError::Capability(vault_handle.id(), error))?;
 
-        let read_fn = move |content: &VaultContent| -> Box<dyn Any + 'static + Send> {
+        let read_fn = move |content: &[u8]| -> Box<dyn Any + 'static + Send> {
             let ret = f(content);
             Box::new(ret)
         };

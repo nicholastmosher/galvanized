@@ -201,7 +201,7 @@ impl VaultsDb {
     pub async fn read(
         &mut self,
         vault_id: &VaultId,
-        read_fn: impl 'static + Send + FnOnce(&VaultContent) -> Box<dyn Any + 'static + Send>,
+        read_fn: impl 'static + Send + FnOnce(&[u8]) -> Box<dyn Any + 'static + Send>,
     ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
         let Some(vault) = self.vaults.get(vault_id) else {
             return Err(ReadVaultError::Locked(vault_id.clone()).into());
@@ -228,7 +228,7 @@ impl VaultsDb {
     pub async fn update(
         &mut self,
         vault_id: &VaultId,
-        update_fn: impl 'static + Send + FnOnce(&mut VaultContent) -> Box<dyn Any + 'static + Send>,
+        update_fn: impl 'static + Send + FnOnce(&mut Vec<u8>) -> Box<dyn Any + 'static + Send>,
     ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
         let Some(vault) = self.vaults.get_mut(vault_id) else {
             return Err(ReadVaultError::Locked(vault_id.clone()).into());
@@ -605,7 +605,7 @@ impl VaultData {
         &self,
         vault_id: &VaultId,
         session: &VaultSession,
-        read_fn: impl FnOnce(&VaultContent) -> Box<dyn Any + 'static + Send>,
+        read_fn: impl FnOnce(&[u8]) -> Box<dyn Any + 'static + Send>,
     ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
         let critical_decrypted_vault_encryption_key = decrypt(
             &session.session_encrypted_vault_encryption_key.0,
@@ -618,20 +618,16 @@ impl VaultData {
             <[u8; 32]>::try_from(critical_decrypted_vault_encryption_key)
                 .map_err(|vec| ReadVaultError::MalformedKey(vault_id.clone(), vec.len()))?;
 
-        let critical_decrypted_vault = decrypt(
+        let mut critical_decrypted_vault = decrypt(
             &self.encrypted_vault,
             critical_decrypted_vault_encryption_key,
         )
         .map_err(|error| ReadVaultError::Crypto(vault_id.clone(), error))?;
         critical_decrypted_vault_encryption_key.zeroize();
 
-        let mut critical_vault_content =
-            serde_json::from_slice::<VaultContent>(&critical_decrypted_vault)
-                .map_err(|error| ReadVaultError::Serde(vault_id.clone(), error))?;
-
-        let data = read_fn(&critical_vault_content);
-        critical_vault_content.zeroize();
-        drop(critical_vault_content);
+        let data = read_fn(&critical_decrypted_vault);
+        critical_decrypted_vault.zeroize();
+        drop(critical_decrypted_vault);
 
         Ok(data)
     }
@@ -641,7 +637,7 @@ impl VaultData {
         &mut self,
         vault_id: &VaultId,
         session: &VaultSession,
-        update_fn: impl 'static + Send + FnOnce(&mut VaultContent) -> Box<dyn Any + 'static + Send>,
+        update_fn: impl 'static + Send + FnOnce(&mut Vec<u8>) -> Box<dyn Any + 'static + Send>,
     ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
         // Decrypt the vault encryption key using the session key
         let critical_decrypted_vault_encryption_key = decrypt(
@@ -656,29 +652,18 @@ impl VaultData {
                 .map_err(|vec| ReadVaultError::MalformedKey(vault_id.clone(), vec.len()))?;
 
         // Decrypt the vault content using the decrypted vault symmetric key
-        let critical_decrypted_vault = decrypt(
+        let mut critical_decrypted_vault = decrypt(
             &self.encrypted_vault,
             critical_decrypted_vault_encryption_key,
         )
         .map_err(|error| ReadVaultError::Crypto(vault_id.clone(), error))?;
 
-        // Deserialize the decrypted vault content into a `VaultContent` struct
-        let mut critical_vault_content =
-            serde_json::from_slice::<VaultContent>(&critical_decrypted_vault)
-                .map_err(|error| ReadVaultError::Serde(vault_id.clone(), error))?;
-
         // Run the user's update function on the deserialized vault content
-        let data = update_fn(&mut critical_vault_content);
+        let data = update_fn(&mut critical_decrypted_vault);
 
-        // Serialize the updated vault content
-        let updated_critical_vault_content = serde_json::to_vec(&critical_vault_content)
-            .map_err(|error| ReadVaultError::Serde(vault_id.clone(), error))?;
-        critical_vault_content.zeroize();
-        drop(critical_vault_content);
-
-        // Encrypt the updated serialized vault content
+        // Encrypt the updated vault content
         let updated_encrypted_vault = encrypt(
-            &updated_critical_vault_content,
+            &critical_decrypted_vault,
             critical_decrypted_vault_encryption_key,
         )
         .map_err(|error| ReadVaultError::Crypto(vault_id.clone(), error))?;
@@ -836,6 +821,16 @@ impl VaultContent {
         self.entries.clone()
     }
 
+    /// Returns a list of references to entries with the given name.
+    pub fn get(&self, name: &str) -> Vec<&(String, String)> {
+        self.entries.iter().filter(|(n, _)| n == name).collect()
+    }
+
+    /// Returns a list of mutable references to entries with the given name.
+    pub fn get_mut(&mut self, name: &str) -> Vec<&mut (String, String)> {
+        self.entries.iter_mut().filter(|(n, _)| n == name).collect()
+    }
+
     /// Returns an iterator over the entries in the vault.
     pub fn iter(&self) -> impl Iterator<Item = &(String, String)> {
         self.entries.iter()
@@ -844,6 +839,11 @@ impl VaultContent {
     /// Returns a mutable iterator over the entries in the vault.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut (String, String)> {
         self.entries.iter_mut()
+    }
+
+    /// Pushes a new entry to the vault.
+    pub fn push(&mut self, name: String, value: String) {
+        self.entries.push((name, value));
     }
 }
 
@@ -874,6 +874,7 @@ mod tests {
         tempdir.disable_cleanup(true);
         let temp_db = tempdir.path().join("vault.db");
         eprintln!("Test DB: {}", temp_db.display());
+
         let test_db = TestDb::get("vault.db").expect("get test db");
         tokio::fs::write(&temp_db, &test_db.data)
             .await
@@ -894,9 +895,7 @@ mod tests {
 
         vaults_db
             .update(&vault_id, |content| {
-                content
-                    .entries
-                    .push(("key".to_string(), "value".to_string()));
+                *content = "Hello, world!".to_string().into_bytes();
                 Box::new(())
             })
             .await
@@ -904,13 +903,13 @@ mod tests {
 
         let any_box = vaults_db
             .read(&vault_id, |content| {
-                //
-                Box::new(content.clone())
+                let data = String::from_utf8_lossy(content).to_string();
+                Box::new(data)
             })
             .await
             .expect("read vault");
 
-        let content = *any_box.downcast::<VaultContent>().expect("downcast");
+        let content = *any_box.downcast::<String>().expect("downcast");
         eprintln!("{content:?}");
     }
 }
