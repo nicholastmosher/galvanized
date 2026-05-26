@@ -18,6 +18,7 @@ futures.workspace = true
 rand_0_8_5.workspace = true
 rand_core.workspace = true
 rand_core_0_6_4.workspace = true
+rust-embed.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sqlx.workspace = true
@@ -30,5 +31,4 @@ zed.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
-rust-embed.workspace = true
 tempfile.workspace = true

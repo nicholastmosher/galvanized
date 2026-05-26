@@ -26,7 +26,11 @@ struct UnlockVaultResponse(Result<VaultHandle, VaultError>);
 
 impl VaultActorHandle {
     /// Unlock the vault with the given vault ID using the given password
-    pub async fn unlock_vault(&self, vault_id: VaultId, password: String) -> Result<VaultHandle> {
+    pub async fn unlock_vault(
+        &self,
+        vault_id: VaultId,
+        password: String,
+    ) -> Result<VaultHandle, VaultError> {
         let (client_tx, rx) = oneshot::channel();
         self.tx
             .send_async(

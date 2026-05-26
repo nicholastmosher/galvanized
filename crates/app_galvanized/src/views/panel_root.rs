@@ -3,7 +3,6 @@ use std::{
     time::Duration,
 };
 
-use plugin_vault::unlock_ui::Locked as _;
 use tracing::info;
 use zed::unstable::{
     gpui::{
@@ -161,16 +160,7 @@ impl Render for PanelRoot {
                 info!("Action: FocusSettings");
                 this.content = PanelContent::Home(HomeContent::Settings);
             }))
-            // .locked(cx, |el, cx| {
-            //     el
-            //         //
-            //         .child(self.render_active_panel(window, cx))
-            // })
-            .locked_prompt(self.password_input.clone(), window, cx, |el, window, cx| {
-                el
-                    //
-                    .child(self.render_active_panel(window, cx))
-            })
+            .child(self.render_active_panel(window, cx))
     }
 }
 

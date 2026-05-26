@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use plugin_vault::unlock_ui::Locked as _;
 use zed::unstable::{
     gpui::{
         self, Animation, AnimationExt, AppContext as _, EventEmitter, FocusHandle, Focusable,
@@ -125,31 +124,27 @@ impl WillowUi {
             .size_full()
             //
             .p_2()
-            .locked(cx, |el, _cx| {
-                el
-                    //
+            .child(
+                h_flex()
+                    // .debug()
+                    .size_full()
                     .child(
-                        h_flex()
+                        //
+                        v_flex()
+                            // .debug()
+                            .w_80()
+                            .h_full()
+                            //
+                            .p_2(),
+                    )
+                    .child(
+                        //
+                        div()
                             // .debug()
                             .size_full()
-                            .child(
-                                //
-                                v_flex()
-                                    // .debug()
-                                    .w_80()
-                                    .h_full()
-                                    //
-                                    .p_2(),
-                            )
-                            .child(
-                                //
-                                div()
-                                    // .debug()
-                                    .size_full()
-                                    //
-                                    .p_2(),
-                            ),
-                    )
-            })
+                            //
+                            .p_2(),
+                    ),
+            )
     }
 }

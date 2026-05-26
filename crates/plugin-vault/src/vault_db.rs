@@ -1,8 +1,10 @@
 use anyhow::{Context as _, Result};
 use derive_more::{Debug, Display};
+use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Sqlite, sqlite::SqliteConnectOptions};
 use std::{any::Any, collections::HashMap, path::Path, str::FromStr, sync::Arc};
+use tracing::info;
 use uuid::Uuid;
 use zed::unstable::util::ResultExt;
 use zeroize::Zeroize;
@@ -14,6 +16,22 @@ use crate::{
         ReadVaultError, RotateKeyError, UnlockError, VaultError,
     },
 };
+
+/// The `assets/vault.db` file is embedded in the binary and written to the
+/// vault's path when opening the vault database for the first time. This takes
+/// care of initializing the database schema.
+///
+/// When making changes to the vault database, be sure to re-initialize the
+/// database asset file, as follows:
+///
+/// ```text
+/// $ sqlx database create --database-url=sqlite:vault.db
+/// $ sqlx migrate run --database-url=sqlite:vault.db
+/// $ cp vault.db crates/plugin-vault/assets/
+/// ```
+#[derive(Embed)]
+#[folder = "assets/"]
+struct Assets;
 
 /// A unique ID for a [`Vault`]
 ///
@@ -56,6 +74,18 @@ impl VaultsDb {
     /// Construct a [`VaultsDb`] by opening a connection to the vaults database
     /// at the specified path, creating the database if it does not exist.
     pub async fn open(path: &Path) -> Result<Self, VaultError> {
+        let db_exists = tokio::fs::try_exists(path)
+            .await
+            .map_err(|error| OpenVaultError::IoPermission(path.into(), error))?;
+
+        if !db_exists {
+            let initial_db = Assets::get("vault.db").expect("embedded initial vault");
+            tokio::fs::write(path, &initial_db.data)
+                .await
+                .map_err(|error| OpenVaultError::IoWriteInitialDb(path.into(), error))?;
+            info!(path = %path.display(), "Initialized Vault database");
+        }
+
         let path_string = path.display().to_string();
         let options = path_string
             .parse::<SqliteConnectOptions>()
@@ -868,26 +898,9 @@ impl VaultUnlockComponents {
     }
 }
 
-/// The `test_assets/vault.db` file is embedded in the test binary and written
-/// to the temporary test database file before each test.
-///
-/// When making changes to the vault database, be sure to re-initialize the test
-/// database template file, as follows:
-///
-/// ```
-/// $ sqlx database create --database-url=sqlite:vault.db
-/// $ sqlx migrate run --database-url=sqlite:vault.db
-/// $ cp vault.db crates/plugin-vault/test_assets/
-/// ```
 #[cfg(test)]
 mod tests {
-    use rust_embed::Embed;
-
     use super::*;
-
-    #[derive(Embed)]
-    #[folder = "test_assets/"]
-    struct TestDb;
 
     #[tokio::test]
     async fn test_vault_database() {
@@ -895,11 +908,6 @@ mod tests {
         tempdir.disable_cleanup(true);
         let temp_db = tempdir.path().join("vault.db");
         eprintln!("Test DB: {}", temp_db.display());
-
-        let test_db = TestDb::get("vault.db").expect("get test db");
-        tokio::fs::write(&temp_db, &test_db.data)
-            .await
-            .expect("write test db");
 
         let mut vaults_db = VaultsDb::open(&temp_db).await.expect("create VaultsDb");
 

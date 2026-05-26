@@ -1,5 +1,6 @@
 use std::{
     path::{Path, PathBuf},
+    sync::Arc,
     time::Duration,
 };
 
@@ -75,8 +76,9 @@ impl VaultHandle {
 }
 
 /// External handle API for interacting with the vault actor
+#[derive(Clone)]
 pub struct VaultActorHandle {
-    _join_handle: tokio::task::JoinHandle<Result<()>>,
+    _join_handle: Arc<tokio::task::JoinHandle<Result<()>>>,
     tx: flume::Sender<VaultActorInput>,
 }
 
@@ -116,9 +118,9 @@ impl VaultActor {
             actor.run().await;
             anyhow::Ok(())
         };
-        let _join_handle = tokio::spawn(future);
+        let join_handle = tokio::spawn(future);
         Ok(VaultActorHandle {
-            _join_handle,
+            _join_handle: Arc::new(join_handle),
             tx: actor_tx,
         })
     }

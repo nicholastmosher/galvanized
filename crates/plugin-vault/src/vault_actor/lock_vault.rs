@@ -17,7 +17,7 @@ struct LockVaultResponse(Result<(), VaultError>);
 
 impl VaultActorHandle {
     /// Lock the vault with the given vault ID
-    pub async fn lock_vault(&self, vault_id: VaultId) -> Result<()> {
+    pub async fn lock_vault(&self, vault_id: VaultId) -> Result<(), VaultError> {
         let (tx, rx) = oneshot::channel();
         self.tx
             .send_async(
@@ -28,7 +28,7 @@ impl VaultActorHandle {
                 .into(),
             )
             .await
-            .map_err(|_| anyhow::anyhow!("channel error while sending lock_vault request"))?;
+            .expect("channel error while sending lock_vault request");
 
         let result = rx
             .await

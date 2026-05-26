@@ -75,6 +75,12 @@ pub enum OpenVaultError {
 
     #[error("failed to parse given database path '{0}'")]
     ParseDatabasePath(PathBuf, #[source] sqlx::Error),
+
+    #[error("io permission error while opening vault file '{0}'")]
+    IoPermission(PathBuf, #[source] std::io::Error),
+
+    #[error("io error while writing initial vault database at path '{0}'")]
+    IoWriteInitialDb(PathBuf, #[source] std::io::Error),
 }
 
 #[derive(Debug, Error)]
