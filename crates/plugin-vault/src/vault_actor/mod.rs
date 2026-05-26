@@ -5,12 +5,14 @@ use std::{
 
 use anyhow::{Context as _, Result};
 use capsec::{CapProvider, SendCap};
+use derive_more::Debug;
 use futures::{Stream, StreamExt as _};
 
 use crate::{
     vault_actor::{
-        create_vault::CreateVault, list_vaults::ListVaults, lock_vault::LockVault,
-        read_vault::ReadVaultRequest, unlock_vault::UnlockVaultEvent,
+        create_vault::CreateVaultRequest, list_vaults::ListVaultsRequest,
+        lock_vault::LockVaultRequest, read_vault::ReadVaultRequest,
+        unlock_vault::UnlockVaultRequest, update_vault::UpdateVaultRequest,
     },
     vault_cap::{VaultAccess, VaultRevoker, VaultSendCap},
     vault_db::{VaultId, VaultsDb},
@@ -21,16 +23,19 @@ pub mod list_vaults;
 pub mod lock_vault;
 pub mod read_vault;
 pub mod unlock_vault;
+pub mod update_vault;
 
 // TODO: Make configurable
 const DEFAULT_VAULT_TIMEOUT: Duration = Duration::from_secs(60 * 10);
 const ACTOR_CHANNEL_CAPACITY: usize = 50;
 
 /// A handle granting access to a particular [`Vault`]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct VaultHandle {
     vault_id: VaultId,
+    #[debug(skip)]
     cap: VaultSendCap<VaultAccess, VaultId>,
+    #[debug(skip)]
     revoker: VaultRevoker,
 }
 
@@ -77,11 +82,12 @@ pub struct VaultActorHandle {
 
 #[derive(derive_more::From)]
 pub enum VaultActorInput {
-    CreateVault(#[from] CreateVault),
-    LockVault(#[from] LockVault),
-    UnlockVault(#[from] UnlockVaultEvent),
-    ListVaults(#[from] ListVaults),
+    CreateVault(#[from] CreateVaultRequest),
+    ListVaults(#[from] ListVaultsRequest),
+    LockVault(#[from] LockVaultRequest),
     ReadVault(#[from] ReadVaultRequest),
+    UnlockVault(#[from] UnlockVaultRequest),
+    UpdateVault(#[from] UpdateVaultRequest),
 }
 
 /// Internal state machine of the vault actor
@@ -101,6 +107,7 @@ pub struct VaultActor {
 }
 
 impl VaultActor {
+    /// Spawns a new vault actor with the given database path and capability.
     pub fn spawn(db_path: PathBuf, cap: SendCap<VaultAccess>) -> Result<VaultActorHandle> {
         let (actor_tx, rx) = flume::bounded(ACTOR_CHANNEL_CAPACITY);
         let tx = actor_tx.clone();
@@ -116,6 +123,7 @@ impl VaultActor {
         })
     }
 
+    /// Initializes a new vault actor with the given database, capability, and channels.
     pub async fn new(
         db_path: &Path,
         cap: SendCap<VaultAccess>,
@@ -170,24 +178,29 @@ impl VaultActor {
 
     /// Dispatches an input event to the appropriate handler.
     async fn try_handle_input(&mut self, input: impl Into<VaultActorInput>) -> Result<()> {
-        let event = input.into();
-        match event {
-            VaultActorInput::CreateVault(event) => {
-                self.try_create_vault(event).await;
+        use VaultActorInput::*;
+
+        match input.into() {
+            CreateVault(request) => {
+                self.try_create_vault(request).await?;
             }
-            VaultActorInput::LockVault(event) => {
-                self.try_lock_vault(event).await?;
+            ListVaults(request) => {
+                self.try_list_vaults(request).await?;
             }
-            VaultActorInput::UnlockVault(event) => {
-                self.try_unlock_vault(event).await?;
+            LockVault(request) => {
+                self.try_lock_vault(request).await?;
             }
-            VaultActorInput::ListVaults(event) => {
-                self.try_list_vaults(event).await?;
+            ReadVault(request) => {
+                self.try_read_vault(request).await?;
             }
-            VaultActorInput::ReadVault(read_vault) => {
-                self.try_read_vault(read_vault).await?;
+            UnlockVault(request) => {
+                self.try_unlock_vault(request).await?;
+            }
+            UpdateVault(request) => {
+                self.try_update_vault(request).await?;
             }
         }
+
         Ok(())
     }
 }

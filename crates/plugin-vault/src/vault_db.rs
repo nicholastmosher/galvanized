@@ -83,8 +83,8 @@ impl VaultsDb {
 
         {
             let vault_id = &data.vault_id;
-            let vault_metadata = data.metadata.as_deref();
-            let encrypted_vault = &*data.encrypted_vault;
+            let vault_metadata = data.metadata.buffer();
+            let encrypted_vault = data.encrypted_vault.buffer();
             let encrypted_vault_encryption_key = &data.encrypted_vault_encryption_key.0;
             let vault_encryption_key_salt = &data.vault_encryption_key_salt.0;
             let query = sqlx::query!(
@@ -153,7 +153,7 @@ impl VaultsDb {
             .map_err(|error| LoadVaultError::ImpedenceMismatch(vault_id.clone(), error))?;
         debug_assert_eq!(vault_id, &data.vault_id);
         let vault_id = data.vault_id.clone();
-        let vault = Vault::load(data)?;
+        let vault = Vault::new(data);
         self.vaults.insert(vault_id.clone(), vault);
 
         Ok(())
@@ -198,10 +198,13 @@ impl VaultsDb {
         Ok(())
     }
 
+    /// Reads data from the vault using the given read function.
+    ///
+    /// This will only work if the specified vault is unlocked.
     pub async fn read(
         &mut self,
         vault_id: &VaultId,
-        read_fn: impl 'static + Send + FnOnce(&[u8]) -> Box<dyn Any + 'static + Send>,
+        read_fn: impl 'static + Send + for<'a> FnOnce(VaultRef<'a>) -> Box<dyn Any + 'static + Send>,
     ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
         let Some(vault) = self.vaults.get(vault_id) else {
             return Err(ReadVaultError::Locked(vault_id.clone()).into());
@@ -225,10 +228,13 @@ impl VaultsDb {
         Ok(user_returned)
     }
 
+    /// Updates the data in the vault using the given update function.
+    ///
+    /// This will only work if the specified vault is unlocked.
     pub async fn update(
         &mut self,
         vault_id: &VaultId,
-        update_fn: impl 'static + Send + FnOnce(&mut Vec<u8>) -> Box<dyn Any + 'static + Send>,
+        update_fn: impl 'static + Send + for<'a> FnOnce(VaultMut<'a>) -> Box<dyn Any + 'static + Send>,
     ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
         let Some(vault) = self.vaults.get_mut(vault_id) else {
             return Err(ReadVaultError::Locked(vault_id.clone()).into());
@@ -436,9 +442,6 @@ pub struct Vault {
     /// a new one containing the updated data.
     data: Arc<VaultData>,
 
-    /// The vault's unencrypted metadata, if it's loaded in memory.
-    metadata: Option<VaultMetadata>,
-
     /// A session unlock key for the vault's encryption key.
     ///
     /// When the vault is "unlocked", both the vault and the vault's encryption
@@ -457,28 +460,8 @@ impl Vault {
     pub fn new(data: VaultData) -> Self {
         Self {
             data: Arc::new(data),
-            metadata: None,
             session: None,
         }
-    }
-
-    /// Load a [`Vault`] from the given [`VaultData`].
-    ///
-    /// This method deserializes and caches the vault metadata, but does not
-    /// unlock the vault.
-    fn load(data: VaultData) -> Result<Self, LoadVaultError> {
-        let metadata = data
-            .metadata
-            .as_ref()
-            .map(|meta| serde_json::from_slice::<VaultMetadata>(&**meta))
-            .transpose()
-            .map_err(|error| LoadVaultError::Serde(data.vault_id.clone(), error))?;
-
-        Ok(Self {
-            data: Arc::new(data),
-            metadata,
-            session: None,
-        })
     }
 
     /// Locks the vault by dropping the session with the unlock key.
@@ -516,7 +499,7 @@ impl Vault {
 /// Sqlx query representation of a vault in the database.
 pub struct VaultRow {
     vault_id: String,
-    metadata: Option<Vec<u8>>,
+    metadata: Vec<u8>,
     encrypted_vault: Vec<u8>,
     encrypted_vault_encryption_key: Vec<u8>,
     vault_encryption_key_salt: Vec<u8>,
@@ -531,12 +514,12 @@ pub struct VaultData {
     /// The serialized but unencrypted metadata of the vault.
     ///
     /// This is serialized as JSON in the format of a [`VaultMetadata`].
-    metadata: Option<Arc<Vec<u8>>>,
+    metadata: VaultMetadata,
 
     /// The serialized and encrypted contents of the vault.
     ///
     /// This is serialized as JSON in the format of a [`VaultContent`].
-    encrypted_vault: Arc<Vec<u8>>,
+    encrypted_vault: EncryptedVault,
 
     /// The symmetric encryption key used to encrypt the vault contents.
     ///
@@ -555,8 +538,8 @@ impl TryFrom<VaultRow> for VaultData {
     fn try_from(row: VaultRow) -> Result<Self> {
         Ok(Self {
             vault_id: row.vault_id.parse()?,
-            metadata: row.metadata.map(Arc::new),
-            encrypted_vault: Arc::new(row.encrypted_vault),
+            metadata: VaultMetadata::new(row.metadata),
+            encrypted_vault: EncryptedVault::new(row.encrypted_vault),
             encrypted_vault_encryption_key: EncryptedVaultEncryptionKey(
                 row.encrypted_vault_encryption_key,
             ),
@@ -572,16 +555,13 @@ impl VaultData {
         let mut password_hash = hash_password(password.as_bytes(), &vault_encryption_key_salt)?;
         password.zeroize();
 
-        let vault_content = VaultContent::default();
-        let vault_content_bytes =
-            serde_json::to_vec(&vault_content).expect("failed to serialize initial vault content");
-
-        // let vault_metadata = VaultMetadata::default();
-        // let metadata = serde_json::to_vec(&vault_metadata)
-        //     .expect("failed to serialize initial vault metadata");
+        let vault_content = &[];
+        let metadata = VaultMetadata::default();
 
         let mut vault_encryption_key = generate_256_key();
-        let encrypted_vault = encrypt(&vault_content_bytes, vault_encryption_key)?;
+        let encrypted_vault = encrypt(vault_content, vault_encryption_key)?;
+        let encrypted_vault = EncryptedVault::new(encrypted_vault);
+
         let encrypted_vault_encryption_key = encrypt(&vault_encryption_key, password_hash)?;
         vault_encryption_key.zeroize();
         password_hash.zeroize();
@@ -591,8 +571,8 @@ impl VaultData {
         let vault_encryption_key_salt = VaultEncryptionKeySalt(vault_encryption_key_salt.to_vec());
         let data = VaultData {
             vault_id: VaultId::generate(),
-            metadata: None,
-            encrypted_vault: Arc::new(encrypted_vault),
+            metadata,
+            encrypted_vault,
             encrypted_vault_encryption_key,
             vault_encryption_key_salt,
         };
@@ -605,7 +585,7 @@ impl VaultData {
         &self,
         vault_id: &VaultId,
         session: &VaultSession,
-        read_fn: impl FnOnce(&[u8]) -> Box<dyn Any + 'static + Send>,
+        read_fn: impl for<'a> FnOnce(VaultRef<'a>) -> Box<dyn Any + 'static + Send>,
     ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
         let critical_decrypted_vault_encryption_key = decrypt(
             &session.session_encrypted_vault_encryption_key.0,
@@ -619,13 +599,15 @@ impl VaultData {
                 .map_err(|vec| ReadVaultError::MalformedKey(vault_id.clone(), vec.len()))?;
 
         let mut critical_decrypted_vault = decrypt(
-            &self.encrypted_vault,
+            self.encrypted_vault.buffer(),
             critical_decrypted_vault_encryption_key,
         )
         .map_err(|error| ReadVaultError::Crypto(vault_id.clone(), error))?;
         critical_decrypted_vault_encryption_key.zeroize();
 
-        let data = read_fn(&critical_decrypted_vault);
+        let vault_ref = VaultRef::new(self.metadata.buffer(), &*critical_decrypted_vault);
+
+        let data = read_fn(vault_ref);
         critical_decrypted_vault.zeroize();
         drop(critical_decrypted_vault);
 
@@ -637,7 +619,7 @@ impl VaultData {
         &mut self,
         vault_id: &VaultId,
         session: &VaultSession,
-        update_fn: impl 'static + Send + FnOnce(&mut Vec<u8>) -> Box<dyn Any + 'static + Send>,
+        update_fn: impl 'static + Send + for<'a> FnOnce(VaultMut<'a>) -> Box<dyn Any + 'static + Send>,
     ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
         // Decrypt the vault encryption key using the session key
         let critical_decrypted_vault_encryption_key = decrypt(
@@ -653,13 +635,15 @@ impl VaultData {
 
         // Decrypt the vault content using the decrypted vault symmetric key
         let mut critical_decrypted_vault = decrypt(
-            &self.encrypted_vault,
+            self.encrypted_vault.buffer(),
             critical_decrypted_vault_encryption_key,
         )
         .map_err(|error| ReadVaultError::Crypto(vault_id.clone(), error))?;
 
+        let vault_mut = VaultMut::new(self.metadata.buffer_mut(), &mut critical_decrypted_vault);
+
         // Run the user's update function on the deserialized vault content
-        let data = update_fn(&mut critical_decrypted_vault);
+        let data = update_fn(vault_mut);
 
         // Encrypt the updated vault content
         let updated_encrypted_vault = encrypt(
@@ -670,7 +654,7 @@ impl VaultData {
         critical_decrypted_vault_encryption_key.zeroize();
 
         // Replace the encrypted vault with the updated encrypted vault
-        self.encrypted_vault = Arc::new(updated_encrypted_vault);
+        self.encrypted_vault.set_buffer(updated_encrypted_vault);
         Ok(data)
     }
 
@@ -685,6 +669,101 @@ impl VaultData {
     }
 }
 
+/// The encrypted content of a vault.
+#[derive(Debug, Default, Clone)]
+pub struct EncryptedVault(Arc<[u8]>);
+impl EncryptedVault {
+    /// Creates a new `EncryptedVault` with the given `buffer`.
+    pub fn new(buffer: impl Into<Arc<[u8]>>) -> Self {
+        Self(buffer.into())
+    }
+
+    /// Returns a reference to the vault content buffer.
+    pub fn buffer(&self) -> &[u8] {
+        &*self.0
+    }
+
+    /// Sets the vault content buffer to the given `buffer`.
+    pub fn set_buffer(&mut self, buffer: impl Into<Arc<[u8]>>) {
+        self.0 = buffer.into();
+    }
+}
+
+/// An immutable view into the decrypted content of a vault.
+pub struct VaultRef<'a> {
+    metadata: &'a [u8],
+    secret: &'a [u8],
+}
+
+impl<'a> VaultRef<'a> {
+    /// Creates a new `VaultView` with the given `metadata` and `secret`.
+    pub fn new(metadata: &'a [u8], secret: &'a [u8]) -> VaultRef<'a> {
+        Self { metadata, secret }
+    }
+
+    /// Returns a reference to the metadata buffer.
+    pub fn metadata(&self) -> &[u8] {
+        self.metadata
+    }
+
+    /// Returns a reference to the secret buffer.
+    pub fn secret(&self) -> &[u8] {
+        self.secret
+    }
+}
+
+/// A mutable view into the decrypted content of a vault.
+pub struct VaultMut<'a> {
+    metadata: &'a mut Vec<u8>,
+    secret: &'a mut Vec<u8>,
+}
+
+impl<'a> VaultMut<'a> {
+    /// Creates a new `VaultMut` with the given `metadata` and `secret` buffers.
+    pub fn new(metadata: &'a mut Vec<u8>, secret: &'a mut Vec<u8>) -> Self {
+        Self { metadata, secret }
+    }
+
+    /// Returns a mutable reference to the metadata buffer.
+    pub fn metadata(&mut self) -> &mut Vec<u8> {
+        self.metadata
+    }
+
+    /// Returns a mutable reference to the secret buffer.
+    pub fn secret(&mut self) -> &mut Vec<u8> {
+        self.secret
+    }
+}
+
+/// The unencrypted metadata of a vault.
+#[derive(Debug, Default, Clone)]
+pub struct VaultMetadata(Vec<u8>);
+impl VaultMetadata {
+    /// Creates a new `VaultMetadata` with the given `buffer`.
+    pub fn new(buffer: impl Into<Vec<u8>>) -> Self {
+        Self(buffer.into())
+    }
+
+    /// Returns a reference to the vault metadata buffer.
+    pub fn buffer(&self) -> &[u8] {
+        &*self.0
+    }
+
+    /// Returns a mutable reference to the vault metadata buffer.
+    pub fn buffer_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.0
+    }
+
+    /// Sets the vault metadata buffer to the given `buffer`.
+    pub fn set_buffer(&mut self, buffer: impl Into<Vec<u8>>) {
+        self.0 = buffer.into();
+    }
+}
+
+/// Represents an unlock session for a vault.
+///
+/// This includes the vault's symmetric key encrypted by a session key, as well as
+/// the session key itself used to lock and unlock the vault's symmetric key.
 #[derive(Clone, Zeroize)]
 pub struct VaultSession {
     /// The vault's symmetric encryption key, which has itself been encrypted by
@@ -789,64 +868,6 @@ impl VaultUnlockComponents {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct VaultMetadata {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    icon: Option<Vec<u8>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    custom: Option<serde_json::Value>,
-}
-
-/// The secret contents of the vault that gets encrpyted and stored
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct VaultContent {
-    entries: Vec<(String, String)>,
-}
-
-impl Zeroize for VaultContent {
-    fn zeroize(&mut self) {
-        for (name, value) in &mut self.entries {
-            name.zeroize();
-            value.zeroize();
-        }
-        self.entries.zeroize();
-    }
-}
-
-impl VaultContent {
-    /// Returns a clone of the entries in the vault.
-    pub fn entries_vec(&self) -> Vec<(String, String)> {
-        self.entries.clone()
-    }
-
-    /// Returns a list of references to entries with the given name.
-    pub fn get(&self, name: &str) -> Vec<&(String, String)> {
-        self.entries.iter().filter(|(n, _)| n == name).collect()
-    }
-
-    /// Returns a list of mutable references to entries with the given name.
-    pub fn get_mut(&mut self, name: &str) -> Vec<&mut (String, String)> {
-        self.entries.iter_mut().filter(|(n, _)| n == name).collect()
-    }
-
-    /// Returns an iterator over the entries in the vault.
-    pub fn iter(&self) -> impl Iterator<Item = &(String, String)> {
-        self.entries.iter()
-    }
-
-    /// Returns a mutable iterator over the entries in the vault.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut (String, String)> {
-        self.entries.iter_mut()
-    }
-
-    /// Pushes a new entry to the vault.
-    pub fn push(&mut self, name: String, value: String) {
-        self.entries.push((name, value));
-    }
-}
-
 /// The `test_assets/vault.db` file is embedded in the test binary and written
 /// to the temporary test database file before each test.
 ///
@@ -894,16 +915,16 @@ mod tests {
             .unwrap();
 
         vaults_db
-            .update(&vault_id, |content| {
-                *content = "Hello, world!".to_string().into_bytes();
+            .update(&vault_id, |mut vault| {
+                *vault.secret() = "Hello, world!".to_string().into_bytes();
                 Box::new(())
             })
             .await
             .expect("update vault");
 
         let any_box = vaults_db
-            .read(&vault_id, |content| {
-                let data = String::from_utf8_lossy(content).to_string();
+            .read(&vault_id, |vault| {
+                let data = String::from_utf8_lossy(vault.secret()).to_string();
                 Box::new(data)
             })
             .await

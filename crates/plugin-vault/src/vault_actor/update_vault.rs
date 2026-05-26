@@ -1,34 +1,31 @@
 use std::any::Any;
 
-use anyhow::{Result, anyhow};
+use anyhow::anyhow;
 use tokio::sync::oneshot;
 
 use crate::{
-    error::{ReadVaultError, VaultError},
+    error::{UpdateVaultError, VaultError},
     vault_actor::{VaultActor, VaultActorHandle, VaultHandle},
-    vault_db::VaultRef,
+    vault_db::VaultMut,
 };
 
-/// Request to read from a vault using a provided read function.
-pub struct ReadVaultRequest {
-    client_tx: oneshot::Sender<ReadVaultResponse>,
+pub struct UpdateVaultRequest {
+    client_tx: oneshot::Sender<UpdateVaultResponse>,
     vault_handle: VaultHandle,
-    read_fn: ReadVaultFn,
+    update_fn: UpdateVaultFn,
 }
 
-/// Response to a read_vault request, containing the result or an error.
-struct ReadVaultResponse(Result<Box<dyn Any + 'static + Send>, VaultError>);
+struct UpdateVaultResponse(Result<Box<dyn Any + 'static + Send>, VaultError>);
 
-struct ReadVaultFn(
-    Box<dyn 'static + Send + for<'a> FnOnce(VaultRef<'a>) -> Box<dyn Any + 'static + Send>>,
+struct UpdateVaultFn(
+    Box<dyn 'static + Send + for<'a> FnOnce(VaultMut<'a>) -> Box<dyn Any + 'static + Send>>,
 );
 
 impl VaultActorHandle {
-    /// Reads a vault using the provided read function and returns the result.
-    pub async fn read_vault<R>(
+    pub async fn update_vault<R>(
         &self,
         vault_handle: &VaultHandle,
-        f: impl 'static + Send + for<'a> FnOnce(VaultRef<'a>) -> R,
+        f: impl 'static + Send + for<'a> FnOnce(VaultMut<'a>) -> R,
     ) -> Result<R, VaultError>
     where
         R: Any + 'static + Send,
@@ -36,20 +33,20 @@ impl VaultActorHandle {
         // Immediately verify that the incoming handle has the required capability
         let _cap_proof = vault_handle
             .provide_cap()
-            .map_err(|error| ReadVaultError::Capability(vault_handle.id(), error))?;
+            .map_err(|error| UpdateVaultError::Capability(vault_handle.id(), error))?;
 
-        let read_fn = move |content: VaultRef<'_>| -> Box<dyn Any + 'static + Send> {
-            let ret = f(content);
+        let update_fn = move |vault: VaultMut<'_>| -> Box<dyn Any + 'static + Send> {
+            let ret = f(vault);
             Box::new(ret)
         };
 
         let (client_tx, rx) = oneshot::channel();
         self.tx
             .send_async(
-                ReadVaultRequest {
+                UpdateVaultRequest {
                     client_tx,
                     vault_handle: vault_handle.clone(),
-                    read_fn: ReadVaultFn(Box::new(read_fn)),
+                    update_fn: UpdateVaultFn(Box::new(update_fn)),
                 }
                 .into(),
             )
@@ -67,14 +64,14 @@ impl VaultActorHandle {
 }
 
 impl VaultActor {
-    pub async fn try_read_vault(
+    pub async fn try_update_vault(
         &mut self,
-        ReadVaultRequest {
+        UpdateVaultRequest {
             client_tx,
             vault_handle,
-            read_fn: ReadVaultFn(read_fn),
-        }: ReadVaultRequest,
-    ) -> Result<()> {
+            update_fn: UpdateVaultFn(update_fn),
+        }: UpdateVaultRequest,
+    ) -> Result<(), VaultError> {
         let vault_id = vault_handle.id();
 
         // Very first thing is to validate the capability of the vault handle If
@@ -83,7 +80,7 @@ impl VaultActor {
         // expired or been revoked during the execution time
         if let Err(cap_error) = vault_handle.provide_cap() {
             client_tx
-                .send(ReadVaultResponse(Err(ReadVaultError::Capability(
+                .send(UpdateVaultResponse(Err(UpdateVaultError::Capability(
                     vault_id.clone(),
                     cap_error,
                 )
@@ -96,10 +93,10 @@ impl VaultActor {
         }
         // Beyond this point, the capability of this request to read the vault has been verified
 
-        let result = self.vaults.read(&vault_id, read_fn).await;
+        let result = self.vaults.update(&vault_id, update_fn).await;
         client_tx
-            .send(ReadVaultResponse(result))
-            .map_err(|_| panic!("channel error while sending read_vault response"));
+            .send(UpdateVaultResponse(result))
+            .map_err(|_| panic!("channel error while sending update_vault response"));
 
         Ok(())
     }

@@ -7,14 +7,13 @@ use crate::{
     vault_db::VaultId,
 };
 
-pub struct CreateVault {
-    pub password: String,
-    pub client_tx: oneshot::Sender<Result<VaultId, VaultError>>,
+pub struct CreateVaultRequest {
+    password: String,
+    client_tx: oneshot::Sender<CreateVaultResponse>,
 }
 
-pub struct FinishCreateVault {
-    pub client_tx: oneshot::Sender<Result<VaultId, VaultError>>,
-}
+#[derive(Debug)]
+struct CreateVaultResponse(Result<VaultId, VaultError>);
 
 impl VaultActorHandle {
     /// Creates a new password-protected vault with the given password.
@@ -25,7 +24,7 @@ impl VaultActorHandle {
         let (client_tx, rx) = oneshot::channel();
         self.tx
             .send_async(
-                CreateVault {
+                CreateVaultRequest {
                     password,
                     client_tx,
                 }
@@ -34,10 +33,11 @@ impl VaultActorHandle {
             .await
             .expect("channel error while sending create_vault reqest");
 
-        let vault_id = rx
+        let response = rx
             .await
-            .expect("channel error while receiving create_vault response")?;
+            .expect("channel error while receiving create_vault response");
 
+        let vault_id = response.0?;
         Ok(vault_id)
     }
 }
@@ -50,15 +50,17 @@ impl VaultActor {
     /// completed in [`try_finish_create_vault`].
     pub async fn try_create_vault(
         &mut self,
-        CreateVault {
+        CreateVaultRequest {
             password,
             client_tx,
-        }: CreateVault,
-    ) {
+        }: CreateVaultRequest,
+    ) -> Result<(), VaultError> {
         let result = self.vaults.create(password).await;
 
         client_tx
-            .send(result)
+            .send(CreateVaultResponse(result))
             .expect("channel error while sending create_vault response");
+
+        Ok(())
     }
 }

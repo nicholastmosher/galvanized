@@ -27,6 +27,9 @@ pub enum VaultError {
 
     #[error("failed to unlock vault")]
     UnlockVault(#[from] UnlockError),
+
+    #[error("failed to update vault")]
+    UpdateVault(#[from] UpdateVaultError),
 }
 
 #[derive(Debug, Error)]
@@ -120,4 +123,10 @@ pub enum UnlockError {
 
     #[error("failed to find vault '{0}'")]
     MissingVault(VaultId),
+}
+
+#[derive(Debug, Error)]
+pub enum UpdateVaultError {
+    #[error("failed to provide capability to update vault '{0}'")]
+    Capability(VaultId, #[source] capsec::CapSecError),
 }

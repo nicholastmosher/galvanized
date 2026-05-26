@@ -1,4 +1,4 @@
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use tokio::sync::oneshot;
 
 use crate::{
@@ -7,10 +7,13 @@ use crate::{
     vault_db::VaultId,
 };
 
-pub struct LockVault {
-    pub client_tx: oneshot::Sender<Result<(), VaultError>>,
-    pub vault_id: VaultId,
+pub struct LockVaultRequest {
+    client_tx: oneshot::Sender<LockVaultResponse>,
+    vault_id: VaultId,
 }
+
+#[derive(Debug)]
+struct LockVaultResponse(Result<(), VaultError>);
 
 impl VaultActorHandle {
     /// Lock the vault with the given vault ID
@@ -18,7 +21,7 @@ impl VaultActorHandle {
         let (tx, rx) = oneshot::channel();
         self.tx
             .send_async(
-                LockVault {
+                LockVaultRequest {
                     vault_id,
                     client_tx: tx,
                 }
@@ -26,10 +29,12 @@ impl VaultActorHandle {
             )
             .await
             .map_err(|_| anyhow::anyhow!("channel error while sending lock_vault request"))?;
-        rx.await
-            .context("channel error while receiving lock_vault response")?
-            .context("error while locking vault")?;
 
+        let result = rx
+            .await
+            .expect("channel error while receiving lock_vault response");
+
+        result.0?;
         Ok(())
     }
 }
@@ -44,15 +49,15 @@ impl VaultActor {
     /// - Finish request by inserting locked vault into `locked_vaults` and responding to client.
     pub async fn try_lock_vault(
         &mut self,
-        LockVault {
+        LockVaultRequest {
             client_tx,
             vault_id,
-        }: LockVault,
+        }: LockVaultRequest,
     ) -> Result<()> {
         let result = self.vaults.lock(&vault_id).await;
 
         client_tx
-            .send(result)
+            .send(LockVaultResponse(result))
             .expect("channel error while sending lock_vault response");
 
         Ok(())
