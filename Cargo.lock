@@ -586,7 +586,7 @@ dependencies = [
  "agent_settings 0.1.0",
  "ai_onboarding 0.1.0",
  "anyhow",
- "arrayvec",
+ "arrayvec 0.7.6",
  "assistant_slash_command 0.1.0",
  "assistant_slash_commands 0.1.0",
  "assistant_text_thread 0.1.0",
@@ -616,7 +616,7 @@ dependencies = [
  "gpui_tokio 0.1.0",
  "html_to_markdown 0.1.0",
  "http_client 0.1.0",
- "image",
+ "image 0.25.8",
  "indoc",
  "itertools 0.14.0",
  "jsonschema",
@@ -680,7 +680,7 @@ dependencies = [
  "agent_settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "ai_onboarding 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "anyhow",
- "arrayvec",
+ "arrayvec 0.7.6",
  "assistant_slash_command 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "assistant_slash_commands 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "assistant_text_thread 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -710,7 +710,7 @@ dependencies = [
  "gpui_tokio 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "html_to_markdown 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "image",
+ "image 0.25.8",
  "indoc",
  "itertools 0.14.0",
  "jsonschema",
@@ -1111,6 +1111,15 @@ name = "arrayref"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76a2e8124351fda1ef8aaaa3bbd7ebbcb486bbcd4225aca0aa0d84bb2db8fecb"
+
+[[package]]
+name = "arrayvec"
+version = "0.4.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd9fd44efafa8690358b7408d253adf110036b88f55672a933f01d616ad9b1b9"
+dependencies = [
+ "nodrop",
+]
 
 [[package]]
 name = "arrayvec"
@@ -2072,7 +2081,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cfddb07216410377231960af4fcab838eaa12e013417781b78bd95ee22077f8"
 dependencies = [
  "anyhow",
- "arrayvec",
+ "arrayvec 0.7.6",
  "log",
  "nom 8.0.0",
  "num-rational",
@@ -2085,7 +2094,7 @@ version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47c8fbc0f831f4519fe8b810b6a7a91410ec83031b8233f730a0480029f6a23f"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
 ]
 
 [[package]]
@@ -2760,13 +2769,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake2-rfc"
+version = "0.2.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d6d530bdd2d52966a6d03b7a964add7ae1a288d25214066fd4b600f0f796400"
+dependencies = [
+ "arrayvec 0.4.12",
+ "constant_time_eq 0.1.5",
+]
+
+[[package]]
 name = "blake3"
 version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3888aaa89e4b2a40fca9848e400f6a658a5a3978de7be858e209cafa8be9a4a0"
 dependencies = [
  "arrayref",
- "arrayvec",
+ "arrayvec 0.7.6",
  "cc",
  "cfg-if",
  "constant_time_eq 0.3.1",
@@ -6822,7 +6841,7 @@ version = "0.1.0"
 dependencies = [
  "ai_onboarding 0.1.0",
  "anyhow",
- "arrayvec",
+ "arrayvec 0.7.6",
  "brotli",
  "buffer_diff 0.1.0",
  "client 0.1.0",
@@ -6882,7 +6901,7 @@ source = "git+https://github.com/nicholastmosher/zed?branch=first-class-plugins#
 dependencies = [
  "ai_onboarding 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "anyhow",
- "arrayvec",
+ "arrayvec 0.7.6",
  "brotli",
  "buffer_diff 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -8120,6 +8139,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "find-crate"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59a98bbaacea1c0eb6a0876280051b892eb73594fd90cf3b20e9c817029c57d2"
+dependencies = [
+ "toml 0.5.11",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8730,6 +8758,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
+ "plot_icon",
  "plugin-calendar",
  "plugin-chat",
  "plugin-p2p",
@@ -9722,7 +9751,7 @@ dependencies = [
  "gpui_macros 0.1.0",
  "gpui_util 0.1.0",
  "http_client 0.1.0",
- "image",
+ "image 0.25.8",
  "inventory",
  "itertools 0.14.0",
  "log",
@@ -9801,7 +9830,7 @@ dependencies = [
  "gpui_macros 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "gpui_util 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "image",
+ "image 0.25.8",
  "inventory",
  "itertools 0.14.0",
  "log",
@@ -9964,7 +9993,7 @@ dependencies = [
  "foreign-types 0.5.0",
  "futures",
  "gpui 0.2.2",
- "image",
+ "image 0.25.8",
  "itertools 0.14.0",
  "libc",
  "log",
@@ -10006,7 +10035,7 @@ dependencies = [
  "foreign-types 0.5.0",
  "futures",
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "image",
+ "image 0.25.8",
  "itertools 0.14.0",
  "libc",
  "log",
@@ -10220,7 +10249,7 @@ dependencies = [
  "etagere",
  "futures",
  "gpui 0.2.2",
- "image",
+ "image 0.25.8",
  "itertools 0.14.0",
  "log",
  "parking_lot",
@@ -10246,7 +10275,7 @@ dependencies = [
  "etagere",
  "futures",
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "image",
+ "image 0.25.8",
  "itertools 0.14.0",
  "log",
  "parking_lot",
@@ -11253,6 +11282,19 @@ dependencies = [
 
 [[package]]
 name = "image"
+version = "0.24.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5690139d2f55868e080017335e4b94cb7414274c74f1669c84fb5feba2c9f69d"
+dependencies = [
+ "bytemuck",
+ "byteorder",
+ "color_quant",
+ "num-traits",
+ "png 0.17.16",
+]
+
+[[package]]
+name = "image"
 version = "0.25.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "529feb3e6769d234375c4cf1ee2ce713682b8e76538cb13f9fc23e1400a591e7"
@@ -11683,7 +11725,7 @@ version = "0.98.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1f253ea06293e51e166a88a3faa019b67e187d12bd7c6a04369a0ec86f53272"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "bao-tree",
  "bytes",
  "cfg_aliases 0.2.1",
@@ -12492,7 +12534,7 @@ version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c62026ae44756f8a599ba21140f350303d4f08dcdcc71b5ad9c9bb8128c13c62"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "euclid",
  "smallvec",
 ]
@@ -12667,7 +12709,7 @@ dependencies = [
  "gpui 0.2.2",
  "http_client 0.1.0",
  "icons 0.1.0",
- "image",
+ "image 0.25.8",
  "log",
  "open_ai 0.1.0",
  "open_router 0.1.0",
@@ -12701,7 +12743,7 @@ dependencies = [
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "icons 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "image",
+ "image 0.25.8",
  "log",
  "open_ai 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "open_router 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -13499,7 +13541,7 @@ version = "0.46.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ced237d0bd84bbebb7c2cad4c073160dacb4fe40534963c32ed6d4c6bb7702a3"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "asynchronous-codec",
  "bytes",
  "either",
@@ -14228,7 +14270,7 @@ dependencies = [
  "gpui 0.2.2",
  "gpui_tokio 0.1.0",
  "http_client_tls 0.1.0",
- "image",
+ "image 0.25.8",
  "libwebrtc",
  "livekit",
  "livekit_api 0.1.0",
@@ -14266,7 +14308,7 @@ dependencies = [
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "gpui_tokio 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "http_client_tls 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "image",
+ "image 0.25.8",
  "libwebrtc",
  "livekit",
  "livekit_api 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -14490,7 +14532,7 @@ version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e16770d760c7848b0c1c2d209101e408207a65168109509f8483837a36cf2e7"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "euclid",
  "num-traits",
 ]
@@ -15307,7 +15349,7 @@ version = "28.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "618f667225063219ddfc61251087db8a9aec3c3f0950c916b614e403486f1135"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "bit-set",
  "bitflags 2.10.0",
  "cfg-if",
@@ -15331,7 +15373,7 @@ name = "naga"
 version = "28.0.1"
 source = "git+https://github.com/zed-industries/wgpu?rev=465557eccfe77c840a9b4936f1408da9503372c4#465557eccfe77c840a9b4936f1408da9503372c4"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "bit-set",
  "bitflags 2.10.0",
  "cfg-if",
@@ -15789,6 +15831,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "nodrop"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16009,7 +16057,7 @@ version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a652d9771a63711fd3c3deb670acfbe5c30a4072e664d7a3bf5a9e1056ac72c3"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "itoa",
 ]
 
@@ -16867,13 +16915,36 @@ dependencies = [
 
 [[package]]
 name = "palette"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f9cd68f7112581033f157e56c77ac4a5538ec5836a2e39284e65bd7d7275e49"
+dependencies = [
+ "approx",
+ "num-traits",
+ "palette_derive 0.6.1",
+]
+
+[[package]]
+name = "palette"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cbf71184cc5ecc2e4e1baccdb21026c20e5fc3dcf63028a086131b3ab00b6e6"
 dependencies = [
  "approx",
  "fast-srgb8",
- "palette_derive",
+ "palette_derive 0.7.6",
+]
+
+[[package]]
+name = "palette_derive"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05eedf46a8e7c27f74af0c9cfcdb004ceca158cb1b918c6f68f8d7a549b3e427"
+dependencies = [
+ "find-crate",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -17948,6 +18019,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "plot_icon"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b92a0e6ac9a5007559362f0f41a4feaa3021a2ac07c54b8788fad354137b5fa"
+dependencies = [
+ "blake2-rfc",
+ "hex",
+ "image 0.24.9",
+ "palette 0.6.1",
+ "png 0.17.16",
+ "svg",
+]
+
+[[package]]
 name = "plugin-calendar"
 version = "0.0.0"
 dependencies = [
@@ -18499,7 +18584,7 @@ dependencies = [
  "globset",
  "gpui 0.2.2",
  "http_client 0.1.0",
- "image",
+ "image 0.25.8",
  "indexmap",
  "itertools 0.14.0",
  "language 0.1.0",
@@ -18572,7 +18657,7 @@ dependencies = [
  "globset",
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "image",
+ "image 0.25.8",
  "indexmap",
  "itertools 0.14.0",
  "language 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -19339,7 +19424,7 @@ checksum = "cd87ce80a7665b1cce111f8a16c1f3929f6547ce91ade6addf4ec86a8dda5ce9"
 dependencies = [
  "arbitrary",
  "arg_enum_proc_macro",
- "arrayvec",
+ "arrayvec 0.7.6",
  "av1-grain",
  "bitstream-io",
  "built",
@@ -19888,7 +19973,7 @@ dependencies = [
  "gpui 0.2.2",
  "html_to_markdown 0.1.0",
  "http_client 0.1.0",
- "image",
+ "image 0.25.8",
  "jupyter-protocol",
  "jupyter-websocket-client",
  "language 0.1.0",
@@ -19938,7 +20023,7 @@ dependencies = [
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "html_to_markdown 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "image",
+ "image 0.25.8",
  "jupyter-protocol",
  "jupyter-websocket-client",
  "language 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -20136,7 +20221,7 @@ dependencies = [
 name = "rope"
 version = "0.1.0"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "log",
  "rayon",
  "sum_tree 0.1.0",
@@ -20151,7 +20236,7 @@ name = "rope"
 version = "0.1.0"
 source = "git+https://github.com/nicholastmosher/zed?branch=first-class-plugins#682f3ea1bc816a30dbf9328090652d406bdee65f"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "log",
  "rayon",
  "sum_tree 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -22564,7 +22649,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 name = "sum_tree"
 version = "0.1.0"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "log",
  "rayon",
  "tracing",
@@ -22576,7 +22661,7 @@ name = "sum_tree"
 version = "0.1.0"
 source = "git+https://github.com/nicholastmosher/zed?branch=first-class-plugins#682f3ea1bc816a30dbf9328090652d406bdee65f"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "log",
  "rayon",
  "tracing",
@@ -22660,6 +22745,12 @@ dependencies = [
  "sval",
  "sval_nested",
 ]
+
+[[package]]
+name = "svg"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02d815ad337e8449d2374d4248448645edfe74e699343dd5719139d93fa87112"
 
 [[package]]
 name = "svg_fmt"
@@ -22811,7 +22902,7 @@ version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea00cc4f79b7f6bb7ff87eddc065a1066f3a43fe1875979056672c9ef948c2af"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "bitflags 1.3.2",
  "bytemuck",
  "lazy_static",
@@ -23160,7 +23251,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a13e5d13f79d558b5d353a98072ca8ca0e99da429467804de959aa8c83c9a004"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "grid",
  "serde",
  "slotmap",
@@ -23553,7 +23644,7 @@ dependencies = [
  "futures",
  "gpui 0.2.2",
  "log",
- "palette",
+ "palette 0.7.6",
  "parking_lot",
  "refineable 0.1.0",
  "schemars",
@@ -23579,7 +23670,7 @@ dependencies = [
  "futures",
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "log",
- "palette",
+ "palette 0.7.6",
  "parking_lot",
  "refineable 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "schemars",
@@ -23805,7 +23896,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83d13394d44dae3207b52a326c0c85a8bf87f1541f23b0d143811088497b09ab"
 dependencies = [
  "arrayref",
- "arrayvec",
+ "arrayvec 0.7.6",
  "bytemuck",
  "cfg-if",
  "log",
@@ -24066,6 +24157,15 @@ dependencies = [
  "tokio",
  "tokio-rustls 0.26.4",
  "tokio-util",
+]
+
+[[package]]
+name = "toml"
+version = "0.5.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -25057,7 +25157,7 @@ version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebe49e006d6df172d7f14794568a90fe41e05a1fa9e03dc276fa6da4bb747ec3"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
 ]
 
 [[package]]
@@ -25472,7 +25572,7 @@ version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5924018406ce0063cd67f8e008104968b74b563ee1b85dde3ed1f7cb87d3dbd"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "bitflags 2.10.0",
  "cursor-icon",
  "log",
@@ -26513,7 +26613,7 @@ name = "wgpu"
 version = "28.0.1"
 source = "git+https://github.com/zed-industries/wgpu?rev=465557eccfe77c840a9b4936f1408da9503372c4#465557eccfe77c840a9b4936f1408da9503372c4"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "bitflags 2.10.0",
  "bytemuck",
  "cfg-if",
@@ -26542,7 +26642,7 @@ name = "wgpu-core"
 version = "28.0.1"
 source = "git+https://github.com/zed-industries/wgpu?rev=465557eccfe77c840a9b4936f1408da9503372c4#465557eccfe77c840a9b4936f1408da9503372c4"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.6",
  "bit-set",
  "bit-vec",
  "bitflags 2.10.0",
@@ -26598,7 +26698,7 @@ version = "28.0.1"
 source = "git+https://github.com/zed-industries/wgpu?rev=465557eccfe77c840a9b4936f1408da9503372c4#465557eccfe77c840a9b4936f1408da9503372c4"
 dependencies = [
  "android_system_properties",
- "arrayvec",
+ "arrayvec 0.7.6",
  "ash",
  "bit-set",
  "bitflags 2.10.0",

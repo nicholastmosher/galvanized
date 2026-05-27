@@ -1,14 +1,16 @@
 use std::{
     path::{Path, PathBuf},
+    sync::Arc,
     time::Duration,
 };
 
 use tracing::info;
+use uuid::Uuid;
 use zed::unstable::{
     gpui::{
         self, Action, Animation, AnimationExt as _, AppContext as _, Entity, EventEmitter,
-        FocusHandle, Focusable, actions, bounce, img, linear_color_stop, linear_gradient,
-        quadratic, rgb, rgba,
+        FocusHandle, Focusable, Image, ImageSource, actions, bounce, img, linear_color_stop,
+        linear_gradient, quadratic, rgb, rgba, white,
     },
     ui::{
         ActiveTheme, App, Context, ContextMenu, FluentBuilder as _, IconName,
@@ -95,9 +97,12 @@ pub struct PanelRoot {
     connections_ui: Entity<ConnectionsUi>,
     content: PanelContent,
     focus_handle: FocusHandle,
-    password_input: Entity<InputField>,
     width: Option<Pixels>,
     workspace: Entity<Workspace>,
+
+    items: Vec<(Uuid, SharedString)>,
+    input: Entity<InputField>,
+    profile_identicon: Arc<Image>,
 }
 
 pub enum PanelContent {
@@ -130,39 +135,165 @@ impl PanelRoot {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let password_input = cx.new(|cx| InputField::new(window, cx, "Password"));
+        let input = cx.new(|cx| InputField::new(window, cx, "Display name"));
+
+        let id = Uuid::new_v4();
+        let profile_identicon = plot_icon::generate_png(id.as_bytes(), 512).unwrap();
+        let profile_identicon_image = Image::from_bytes(gpui::ImageFormat::Png, profile_identicon);
         Self {
             connections_ui,
             content: PanelContent::Home(HomeContent::Settings),
             focus_handle: cx.focus_handle(),
-            password_input,
             width: None,
             workspace,
+
+            items: vec![
+                (Uuid::new_v4(), SharedString::from("Nick")),
+                (Uuid::new_v4(), SharedString::from("Robin")),
+            ],
+            input,
+            profile_identicon: Arc::new(profile_identicon_image),
         }
     }
 }
 
+const UNLOCK_BG_ORANGE: u32 = 0xff6600ff;
+const UNLOCK_BG_DARK: u32 = 0x155dfcff;
+
 impl Render for PanelRoot {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .h_full()
-            .bg(cx.theme().colors().editor_background)
-            .w(self.width.unwrap_or(px(300.)) - px(1.))
-            .on_action(cx.listener(|this, _: &FocusConnections, window, cx| {
-                info!("Action: FocusConnections");
-                this.content = PanelContent::Home(HomeContent::Connections);
-            }))
-            .on_action(cx.listener(|this, _: &FocusDirectMessages, window, cx| {
-                info!("Action: FocusDirectMessages");
-                this.content = PanelContent::Home(HomeContent::DirectMessages);
-            }))
-            .on_action(cx.listener(|this, _: &FocusSettings, window, cx| {
-                info!("Action: FocusSettings");
-                this.content = PanelContent::Home(HomeContent::Settings);
-            }))
-            .child(self.render_active_panel(window, cx))
+        h_flex()
+            //
+            .size_full()
+            .bg(cx.theme().colors().panel_background)
+            .p_4()
+            .child(
+                //
+                div()
+                    //
+                    // .h_40()
+                    .w_80()
+                    .mx_auto()
+                    .self_center()
+                    .p(px(1.))
+                    .rounded_lg()
+                    .shadow_lg()
+                    .child(
+                        //
+                        v_flex()
+                            //
+                            .size_full()
+                            .bg(cx.theme().colors().panel_background)
+                            .p_2()
+                            .gap_2()
+                            .rounded_lg()
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .self_center()
+                                    .text_3xl()
+                                    .child("Create Profile"),
+                            )
+                            .child(
+                                //
+                                h_flex()
+                                    .w_full()
+                                    //
+                                    .p_2()
+                                    .gap_2()
+                                    .child(
+                                        img(ImageSource::Image(self.profile_identicon.clone()))
+                                            .id("identicon-img")
+                                            .tooltip(Tooltip::text(
+                                                "Reroll identicon (can't change later)",
+                                            ))
+                                            .on_click(cx.listener(|this, e, window, cx| {
+                                                //
+                                                let id = Uuid::new_v4();
+                                                let profile_identicon =
+                                                    plot_icon::generate_png(id.as_bytes(), 512)
+                                                        .unwrap();
+                                                let profile_identicon_image = Image::from_bytes(
+                                                    gpui::ImageFormat::Png,
+                                                    profile_identicon,
+                                                );
+                                                this.profile_identicon =
+                                                    Arc::new(profile_identicon_image);
+                                            }))
+                                            .size(px(32.)),
+                                    )
+                                    .child(self.input.clone()),
+                            )
+                            .child(
+                                div()
+                                    .id("create-profile-button")
+                                    .w_full()
+                                    .bg(cx.theme().colors().editor_background)
+                                    .border_color(rgba(UNLOCK_BG_ORANGE))
+                                    .hover(|style| {
+                                        // style.bg(cx.theme().colors().ghost_element_hover)
+                                        style.bg(rgba(UNLOCK_BG_ORANGE))
+                                        // .border_color(white())
+                                    })
+                                    .active(|style| {
+                                        // style.bg(cx.theme().colors().ghost_element_active)
+                                        style.bg(rgba(UNLOCK_BG_ORANGE))
+                                        // .border_color(white())
+                                    })
+                                    //
+                                    .p_2()
+                                    .rounded_lg()
+                                    .border_1()
+                                    .child(
+                                        //
+                                        div()
+                                            //
+                                            .text_lg()
+                                            .text_color(white())
+                                            .text_center()
+                                            .child("Create Profile"),
+                                    ),
+                            ),
+                    )
+                    .with_animation(
+                        "unlock-bg",
+                        Animation::new(Duration::from_secs(120)).repeat(),
+                        |el, t| {
+                            //
+                            el
+                                //
+                                .bg(linear_gradient(
+                                    90. + 360. * t,
+                                    linear_color_stop(rgba(UNLOCK_BG_ORANGE), 0.0),
+                                    linear_color_stop(rgba(UNLOCK_BG_DARK), 1.0),
+                                ))
+                        },
+                    ),
+            )
     }
 }
+// impl Render for PanelRoot {
+//     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+//         div()
+//             .h_full()
+//             .bg(cx.theme().colors().editor_background)
+//             .w(self.width.unwrap_or(px(300.)) - px(1.))
+//             .on_action(cx.listener(|this, _: &FocusConnections, window, cx| {
+//                 info!("Action: FocusConnections");
+//                 this.content = PanelContent::Home(HomeContent::Connections);
+//             }))
+//             .on_action(cx.listener(|this, _: &FocusDirectMessages, window, cx| {
+//                 info!("Action: FocusDirectMessages");
+//                 this.content = PanelContent::Home(HomeContent::DirectMessages);
+//             }))
+//             .on_action(cx.listener(|this, _: &FocusSettings, window, cx| {
+//                 info!("Action: FocusSettings");
+//                 this.content = PanelContent::Home(HomeContent::Settings);
+//             }))
+//             .child(self.render_active_panel(window, cx))
+//     }
+// }
 
 impl PanelRoot {
     fn render_active_panel(

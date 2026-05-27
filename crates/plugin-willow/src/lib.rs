@@ -1,5 +1,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
+use anyhow::{Context as _, Result};
+use plugin_vault::{VaultsExt as _, vault_db::VaultId};
+use serde::{Deserialize, Serialize};
 use willow25::{
     entry::{
         Entry, randomly_generate_communal_namespace, randomly_generate_owned_namespace,
@@ -10,7 +13,9 @@ use willow25::{
     storage::MemoryStore,
 };
 use zed::unstable::{
+    db::kvp::KEY_VALUE_STORE,
     gpui::{AnyEntity, AppContext, Entity, Global},
+    gpui_tokio::Tokio,
     ui::{App, SharedString},
 };
 
@@ -22,7 +27,8 @@ use crate::{
 pub mod model;
 pub mod profile;
 pub mod space;
-pub mod tasks;
+pub mod subspace;
+// pub mod tasks;
 pub mod ui;
 
 pub fn init(cx: &mut App) {
@@ -68,6 +74,8 @@ pub struct WillowCx<'a, C: AppContext> {
 
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
 struct WillowState {
+    vaults: WillowVaults,
+
     // TODO: Generalization of this, esp with Willow Ext traits
     profiles: Vec<Entity<Profile>>,
     spaces: Vec<Entity<Space>>,
@@ -85,7 +93,86 @@ struct WillowState {
     store: MemoryStore,
 }
 
+const WILLOW_VAULTS_KEY: &str = "willow-vaults";
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct WillowVaults {
+    subspace_vaults: Vec<VaultId>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SubspaceVault {
+    subspace_secret: Vec<u8>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SubspaceMetadata {
+    subspace_id: Vec<u8>,
+}
+
 impl<'a, C: AppContext> WillowCx<'a, C> {
+    // pub async fn create_namespace(&mut self, password: String) -> Result<VaultId> {
+    //     //
+    // }
+
+    /// Creates a new Willow subspace, storing the private key in a new vault
+    /// encrypted by the given password.
+    pub async fn create_subspace(&mut self, password: String) -> Result<VaultId> {
+        let vault_id = self.cx.vaults().create(password.to_string()).await?;
+        let vault_handle = self.cx.vaults().unlock(vault_id.clone(), password).await?;
+
+        let (subspace_id, subspace_secret) = Tokio::spawn(self.cx, async move {
+            randomly_generate_subspace(&mut rand_core_0_6_4::OsRng)
+        })
+        .await?;
+
+        let subspace_metadata = SubspaceMetadata {
+            subspace_id: subspace_id.to_bytes().into(),
+        };
+        let subspace_metadata_bytes = serde_json::to_vec(&subspace_metadata)
+            .context("failed to serialize subspace metadata")?;
+
+        let subspace_vault = SubspaceVault {
+            subspace_secret: subspace_secret.into_bytes().into(),
+        };
+        let subspace_vault_bytes =
+            serde_json::to_vec(&subspace_vault).context("failed to serialize subspace vault")?;
+
+        // Initial vault should be empty, so we just write to the vault buffers
+        self.cx
+            .vaults()
+            .update(vault_handle, |mut vault| {
+                *vault.metadata() = subspace_metadata_bytes;
+                *vault.secret() = subspace_vault_bytes;
+            })
+            .await
+            .context("failed to write new subspace to vault")?;
+
+        // Add the new vault ID to the list of vaults known to Willow
+        let willow_vaults = {
+            let mut willow_vaults = KEY_VALUE_STORE
+                .read_kvp(WILLOW_VAULTS_KEY)?
+                .and_then(|s| serde_json::from_str::<WillowVaults>(&s).ok())
+                .unwrap_or_default();
+            willow_vaults.subspace_vaults.push(vault_id.clone());
+            KEY_VALUE_STORE
+                .write_kvp(
+                    WILLOW_VAULTS_KEY.to_string(),
+                    serde_json::to_string(&willow_vaults)
+                        .expect("failed to serialize WillowVaults"),
+                )
+                .await?;
+            willow_vaults
+        };
+
+        // Cache the updated WillowVaults in the Willow state
+        self.cx.update_entity(&self.entity, |state, _cx| {
+            state.vaults = willow_vaults;
+        });
+
+        Ok(vault_id)
+    }
+
     // TODO: Better profile creation API
     pub fn create_profile(
         //
@@ -232,7 +319,7 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
 
     // Memory -> Willow: Entity<T>
     // Willow -> Memory: WillowEntity<T> ? To encode space/subspace/path?
-    fn todo_read_from_willow<T: Willowize>(&self, cx: &mut App) -> anyhow::Result<T> {
+    fn todo_read_from_willow<T: Willowize>(&self, cx: &mut App) -> Result<T> {
         todo!()
     }
 }
@@ -252,6 +339,7 @@ impl WillowState {
         let store = MemoryStore::new();
 
         Self {
+            vaults: Default::default(),
             profiles,
             spaces,
             active_profile: None,
