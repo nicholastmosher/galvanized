@@ -18129,6 +18129,7 @@ name = "plugin-willow"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures-concurrency",
  "hex",
  "plugin-vault",
  "rand_core 0.6.4",

@@ -12,7 +12,7 @@ use crate::{
     error::VaultError,
     vault_actor::{VaultActor, VaultActorHandle, VaultHandle},
     vault_cap::VaultAccess,
-    vault_db::{VaultId, VaultMut, VaultRef},
+    vault_db::{VaultId, VaultMetadataRef, VaultMut, VaultRef},
 };
 
 pub mod encryption;
@@ -45,11 +45,11 @@ impl Global for GlobalVault {}
 
 pub trait VaultsExt {
     type Context: AppContext;
-    fn vaults(&mut self) -> VaultsCx<'_, Self::Context>;
+    fn vaults(&self) -> VaultsCx<'_, Self::Context>;
 }
 
 pub struct VaultsCx<'a, C: AppContext> {
-    cx: &'a mut C,
+    cx: &'a C,
     state: Entity<VaultsCxState>,
 }
 
@@ -65,7 +65,7 @@ impl VaultsCxState {
 
 impl<C: AppContext> VaultsExt for C {
     type Context = C;
-    fn vaults(&mut self) -> VaultsCx<'_, Self::Context> {
+    fn vaults(&self) -> VaultsCx<'_, Self::Context> {
         let state = self.read_global::<GlobalVault, _>(|vault, _cx| vault.0.clone());
         VaultsCx { cx: self, state }
     }
@@ -127,13 +127,33 @@ impl<C: AppContext> VaultsCx<'_, C> {
         })
     }
 
+    /// Read data from the vault with the given ID.
+    ///
+    /// This does not require the vault to be unlocked.
+    pub fn read_metadata<R>(
+        &self,
+        vault_id: &VaultId,
+        read_fn: impl 'static + Send + for<'a> FnOnce(VaultMetadataRef<'a>) -> R,
+    ) -> Task<Result<R, VaultError>>
+    where
+        R: Any + 'static + Send,
+    {
+        let actor = self.actor();
+        let vault_id = vault_id.clone();
+        self.cx.background_spawn(async move {
+            let value = actor.read_vault_metadata(&vault_id, read_fn).await?;
+            Ok(value)
+        })
+    }
+
     /// Unlock the vault with the given ID and password, returning a [`VaultHandle`].
     pub fn unlock(
-        &mut self,
-        vault_id: VaultId,
+        &self,
+        vault_id: &VaultId,
         password: String,
     ) -> Task<Result<VaultHandle, VaultError>> {
         let actor = self.actor();
+        let vault_id = vault_id.clone();
         self.cx.background_spawn(async move {
             let handle = actor.unlock_vault(vault_id, password).await?;
             Ok(handle)
@@ -146,7 +166,7 @@ impl<C: AppContext> VaultsCx<'_, C> {
     ///
     /// [`unlock_vault`]: Self::unlock_vault
     pub fn update<R>(
-        &mut self,
+        &self,
         vault_handle: VaultHandle,
         update_fn: impl 'static + Send + for<'a> FnOnce(VaultMut<'a>) -> R,
     ) -> Task<Result<R, VaultError>>

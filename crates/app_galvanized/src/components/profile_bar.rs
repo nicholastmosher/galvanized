@@ -1,7 +1,7 @@
 use tracing::info;
 use zed::unstable::{
     component,
-    gpui::{self, Entity, EventEmitter},
+    gpui::{self, Entity, EventEmitter, ImageSource, img},
     ui::{
         ActiveTheme, AnyElement, App, Avatar, AvatarAvailabilityIndicator, ButtonCommon,
         ButtonSize, CollaboratorAvailability, Component, Element, FluentBuilder as _, IconButton,
@@ -10,13 +10,15 @@ use zed::unstable::{
     },
 };
 
-use plugin_willow::{WillowExt as _, profile::Profile};
+use plugin_willow::WillowExt as _;
+
+use crate::profiles::Profile;
 
 pub fn init(_cx: &mut App) {
     //
 }
 
-#[derive(IntoElement, RegisterComponent)]
+#[derive(IntoElement)]
 pub struct ProfileBar {
     profile: Entity<Profile>,
 }
@@ -59,16 +61,15 @@ impl RenderOnce for ProfileBar {
 
 impl EventEmitter<()> for ProfileBar {}
 
-impl Component for ProfileBar {
-    fn preview(_window: &mut Window, cx: &mut App) -> Option<AnyElement> {
-        let profile = cx.willow().create_profile("Myselfandi");
-        let canvas = div()
-            //
-            .p_4()
-            .child(ProfileBar::new(profile));
-        Some(Element::into_any(canvas))
-    }
-}
+// impl Component for ProfileBar {
+//     fn preview(_window: &mut Window, cx: &mut App) -> Option<AnyElement> {
+//         let canvas = div()
+//             //
+//             .p_4()
+//             .child(ProfileBar::new(profile));
+//         Some(Element::into_any(canvas))
+//     }
+// }
 
 // =================
 
@@ -100,45 +101,30 @@ impl RenderOnce for ProfileNugget {
             .active(|style| style.bg(active_bg_color))
             .hover(|style| style.bg(hover_bg_color))
             .rounded_md()
-            .on_click(move |_e, _window, cx| {
+            .on_click(move |_e, _window, _cx| {
                 info!("Clicked profile nugget 2");
-                profile.update(cx, |profile, _cx| {
-                    profile.toggle_online();
-                });
+                // profile.update(cx, |profile, _cx| {
+                //     profile.toggle_online();
+                // });
             })
-            .when_some(self.profile.read(cx).avatar(), |it, avatar| {
-                //
-                it.child(
-                    div()
-                        //
-                        .child(
-                            Avatar::new(avatar)
-                                //
-                                .size(px(40.))
-                                .indicator(AvatarAvailabilityIndicator::new(
-                                    if self.profile.read(cx).online() {
-                                        CollaboratorAvailability::Free
-                                    } else {
-                                        CollaboratorAvailability::Busy
-                                    },
-                                )),
-                        ),
-                )
-            })
+            .child(
+                div()
+                    //
+                    .child(img(ImageSource::Image(self.profile.read(cx).avatar())).size(px(32.))),
+            )
             .child(
                 v_flex()
                     //
-                    .child(self.profile.read(cx).name())
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(cx.theme().colors().text_muted)
-                            .child(if self.profile.read(cx).online() {
-                                "Online"
-                            } else {
-                                "Offline"
-                            }),
-                    ),
+                    .child(self.profile.read(cx).name()), // .child(
+                                                          //     div()
+                                                          //         .text_sm()
+                                                          //         .text_color(cx.theme().colors().text_muted)
+                                                          //         .child(if self.profile.read(cx).online() {
+                                                          //             "Online"
+                                                          //         } else {
+                                                          //             "Offline"
+                                                          //         }),
+                                                          // ),
             )
     }
 }

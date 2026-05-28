@@ -4,10 +4,11 @@ use zed::unstable::gpui::App;
 
 mod components;
 pub mod observability;
+mod profiles;
 mod views;
 
 pub fn init(cx: &mut App) {
-    observability::init(cx);
+    // observability::init(cx);
     zed::init(cx);
     plugin_vault::init(cx);
     plugin_willow::init(cx);
@@ -15,6 +16,7 @@ pub fn init(cx: &mut App) {
     plugin_calendar::init(cx);
     plugin_chat::init(cx);
     plugin_theme_palette::init(cx);
+    profiles::init(cx);
     views::init(cx);
 }
 

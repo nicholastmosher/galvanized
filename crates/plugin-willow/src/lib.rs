@@ -5,7 +5,7 @@ use plugin_vault::{VaultsExt as _, vault_db::VaultId};
 use serde::{Deserialize, Serialize};
 use willow25::{
     entry::{
-        Entry, randomly_generate_communal_namespace, randomly_generate_owned_namespace,
+        Entry, SubspaceId, randomly_generate_communal_namespace, randomly_generate_owned_namespace,
         randomly_generate_subspace,
     },
     path,
@@ -27,7 +27,6 @@ use crate::{
 pub mod model;
 pub mod profile;
 pub mod space;
-pub mod subspace;
 // pub mod tasks;
 pub mod ui;
 
@@ -106,20 +105,107 @@ struct SubspaceVault {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct SubspaceMetadata {
-    subspace_id: Vec<u8>,
+pub struct SubspaceMetadata {
+    #[serde(with = "serde_subspace_id")]
+    subspace_id: SubspaceId,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    extra: Option<serde_json::Value>,
+}
+
+mod serde_subspace_id {
+    use serde::{Deserializer, Serializer, de::Visitor};
+    use willow25::entry::SubspaceId;
+
+    pub fn serialize<S: Serializer>(value: &SubspaceId, serializer: S) -> Result<S::Ok, S::Error> {
+        let bytes = value.as_bytes();
+        serializer.serialize_bytes(bytes)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<SubspaceId, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct BytesVisitor;
+        impl<'de> Visitor<'de> for BytesVisitor {
+            type Value = SubspaceId;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "expected SubspaceId as [u8; 32]")
+            }
+
+            fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let bytes = <[u8; 32]>::try_from(v).map_err(|vec| {
+                    E::custom(format!(
+                        "deserializing SubspaceId, expected [u8; 32], found Vec<u8> with len={}",
+                        vec.len()
+                    ))
+                })?;
+                let subspace_id = SubspaceId::from_bytes(&bytes);
+                Ok(subspace_id)
+            }
+        }
+
+        let subspace_id = deserializer.deserialize_byte_buf(BytesVisitor)?;
+        Ok(subspace_id)
+    }
+}
+
+impl SubspaceMetadata {
+    pub fn new(subspace_id: SubspaceId) -> Self {
+        Self {
+            subspace_id: subspace_id.to_bytes().into(),
+            extra: None,
+        }
+    }
+
+    pub fn extra(&self) -> Option<&serde_json::Value> {
+        self.extra.as_ref()
+    }
+
+    pub fn extra_mut(&mut self) -> Option<&mut serde_json::Value> {
+        self.extra.as_mut()
+    }
+}
+
+/// Domain object for a Willow subspace
+///
+/// This stores a [`VaultId`] which can be used together with a
+/// password to unlock a vault where the [`SubspaceSecret`] is kept.
+pub struct Subspace {
+    metadata: SubspaceMetadata,
+    subspace_id: SubspaceId,
+    vault_id: VaultId,
+}
+
+impl Subspace {
+    pub fn new(vault_id: VaultId, metadata: SubspaceMetadata) -> Self {
+        let subspace_id = metadata.subspace_id.clone();
+        Self {
+            metadata,
+            subspace_id,
+            vault_id,
+        }
+    }
+
+    pub fn id(&self) -> SubspaceId {
+        self.subspace_id.clone()
+    }
+
+    pub fn metadata(&self) -> &SubspaceMetadata {
+        &self.metadata
+    }
 }
 
 impl<'a, C: AppContext> WillowCx<'a, C> {
-    // pub async fn create_namespace(&mut self, password: String) -> Result<VaultId> {
-    //     //
-    // }
-
     /// Creates a new Willow subspace, storing the private key in a new vault
     /// encrypted by the given password.
-    pub async fn create_subspace(&mut self, password: String) -> Result<VaultId> {
+    pub async fn create_subspace(&mut self, password: String) -> Result<Subspace> {
         let vault_id = self.cx.vaults().create(password.to_string()).await?;
-        let vault_handle = self.cx.vaults().unlock(vault_id.clone(), password).await?;
+        let vault_handle = self.cx.vaults().unlock(&vault_id, password).await?;
 
         let (subspace_id, subspace_secret) = Tokio::spawn(self.cx, async move {
             randomly_generate_subspace(&mut rand_core_0_6_4::OsRng)
@@ -128,6 +214,7 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
 
         let subspace_metadata = SubspaceMetadata {
             subspace_id: subspace_id.to_bytes().into(),
+            extra: None,
         };
         let subspace_metadata_bytes = serde_json::to_vec(&subspace_metadata)
             .context("failed to serialize subspace metadata")?;
@@ -170,7 +257,47 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
             state.vaults = willow_vaults;
         });
 
-        Ok(vault_id)
+        let subspace = Subspace::new(vault_id, subspace_metadata);
+        Ok(subspace)
+    }
+
+    pub async fn list_subspaces(&mut self) -> Result<Vec<Subspace>> {
+        let vaults = self.cx.vaults().list().await?;
+
+        let tasks = vaults
+            .iter()
+            .cloned()
+            .map(|vault_id| {
+                self.cx
+                    .vaults()
+                    .read_metadata(&vault_id.clone(), move |vault| {
+                        // We'll filter out anything that doesn't deeserialize as a SubspaceMetadata
+                        let meta =
+                            serde_json::from_slice::<SubspaceMetadata>(vault.metadata()).ok();
+                        meta.map(|it| (vault_id.clone(), it))
+                    })
+            })
+            .collect::<Vec<_>>();
+
+        // Concurrently query/read the metadata from each vault
+        use futures_concurrency::prelude::*;
+        let maybe_submetas = tasks
+            .join()
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let submetas = maybe_submetas
+            .into_iter()
+            .filter_map(|it| it)
+            .collect::<Vec<_>>();
+
+        let subspaces = submetas
+            .into_iter()
+            .map(|(vault_id, metadata)| Subspace::new(vault_id, metadata))
+            .collect::<Vec<_>>();
+
+        Ok(subspaces)
     }
 
     // TODO: Better profile creation API

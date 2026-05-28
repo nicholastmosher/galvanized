@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Context as _;
 use tracing::info;
 use uuid::Uuid;
 use zed::unstable::{
@@ -27,6 +28,7 @@ use zed::unstable::{
 
 use crate::{
     components::{dropdown::Dropdown, profile_bar::ProfileBar, space_header::SpaceHeader},
+    profiles::{Profile, ProfilesExt as _},
     views::{
         connections::ConnectionsUi, create_profile_modal::CreateProfileModal,
         create_space_modal::CreateSpaceModal,
@@ -100,9 +102,18 @@ pub struct PanelRoot {
     width: Option<Pixels>,
     workspace: Entity<Workspace>,
 
-    items: Vec<(Uuid, SharedString)>,
-    input: Entity<InputField>,
+    login_state: LoginState,
+    display_name_input: Entity<InputField>,
+    password_input: Entity<InputField>,
+    password_confirmation_input: Entity<InputField>,
     profile_identicon: Arc<Image>,
+    profiles: Vec<Entity<Profile>>,
+    active_profile: Option<Entity<Profile>>,
+}
+
+pub enum LoginState {
+    Picker,
+    CreateProfile,
 }
 
 pub enum PanelContent {
@@ -135,11 +146,31 @@ impl PanelRoot {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let input = cx.new(|cx| InputField::new(window, cx, "Display name"));
+        let display_name_input = cx.new(|cx| InputField::new(window, cx, "Display name"));
+        let password_input =
+            cx.new(|cx| InputField::new(window, cx, "Create Password").masked(true));
+        let password_confirmation_input =
+            cx.new(|cx| InputField::new(window, cx, "Confirm Password").masked(true));
 
         let id = Uuid::new_v4();
         let profile_identicon = plot_icon::generate_png(id.as_bytes(), 512).unwrap();
         let profile_identicon_image = Image::from_bytes(gpui::ImageFormat::Png, profile_identicon);
+
+        cx.spawn(async move |this, cx| {
+            let profiles = cx
+                .profiles()
+                .list()
+                .await
+                .context("failed to list Profiles")?;
+
+            this.update(cx, |this, _cx| {
+                this.profiles = profiles;
+            })?;
+
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
+
         Self {
             connections_ui,
             content: PanelContent::Home(HomeContent::Settings),
@@ -147,12 +178,13 @@ impl PanelRoot {
             width: None,
             workspace,
 
-            items: vec![
-                (Uuid::new_v4(), SharedString::from("Nick")),
-                (Uuid::new_v4(), SharedString::from("Robin")),
-            ],
-            input,
+            login_state: LoginState::Picker,
+            display_name_input,
+            password_input,
+            password_confirmation_input,
             profile_identicon: Arc::new(profile_identicon_image),
+            profiles: Default::default(),
+            active_profile: Default::default(),
         }
     }
 }
@@ -162,117 +194,20 @@ const UNLOCK_BG_DARK: u32 = 0x155dfcff;
 
 impl Render for PanelRoot {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        h_flex()
-            //
-            .size_full()
-            .bg(cx.theme().colors().panel_background)
-            .p_4()
-            .child(
+        match &self.active_profile {
+            None => {
                 //
-                div()
-                    //
-                    // .h_40()
-                    .w_80()
-                    .mx_auto()
-                    .self_center()
-                    .p(px(1.))
-                    .rounded_lg()
-                    .shadow_lg()
-                    .child(
-                        //
-                        v_flex()
-                            //
-                            .size_full()
-                            .bg(cx.theme().colors().panel_background)
-                            .p_2()
-                            .gap_2()
-                            .rounded_lg()
-                            .child(
-                                //
-                                div()
-                                    //
-                                    .self_center()
-                                    .text_3xl()
-                                    .child("Create Profile"),
-                            )
-                            .child(
-                                //
-                                h_flex()
-                                    .w_full()
-                                    //
-                                    .p_2()
-                                    .gap_2()
-                                    .child(
-                                        img(ImageSource::Image(self.profile_identicon.clone()))
-                                            .id("identicon-img")
-                                            .tooltip(Tooltip::text(
-                                                "Reroll identicon (can't change later)",
-                                            ))
-                                            .on_click(cx.listener(|this, e, window, cx| {
-                                                //
-                                                let id = Uuid::new_v4();
-                                                let profile_identicon =
-                                                    plot_icon::generate_png(id.as_bytes(), 512)
-                                                        .unwrap();
-                                                let profile_identicon_image = Image::from_bytes(
-                                                    gpui::ImageFormat::Png,
-                                                    profile_identicon,
-                                                );
-                                                this.profile_identicon =
-                                                    Arc::new(profile_identicon_image);
-                                            }))
-                                            .size(px(32.)),
-                                    )
-                                    .child(self.input.clone()),
-                            )
-                            .child(
-                                div()
-                                    .id("create-profile-button")
-                                    .w_full()
-                                    .bg(cx.theme().colors().editor_background)
-                                    .border_color(rgba(UNLOCK_BG_ORANGE))
-                                    .hover(|style| {
-                                        // style.bg(cx.theme().colors().ghost_element_hover)
-                                        style.bg(rgba(UNLOCK_BG_ORANGE))
-                                        // .border_color(white())
-                                    })
-                                    .active(|style| {
-                                        // style.bg(cx.theme().colors().ghost_element_active)
-                                        style.bg(rgba(UNLOCK_BG_ORANGE))
-                                        // .border_color(white())
-                                    })
-                                    //
-                                    .p_2()
-                                    .rounded_lg()
-                                    .border_1()
-                                    .child(
-                                        //
-                                        div()
-                                            //
-                                            .text_lg()
-                                            .text_color(white())
-                                            .text_center()
-                                            .child("Create Profile"),
-                                    ),
-                            ),
-                    )
-                    .with_animation(
-                        "unlock-bg",
-                        Animation::new(Duration::from_secs(120)).repeat(),
-                        |el, t| {
-                            //
-                            el
-                                //
-                                .bg(linear_gradient(
-                                    90. + 360. * t,
-                                    linear_color_stop(rgba(UNLOCK_BG_ORANGE), 0.0),
-                                    linear_color_stop(rgba(UNLOCK_BG_DARK), 1.0),
-                                ))
-                        },
-                    ),
-            )
+                self.render_login_frame(window, cx).into_any_element()
+            }
+            Some(profile) => {
+                //
+                self.render_profile_panel(profile.clone(), window, cx)
+                    .into_any_element()
+            }
+        }
     }
 }
+
 // impl Render for PanelRoot {
 //     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
 //         div()
@@ -296,8 +231,287 @@ impl Render for PanelRoot {
 // }
 
 impl PanelRoot {
-    fn render_active_panel(
+    fn render_login_frame(
         &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        h_flex()
+            //
+            .size_full()
+            .bg(cx.theme().colors().panel_background)
+            .p_2()
+            .child(
+                //
+                div()
+                    //
+                    .w_full()
+                    .self_center()
+                    .p(px(1.))
+                    .rounded_lg()
+                    .shadow_lg()
+                    .child(
+                        //
+                        div()
+                            //
+                            .size_full()
+                            .bg(cx.theme().colors().panel_background)
+                            .p_1()
+                            .rounded_lg()
+                            .child({
+                                match &self.login_state {
+                                    LoginState::Picker => {
+                                        //
+                                        self.render_profile_picker(window, cx).into_any_element()
+                                    }
+                                    LoginState::CreateProfile => {
+                                        //
+                                        self.render_create_profile(window, cx).into_any_element()
+                                    }
+                                }
+                            }),
+                    )
+                    .with_animation(
+                        "unlock-bg",
+                        Animation::new(Duration::from_secs(120)).repeat(),
+                        |el, t| {
+                            //
+                            el
+                                //
+                                .bg(linear_gradient(
+                                    90. + 360. * t,
+                                    linear_color_stop(rgba(UNLOCK_BG_ORANGE), 0.0),
+                                    linear_color_stop(rgba(UNLOCK_BG_DARK), 1.0),
+                                ))
+                        },
+                    ),
+            )
+    }
+
+    fn render_profile_picker(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        v_flex()
+            .size_full()
+            //
+            .gap_1()
+            .child(
+                //
+                div()
+                    .w_full()
+                    //
+                    .text_2xl()
+                    .text_center()
+                    .child("Login"),
+            )
+            .children({
+                cx.profiles().list();
+                [div()]
+            })
+            .children(
+                //
+                self.profiles
+                    //
+                    .iter()
+                    .map(|profile| {
+                        let id = profile.read(cx).id();
+                        let name = profile.read(cx).name();
+                        let image = plot_icon::generate_png(id.as_bytes(), 256).unwrap();
+
+                        h_flex()
+                            .w_full()
+                            //
+                            .bg(cx.theme().colors().editor_background)
+                            // .p_2()
+                            .p_4()
+                            .gap_2()
+                            .rounded_lg()
+                            .border_1()
+                            .border_color(cx.theme().colors().border)
+                            .child(
+                                div()
+                                    //
+                                    .child(
+                                        //
+                                        img(ImageSource::Image(Arc::new(Image::from_bytes(
+                                            gpui::ImageFormat::Png,
+                                            image,
+                                        ))))
+                                        .size(px(48.)),
+                                        // .size(px(32.)),
+                                    ),
+                            )
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .flex_grow()
+                                    // .bg(cx.theme().colors().editor_background)
+                                    .p_2()
+                                    .rounded_lg()
+                                    .child(name.clone()),
+                            )
+                    }),
+            )
+            .child(
+                h_flex()
+                    .id("create-profile-button")
+                    .w_full()
+                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                    .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                    .on_click(cx.listener(|this, e, window, cx| {
+                        this.login_state = LoginState::CreateProfile;
+                    }))
+                    //
+                    .bg(cx.theme().colors().editor_background)
+                    .p_4()
+                    .gap_4()
+                    .rounded_lg()
+                    .border_1()
+                    .border_color(cx.theme().colors().border)
+                    .child(
+                        div()
+                            //
+                            .rounded_full()
+                            .border_1()
+                            .border_color(cx.theme().colors().border)
+                            .child(
+                                //
+                                img(PathBuf::from(".assets/create-profile.svg"))
+                                    .flex_shrink_0()
+                                    .size(px(48.))
+                                    // .size(px(32.))
+                                    //
+                                    .top(px(2.)),
+                            ),
+                    )
+                    .child(
+                        //
+                        div()
+                            //
+                            .text_center()
+                            .child("Create Profile"),
+                    ),
+            )
+    }
+
+    fn render_create_profile(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        v_flex()
+            .child(
+                h_flex()
+                    .mx_auto()
+                    //
+                    .gap_2()
+                    .child(
+                        //
+                        img(PathBuf::from(".assets/create-profile.svg")).size(px(48.)),
+                    )
+                    .child(
+                        //
+                        div()
+                            //
+                            .text_2xl()
+                            .child("Create Profile"),
+                    ),
+            )
+            .child(
+                //
+                h_flex()
+                    .w_full()
+                    //
+                    .p_2()
+                    .gap_2()
+                    .child(
+                        img(ImageSource::Image(self.profile_identicon.clone()))
+                            .id("identicon-img")
+                            .flex_shrink_0()
+                            .tooltip(Tooltip::text("Reroll identicon (can't change later)"))
+                            .on_click(cx.listener(|this, _e, _window, cx| {
+                                //
+                                let id = Uuid::new_v4();
+                                let profile_identicon =
+                                    plot_icon::generate_png(id.as_bytes(), 512).unwrap();
+                                let profile_identicon_image =
+                                    Image::from_bytes(gpui::ImageFormat::Png, profile_identicon);
+                                this.profile_identicon = Arc::new(profile_identicon_image);
+                            }))
+                            .size(px(32.)),
+                    )
+                    .child(self.display_name_input.clone()),
+            )
+            .child(
+                //
+                div()
+                    //
+                    .w_full()
+                    .child(self.password_input.clone()),
+            )
+            .child(
+                //
+                div()
+                    //
+                    .w_full()
+                    .child(self.password_confirmation_input.clone()),
+            )
+            .child(
+                div()
+                    .id("create-profile-button")
+                    .w_full()
+                    .bg(cx.theme().colors().editor_background)
+                    .border_color(rgba(UNLOCK_BG_ORANGE))
+                    .hover(|style| style.bg(rgba(UNLOCK_BG_ORANGE)))
+                    .active(|style| style.bg(rgba(UNLOCK_BG_ORANGE)))
+                    .on_click(cx.listener(|this, _e, _window, cx| {
+                        let display_name = this.display_name_input.read(cx).text(cx);
+                        if display_name.is_empty() {
+                            return;
+                        }
+
+                        let password = this.password_input.read(cx).text(cx);
+                        let password_confirm = this.password_confirmation_input.read(cx).text(cx);
+                        if password.is_empty() || password_confirm.is_empty() {
+                            return;
+                        }
+
+                        if password != password_confirm {
+                            return;
+                        }
+
+                        cx.spawn(async move |this, cx| {
+                            let profile = cx.profiles().create(display_name, password).await?;
+                            this.update(cx, |this, _cx| {
+                                this.profiles.push(profile.clone());
+                                this.active_profile = Some(profile);
+                            })?;
+                            anyhow::Ok(())
+                        })
+                        .detach_and_log_err(cx);
+                    }))
+                    //
+                    .p_2()
+                    .rounded_lg()
+                    .border_1()
+                    .child(
+                        //
+                        div()
+                            //
+                            .text_lg()
+                            .text_color(white())
+                            .text_center()
+                            .child("Create Profile"),
+                    ),
+            )
+    }
+
+    fn render_profile_panel(
+        &mut self,
+        profile: Entity<Profile>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -330,11 +544,12 @@ impl PanelRoot {
                     ),
             )
             // Profile bar/selector
-            .child(self.render_bottom_bar(window, cx))
+            .child(self.render_bottom_bar(profile, window, cx))
     }
 
     fn render_bottom_bar(
         &mut self,
+        profile: Entity<Profile>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -342,29 +557,30 @@ impl PanelRoot {
             .w_full()
             //
             .p_1()
-            .map(|el| {
-                match cx.willow().active_profile() {
-                    None => {
-                        //
-                        el
-                            // Bottom bar initialization
-                            .child(
-                                //
-                                // self.render_bottom_bar_create_profile(window, cx),
-                                self.render_bottom_bar_create_profile_button(window, cx),
-                            )
-                    }
-                    Some(profile) => {
-                        //
-                        el
-                            //
-                            .child(
-                                //
-                                ProfileBar::new(profile),
-                            )
-                    }
-                }
-            })
+            .child(ProfileBar::new(profile))
+        // .map(|el| {
+        //     match cx.willow().active_profile() {
+        //         None => {
+        //             //
+        //             el
+        //                 // Bottom bar initialization
+        //                 .child(
+        //                     //
+        //                     // self.render_bottom_bar_create_profile(window, cx),
+        //                     self.render_bottom_bar_create_profile_button(window, cx),
+        //                 )
+        //         }
+        //         Some(profile) => {
+        //             //
+        //             el
+        //                 //
+        //                 .child(
+        //                     //
+        //                     ProfileBar::new(profile),
+        //                 )
+        //         }
+        //     }
+        // })
     }
 
     fn render_bottom_bar_create_profile_button(

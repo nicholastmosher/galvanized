@@ -12,8 +12,9 @@ use futures::{Stream, StreamExt as _};
 use crate::{
     vault_actor::{
         create_vault::CreateVaultRequest, list_vaults::ListVaultsRequest,
-        lock_vault::LockVaultRequest, read_vault::ReadVaultRequest,
-        unlock_vault::UnlockVaultRequest, update_vault::UpdateVaultRequest,
+        lock_vault::LockVaultRequest, read_metadata::ReadVaultMetadataRequest,
+        read_vault::ReadVaultRequest, unlock_vault::UnlockVaultRequest,
+        update_vault::UpdateVaultRequest,
     },
     vault_cap::{VaultAccess, VaultRevoker, VaultSendCap},
     vault_db::{VaultId, VaultsDb},
@@ -22,6 +23,7 @@ use crate::{
 pub mod create_vault;
 pub mod list_vaults;
 pub mod lock_vault;
+pub mod read_metadata;
 pub mod read_vault;
 pub mod unlock_vault;
 pub mod update_vault;
@@ -88,6 +90,7 @@ pub enum VaultActorInput {
     ListVaults(#[from] ListVaultsRequest),
     LockVault(#[from] LockVaultRequest),
     ReadVault(#[from] ReadVaultRequest),
+    ReadVaultMetadata(#[from] ReadVaultMetadataRequest),
     UnlockVault(#[from] UnlockVaultRequest),
     UpdateVault(#[from] UpdateVaultRequest),
 }
@@ -194,6 +197,9 @@ impl VaultActor {
             }
             ReadVault(request) => {
                 self.try_read_vault(request).await?;
+            }
+            ReadVaultMetadata(request) => {
+                self.try_read_vault_metadata(request).await?;
             }
             UnlockVault(request) => {
                 self.try_unlock_vault(request).await?;

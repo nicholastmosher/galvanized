@@ -13,7 +13,7 @@ use crate::{
     encryption::{CryptError, decrypt, encrypt, generate_256_key, hash_password},
     error::{
         CreateVaultError, ListVaultsError, LoadVaultError, LockVaultError, OpenVaultError,
-        ReadVaultError, RotateKeyError, UnlockError, VaultError,
+        ReadVaultError, ReadVaultMetadataError, RotateKeyError, UnlockError, VaultError,
     },
 };
 
@@ -236,6 +236,10 @@ impl VaultsDb {
         vault_id: &VaultId,
         read_fn: impl 'static + Send + for<'a> FnOnce(VaultRef<'a>) -> Box<dyn Any + 'static + Send>,
     ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
+        self.load(vault_id)
+            .await
+            .map_err(|error| ReadVaultError::Load(vault_id.clone(), error))?;
+
         let Some(vault) = self.vaults.get(vault_id) else {
             return Err(ReadVaultError::Locked(vault_id.clone()).into());
         };
@@ -249,6 +253,37 @@ impl VaultsDb {
             let vault_id = vault_id.clone();
             tokio::task::spawn_blocking(move || {
                 let user_read = data.read_critical(&vault_id, &session, read_fn)?;
+                Ok::<_, VaultError>(user_read)
+            })
+            .await
+            .expect("failed to join spawn_blocking when reading from vault")?
+        };
+
+        Ok(user_returned)
+    }
+
+    /// Reads metadata from the vault using the given read function.
+    ///
+    /// This will only work if the specified vault is unlocked.
+    pub async fn read_metadata(
+        &mut self,
+        vault_id: &VaultId,
+        read_fn: impl 'static
+        + Send
+        + for<'a> FnOnce(VaultMetadataRef<'a>) -> Box<dyn Any + 'static + Send>,
+    ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
+        self.load(vault_id)
+            .await
+            .map_err(|error| ReadVaultMetadataError::Load(vault_id.clone(), error))?;
+
+        let Some(vault) = self.vaults.get(vault_id) else {
+            return Err(ReadVaultMetadataError::Missing(vault_id.clone()).into());
+        };
+
+        let user_returned = {
+            let data = vault.data.clone();
+            tokio::task::spawn_blocking(move || {
+                let user_read = data.read_metadata(read_fn)?;
                 Ok::<_, VaultError>(user_read)
             })
             .await
@@ -644,6 +679,20 @@ impl VaultData {
         Ok(data)
     }
 
+    /// Read from the metadata of this vault, does not require unlock
+    fn read_metadata(
+        &self,
+        read_fn: impl 'static
+        + Send
+        + for<'a> FnOnce(VaultMetadataRef<'a>) -> Box<dyn Any + 'static + Send>,
+    ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
+        let metadata = VaultMetadataRef {
+            metadata: self.metadata.buffer(),
+        };
+        let user_returned = read_fn(metadata);
+        Ok(user_returned)
+    }
+
     /// Critical path where the vault is actually decrypted and updated.
     fn write_critical(
         &mut self,
@@ -762,6 +811,30 @@ impl<'a> VaultMut<'a> {
     /// Returns a mutable reference to the secret buffer.
     pub fn secret(&mut self) -> &mut Vec<u8> {
         self.secret
+    }
+}
+
+/// Immutable access to the vault's metadata.
+pub struct VaultMetadataRef<'a> {
+    metadata: &'a [u8],
+}
+
+impl<'a> VaultMetadataRef<'a> {
+    /// Returns a reference to the vault's metadata buffer.
+    pub fn metadata(&self) -> &'a [u8] {
+        self.metadata
+    }
+}
+
+/// Mutable access to the vault's metadata.
+pub struct VaultMetadataMut<'a> {
+    metadata: &'a mut Vec<u8>,
+}
+
+impl<'a> VaultMetadataMut<'a> {
+    /// Returns a mutable reference to the vault's metadata buffer.
+    pub fn metadata(&'a mut self) -> &'a mut Vec<u8> {
+        self.metadata
     }
 }
 

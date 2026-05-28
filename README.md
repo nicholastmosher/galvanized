@@ -184,6 +184,23 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 May 28
+
+Profiles data flow from top to bottom:
+
+- Login screen: Needs to list all existing Profiles, without unlocking vaults
+- To query Profiles, query Willow subspaces containing Profiles metadata
+- To query Subspaces, query vaults with Subspace metadata
+- Query vault metadata buffers directly (doesn't require password to unlock)
+
+To perform any Profile action, need access to SubspaceSecret
+
+```text
+unlock_profile(password) -> ProfileKey { unlock_subspace(password) }
+unlock_subspace(password) -> SubspaceSecret { unlock_vault(password) }
+unlock_vault(password) -> VaultSecrets { vault.secret().subspace_secret }
+```
+
 # 2026 May 27
 
 - Cleaned up Vault stuff, the API should be mostly ready to integrate with UI

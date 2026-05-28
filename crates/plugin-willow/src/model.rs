@@ -1,6 +1,6 @@
 use schemars::{JsonSchema, schema_for};
 use serde::{Deserialize, Serialize};
-use willow25::{entry::Entry, path, prelude::WriteCapability, storage::Store as _};
+use willow25::{entry::Entry, path, prelude::WriteCapability};
 use zed::unstable::{
     gpui::{AppContext, Entity, Subscription},
     ui::App,

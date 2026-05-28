@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
+futures-concurrency.workspace = true
 hex.workspace = true
 plugin-vault.workspace = true
 rand_core_0_6_4.workspace = true

@@ -22,6 +22,9 @@ pub enum VaultError {
     #[error("failed to read vault")]
     ReadVault(#[from] ReadVaultError),
 
+    #[error("failed to read vault metadata")]
+    ReadVaultMetadata(#[from] ReadVaultMetadataError),
+
     #[error("failed to rotate encryption key")]
     RotateKey(#[from] RotateKeyError),
 
@@ -91,8 +94,35 @@ pub enum ReadVaultError {
     #[error("failed to provide capability to read vault '{0}'")]
     Capability(VaultId, #[source] capsec::CapSecError),
 
-    #[error("failed to read, vault '{0}' is locked")]
+    #[error("failed to load vault '{0}' from database")]
+    Load(VaultId, #[source] LoadVaultError),
+
+    #[error("failed to read vault '{0}', vault is locked")]
     Locked(VaultId),
+
+    #[error(
+        "failed to read decrypted symmetric key for vault '{0}'\n\
+        expected 32 bytes, got {1} bytes"
+    )]
+    MalformedKey(VaultId, usize),
+
+    #[error("failed to deserialize vault content while reading vault '{0}'")]
+    Serde(VaultId, #[source] serde_json::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum ReadVaultMetadataError {
+    #[error("failed crypto op while reading vault '{0}'")]
+    Crypto(VaultId, #[source] CryptError),
+
+    #[error("failed to provide capability to read vault '{0}'")]
+    Capability(VaultId, #[source] capsec::CapSecError),
+
+    #[error("failed to load vault '{0}' from database")]
+    Load(VaultId, #[source] LoadVaultError),
+
+    #[error("failed to read, vault '{0}' is missing or not loaded")]
+    Missing(VaultId),
 
     #[error(
         "failed to read decrypted symmetric key for vault '{0}'\n\

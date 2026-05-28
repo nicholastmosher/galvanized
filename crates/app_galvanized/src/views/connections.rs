@@ -45,8 +45,7 @@ pub struct ConnectionsUi {
     input_local_name: Entity<InputField>,
     input_ticket: Entity<Editor>,
     workspace: Entity<Workspace>,
-
-    chat_count: Counter<u64>,
+    // chat_count: Counter<u64>,
 }
 
 impl ConnectionsUi {
@@ -59,12 +58,12 @@ impl ConnectionsUi {
         let input_local_name = cx.new(|cx| InputField::new(window, cx, "Local peer name"));
         let workspace = cx.global::<GlobalWorkspace>().0.clone();
 
-        let chat_count = cx.meter().u64_counter("chats_opened").build();
+        // let chat_count = cx.meter().u64_counter("chats_opened").build();
         Self {
             input_ticket,
             input_local_name,
             workspace,
-            chat_count,
+            // chat_count,
         }
     }
 }
