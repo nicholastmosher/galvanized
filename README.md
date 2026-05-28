@@ -184,6 +184,30 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 May 27
+
+- Cleaned up Vault stuff, the API should be mostly ready to integrate with UI
+- Now I need to make another pass over the onboarding flow, creating profiles for real
+- Use identicons over public key data, allow users to reroll generated keys on creation
+  but stay fixed and deterministic after key selection is made
+- General profile creation flow with vault:
+  - Profile creation requires `{ display_name, password, subspace }`
+  - Generate a new vault, encrypted by password.
+  - Store subspace secret key in vault, pubkey and display name in vault metadata
+    - Items in metadata used to render available profiles to user unlocking
+
+Bigger picture next steps:
+
+- Finish profile creation and login/unlock
+- Prototype persistent Willow store, including basic FS browser UI
+  - Need to consider namespace creation flow and UI for capabilitites
+- Rework chat between Profiles (willow subspaces) rather than between iroh p2p nodes
+- Round out chat, persisting chat document to willow on close
+- Explore atproto lexicons as a way to manage local object schemas, but stored in willow
+  - Object namespacing and signing using willow keys rather than atproto's auth
+- Figure out multi-member chat, and what that looks like from a willow shared doc perspective
+  - One chat owner, granting rw capability to chat members?
+
 # 2026 May 25
 
 - Second-pass of vault is coming along nicely, I like it better than the first
