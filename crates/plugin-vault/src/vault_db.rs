@@ -12,8 +12,9 @@ use zeroize::Zeroize;
 use crate::{
     encryption::{CryptError, decrypt, encrypt, generate_256_key, hash_password},
     error::{
-        CreateVaultError, ListVaultsError, LoadVaultError, LockVaultError, OpenVaultError,
-        ReadVaultError, ReadVaultMetadataError, RotateKeyError, UnlockError, VaultError,
+        CreateVaultError, FlushVaultError, ListVaultsError, LoadVaultError, LockVaultError,
+        OpenVaultError, ReadVaultError, ReadVaultMetadataError, RotateKeyError, UnlockError,
+        UpdateVaultError, VaultError,
     },
 };
 
@@ -39,6 +40,8 @@ struct Assets;
 /// such that they only apply to a specific vault
 #[derive(Debug, Display, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(transparent)]
+// TODO: Restore impl to Uuid
+// pub struct VaultId(Uuid);
 pub struct VaultId(String);
 
 impl VaultId {
@@ -87,6 +90,7 @@ impl VaultsDb {
         }
 
         let path_string = path.display().to_string();
+        info!("Opening vault database at {path_string}");
         let options = path_string
             .parse::<SqliteConnectOptions>()
             .map_err(|error| OpenVaultError::ParseDatabasePath(path.into(), error))?
@@ -134,7 +138,7 @@ impl VaultsDb {
         }
 
         let vault_id = data.vault_id.clone();
-        let vault = Vault::new(data);
+        let vault = Vault::new(Arc::new(data));
         self.vaults.insert(vault_id.clone(), vault);
 
         Ok(vault_id)
@@ -182,9 +186,57 @@ impl VaultsDb {
         let data = VaultData::try_from(row)
             .map_err(|error| LoadVaultError::ImpedenceMismatch(vault_id.clone(), error))?;
         debug_assert_eq!(vault_id, &data.vault_id);
+
         let vault_id = data.vault_id.clone();
-        let vault = Vault::new(data);
-        self.vaults.insert(vault_id.clone(), vault);
+        // let vault = Vault::new(data);
+        // self.vaults.insert(vault_id.clone(), vault);
+
+        // Load the vault data into the in-memory vaults cache
+        // - If the vault doesn't already exist in memory, create it with
+        //   the loaded data but with NO unlock session
+        //
+        // - If the vault already exists, update its data but keep the
+        //   existing unlock session if one exists
+        let data = Arc::new(data);
+        self.vaults
+            .entry(vault_id)
+            .and_modify(|vault| vault.data = data.clone())
+            .or_insert_with(|| Vault::new(data));
+
+        Ok(())
+    }
+
+    /// Given a vault ID, flush the in-memory contents of the vault to the database.
+    ///
+    /// The database with the given ID must already exist
+    async fn flush(&mut self, vault_id: &VaultId) -> Result<(), FlushVaultError> {
+        let Some(vault) = self.vaults.get(vault_id) else {
+            return Err(FlushVaultError::MissingVault(vault_id.clone()));
+        };
+
+        let metadata = vault.data.metadata.buffer();
+        let encrypted_vault = vault.data.encrypted_vault.buffer();
+        let encrypted_vault_encryption_key = vault.data.encrypted_vault_encryption_key.buffer();
+        let vault_encryption_key_salt = vault.data.vault_encryption_key_salt.buffer();
+        let query = sqlx::query!(
+            "UPDATE vaults \
+            SET metadata = $2, \
+            encrypted_vault = $3, \
+            encrypted_vault_encryption_key = $4, \
+            vault_encryption_key_salt = $5 \
+            WHERE vault_id = $1",
+            vault_id,
+            metadata,
+            encrypted_vault,
+            encrypted_vault_encryption_key,
+            vault_encryption_key_salt,
+        );
+
+        let _query_result = self
+            .db
+            .execute(query)
+            .await
+            .map_err(|error| FlushVaultError::Database(vault_id.clone(), error))?;
 
         Ok(())
     }
@@ -301,12 +353,16 @@ impl VaultsDb {
         vault_id: &VaultId,
         update_fn: impl 'static + Send + for<'a> FnOnce(VaultMut<'a>) -> Box<dyn Any + 'static + Send>,
     ) -> Result<Box<dyn Any + 'static + Send>, VaultError> {
+        self.load(vault_id)
+            .await
+            .map_err(|error| UpdateVaultError::LoadVault(error))?;
+
         let Some(vault) = self.vaults.get_mut(vault_id) else {
-            return Err(ReadVaultError::Locked(vault_id.clone()).into());
+            return Err(UpdateVaultError::MissingVault(vault_id.clone()).into());
         };
 
         let Some(session) = vault.session.clone() else {
-            return Err(ReadVaultError::Locked(vault_id.clone()).into());
+            return Err(UpdateVaultError::Locked(vault_id.clone()).into());
         };
 
         let user_returned = {
@@ -324,6 +380,10 @@ impl VaultsDb {
             vault.data = Arc::new(updated_data);
             user_returned
         };
+
+        self.flush(vault_id)
+            .await
+            .map_err(|error| UpdateVaultError::FlushVault(error))?;
 
         Ok(user_returned)
     }
@@ -522,9 +582,9 @@ impl Vault {
     /// Create a new [`Vault`] with the given [`VaultData`].
     ///
     /// This method does not deserialize the metadata or unlock the vault.
-    pub fn new(data: VaultData) -> Self {
+    pub fn new(data: Arc<VaultData>) -> Self {
         Self {
-            data: Arc::new(data),
+            data,
             session: None,
         }
     }
@@ -893,11 +953,21 @@ impl VaultSession {
 /// The encrypted symmetric key used to encrypt the vault's contents.
 #[derive(Clone, Zeroize)]
 pub struct EncryptedVaultEncryptionKey(Vec<u8>);
+impl EncryptedVaultEncryptionKey {
+    pub fn buffer(&self) -> &[u8] {
+        &self.0
+    }
+}
 
 /// The salt stored alongside a vault, combined with the user's password to
 /// unlock the vault's own symmetric key.
 #[derive(Clone)]
 pub struct VaultEncryptionKeySalt(Vec<u8>);
+impl VaultEncryptionKeySalt {
+    pub fn buffer(&self) -> &[u8] {
+        &self.0
+    }
+}
 
 /// 256-bit AES encryption key used for encrypting the vault's own symmetric key.
 #[derive(Clone, Zeroize)]

@@ -4,6 +4,6 @@ vendored
 .env
 .DS_Store
 .ignored
-*.db
-*.db-shm
-*.db-wal
+/vault.db
+/vault.db-shm
+/vault.db-wal

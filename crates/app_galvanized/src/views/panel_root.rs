@@ -306,10 +306,6 @@ impl PanelRoot {
                     .text_center()
                     .child("Login"),
             )
-            .children({
-                cx.profiles().list();
-                [div()]
-            })
             .children(
                 //
                 self.profiles

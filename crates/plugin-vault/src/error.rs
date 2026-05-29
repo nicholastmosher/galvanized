@@ -45,6 +45,15 @@ pub enum CreateVaultError {
 }
 
 #[derive(Debug, Error)]
+pub enum FlushVaultError {
+    #[error("failed database op while flushing vault '{0}'")]
+    Database(VaultId, #[source] sqlx::Error),
+
+    #[error("failed to flush vault to disk, no vault with id '{0}'")]
+    MissingVault(VaultId),
+}
+
+#[derive(Debug, Error)]
 pub enum ListVaultsError {
     #[error("failed database op while listing vaults")]
     Database(#[from] sqlx::Error),
@@ -165,4 +174,16 @@ pub enum UnlockError {
 pub enum UpdateVaultError {
     #[error("failed to provide capability to update vault '{0}'")]
     Capability(VaultId, #[source] capsec::CapSecError),
+
+    #[error("failed to flush vault after update")]
+    FlushVault(#[source] FlushVaultError),
+
+    #[error("failed to load vault for update")]
+    LoadVault(#[source] LoadVaultError),
+
+    #[error("vault '{0}' is locked, no unlock session present")]
+    Locked(VaultId),
+
+    #[error("vault '{0}' is missing")]
+    MissingVault(VaultId),
 }

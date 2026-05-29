@@ -3,6 +3,7 @@ use std::{collections::HashMap, path::PathBuf};
 use anyhow::{Context as _, Result};
 use plugin_vault::{VaultsExt as _, vault_db::VaultId};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use willow25::{
     entry::{
         Entry, SubspaceId, randomly_generate_communal_namespace, randomly_generate_owned_namespace,
@@ -13,7 +14,6 @@ use willow25::{
     storage::MemoryStore,
 };
 use zed::unstable::{
-    db::kvp::KEY_VALUE_STORE,
     gpui::{AnyEntity, AppContext, Entity, Global},
     gpui_tokio::Tokio,
     ui::{App, SharedString},
@@ -73,8 +73,6 @@ pub struct WillowCx<'a, C: AppContext> {
 
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
 struct WillowState {
-    vaults: WillowVaults,
-
     // TODO: Generalization of this, esp with Willow Ext traits
     profiles: Vec<Entity<Profile>>,
     spaces: Vec<Entity<Space>>,
@@ -92,13 +90,6 @@ struct WillowState {
     store: MemoryStore,
 }
 
-const WILLOW_VAULTS_KEY: &str = "willow-vaults";
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-struct WillowVaults {
-    subspace_vaults: Vec<VaultId>,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 struct SubspaceVault {
     subspace_secret: Vec<u8>,
@@ -114,42 +105,27 @@ pub struct SubspaceMetadata {
 }
 
 mod serde_subspace_id {
-    use serde::{Deserializer, Serializer, de::Visitor};
+    use serde::{Deserializer, Serializer};
     use willow25::entry::SubspaceId;
 
     pub fn serialize<S: Serializer>(value: &SubspaceId, serializer: S) -> Result<S::Ok, S::Error> {
         let bytes = value.as_bytes();
-        serializer.serialize_bytes(bytes)
+        serde_bytes::serialize(bytes, serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<SubspaceId, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct BytesVisitor;
-        impl<'de> Visitor<'de> for BytesVisitor {
-            type Value = SubspaceId;
+        let bytes: Vec<u8> = serde_bytes::deserialize(deserializer)?;
+        let bytes = <[u8; 32]>::try_from(bytes).map_err(|vec| {
+            serde::de::Error::custom(format!(
+                "deserializing SubspaceId, expected [u8; 32], found Vec<u8> with len={}",
+                vec.len()
+            ))
+        })?;
 
-            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(f, "expected SubspaceId as [u8; 32]")
-            }
-
-            fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                let bytes = <[u8; 32]>::try_from(v).map_err(|vec| {
-                    E::custom(format!(
-                        "deserializing SubspaceId, expected [u8; 32], found Vec<u8> with len={}",
-                        vec.len()
-                    ))
-                })?;
-                let subspace_id = SubspaceId::from_bytes(&bytes);
-                Ok(subspace_id)
-            }
-        }
-
-        let subspace_id = deserializer.deserialize_byte_buf(BytesVisitor)?;
+        let subspace_id = SubspaceId::from_bytes(&bytes);
         Ok(subspace_id)
     }
 }
@@ -175,24 +151,19 @@ impl SubspaceMetadata {
 ///
 /// This stores a [`VaultId`] which can be used together with a
 /// password to unlock a vault where the [`SubspaceSecret`] is kept.
+#[derive(Debug)]
 pub struct Subspace {
     metadata: SubspaceMetadata,
-    subspace_id: SubspaceId,
     vault_id: VaultId,
 }
 
 impl Subspace {
     pub fn new(vault_id: VaultId, metadata: SubspaceMetadata) -> Self {
-        let subspace_id = metadata.subspace_id.clone();
-        Self {
-            metadata,
-            subspace_id,
-            vault_id,
-        }
+        Self { metadata, vault_id }
     }
 
     pub fn id(&self) -> SubspaceId {
-        self.subspace_id.clone()
+        self.metadata.subspace_id.clone()
     }
 
     pub fn metadata(&self) -> &SubspaceMetadata {
@@ -203,7 +174,11 @@ impl Subspace {
 impl<'a, C: AppContext> WillowCx<'a, C> {
     /// Creates a new Willow subspace, storing the private key in a new vault
     /// encrypted by the given password.
-    pub async fn create_subspace(&mut self, password: String) -> Result<Subspace> {
+    pub async fn create_subspace<S: Serialize>(
+        &mut self,
+        password: String,
+        metadata_extra: Option<&S>,
+    ) -> Result<Subspace> {
         let vault_id = self.cx.vaults().create(password.to_string()).await?;
         let vault_handle = self.cx.vaults().unlock(&vault_id, password).await?;
 
@@ -212,10 +187,15 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
         })
         .await?;
 
+        let extra = metadata_extra
+            .map(|extra| serde_json::to_value(extra))
+            .transpose()?;
         let subspace_metadata = SubspaceMetadata {
             subspace_id: subspace_id.to_bytes().into(),
-            extra: None,
+            extra,
         };
+        info!(?subspace_metadata, "Creating subspace with metadata");
+
         let subspace_metadata_bytes = serde_json::to_vec(&subspace_metadata)
             .context("failed to serialize subspace metadata")?;
 
@@ -234,28 +214,7 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
             })
             .await
             .context("failed to write new subspace to vault")?;
-
-        // Add the new vault ID to the list of vaults known to Willow
-        let willow_vaults = {
-            let mut willow_vaults = KEY_VALUE_STORE
-                .read_kvp(WILLOW_VAULTS_KEY)?
-                .and_then(|s| serde_json::from_str::<WillowVaults>(&s).ok())
-                .unwrap_or_default();
-            willow_vaults.subspace_vaults.push(vault_id.clone());
-            KEY_VALUE_STORE
-                .write_kvp(
-                    WILLOW_VAULTS_KEY.to_string(),
-                    serde_json::to_string(&willow_vaults)
-                        .expect("failed to serialize WillowVaults"),
-                )
-                .await?;
-            willow_vaults
-        };
-
-        // Cache the updated WillowVaults in the Willow state
-        self.cx.update_entity(&self.entity, |state, _cx| {
-            state.vaults = willow_vaults;
-        });
+        info!(id = ?subspace_metadata.subspace_id, "Wrote subspace to vault");
 
         let subspace = Subspace::new(vault_id, subspace_metadata);
         Ok(subspace)
@@ -263,6 +222,7 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
 
     pub async fn list_subspaces(&mut self) -> Result<Vec<Subspace>> {
         let vaults = self.cx.vaults().list().await?;
+        info!(?vaults, "vaults");
 
         let tasks = vaults
             .iter()
@@ -271,10 +231,14 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
                 self.cx
                     .vaults()
                     .read_metadata(&vault_id.clone(), move |vault| {
+                        info!(vault_metadata_bytes = ?vault.metadata(), "Reading metadata from vault");
+
                         // We'll filter out anything that doesn't deeserialize as a SubspaceMetadata
                         let meta =
-                            serde_json::from_slice::<SubspaceMetadata>(vault.metadata()).ok();
-                        meta.map(|it| (vault_id.clone(), it))
+                            serde_json::from_slice::<SubspaceMetadata>(vault.metadata());
+
+                        info!(?meta, "Deserialized vault metadata");
+                        meta.map(|it| (vault_id.clone(), it)).ok()
                     })
             })
             .collect::<Vec<_>>();
@@ -297,6 +261,7 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
             .map(|(vault_id, metadata)| Subspace::new(vault_id, metadata))
             .collect::<Vec<_>>();
 
+        info!(?subspaces, "willow.list_subspaces()");
         Ok(subspaces)
     }
 
@@ -466,7 +431,6 @@ impl WillowState {
         let store = MemoryStore::new();
 
         Self {
-            vaults: Default::default(),
             profiles,
             spaces,
             active_profile: None,

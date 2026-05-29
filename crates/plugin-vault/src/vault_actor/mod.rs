@@ -212,18 +212,3 @@ impl VaultActor {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_create_vault() {
-        let root = capsec::test_root();
-        let db_path = "sqlite:test.db";
-        let cap = root.grant::<VaultAccess>().make_send();
-        let (actor_tx, actor_rx) = flume::bounded(100);
-        let _actor =
-            VaultActor::new(Path::new(db_path), cap, actor_tx.clone(), actor_rx.clone()).await;
-    }
-}

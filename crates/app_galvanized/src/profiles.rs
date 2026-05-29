@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use plugin_willow::{Subspace, WillowExt};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use willow25::entry::SubspaceId;
 use zed::unstable::{
     gpui::{self, AppContext, Entity, Global, Image},
@@ -46,8 +47,15 @@ impl<C: AppContext> ProfilesCx<'_, C> {
         display_name: String,
         password: String,
     ) -> Result<Entity<Profile>> {
-        let subspace = self.cx.willow().create_subspace(password).await?;
-        let profile = self.cx.new(|_cx| Profile::new(display_name, subspace));
+        let profile_metadata = ProfileMetadata::new(display_name);
+        let subspace = self
+            .cx
+            .willow()
+            .create_subspace(password, Some(&profile_metadata))
+            .await?;
+        let profile = self
+            .cx
+            .new(|_cx| Profile::from_metadata(profile_metadata, subspace));
         Ok(profile)
     }
 
@@ -70,8 +78,16 @@ impl<C: AppContext> ProfilesCx<'_, C> {
             .into_iter()
             .map(|(subspace, metadata)| {
                 //
-                self.cx
-                    .new(|_cx_| Profile::from_metadata(metadata, subspace))
+                Profile::from_metadata(metadata, subspace)
+            })
+            .collect::<Vec<_>>();
+        info!(?profiles, "profiles.list()");
+
+        let profiles = profiles
+            .into_iter()
+            .map(|profile| {
+                //
+                self.cx.new(|_cx| profile)
             })
             .collect::<Vec<_>>();
 
@@ -79,7 +95,9 @@ impl<C: AppContext> ProfilesCx<'_, C> {
     }
 }
 
+#[derive(derive_more::Debug)]
 pub struct Profile {
+    #[debug("Avatar")]
     avatar: Arc<Image>,
     metadata: ProfileMetadata,
     subspace: Subspace,
@@ -123,4 +141,10 @@ impl Profile {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProfileMetadata {
     display_name: String,
+}
+
+impl ProfileMetadata {
+    pub fn new(display_name: String) -> Self {
+        Self { display_name }
+    }
 }
