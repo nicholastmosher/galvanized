@@ -106,8 +106,9 @@ pub struct PanelRoot {
 
     login_state: LoginState,
     display_name_input: Entity<InputField>,
-    password_input: Entity<InputField>,
-    password_confirmation_input: Entity<InputField>,
+    create_password_input: Entity<InputField>,
+    create_password_confirmation_input: Entity<InputField>,
+    login_password_input: Entity<InputField>,
     profile_identicon: Arc<Image>,
     profiles: Vec<Entity<Profile>>,
     active_profile: Option<Entity<Profile>>,
@@ -116,6 +117,7 @@ pub struct PanelRoot {
 pub enum LoginState {
     Picker,
     CreateProfile,
+    LoginPrompt(Entity<Profile>),
 }
 
 pub enum PanelContent {
@@ -149,10 +151,12 @@ impl PanelRoot {
         cx: &mut Context<Self>,
     ) -> Self {
         let display_name_input = cx.new(|cx| InputField::new(window, cx, "Display name"));
-        let password_input =
+        let create_password_input =
             cx.new(|cx| InputField::new(window, cx, "Create Password").masked(true));
-        let password_confirmation_input =
+        let create_password_confirmation_input =
             cx.new(|cx| InputField::new(window, cx, "Confirm Password").masked(true));
+        let login_password_input =
+            cx.new(|cx| InputField::new(window, cx, "Password").masked(true));
 
         let id = Uuid::new_v4();
         let profile_identicon = identicon(id.as_bytes());
@@ -181,8 +185,9 @@ impl PanelRoot {
 
             login_state: LoginState::Picker,
             display_name_input,
-            password_input,
-            password_confirmation_input,
+            create_password_input,
+            create_password_confirmation_input,
+            login_password_input,
             profile_identicon: Arc::new(profile_identicon),
             profiles: Default::default(),
             active_profile: Default::default(),
@@ -257,13 +262,18 @@ impl PanelRoot {
                             //
                             .size_full()
                             .bg(cx.theme().colors().panel_background)
-                            .p_1()
+                            // .p_1()
                             .rounded_lg()
                             .child({
                                 match &self.login_state {
                                     LoginState::Picker => {
                                         //
                                         self.render_profile_picker(window, cx).into_any_element()
+                                    }
+                                    LoginState::LoginPrompt(profile) => {
+                                        //
+                                        self.render_login_prompt(profile.clone(), window, cx)
+                                            .into_any_element()
                                     }
                                     LoginState::CreateProfile => {
                                         //
@@ -289,6 +299,157 @@ impl PanelRoot {
             )
     }
 
+    fn render_login_prompt(
+        &mut self,
+        profile: Entity<Profile>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let id = profile.read(cx).id();
+        let name = profile.read(cx).name();
+        // TODO don't generate every render
+        let image = plot_icon::generate_png(id.as_bytes(), 256).unwrap();
+
+        v_flex()
+            .size_full()
+            //
+            .p_2()
+            .child(
+                h_flex()
+                    .child(
+                        //
+                        svg()
+                            //
+                            .path(IconName::ArrowLeft.path())
+                            .size(px(36.))
+                            .text_color(Color::default().color(cx))
+                            .rounded_md()
+                            .id("create-profile-back")
+                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                            .on_click(cx.listener(|this, _e, _window, cx| {
+                                this.login_state = LoginState::Picker;
+                            })),
+                    )
+                    .child(
+                        //
+                        div()
+                            .w_full()
+                            //
+                            .text_2xl()
+                            .text_center()
+                            .child("Login"),
+                    ),
+            )
+            .child(
+                //
+                v_flex()
+                    .rounded_lg()
+                    .border_1()
+                    .border_color(cx.theme().colors().border)
+                    .child(
+                        h_flex()
+                            .id(format!("login-profile-{}", name))
+                            .w_full()
+                            //
+                            .bg(cx.theme().colors().editor_background)
+                            .p_2()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .pl_2()
+                                    //
+                                    .child(
+                                        //
+                                        img(ImageSource::Image(Arc::new(Image::from_bytes(
+                                            gpui::ImageFormat::Png,
+                                            image,
+                                        ))))
+                                        .size(px(28.)),
+                                        // .size(px(32.)),
+                                    ),
+                            )
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .flex_grow()
+                                    // .bg(cx.theme().colors().editor_background)
+                                    .p_2()
+                                    .rounded_lg()
+                                    .child(name.clone()),
+                            ),
+                    )
+                    .child(
+                        h_flex()
+                            .id(format!("login-prompt-{}", name))
+                            .w_full()
+                            //
+                            .bg(cx.theme().colors().editor_background)
+                            .p_2()
+                            .gap_2()
+                            .child(self.login_password_input.clone()),
+                    )
+                    .child(
+                        div()
+                            //
+                            .bg(cx.theme().colors().editor_background)
+                            .p_2()
+                            .child(
+                                div()
+                                    .id("create-profile-button")
+                                    .w_full()
+                                    .border_color(rgba(UNLOCK_BG_ORANGE))
+                                    .hover(|style| style.bg(rgba(UNLOCK_BG_ORANGE)))
+                                    .active(|style| style.bg(rgba(UNLOCK_BG_ORANGE)))
+                                    .on_click(cx.listener(|this, _e, _window, cx| {
+                                        let password = this.login_password_input.read(cx).text(cx);
+                                        if password.is_empty() {
+                                            return;
+                                        }
+
+                                        // TODO login
+                                        // cx.spawn(async move |this, cx| {
+                                        //     let profile = cx.profiles().create(display_name, password).await?;
+                                        //     this.update(cx, |this, _cx| {
+                                        //         this.profiles.push(profile.clone());
+                                        //         this.active_profile = Some(profile);
+                                        //     })?;
+                                        //     anyhow::Ok(())
+                                        // })
+                                        // .detach_and_log_err(cx);
+                                    }))
+                                    //
+                                    .p_2()
+                                    .rounded_lg()
+                                    .border_1()
+                                    .child(
+                                        //
+                                        h_flex()
+                                            //
+                                            .justify_center()
+                                            .child(
+                                                //
+                                                img(PathBuf::from(".assets/create-profile.svg"))
+                                                    .flex_shrink_0()
+                                                    .size(px(36.)),
+                                            )
+                                            .child(
+                                                //
+                                                div()
+                                                    //
+                                                    .pr_4()
+                                                    .text_lg()
+                                                    .text_color(white())
+                                                    .text_center()
+                                                    .child("Login"),
+                                            ),
+                                    ),
+                            ),
+                    ),
+            )
+    }
+
     fn render_profile_picker(
         &mut self,
         window: &mut Window,
@@ -297,8 +458,8 @@ impl PanelRoot {
         v_flex()
             .size_full()
             //
-            .p_2()
-            .gap_2()
+            // .p_2()
+            // .gap_2()
             .child(
                 //
                 div()
@@ -319,15 +480,23 @@ impl PanelRoot {
                         let image = plot_icon::generate_png(id.as_bytes(), 256).unwrap();
 
                         h_flex()
+                            .id(format!("login-profile-{}", name))
                             .w_full()
                             //
-                            .bg(cx.theme().colors().editor_background)
+                            // .bg(cx.theme().colors().editor_background)
+                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                            .on_click(cx.listener({
+                                let profile = profile.clone();
+                                move |this, _e, _window, _cx| {
+                                    this.login_state = LoginState::LoginPrompt(profile.clone());
+                                }
+                            }))
                             .p_2()
-                            // .p_4()
                             .gap_2()
-                            .rounded_lg()
-                            .border_1()
-                            .border_color(cx.theme().colors().border)
+                            // .rounded_lg()
+                            // .border_1()
+                            // .border_color(cx.theme().colors().border)
                             .child(
                                 div()
                                     .pl_2()
@@ -364,12 +533,12 @@ impl PanelRoot {
                         this.login_state = LoginState::CreateProfile;
                     }))
                     //
-                    .bg(cx.theme().colors().editor_background)
+                    // .bg(cx.theme().colors().editor_background)
                     .p_2()
                     .gap_2()
-                    .rounded_lg()
-                    .border_1()
-                    .border_color(cx.theme().colors().border)
+                    .rounded_b_lg()
+                    // .border_1()
+                    // .border_color(cx.theme().colors().border)
                     .child(
                         div()
                             // .pl_2()
@@ -465,14 +634,14 @@ impl PanelRoot {
                 div()
                     //
                     .w_full()
-                    .child(self.password_input.clone()),
+                    .child(self.create_password_input.clone()),
             )
             .child(
                 //
                 div()
                     //
                     .w_full()
-                    .child(self.password_confirmation_input.clone()),
+                    .child(self.create_password_confirmation_input.clone()),
             )
             .child(
                 div()
@@ -488,8 +657,9 @@ impl PanelRoot {
                             return;
                         }
 
-                        let password = this.password_input.read(cx).text(cx);
-                        let password_confirm = this.password_confirmation_input.read(cx).text(cx);
+                        let password = this.create_password_input.read(cx).text(cx);
+                        let password_confirm =
+                            this.create_password_confirmation_input.read(cx).text(cx);
                         if password.is_empty() || password_confirm.is_empty() {
                             return;
                         }
