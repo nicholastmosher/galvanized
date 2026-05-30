@@ -1,6 +1,7 @@
 use ::iroh::EndpointAddr;
+use image::imageops::FilterType;
 use serde::{Deserialize, Serialize};
-use zed::unstable::gpui::App;
+use zed::unstable::gpui::{App, Image, ImageFormat};
 
 mod components;
 pub mod observability;
@@ -55,4 +56,10 @@ impl std::str::FromStr for Ticket {
         let bytes = data_encoding::BASE32_NOPAD.decode(s.to_ascii_uppercase().as_bytes())?;
         Self::from_bytes(&bytes)
     }
+}
+
+pub fn identicon(bytes: &[u8]) -> Image {
+    let identicon =
+        plot_icon::generate_png_scaled_custom(bytes, 127, 4, FilterType::Triangle).unwrap();
+    Image::from_bytes(ImageFormat::Png, identicon)
 }

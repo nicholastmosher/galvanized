@@ -5,16 +5,17 @@ use std::{
 };
 
 use anyhow::Context as _;
+use image::imageops::FilterType;
 use tracing::info;
 use uuid::Uuid;
 use zed::unstable::{
     gpui::{
         self, Action, Animation, AnimationExt as _, AppContext as _, Entity, EventEmitter,
         FocusHandle, Focusable, Image, ImageSource, actions, bounce, img, linear_color_stop,
-        linear_gradient, quadratic, rgb, rgba, white,
+        linear_gradient, quadratic, rgb, rgba, svg, white,
     },
     ui::{
-        ActiveTheme, App, Context, ContextMenu, FluentBuilder as _, IconName,
+        ActiveTheme, App, Color, Context, ContextMenu, FluentBuilder as _, IconName,
         InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Pixels,
         PopoverMenu, Render, SharedString, StatefulInteractiveElement, Styled, Tooltip, Window,
         div, h_flex, px, v_flex,
@@ -28,6 +29,7 @@ use zed::unstable::{
 
 use crate::{
     components::{dropdown::Dropdown, profile_bar::ProfileBar, space_header::SpaceHeader},
+    identicon,
     profiles::{Profile, ProfilesExt as _},
     views::{
         connections::ConnectionsUi, create_profile_modal::CreateProfileModal,
@@ -153,8 +155,7 @@ impl PanelRoot {
             cx.new(|cx| InputField::new(window, cx, "Confirm Password").masked(true));
 
         let id = Uuid::new_v4();
-        let profile_identicon = plot_icon::generate_png(id.as_bytes(), 512).unwrap();
-        let profile_identicon_image = Image::from_bytes(gpui::ImageFormat::Png, profile_identicon);
+        let profile_identicon = identicon(id.as_bytes());
 
         cx.spawn(async move |this, cx| {
             let profiles = cx
@@ -182,7 +183,7 @@ impl PanelRoot {
             display_name_input,
             password_input,
             password_confirmation_input,
-            profile_identicon: Arc::new(profile_identicon_image),
+            profile_identicon: Arc::new(profile_identicon),
             profiles: Default::default(),
             active_profile: Default::default(),
         }
@@ -296,7 +297,8 @@ impl PanelRoot {
         v_flex()
             .size_full()
             //
-            .gap_1()
+            .p_2()
+            .gap_2()
             .child(
                 //
                 div()
@@ -320,14 +322,15 @@ impl PanelRoot {
                             .w_full()
                             //
                             .bg(cx.theme().colors().editor_background)
-                            // .p_2()
-                            .p_4()
+                            .p_2()
+                            // .p_4()
                             .gap_2()
                             .rounded_lg()
                             .border_1()
                             .border_color(cx.theme().colors().border)
                             .child(
                                 div()
+                                    .pl_2()
                                     //
                                     .child(
                                         //
@@ -335,7 +338,7 @@ impl PanelRoot {
                                             gpui::ImageFormat::Png,
                                             image,
                                         ))))
-                                        .size(px(48.)),
+                                        .size(px(28.)),
                                         // .size(px(32.)),
                                     ),
                             )
@@ -357,30 +360,29 @@ impl PanelRoot {
                     .w_full()
                     .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
                     .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                    .on_click(cx.listener(|this, e, window, cx| {
+                    .on_click(cx.listener(|this, _e, _window, _cx| {
                         this.login_state = LoginState::CreateProfile;
                     }))
                     //
                     .bg(cx.theme().colors().editor_background)
-                    .p_4()
-                    .gap_4()
+                    .p_2()
+                    .gap_2()
                     .rounded_lg()
                     .border_1()
                     .border_color(cx.theme().colors().border)
                     .child(
                         div()
+                            // .pl_2()
                             //
-                            .rounded_full()
-                            .border_1()
-                            .border_color(cx.theme().colors().border)
+                            // .rounded_full()
+                            // .border_1()
+                            // .border_color(cx.theme().colors().border)
                             .child(
                                 //
                                 img(PathBuf::from(".assets/create-profile.svg"))
                                     .flex_shrink_0()
-                                    .size(px(48.))
-                                    // .size(px(32.))
-                                    //
-                                    .top(px(2.)),
+                                    .size(px(32.))
+                                    .top(px(1.)),
                             ),
                     )
                     .child(
@@ -399,20 +401,36 @@ impl PanelRoot {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         v_flex()
+            .p_2()
+            .gap_2()
             .child(
                 h_flex()
-                    .mx_auto()
+                    .w_full()
                     //
                     .gap_2()
                     .child(
                         //
-                        img(PathBuf::from(".assets/create-profile.svg")).size(px(48.)),
+                        svg()
+                            //
+                            .path(IconName::ArrowLeft.path())
+                            .size(px(36.))
+                            .text_color(Color::default().color(cx))
+                            .rounded_md()
+                            .id("create-profile-back")
+                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                            .on_click(cx.listener(|this, e, window, cx| {
+                                this.login_state = LoginState::Picker;
+                            })),
                     )
                     .child(
                         //
                         div()
+                            .flex_grow()
                             //
+                            .pr_2()
                             .text_2xl()
+                            .text_center()
                             .child("Create Profile"),
                     ),
             )
@@ -421,23 +439,24 @@ impl PanelRoot {
                 h_flex()
                     .w_full()
                     //
-                    .p_2()
                     .gap_2()
                     .child(
-                        img(ImageSource::Image(self.profile_identicon.clone()))
-                            .id("identicon-img")
-                            .flex_shrink_0()
-                            .tooltip(Tooltip::text("Reroll identicon (can't change later)"))
-                            .on_click(cx.listener(|this, _e, _window, cx| {
-                                //
-                                let id = Uuid::new_v4();
-                                let profile_identicon =
-                                    plot_icon::generate_png(id.as_bytes(), 512).unwrap();
-                                let profile_identicon_image =
-                                    Image::from_bytes(gpui::ImageFormat::Png, profile_identicon);
-                                this.profile_identicon = Arc::new(profile_identicon_image);
-                            }))
-                            .size(px(32.)),
+                        div()
+                            //
+                            .pl_2()
+                            //
+                            .child(
+                                img(ImageSource::Image(self.profile_identicon.clone()))
+                                    .id("identicon-img")
+                                    .flex_shrink_0()
+                                    .tooltip(Tooltip::text("Reroll identicon (can't change later)"))
+                                    .on_click(cx.listener(|this, _e, _window, _cx| {
+                                        let id = Uuid::new_v4();
+                                        let profile_identicon = identicon(id.as_bytes());
+                                        this.profile_identicon = Arc::new(profile_identicon);
+                                    }))
+                                    .size(px(28.)),
+                            ),
                     )
                     .child(self.display_name_input.clone()),
             )
@@ -495,12 +514,25 @@ impl PanelRoot {
                     .border_1()
                     .child(
                         //
-                        div()
+                        h_flex()
                             //
-                            .text_lg()
-                            .text_color(white())
-                            .text_center()
-                            .child("Create Profile"),
+                            .justify_center()
+                            .child(
+                                //
+                                img(PathBuf::from(".assets/create-profile.svg"))
+                                    .flex_shrink_0()
+                                    .size(px(36.)),
+                            )
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .pr_4()
+                                    .text_lg()
+                                    .text_color(white())
+                                    .text_center()
+                                    .child("Create Profile"),
+                            ),
                     ),
             )
     }

@@ -31,6 +31,7 @@ ed25519-dalek.workspace = true
 flume.workspace = true
 futures-concurrency.workspace = true
 hex.workspace = true
+image.workspace = true
 iroh.workspace = true
 # iroh-automerge.workspace = true
 iroh-blobs.workspace = true
@@ -39,6 +40,7 @@ iroh-gossip.workspace = true
 opentelemetry.workspace = true
 opentelemetry-otlp.workspace = true
 opentelemetry_sdk.workspace = true
+plot_icon.workspace = true
 plugin-calendar.workspace = true
 plugin-chat.workspace = true
 plugin-p2p.workspace = true
@@ -63,7 +65,6 @@ uuid.workspace = true
 willow25.workspace = true
 # willow-api-derive.workspace = true
 zed.workspace = true
-plot_icon = "0.3.0"
 
 # Path dependencies
 # iroh-automerge = { path = "../../../../n0-computer/iroh-examples/iroh-automerge" }
