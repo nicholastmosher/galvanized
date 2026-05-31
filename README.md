@@ -201,6 +201,24 @@ unlock_subspace(password) -> SubspaceSecret { unlock_vault(password) }
 unlock_vault(password) -> VaultSecrets { vault.secret().subspace_secret }
 ```
 
+# 2026 May 30
+
+- I've been working on the create-profile / login UI
+- Now I need to figure out the flow for doing profile-scoped operations
+  - Create a space
+  - Create an endpoint?
+  - Minting Willow capabilities
+    - Capabilities should be locked behind profile lock in UI/API
+  - Using Willow capabilities to read/write to the store
+- Need an API that enforces profile locking when the underlying vault locks
+  - Outer Profile handle used to refer to a profile, does not grant access
+    to anything
+  - Scoped API takes handle and grants access to Inner Profile which includes
+    access to now-unlocked data
+    - Mint Willow capabilities with a subspace key
+    - Access and use capabilities to read/write to the store
+    - Access namespace keys, grant capabilities to subspaces/profiles
+
 # 2026 May 27
 
 - Cleaned up Vault stuff, the API should be mostly ready to integrate with UI
