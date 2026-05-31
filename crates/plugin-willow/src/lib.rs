@@ -171,6 +171,38 @@ impl Subspace {
     }
 }
 
+pub trait SubspaceHandle {
+    //
+    fn read_metadata<'a, R>(&self, cx: &'a App, f: impl FnOnce(&SubspaceMetadata) -> R) -> R;
+
+    fn securely<C: AppContext, F>(&self, cx: &C, f: F)
+    where
+        F: FnOnce(&SubspaceSecure);
+}
+
+impl SubspaceHandle for Entity<Subspace> {
+    fn read_metadata<'a, C: AppContext, R>(
+        &self,
+        cx: &'a C,
+        f: impl FnOnce(&SubspaceMetadata) -> R,
+    ) -> R {
+        cx.read_entity(self, |it, cx| f(&it.metadata))
+    }
+
+    /// Provides access to secure aspects of the [`Subspace`], i.e. locked behind vault access.
+    fn securely<C: AppContext, F>(&self, cx: &C, f: F)
+    where
+        F: FnOnce(&SubspaceSecure),
+    {
+        let vault_handle = cx.vaults().unlock(vault_handle, read_fn);
+    }
+}
+
+/// A [`Subspace`]'s privileged API, which may only be accessed while unlocked
+pub struct SubspaceSecure {
+    //
+}
+
 impl<'a, C: AppContext> WillowCx<'a, C> {
     /// Creates a new Willow subspace, storing the private key in a new vault
     /// encrypted by the given password.
@@ -178,7 +210,7 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
         &mut self,
         password: String,
         metadata_extra: Option<&S>,
-    ) -> Result<Subspace> {
+    ) -> Result<Entity<Subspace>> {
         let vault_id = self.cx.vaults().create(password.to_string()).await?;
         let vault_handle = self.cx.vaults().unlock(&vault_id, password).await?;
 
@@ -217,10 +249,11 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
         info!(id = ?subspace_metadata.subspace_id, "Wrote subspace to vault");
 
         let subspace = Subspace::new(vault_id, subspace_metadata);
+        let subspace = self.cx.new(|_cx| subspace);
         Ok(subspace)
     }
 
-    pub async fn list_subspaces(&mut self) -> Result<Vec<Subspace>> {
+    pub async fn list_subspaces(&mut self) -> Result<Vec<Entity<Subspace>>> {
         let vaults = self.cx.vaults().list().await?;
         info!(?vaults, "vaults");
 
@@ -259,10 +292,15 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
         let subspaces = submetas
             .into_iter()
             .map(|(vault_id, metadata)| Subspace::new(vault_id, metadata))
+            .map(|subspace| self.cx.new(|_cx| subspace))
             .collect::<Vec<_>>();
 
         info!(?subspaces, "willow.list_subspaces()");
         Ok(subspaces)
+    }
+
+    pub fn unlock_subspace(&self, subspace: Entity<Subspace>) {
+        //
     }
 
     // TODO: Better profile creation API

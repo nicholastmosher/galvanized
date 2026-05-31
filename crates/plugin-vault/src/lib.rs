@@ -1,15 +1,16 @@
-use std::any::Any;
+use std::{any::Any, sync::Arc};
 
 use anyhow::Result;
 use zed::unstable::{
-    gpui::{self, AppContext, Entity, Global, Task, actions},
+    gpui::{self, AppContext, AsyncApp, Entity, Global, Task, WindowOptions, actions},
     paths,
     ui::App,
     workspace::Workspace,
 };
 
 use crate::{
-    error::VaultError,
+    error::{ReadVaultError, VaultError},
+    unlock_ui::UnlockPrompt,
     vault_actor::{VaultActor, VaultActorHandle, VaultHandle},
     vault_cap::VaultAccess,
     vault_db::{VaultId, VaultMetadataRef, VaultMut, VaultRef},
@@ -17,6 +18,7 @@ use crate::{
 
 pub mod encryption;
 pub mod error;
+pub mod unlock_ui;
 pub mod vault_actor;
 pub mod vault_cap;
 pub mod vault_db;
@@ -55,11 +57,15 @@ pub struct VaultsCx<'a, C: AppContext> {
 
 pub struct VaultsCxState {
     actor: VaultActorHandle,
+    unlock_prompt: Option<Arc<dyn UnlockPrompt>>,
 }
 
 impl VaultsCxState {
     pub fn new(actor: VaultActorHandle) -> Self {
-        Self { actor }
+        Self {
+            actor,
+            unlock_prompt: None,
+        }
     }
 }
 
@@ -122,8 +128,13 @@ impl<C: AppContext> VaultsCx<'_, C> {
     {
         let actor = self.actor();
         self.cx.background_spawn(async move {
-            let value = actor.read_vault(&vault_handle, read_fn).await?;
-            Ok(value)
+            let result = actor.read_vault(&vault_handle, read_fn).await;
+
+            if let Err(VaultError::ReadVault(ReadVaultError::Locked(_))) = result {
+                //
+            }
+
+            Ok(result)
         })
     }
 

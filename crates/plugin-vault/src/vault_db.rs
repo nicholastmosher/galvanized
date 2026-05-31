@@ -293,7 +293,7 @@ impl VaultsDb {
             .map_err(|error| ReadVaultError::Load(vault_id.clone(), error))?;
 
         let Some(vault) = self.vaults.get(vault_id) else {
-            return Err(ReadVaultError::Locked(vault_id.clone()).into());
+            return Err(ReadVaultError::Missing(vault_id.clone()).into());
         };
 
         let Some(session) = vault.session.clone() else {

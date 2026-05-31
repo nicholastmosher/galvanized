@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use plugin_willow::{Subspace, WillowExt};
+use plugin_willow::{Subspace, SubspaceHandle as _, WillowExt};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use willow25::entry::SubspaceId;
@@ -67,9 +67,11 @@ impl<C: AppContext> ProfilesCx<'_, C> {
             .into_iter()
             // Skip and log any subspaces that don't have metadata matching Profile
             .filter_map(|subspace| {
-                let meta_extra = subspace.metadata().extra()?;
-                let profile_meta =
-                    serde_json::from_value::<ProfileMetadata>(meta_extra.clone()).log_err()?;
+                let profile_meta = subspace
+                    .read_metadata(&*self.cx, |meta| {
+                        serde_json::from_value::<ProfileMetadata>(meta.extra())
+                    })
+                    .log_err()?;
                 Some((subspace, profile_meta))
             })
             .collect::<Vec<_>>();
@@ -95,21 +97,40 @@ impl<C: AppContext> ProfilesCx<'_, C> {
     }
 }
 
+pub trait ProfileHandle {
+    fn with_secrets<C: AppContext, F>(&self, cx: &C, f: F)
+    where
+        F: FnOnce(&ProfileKey);
+}
+
+impl ProfileHandle for Entity<Profile> {
+    fn with_secrets<C: AppContext, F>(&self, cx: &C, f: F)
+    where
+        F: FnOnce(&ProfileKey),
+    {
+        cx.read_entity(self, |profile, cx| {
+            profile.subspace.securely(cx, |subspace| {
+                //
+            });
+        })
+    }
+}
+
 #[derive(derive_more::Debug)]
 pub struct Profile {
     #[debug("Avatar")]
     avatar: Arc<Image>,
     metadata: ProfileMetadata,
-    subspace: Subspace,
+    subspace: Entity<Subspace>,
 }
 
 impl Profile {
-    pub fn new(display_name: String, subspace: Subspace) -> Self {
+    pub fn new(display_name: String, subspace: Entity<Subspace>) -> Self {
         let metadata = ProfileMetadata { display_name };
         Self::from_metadata(metadata, subspace)
     }
 
-    pub fn from_metadata(metadata: ProfileMetadata, subspace: Subspace) -> Self {
+    pub fn from_metadata(metadata: ProfileMetadata, subspace: Entity<Subspace>) -> Self {
         let id = subspace.id();
         let profile_identicon = plot_icon::generate_png(id.as_bytes(), 512).unwrap();
         let profile_identicon_image = Image::from_bytes(gpui::ImageFormat::Png, profile_identicon);

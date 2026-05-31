@@ -115,6 +115,9 @@ pub enum ReadVaultError {
     )]
     MalformedKey(VaultId, usize),
 
+    #[error("failed to read vault '{0}', vault is missing")]
+    Missing(VaultId),
+
     #[error("failed to deserialize vault content while reading vault '{0}'")]
     Serde(VaultId, #[source] serde_json::Error),
 }
