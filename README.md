@@ -201,6 +201,14 @@ unlock_subspace(password) -> SubspaceSecret { unlock_vault(password) }
 unlock_vault(password) -> VaultSecrets { vault.secret().subspace_secret }
 ```
 
+# 2026 May 31
+
+Screenshot from today:
+
+<div align="center">
+  <img src=".assets/login-form.png" alt="Profile picker, create-profile, and login forms" width="600">
+</div>
+
 # 2026 May 30
 
 - I've been working on the create-profile / login UI

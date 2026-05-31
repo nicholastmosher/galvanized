@@ -530,6 +530,7 @@ impl PanelRoot {
                     .p_2()
                     .gap_2()
                     .rounded_b_lg()
+                    .when(self.profiles.is_empty(), |el| el.rounded_t_lg())
                     .child(
                         div()
                             //
