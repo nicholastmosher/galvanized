@@ -261,7 +261,7 @@ impl PanelRoot {
                         div()
                             //
                             .size_full()
-                            .bg(cx.theme().colors().panel_background)
+                            // .bg(cx.theme().colors().panel_background)
                             // .p_1()
                             .rounded_lg()
                             .child({
@@ -312,80 +312,96 @@ impl PanelRoot {
 
         v_flex()
             .size_full()
+            // .bg(cx.theme().colors().panel_background)
             //
-            .p_2()
+            .rounded_lg()
             .child(
                 h_flex()
+                    .bg(cx.theme().colors().panel_background)
+                    .rounded_t_lg()
+                    .border_b_1()
+                    .border_color(cx.theme().colors().border)
                     .child(
-                        //
-                        svg()
-                            //
-                            .path(IconName::ArrowLeft.path())
-                            .size(px(36.))
-                            .text_color(Color::default().color(cx))
-                            .rounded_md()
+                        div()
                             .id("create-profile-back")
+                            .flex_shrink()
                             .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
                             .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                            .on_click(cx.listener(|this, _e, _window, cx| {
+                            .on_click(cx.listener(|this, _e, _window, _cx| {
                                 this.login_state = LoginState::Picker;
-                            })),
+                            }))
+                            //
+                            .p_2()
+                            .rounded_tl_lg()
+                            .border_r_1()
+                            .border_color(cx.theme().colors().border)
+                            .child(
+                                //
+                                svg()
+                                    //
+                                    .path(IconName::ArrowLeft.path())
+                                    .size(px(36.))
+                                    .text_color(Color::default().color(cx))
+                                    .rounded_tl_lg(),
+                            ),
                     )
                     .child(
                         //
-                        div()
-                            .w_full()
-                            //
-                            .text_2xl()
-                            .text_center()
-                            .child("Login"),
+                        div(),
                     ),
             )
             .child(
                 //
                 v_flex()
-                    .rounded_lg()
-                    .border_1()
-                    .border_color(cx.theme().colors().border)
                     .child(
                         h_flex()
                             .id(format!("login-profile-{}", name))
+                            .bg(cx.theme().colors().panel_background)
+                            // .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                            // .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                             .w_full()
                             //
-                            .bg(cx.theme().colors().editor_background)
-                            .p_2()
-                            .gap_2()
                             .child(
-                                div()
-                                    .pl_2()
+                                h_flex()
+                                    .flex_shrink()
+                                    .mx_auto()
                                     //
+                                    .p_2()
+                                    .gap_2()
+                                    .child(
+                                        div()
+                                            .pl_2()
+                                            //
+                                            .child(
+                                                //
+                                                img(ImageSource::Image(Arc::new(
+                                                    Image::from_bytes(
+                                                        gpui::ImageFormat::Png,
+                                                        image,
+                                                    ),
+                                                )))
+                                                .size(px(28.)),
+                                                // .size(px(32.)),
+                                            ),
+                                    )
                                     .child(
                                         //
-                                        img(ImageSource::Image(Arc::new(Image::from_bytes(
-                                            gpui::ImageFormat::Png,
-                                            image,
-                                        ))))
-                                        .size(px(28.)),
-                                        // .size(px(32.)),
+                                        div()
+                                            //
+                                            .flex_grow()
+                                            // .bg(cx.theme().colors().editor_background)
+                                            .p_2()
+                                            .rounded_lg()
+                                            .child(name.clone()),
                                     ),
-                            )
-                            .child(
-                                //
-                                div()
-                                    //
-                                    .flex_grow()
-                                    // .bg(cx.theme().colors().editor_background)
-                                    .p_2()
-                                    .rounded_lg()
-                                    .child(name.clone()),
                             ),
                     )
                     .child(
                         h_flex()
                             .id(format!("login-prompt-{}", name))
                             .w_full()
+                            .bg(cx.theme().colors().panel_background)
                             //
-                            .bg(cx.theme().colors().editor_background)
                             .p_2()
                             .gap_2()
                             .child(self.login_password_input.clone()),
@@ -393,15 +409,13 @@ impl PanelRoot {
                     .child(
                         div()
                             //
-                            .bg(cx.theme().colors().editor_background)
-                            .p_2()
                             .child(
                                 div()
-                                    .id("create-profile-button")
+                                    .id("login-button")
                                     .w_full()
-                                    .border_color(rgba(UNLOCK_BG_ORANGE))
-                                    .hover(|style| style.bg(rgba(UNLOCK_BG_ORANGE)))
-                                    .active(|style| style.bg(rgba(UNLOCK_BG_ORANGE)))
+                                    .bg(cx.theme().colors().panel_background)
+                                    .hover(|style| style.bg(rgba(0x00000000)))
+                                    .active(|style| style.bg(rgba(0x00000000)))
                                     .on_click(cx.listener(|this, _e, _window, cx| {
                                         let password = this.login_password_input.read(cx).text(cx);
                                         if password.is_empty() {
@@ -409,20 +423,10 @@ impl PanelRoot {
                                         }
 
                                         // TODO login
-                                        // cx.spawn(async move |this, cx| {
-                                        //     let profile = cx.profiles().create(display_name, password).await?;
-                                        //     this.update(cx, |this, _cx| {
-                                        //         this.profiles.push(profile.clone());
-                                        //         this.active_profile = Some(profile);
-                                        //     })?;
-                                        //     anyhow::Ok(())
-                                        // })
-                                        // .detach_and_log_err(cx);
                                     }))
                                     //
                                     .p_2()
-                                    .rounded_lg()
-                                    .border_1()
+                                    .rounded_b_lg()
                                     .child(
                                         //
                                         h_flex()
@@ -430,7 +434,7 @@ impl PanelRoot {
                                             .justify_center()
                                             .child(
                                                 //
-                                                img(PathBuf::from(".assets/create-profile.svg"))
+                                                img(PathBuf::from(".assets/unlock-profile.svg"))
                                                     .flex_shrink_0()
                                                     .size(px(36.)),
                                             )
@@ -457,24 +461,16 @@ impl PanelRoot {
     ) -> impl IntoElement {
         v_flex()
             .size_full()
+            .bg(cx.theme().colors().panel_background)
+            .rounded_lg()
             //
-            // .p_2()
-            // .gap_2()
-            .child(
-                //
-                div()
-                    .w_full()
-                    //
-                    .text_2xl()
-                    .text_center()
-                    .child("Login"),
-            )
             .children(
                 //
                 self.profiles
                     //
                     .iter()
-                    .map(|profile| {
+                    .enumerate()
+                    .map(|(ix, profile)| {
                         let id = profile.read(cx).id();
                         let name = profile.read(cx).name();
                         let image = plot_icon::generate_png(id.as_bytes(), 256).unwrap();
@@ -494,9 +490,7 @@ impl PanelRoot {
                             }))
                             .p_2()
                             .gap_2()
-                            // .rounded_lg()
-                            // .border_1()
-                            // .border_color(cx.theme().colors().border)
+                            .when(ix == 0, |el| el.rounded_t_lg())
                             .child(
                                 div()
                                     .pl_2()
@@ -533,24 +527,17 @@ impl PanelRoot {
                         this.login_state = LoginState::CreateProfile;
                     }))
                     //
-                    // .bg(cx.theme().colors().editor_background)
                     .p_2()
                     .gap_2()
                     .rounded_b_lg()
-                    // .border_1()
-                    // .border_color(cx.theme().colors().border)
                     .child(
                         div()
-                            // .pl_2()
                             //
-                            // .rounded_full()
-                            // .border_1()
-                            // .border_color(cx.theme().colors().border)
                             .child(
                                 //
                                 img(PathBuf::from(".assets/create-profile.svg"))
                                     .flex_shrink_0()
-                                    .size(px(32.))
+                                    .size(px(36.))
                                     .top(px(1.)),
                             ),
                     )
@@ -570,87 +557,119 @@ impl PanelRoot {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         v_flex()
-            .p_2()
-            .gap_2()
-            .child(
-                h_flex()
-                    .w_full()
-                    //
-                    .gap_2()
-                    .child(
-                        //
-                        svg()
-                            //
-                            .path(IconName::ArrowLeft.path())
-                            .size(px(36.))
-                            .text_color(Color::default().color(cx))
-                            .rounded_md()
-                            .id("create-profile-back")
-                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                            .on_click(cx.listener(|this, e, window, cx| {
-                                this.login_state = LoginState::Picker;
-                            })),
-                    )
-                    .child(
-                        //
-                        div()
-                            .flex_grow()
-                            //
-                            .pr_2()
-                            .text_2xl()
-                            .text_center()
-                            .child("Create Profile"),
-                    ),
-            )
+            .rounded_t_lg()
             .child(
                 //
-                h_flex()
-                    .w_full()
-                    //
-                    .gap_2()
+                v_flex()
+                    .bg(cx.theme().colors().panel_background)
+                    .rounded_t_lg()
                     .child(
-                        div()
-                            //
-                            .pl_2()
+                        //
+                        h_flex()
+                            .w_full()
+                            .bg(cx.theme().colors().panel_background)
+                            .border_b_1()
+                            .border_color(cx.theme().colors().border)
+                            .rounded_t_lg()
                             //
                             .child(
-                                img(ImageSource::Image(self.profile_identicon.clone()))
-                                    .id("identicon-img")
-                                    .flex_shrink_0()
-                                    .tooltip(Tooltip::text("Reroll identicon (can't change later)"))
+                                //
+                                div()
+                                    .id("create-profile-back")
+                                    .hover(|style| {
+                                        style.bg(cx.theme().colors().ghost_element_hover)
+                                    })
+                                    .active(|style| {
+                                        style.bg(cx.theme().colors().ghost_element_active)
+                                    })
                                     .on_click(cx.listener(|this, _e, _window, _cx| {
-                                        let id = Uuid::new_v4();
-                                        let profile_identicon = identicon(id.as_bytes());
-                                        this.profile_identicon = Arc::new(profile_identicon);
+                                        this.login_state = LoginState::Picker;
                                     }))
-                                    .size(px(28.)),
+                                    //
+                                    // .flex_1()
+                                    .flex_shrink()
+                                    .p_2()
+                                    .rounded_tl_lg()
+                                    .border_r_1()
+                                    .border_color(cx.theme().colors().border)
+                                    .child(
+                                        svg()
+                                            //
+                                            .path(IconName::ArrowLeft.path())
+                                            .size(px(36.))
+                                            .text_color(Color::default().color(cx))
+                                            .mx_auto(),
+                                    ),
+                            )
+                            .child(
+                                //
+                                div(),
                             ),
                     )
-                    .child(self.display_name_input.clone()),
-            )
-            .child(
-                //
-                div()
-                    //
-                    .w_full()
-                    .child(self.create_password_input.clone()),
-            )
-            .child(
-                //
-                div()
-                    //
-                    .w_full()
-                    .child(self.create_password_confirmation_input.clone()),
+                    .child(
+                        v_flex()
+                            .p_2()
+                            .gap_2()
+                            .child(
+                                //
+                                h_flex()
+                                    .w_full()
+                                    .bg(cx.theme().colors().panel_background)
+                                    //
+                                    .gap_2()
+                                    .child(
+                                        div()
+                                            //
+                                            .pl_2()
+                                            //
+                                            .child(
+                                                img(ImageSource::Image(
+                                                    self.profile_identicon.clone(),
+                                                ))
+                                                .id("identicon-img")
+                                                .flex_shrink_0()
+                                                .tooltip(Tooltip::text(
+                                                    "Reroll identicon (can't change later)",
+                                                ))
+                                                .on_click(cx.listener(|this, _e, _window, _cx| {
+                                                    let id = Uuid::new_v4();
+                                                    let profile_identicon =
+                                                        identicon(id.as_bytes());
+                                                    this.profile_identicon =
+                                                        Arc::new(profile_identicon);
+                                                }))
+                                                .size(px(28.)),
+                                            ),
+                                    )
+                                    .child(self.display_name_input.clone()),
+                            )
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .w_full()
+                                    .bg(cx.theme().colors().panel_background)
+                                    .child(self.create_password_input.clone()),
+                            )
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .w_full()
+                                    .bg(cx.theme().colors().panel_background)
+                                    .child(self.create_password_confirmation_input.clone()),
+                            ),
+                    ),
             )
             .child(
                 div()
                     .id("create-profile-button")
                     .w_full()
-                    .bg(cx.theme().colors().editor_background)
-                    .border_color(rgba(UNLOCK_BG_ORANGE))
-                    .hover(|style| style.bg(rgba(UNLOCK_BG_ORANGE)))
-                    .active(|style| style.bg(rgba(UNLOCK_BG_ORANGE)))
+                    .bg(cx.theme().colors().panel_background)
+                    // .border_color(rgba(UNLOCK_BG_ORANGE))
+                    // .hover(|style| style.bg(rgba(UNLOCK_BG_ORANGE)))
+                    // .active(|style| style.bg(rgba(UNLOCK_BG_ORANGE)))
+                    .hover(|style| style.bg(rgba(0x00000000)))
                     .on_click(cx.listener(|this, _e, _window, cx| {
                         let display_name = this.display_name_input.read(cx).text(cx);
                         if display_name.is_empty() {
@@ -680,8 +699,8 @@ impl PanelRoot {
                     }))
                     //
                     .p_2()
-                    .rounded_lg()
-                    .border_1()
+                    .rounded_b_lg()
+                    // .border_1()
                     .child(
                         //
                         h_flex()
