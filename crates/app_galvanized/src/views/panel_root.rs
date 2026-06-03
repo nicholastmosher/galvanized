@@ -30,7 +30,7 @@ use zed::unstable::{
 use crate::{
     components::{dropdown::Dropdown, profile_bar::ProfileBar, space_header::SpaceHeader},
     identicon,
-    profiles::{Profile, ProfilesExt as _},
+    profiles::{Profile, ProfileHandle, ProfilesExt as _},
     views::connections::ConnectionsUi,
 };
 use plugin_willow::{WillowExt, space::Space};
@@ -410,14 +410,21 @@ impl PanelRoot {
                                     .bg(cx.theme().colors().panel_background)
                                     .hover(|style| style.bg(rgba(0x00000000)))
                                     .active(|style| style.bg(rgba(0x00000000)))
-                                    .on_click(cx.listener(|this, _e, _window, cx| {
-                                        let password = this.login_password_input.read(cx).text(cx);
-                                        if password.is_empty() {
+                                    .on_click(cx.listener(move |this, _e, window, cx| {
+                                        let input = this.login_password_input.clone();
+                                        let password = input.read(cx).text(cx);
+                                        input.update(cx, |input, cx| input.clear(window, cx));
+                                        if password.trim().is_empty() {
                                             return;
                                         }
 
                                         info!("Login clicked");
-                                        // TODO login
+                                        let profile = profile.clone();
+                                        cx.spawn(async move |_this, cx| {
+                                            profile.login(cx, password).await?;
+                                            anyhow::Ok(())
+                                        })
+                                        .detach_and_log_err(cx);
                                     }))
                                     //
                                     .p_2()

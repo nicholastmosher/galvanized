@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::{Context as _, Result};
-use plugin_vault::{VaultsExt as _, vault_db::VaultId};
+use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use willow25::{
@@ -152,11 +152,22 @@ impl SubspaceMetadata {
 pub struct Subspace {
     metadata: SubspaceMetadata,
     vault_id: VaultId,
+    /// Held only after unlocking the vault
+    ///
+    /// Holding a vault's handle does not guarantee that it's unlocked,
+    /// only that is has been unlocked at some point in the past. Handle
+    /// access is subject to expiring capabilities, which will need to
+    /// be refreshed by re-unlocking over time.
+    vault_handle: Option<VaultHandle>,
 }
 
 impl Subspace {
     pub fn new(vault_id: VaultId, metadata: SubspaceMetadata) -> Self {
-        Self { metadata, vault_id }
+        Self {
+            metadata,
+            vault_id,
+            vault_handle: None,
+        }
     }
 
     pub fn id(&self) -> SubspaceId {
@@ -177,9 +188,9 @@ pub trait SubspaceHandle {
         f: impl FnOnce(&SubspaceMetadata, &App) -> R,
     ) -> R;
 
-    fn in_unlock_scope<C: AppContext, F>(&self, cx: &C, f: F)
+    fn in_unlocked<C: AppContext, F>(&self, cx: &C, f: F)
     where
-        F: FnOnce(&SubspaceSecure);
+        F: FnOnce(&UnlockedSubspace);
 }
 
 impl SubspaceHandle for Entity<Subspace> {
@@ -196,16 +207,16 @@ impl SubspaceHandle for Entity<Subspace> {
     }
 
     /// Provides access to secure aspects of the [`Subspace`], i.e. locked behind vault access.
-    fn in_unlock_scope<C: AppContext, F>(&self, cx: &C, f: F)
+    fn in_unlocked<C: AppContext, F>(&self, cx: &C, f: F)
     where
-        F: FnOnce(&SubspaceSecure),
+        F: FnOnce(&UnlockedSubspace),
     {
         // let vault_handle = cx.vaults().unlock(vault_handle, read_fn);
     }
 }
 
 /// A [`Subspace`]'s privileged API, which may only be accessed while unlocked
-pub struct SubspaceSecure {
+pub struct UnlockedSubspace {
     //
 }
 
@@ -305,8 +316,21 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
         Ok(subspaces)
     }
 
-    pub fn unlock_subspace(&self, subspace: Entity<Subspace>) {
-        //
+    pub async fn unlock_subspace(
+        &mut self,
+        subspace: &Entity<Subspace>,
+        password: String,
+    ) -> Result<()> {
+        let vault_id = self
+            .cx
+            .read_entity(&subspace, |subspace, _cx| subspace.vault_id.clone());
+        let vault_handle = self.cx.vaults().unlock(&vault_id, password).await?;
+
+        self.cx.update_entity(&subspace, |subspace, _cx| {
+            subspace.vault_handle = Some(vault_handle);
+        });
+
+        Ok(())
     }
 
     // // TODO: Better profile creation API

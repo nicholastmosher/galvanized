@@ -11,7 +11,7 @@ use zed::unstable::{
 };
 
 pub fn init(cx: &mut App) {
-    let profiles_state = cx.new(|_cx| ProfilesState {});
+    let profiles_state = cx.new(|_cx| ProfilesState::new());
     cx.set_global(GlobalProfiles(profiles_state));
 }
 
@@ -20,6 +20,12 @@ impl Global for GlobalProfiles {}
 
 struct ProfilesState {
     //
+}
+
+impl ProfilesState {
+    pub fn new() -> Self {
+        Self {}
+    }
 }
 
 pub struct ProfilesCx<'a, C: AppContext> {
@@ -58,6 +64,20 @@ impl<C: AppContext> ProfilesCx<'_, C> {
         Ok(profile)
     }
 
+    /// Attempts to log into this Profile by unlocking its underlying Willow Subspace
+    pub async fn login(&mut self, profile: &Entity<Profile>, password: String) -> Result<()> {
+        let subspace = self
+            .cx
+            .read_entity(profile, |profile, _cx| profile.subspace.clone());
+
+        self.cx
+            .willow()
+            .unlock_subspace(&subspace, password)
+            .await?;
+
+        Ok(())
+    }
+
     /// Return a list of Profiles stored in the underlying vault
     pub async fn list(&mut self) -> Result<Vec<Entity<Profile>>> {
         let subspaces = self.cx.willow().list_subspaces().await?;
@@ -91,18 +111,25 @@ impl<C: AppContext> ProfilesCx<'_, C> {
 }
 
 pub trait ProfileHandle {
-    fn with_secrets<C: AppContext, F>(&self, cx: &C, f: F)
+    async fn login<C: AppContext>(&self, cx: &mut C, password: String) -> Result<()>;
+
+    fn in_unlocked<C: AppContext, F>(&self, cx: &C, f: F)
     where
-        F: FnOnce(&ProfileKey);
+        F: FnOnce(&UnlockedProfile);
 }
 
 impl ProfileHandle for Entity<Profile> {
-    fn with_secrets<C: AppContext, F>(&self, cx: &C, f: F)
+    async fn login<C: AppContext>(&self, cx: &mut C, password: String) -> Result<()> {
+        cx.profiles().login(self, password).await?;
+        Ok(())
+    }
+
+    fn in_unlocked<C: AppContext, F>(&self, cx: &C, f: F)
     where
-        F: FnOnce(&ProfileKey),
+        F: FnOnce(&UnlockedProfile),
     {
         cx.read_entity(self, |profile, cx| {
-            profile.subspace.in_unlock_scope(cx, |subspace| {
+            profile.subspace.in_unlocked(cx, |subspace| {
                 //
             });
         })
@@ -118,7 +145,11 @@ pub struct Profile {
 }
 
 /// Private / privileged access to a profile
-pub struct ProfileKey {
+pub struct UnlockedProfile {
+    //
+}
+
+impl UnlockedProfile {
     //
 }
 
