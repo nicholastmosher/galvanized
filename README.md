@@ -145,10 +145,10 @@ the mercy of application providers:
 
 The vision of this project is to create a next-generation application platform which
 puts users in control of their data by using durable local-first and peer-to-peer
-foundations. The spirit of this project is staunchly anti-capitalist, anti-fascist,
-pro-democracy, and pro-sovereignty. Human beings should be able to use digital systems
-while maintaining an expectation of privacy and anonymity, while also enjoying the
-capabilities of live collaboration and group sharing.
+foundations. The spirit of this project is staunchly pro-freedom and pro-sovereignty.
+Human beings should be able to use digital systems while maintaining an expectation
+of privacy and anonymity, while also enjoying the capabilities of live collaboration
+and group sharing.
 
 ## Motivating Use-Cases
 
@@ -183,6 +183,32 @@ Below is where I write down all of my brainstorming and task lists so I remember
 later on. For a long time I never would write my ideas down unless it were well-formed as
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
+
+# 2026 June 3
+
+- Plumbed the login flow from UI to Profile to Subspace to Vault
+- I'm about at the point that I need to think Willow-first
+- Need CRUD for Willow Entries
+  - Requires Namespace management, which I haven't gotten to yet
+  - Reading/writing I believe always requires a subspace key, but
+    only requires a namespace key for owned namespaces, not communal
+  - Owned namespace: Read or Write Capability <- Namespace Secret + Subspace Secret
+  - Communal namespace: Read or Write Capability <- Namespace ID + Subspace Secret
+- Flow for Creating new willow entry:
+  - Starting with stricter owned-ns case
+  - `profile.write(&owned_space, "/some/path", content)`
+  - Profile must be unlocked
+  - Profile's subspace must be unlocked
+  - Profiles's subspace's vault must be unlocked
+  - Opinionated decision(?): A Profile is one subspace key and one to many namespace keys?
+  - Profile and Vault in 1:1 correspondence? Profile to Subspace in 1:1? 1:Many? Profile to Namespace 1:Many?
+  - Challenging prior assumptions: Previously I was imagining:
+    - Profile -> represented by 1 Subspace -> stored in 1 Vault -> (no consideration for namespaces yet)
+  - Now I'm imagining this:
+    - Profile -> represented by 1 Vault -> Stores 0-to-many subspaces and 0-to-many namespaces
+    - I still think a Subspace should more or less be a distinct "identity"
+    - Maybe 1 "Profile" is 1:1 with the actual human agent and their password,
+      but a Subspace acts like one "persona" of potentially many owned by one Profile
 
 # 2026 May 31
 
@@ -3304,10 +3330,10 @@ the mercy of application providers:
 
 The vision of this project is to create a next-generation application platform which
 puts users in control of their data by using durable local-first and peer-to-peer
-foundations. The spirit of this project is staunchly anti-capitalist, anti-fascist,
-pro-democracy, and pro-sovereignty. Human beings should be able to use digital systems
-while maintaining an expectation of privacy and anonymity, while also enjoying the
-capabilities of live collaboration and group sharing.
+foundations. The spirit of this project is staunchly pro-freedom and pro-sovereignty.
+Human beings should be able to use digital systems while maintaining an expectation
+of privacy and anonymity, while also enjoying the capabilities of live collaboration
+and group sharing.
 
 # 2026 Jan 6
 
