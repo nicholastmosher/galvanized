@@ -422,6 +422,7 @@ impl PanelRoot {
                                         let profile = profile.clone();
                                         cx.spawn(async move |_this, cx| {
                                             profile.login(cx, password).await?;
+                                            info!("Login succeeded?");
                                             anyhow::Ok(())
                                         })
                                         .detach_and_log_err(cx);

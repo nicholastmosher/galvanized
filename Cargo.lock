@@ -2553,14 +2553,19 @@ dependencies = [
 
 [[package]]
 name = "bab_rs"
-version = "0.4.3"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60117cbe6f0d0b322978c0f83f9b9c37e5ac5a0340239489247e423d191f642c"
+checksum = "c9fa7616a117328876993e19f3c73173c78392f8c51b7c54d019937d86b3acae"
 dependencies = [
  "anyhash",
  "arrayref",
+ "async-fs",
  "constant_time_eq 0.4.2",
+ "derive_more 2.1.1",
+ "frugal_async",
+ "futures-lite 2.6.1",
  "order_theory",
+ "ufotofu 0.12.1",
  "zeroize",
 ]
 
@@ -3129,6 +3134,12 @@ dependencies = [
  "bytes",
  "either",
 ]
+
+[[package]]
+name = "byteview"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c53ba0f290bfc610084c05582d9c5d421662128fc69f4bf236707af6fd321b9"
 
 [[package]]
 name = "bzip2"
@@ -4330,12 +4341,18 @@ dependencies = [
 
 [[package]]
 name = "compact_u64"
-version = "0.3.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc8168132fcc79680d4186cb9e3292d1168296ae0a4bc132856efe43497960f4"
+checksum = "a20a23a352d255bf672c345d41b94f320a661c9aaef265e8c2d5e5fe0be7e84d"
 dependencies = [
- "ufotofu",
+ "ufotofu 0.12.1",
 ]
+
+[[package]]
+name = "compare"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea0095f6103c2a8b44acd6fd15960c801dafebf02e21940360833e0673f48ba7"
 
 [[package]]
 name = "component"
@@ -5468,6 +5485,16 @@ version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f58bbc28f91df819d0aa2a2c00cd19754769c2fad90579b3592b1c9ba7a3115"
 dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
+name = "crossbeam-skiplist"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df29de440c58ca2cc6e587ec3d22347551a32435fbde9d2bff64e78a9ffa151b"
+dependencies = [
+ "crossbeam-epoch",
  "crossbeam-utils",
 ]
 
@@ -7420,6 +7447,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "enum_dispatch"
+version = "0.3.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa18ce2bc66555b3218614519ac839ddb759a7d6720732f979ef8d13be147ecd"
+dependencies = [
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "enumflags2"
 version = "0.7.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8197,6 +8236,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
 
 [[package]]
+name = "fjall"
+version = "3.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b62b25b4d815ae178d7d9e4aa32ee59f072efd5431c736abede1e6ee13c8c453"
+dependencies = [
+ "byteorder-lite",
+ "byteview",
+ "dashmap",
+ "flume 0.12.0",
+ "log",
+ "lsm-tree",
+ "lz4_flex",
+ "tempfile",
+ "xxhash-rust",
+]
+
+[[package]]
 name = "flate2"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8427,9 +8483,9 @@ dependencies = [
 
 [[package]]
 name = "frugal_async"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d506f6a75478d0b344ad36ad4e42feda3f49b52ec77e65ec9f35fe955d91b5a"
+checksum = "c18633583069aeb899b1683a1662cd84eb63567f5722de0953b366d4868c1bd3"
 dependencies = [
  "fairly_unsafe_cell",
 ]
@@ -8810,7 +8866,7 @@ dependencies = [
  "tracing-loki",
  "tracing-opentelemetry",
  "tracing-subscriber",
- "ufotofu",
+ "ufotofu 0.8.8",
  "uuid",
  "willow25",
  "zed 0.229.0",
@@ -11590,6 +11646,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "interval-heap"
+version = "0.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11274e5e8e89b8607cfedc2910b6626e998779b48a019151c7604d0adcb86ac6"
+dependencies = [
+ "compare",
 ]
 
 [[package]]
@@ -14511,6 +14576,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
 
 [[package]]
+name = "lsm-tree"
+version = "3.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e447ac67ff6aef4ec07fc19e507b219336cbba90a697c0dbeb1bf51b91536b67"
+dependencies = [
+ "byteorder-lite",
+ "byteview",
+ "crossbeam-skiplist",
+ "enum_dispatch",
+ "interval-heap",
+ "log",
+ "lz4_flex",
+ "quick_cache",
+ "rustc-hash 2.1.1",
+ "self_cell",
+ "sfa",
+ "tempfile",
+ "varint-rs",
+ "xxhash-rust",
+]
+
+[[package]]
 name = "lsp"
 version = "0.1.0"
 dependencies = [
@@ -14612,6 +14699,15 @@ dependencies = [
  "float_next_after",
  "lyon_path",
  "num-traits",
+]
+
+[[package]]
+name = "lz4_flex"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ef0d4ed8669f8f8826eb00dc878084aa8f253506c4fd5e8f58f5bce72ddb97e"
+dependencies = [
+ "twox-hash",
 ]
 
 [[package]]
@@ -14825,15 +14921,16 @@ dependencies = [
 
 [[package]]
 name = "meadowcap"
-version = "0.4.0"
-source = "git+https://codeberg.org/worm-blossom/willow_rs.git?rev=5b4eb0f31942535f9c163dd8ae884d82508cc1fe#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ee003aa29db0ba41c6a3fdf5db982915f49e5b95eb7c72f52747c330819fdf2"
 dependencies = [
  "compact_u64",
  "derive_more 2.1.1",
  "order_theory",
  "pollster 0.4.0",
  "signature 2.2.0",
- "ufotofu",
+ "ufotofu 0.12.1",
  "willow-data-model",
 ]
 
@@ -19267,6 +19364,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "quick_cache"
+version = "0.6.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1c821816e9b928e20e92ed59bb3ac4aab321d16ca2316871c9fe7ca739cd477"
+dependencies = [
+ "equivalent",
+ "hashbrown 0.16.0",
+]
+
+[[package]]
 name = "quinn"
 version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -21657,6 +21764,17 @@ dependencies = [
  "util 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "workspace 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "zed_actions 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
+]
+
+[[package]]
+name = "sfa"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1296838937cab56cd6c4eeeb8718ec777383700c33f060e2869867bd01d1175"
+dependencies = [
+ "byteorder-lite",
+ "log",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -24829,6 +24947,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "twox-hash"
+version = "2.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea3136b675547379c4bd395ca6b938e5ad3c3d20fad76e7fe85f9e0d011419c"
+
+[[package]]
 name = "typeid"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -24876,6 +25000,18 @@ dependencies = [
  "fairly_unsafe_cell",
  "frugal_async",
  "futures-lite 2.6.1",
+ "ufotofu_macros",
+]
+
+[[package]]
+name = "ufotofu"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c110454dca9ba840441ae9aa86a479a9c2f689dce503fedff3969620cd7e6fe7"
+dependencies = [
+ "either",
+ "fairly_unsafe_cell",
+ "frugal_async",
  "ufotofu_macros",
 ]
 
@@ -25419,6 +25555,12 @@ dependencies = [
  "quote",
  "syn 2.0.117",
 ]
+
+[[package]]
+name = "varint-rs"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f54a172d0620933a27a4360d3db3e2ae0dd6cceae9730751a036bbf182c4b23"
 
 [[package]]
 name = "vcpkg"
@@ -26936,8 +27078,9 @@ dependencies = [
 
 [[package]]
 name = "willow-data-model"
-version = "0.6.1"
-source = "git+https://codeberg.org/worm-blossom/willow_rs.git?rev=5b4eb0f31942535f9c163dd8ae884d82508cc1fe#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a72564d724eb7ba4d84b9750f7e2683e61d9850d007eadd56bd4cd01b1736033"
 dependencies = [
  "anyhash",
  "bon",
@@ -26948,7 +27091,7 @@ dependencies = [
  "frugal_async",
  "hifitime",
  "order_theory",
- "ufotofu",
+ "ufotofu 0.12.1",
 ]
 
 [[package]]
@@ -26965,23 +27108,28 @@ dependencies = [
 
 [[package]]
 name = "willow25"
-version = "0.4.0"
-source = "git+https://codeberg.org/worm-blossom/willow_rs.git?rev=5b4eb0f31942535f9c163dd8ae884d82508cc1fe#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "965028c181ed6631dd164577ec5f4f0191eb3449554b95e1bf148a10c27c05a9"
 dependencies = [
  "anyhash",
+ "async-fs",
  "bab_rs",
- "bytes",
+ "base32",
+ "base64 0.22.1",
+ "compact_u64",
  "const-hex",
  "constant_time_eq 0.4.2",
  "derive_more 2.1.1",
  "ed25519-dalek 2.2.0",
+ "fjall",
  "frugal_async",
  "hifitime",
  "meadowcap",
  "order_theory",
  "rand_core 0.6.4",
  "signature 2.2.0",
- "ufotofu",
+ "ufotofu 0.12.1",
  "willow-data-model",
  "willow25-macros",
 ]
@@ -26989,7 +27137,8 @@ dependencies = [
 [[package]]
 name = "willow25-macros"
 version = "0.1.0"
-source = "git+https://codeberg.org/worm-blossom/willow_rs.git?rev=5b4eb0f31942535f9c163dd8ae884d82508cc1fe#5b4eb0f31942535f9c163dd8ae884d82508cc1fe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffd98f2dc5511548deb36501e3afcf003b4276cec950514613472964e28d4063"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -28382,6 +28531,12 @@ name = "xmlwriter"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
+
+[[package]]
+name = "xxhash-rust"
+version = "0.8.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fdd20c5420375476fbd4394763288da7eb0cc0b8c11deed431a91562af7335d3"
 
 [[package]]
 name = "y4m"

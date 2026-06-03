@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 use willow25::{
     entry::{
-        Entry, SubspaceId, randomly_generate_communal_namespace, randomly_generate_owned_namespace,
-        randomly_generate_subspace,
+        Entry, SubspaceId, SubspaceSecret, randomly_generate_communal_namespace,
+        randomly_generate_owned_namespace, randomly_generate_subspace,
     },
     path,
     prelude::{AuthorisedEntry, WriteCapability},
@@ -70,19 +70,10 @@ pub struct WillowCx<'a, C: AppContext> {
 
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
 struct WillowState {
-    // TODO: Generalization of this, esp with Willow Ext traits
-    // profiles: Vec<Entity<Profile>>,
     spaces: Vec<Entity<Space>>,
-
-    // active_profile: Option<Entity<Profile>>,
     active_space: Option<Entity<Space>>,
 
-    // Mapping from in-memory Entity to Willow Entry key for lookup
-    entity_entries: HashMap<AnyEntity, AuthorisedEntry>,
-
-    store_path: PathBuf,
-    /// Payloads in simple impl are just bytes
-    paths: HashMap<String, Vec<u8>>,
+    _store_path: PathBuf,
 
     store: MemoryStore,
 }
@@ -333,6 +324,10 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
         Ok(())
     }
 
+    pub fn create_entry(&mut self, subspace: &Entity<Subspace>) {
+        //
+    }
+
     // // TODO: Better profile creation API
     // pub fn create_profile(
     //     //
@@ -486,26 +481,14 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
 
 impl WillowState {
     fn new(store_path: PathBuf) -> Self {
-        let spaces = vec![
-            // cx.new(|cx| Space::new("Home".to_string(), cx)),
-            // cx.new(|cx| Space::new("Family".to_string(), cx)),
-        ];
-
-        // let profiles = vec![
-        //     // cx.new(|cx| Profile::new("Myselfandi", cx)),
-        //     // cx.new(|cx| Profile::new("Alterego", cx)),
-        // ];
+        let spaces = vec![];
 
         let store = MemoryStore::new();
 
         Self {
-            // profiles,
             spaces,
-            // active_profile: None,
             active_space: None,
-            entity_entries: Default::default(),
-            store_path,
-            paths: Default::default(),
+            _store_path: store_path,
             store,
         }
     }

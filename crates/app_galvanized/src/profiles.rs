@@ -75,6 +75,7 @@ impl<C: AppContext> ProfilesCx<'_, C> {
             .unlock_subspace(&subspace, password)
             .await?;
 
+        info!("Unlocked subspace");
         Ok(())
     }
 

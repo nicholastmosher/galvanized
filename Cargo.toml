@@ -66,7 +66,8 @@ tracing-loki = "0.2.6"
 tracing-opentelemetry = { version = "0.32.1" }
 ufotofu = { version = "0.8.8", features = ["compat_futures_io"] }
 uuid = "1.23.1"
-willow25 = { git = "https://codeberg.org/worm-blossom/willow_rs.git", rev = "5b4eb0f31942535f9c163dd8ae884d82508cc1fe" }
+# willow25 = { git = "https://codeberg.org/worm-blossom/willow_rs.git", rev = "5b4eb0f31942535f9c163dd8ae884d82508cc1fe" }
+willow25 = "0.5.0"
 zeroize = { version = "1.8.2", features = ["std", "zeroize_derive"] }
 
 # If you run into build errors, make sure this is using the git dep, not path
