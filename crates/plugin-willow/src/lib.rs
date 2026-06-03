@@ -19,13 +19,10 @@ use zed::unstable::{
     ui::{App, SharedString},
 };
 
-use crate::{
-    model::Willowize,
-    {profile::Profile, space::Space},
-};
+use crate::{model::Willowize, space::Space};
 
 pub mod model;
-pub mod profile;
+// pub mod profile;
 pub mod space;
 // pub mod tasks;
 pub mod ui;
@@ -74,10 +71,10 @@ pub struct WillowCx<'a, C: AppContext> {
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
 struct WillowState {
     // TODO: Generalization of this, esp with Willow Ext traits
-    profiles: Vec<Entity<Profile>>,
+    // profiles: Vec<Entity<Profile>>,
     spaces: Vec<Entity<Space>>,
 
-    active_profile: Option<Entity<Profile>>,
+    // active_profile: Option<Entity<Profile>>,
     active_space: Option<Entity<Space>>,
 
     // Mapping from in-memory Entity to Willow Entry key for lookup
@@ -172,29 +169,38 @@ impl Subspace {
 }
 
 pub trait SubspaceHandle {
-    //
-    fn read_metadata<'a, R>(&self, cx: &'a App, f: impl FnOnce(&SubspaceMetadata) -> R) -> R;
+    fn id<C: AppContext>(&self, cx: &C) -> SubspaceId;
 
-    fn securely<C: AppContext, F>(&self, cx: &C, f: F)
+    fn read_metadata<'a, C: AppContext, R>(
+        &self,
+        cx: &'a C,
+        f: impl FnOnce(&SubspaceMetadata, &App) -> R,
+    ) -> R;
+
+    fn in_unlock_scope<C: AppContext, F>(&self, cx: &C, f: F)
     where
         F: FnOnce(&SubspaceSecure);
 }
 
 impl SubspaceHandle for Entity<Subspace> {
+    fn id<C: AppContext>(&self, cx: &C) -> SubspaceId {
+        cx.read_entity(self, |this, _cx| this.id())
+    }
+
     fn read_metadata<'a, C: AppContext, R>(
         &self,
         cx: &'a C,
-        f: impl FnOnce(&SubspaceMetadata) -> R,
+        f: impl FnOnce(&SubspaceMetadata, &App) -> R,
     ) -> R {
-        cx.read_entity(self, |it, cx| f(&it.metadata))
+        cx.read_entity(self, |it, cx| f(&it.metadata, cx))
     }
 
     /// Provides access to secure aspects of the [`Subspace`], i.e. locked behind vault access.
-    fn securely<C: AppContext, F>(&self, cx: &C, f: F)
+    fn in_unlock_scope<C: AppContext, F>(&self, cx: &C, f: F)
     where
         F: FnOnce(&SubspaceSecure),
     {
-        let vault_handle = cx.vaults().unlock(vault_handle, read_fn);
+        // let vault_handle = cx.vaults().unlock(vault_handle, read_fn);
     }
 }
 
@@ -303,27 +309,27 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
         //
     }
 
-    // TODO: Better profile creation API
-    pub fn create_profile(
-        //
-        &mut self,
-        name: impl Into<SharedString>,
-    ) -> Entity<Profile> {
-        let (_subspace_id, sub_secret) = randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
-        let profile = self.cx.new(move |cx| {
-            //
-            Profile::new(name, sub_secret, cx)
-        });
+    // // TODO: Better profile creation API
+    // pub fn create_profile(
+    //     //
+    //     &mut self,
+    //     name: impl Into<SharedString>,
+    // ) -> Entity<Profile> {
+    //     let (_subspace_id, sub_secret) = randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
+    //     let profile = self.cx.new(move |cx| {
+    //         //
+    //         Profile::new(name, sub_secret, cx)
+    //     });
 
-        self.cx.update_entity(&self.entity, |state, _cx| {
-            state.profiles.push(profile.clone());
-            if state.active_profile.is_none() {
-                state.active_profile = Some(profile.clone());
-            }
-        });
+    //     self.cx.update_entity(&self.entity, |state, _cx| {
+    //         state.profiles.push(profile.clone());
+    //         if state.active_profile.is_none() {
+    //             state.active_profile = Some(profile.clone());
+    //         }
+    //     });
 
-        profile
-    }
+    //     profile
+    // }
 
     pub fn create_owned_space(&mut self, name: impl Into<SharedString>) -> Entity<Space> {
         let (_namespace_id, ns_secret) =
@@ -349,15 +355,15 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
         space
     }
 
-    pub fn active_profile(&self) -> Option<Entity<Profile>> {
-        self.cx
-            .read_entity(&self.entity, |state, _cx| state.active_profile.clone())
-    }
+    // pub fn active_profile(&self) -> Option<Entity<Profile>> {
+    //     self.cx
+    //         .read_entity(&self.entity, |state, _cx| state.active_profile.clone())
+    // }
 
-    pub fn profiles(&self) -> Vec<Entity<Profile>> {
-        self.cx
-            .read_entity(&self.entity, |state, _cx| state.profiles.clone())
-    }
+    // pub fn profiles(&self) -> Vec<Entity<Profile>> {
+    //     self.cx
+    //         .read_entity(&self.entity, |state, _cx| state.profiles.clone())
+    // }
 
     pub fn active_space(&self) -> Option<Entity<Space>> {
         self.cx
@@ -396,62 +402,62 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
         //
     }
 
-    // trait Willowize: 'static + JsonSchema + Serialize + for<'de> Deserialize<'de> {}
-    fn todo_write_to_willow<T: Willowize>(&self, input: &Entity<T>, cx: &mut App) {
-        let value = input.read(cx);
-        let serialized = serde_json::to_string(value).unwrap();
+    // // trait Willowize: 'static + JsonSchema + Serialize + for<'de> Deserialize<'de> {}
+    // fn todo_write_to_willow<T: Willowize>(&self, input: &Entity<T>, cx: &mut App) {
+    //     let value = input.read(cx);
+    //     let serialized = serde_json::to_string(value).unwrap();
 
-        // TODO: Use explicit parameters rather than "active" context?
-        let profile_entity = cx.willow().active_profile().unwrap();
-        let (sub_id, sub_key) = cx.read_entity(&profile_entity, |it, cx| it.parts());
-        let space_entity = cx.willow().active_space().unwrap();
-        let (ns_id, ns_key) = cx.read_entity(&space_entity, |it, cx| it.parts());
+    //     // TODO: Use explicit parameters rather than "active" context?
+    //     let profile_entity = cx.willow().active_profile().unwrap();
+    //     let (sub_id, sub_key) = cx.read_entity(&profile_entity, |it, cx| it.parts());
+    //     let space_entity = cx.willow().active_space().unwrap();
+    //     let (ns_id, ns_key) = cx.read_entity(&space_entity, |it, cx| it.parts());
 
-        let entry = Entry::builder()
-            // What is the context of this call? How do we know chich namespace or subspace IDs to use?
-            .namespace_id(ns_id)
-            .subspace_id(sub_id.clone())
-            .path(path!("/todo/path"))
-            .now()
-            .unwrap()
-            .payload(&serialized)
-            .build();
-        let write_capability = WriteCapability::new_owned(&ns_key, sub_id);
+    //     let entry = Entry::builder()
+    //         // What is the context of this call? How do we know chich namespace or subspace IDs to use?
+    //         .namespace_id(ns_id)
+    //         .subspace_id(sub_id.clone())
+    //         .path(path!("/todo/path"))
+    //         .now()
+    //         .unwrap()
+    //         .payload(&serialized)
+    //         .build();
+    //     let write_capability = WriteCapability::new_owned(&ns_key, sub_id);
 
-        // Entry with content serialized from the given Entity
-        let authorized_entry = entry
-            .into_authorised_entry(&write_capability, &sub_key)
-            .unwrap();
+    //     // Entry with content serialized from the given Entity
+    //     let authorized_entry = entry
+    //         .into_authorised_entry(&write_capability, &sub_key)
+    //         .unwrap();
 
-        // Foreground: no Sync requirement, but shouldn't do heavy lifting
-        cx.spawn({
-            let authorized_entry = authorized_entry.clone();
-            async move |cx| {
-                //
-                anyhow::Ok(())
-            }
-        })
-        .detach_and_log_err(cx);
+    //     // Foreground: no Sync requirement, but shouldn't do heavy lifting
+    //     cx.spawn({
+    //         let authorized_entry = authorized_entry.clone();
+    //         async move |cx| {
+    //             //
+    //             anyhow::Ok(())
+    //         }
+    //     })
+    //     .detach_and_log_err(cx);
 
-        // // Background: Requires Sync
-        // let _task = cx.background_spawn({
-        //     let authorized_entry = authorized_entry.clone();
-        //     async move {
-        //         let willow = willow;
-        //         let state = willow.state.clone();
-        //         let mut state = state.borrow_mut();
-        //         let write_visible = state.store.insert_entry(authorized_entry).await?;
-        //         //
-        //         anyhow::Ok(())
-        //     }
-        // });
-    }
+    //     // // Background: Requires Sync
+    //     // let _task = cx.background_spawn({
+    //     //     let authorized_entry = authorized_entry.clone();
+    //     //     async move {
+    //     //         let willow = willow;
+    //     //         let state = willow.state.clone();
+    //     //         let mut state = state.borrow_mut();
+    //     //         let write_visible = state.store.insert_entry(authorized_entry).await?;
+    //     //         //
+    //     //         anyhow::Ok(())
+    //     //     }
+    //     // });
+    // }
 
-    // Memory -> Willow: Entity<T>
-    // Willow -> Memory: WillowEntity<T> ? To encode space/subspace/path?
-    fn todo_read_from_willow<T: Willowize>(&self, cx: &mut App) -> Result<T> {
-        todo!()
-    }
+    // // Memory -> Willow: Entity<T>
+    // // Willow -> Memory: WillowEntity<T> ? To encode space/subspace/path?
+    // fn todo_read_from_willow<T: Willowize>(&self, cx: &mut App) -> Result<T> {
+    //     todo!()
+    // }
 }
 
 impl WillowState {
@@ -461,17 +467,17 @@ impl WillowState {
             // cx.new(|cx| Space::new("Family".to_string(), cx)),
         ];
 
-        let profiles = vec![
-            // cx.new(|cx| Profile::new("Myselfandi", cx)),
-            // cx.new(|cx| Profile::new("Alterego", cx)),
-        ];
+        // let profiles = vec![
+        //     // cx.new(|cx| Profile::new("Myselfandi", cx)),
+        //     // cx.new(|cx| Profile::new("Alterego", cx)),
+        // ];
 
         let store = MemoryStore::new();
 
         Self {
-            profiles,
+            // profiles,
             spaces,
-            active_profile: None,
+            // active_profile: None,
             active_space: None,
             entity_entries: Default::default(),
             store_path,

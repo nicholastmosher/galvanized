@@ -2,7 +2,7 @@ use std::{any::Any, sync::Arc};
 
 use anyhow::Result;
 use zed::unstable::{
-    gpui::{self, AppContext, AsyncApp, Entity, Global, Task, WindowOptions, actions},
+    gpui::{self, AppContext, Entity, Global, Task, actions},
     paths,
     ui::App,
     workspace::Workspace,
@@ -47,11 +47,11 @@ impl Global for GlobalVault {}
 
 pub trait VaultsExt {
     type Context: AppContext;
-    fn vaults(&self) -> VaultsCx<'_, Self::Context>;
+    fn vaults(&mut self) -> VaultsCx<'_, Self::Context>;
 }
 
 pub struct VaultsCx<'a, C: AppContext> {
-    cx: &'a C,
+    cx: &'a mut C,
     state: Entity<VaultsCxState>,
 }
 
@@ -71,7 +71,7 @@ impl VaultsCxState {
 
 impl<C: AppContext> VaultsExt for C {
     type Context = C;
-    fn vaults(&self) -> VaultsCx<'_, Self::Context> {
+    fn vaults(&mut self) -> VaultsCx<'_, Self::Context> {
         let state = self.read_global::<GlobalVault, _>(|vault, _cx| vault.0.clone());
         VaultsCx { cx: self, state }
     }
@@ -134,8 +134,10 @@ impl<C: AppContext> VaultsCx<'_, C> {
                 //
             }
 
-            Ok(result)
-        })
+            anyhow::Ok(result)
+        });
+
+        todo!()
     }
 
     /// Read data from the vault with the given ID.

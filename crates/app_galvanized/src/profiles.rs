@@ -4,10 +4,9 @@ use anyhow::Result;
 use plugin_willow::{Subspace, SubspaceHandle as _, WillowExt};
 use serde::{Deserialize, Serialize};
 use tracing::info;
-use willow25::entry::SubspaceId;
 use zed::unstable::{
     gpui::{self, AppContext, Entity, Global, Image},
-    ui::{App, SharedString},
+    ui::{App, Context, SharedString},
     util::ResultExt as _,
 };
 
@@ -55,7 +54,7 @@ impl<C: AppContext> ProfilesCx<'_, C> {
             .await?;
         let profile = self
             .cx
-            .new(|_cx| Profile::from_metadata(profile_metadata, subspace));
+            .new(|cx| Profile::from_metadata(profile_metadata, subspace, cx));
         Ok(profile)
     }
 
@@ -68,10 +67,12 @@ impl<C: AppContext> ProfilesCx<'_, C> {
             // Skip and log any subspaces that don't have metadata matching Profile
             .filter_map(|subspace| {
                 let profile_meta = subspace
-                    .read_metadata(&*self.cx, |meta| {
-                        serde_json::from_value::<ProfileMetadata>(meta.extra())
-                    })
-                    .log_err()?;
+                    .read_metadata(&*self.cx, |meta, _cx| {
+                        meta.extra()
+                            .cloned()
+                            .map(|extra| serde_json::from_value::<ProfileMetadata>(extra))
+                    })? // ? -> None
+                    .log_err()?; // ? -> None
                 Some((subspace, profile_meta))
             })
             .collect::<Vec<_>>();
@@ -79,19 +80,11 @@ impl<C: AppContext> ProfilesCx<'_, C> {
         let profiles = profile_metadatas
             .into_iter()
             .map(|(subspace, metadata)| {
-                //
-                Profile::from_metadata(metadata, subspace)
+                self.cx
+                    .new(|cx| Profile::from_metadata(metadata, subspace, cx))
             })
             .collect::<Vec<_>>();
         info!(?profiles, "profiles.list()");
-
-        let profiles = profiles
-            .into_iter()
-            .map(|profile| {
-                //
-                self.cx.new(|_cx| profile)
-            })
-            .collect::<Vec<_>>();
 
         Ok(profiles)
     }
@@ -109,7 +102,7 @@ impl ProfileHandle for Entity<Profile> {
         F: FnOnce(&ProfileKey),
     {
         cx.read_entity(self, |profile, cx| {
-            profile.subspace.securely(cx, |subspace| {
+            profile.subspace.in_unlock_scope(cx, |subspace| {
                 //
             });
         })
@@ -124,14 +117,23 @@ pub struct Profile {
     subspace: Entity<Subspace>,
 }
 
+/// Private / privileged access to a profile
+pub struct ProfileKey {
+    //
+}
+
 impl Profile {
-    pub fn new(display_name: String, subspace: Entity<Subspace>) -> Self {
+    pub fn new(display_name: String, subspace: Entity<Subspace>, cx: &mut Context<Self>) -> Self {
         let metadata = ProfileMetadata { display_name };
-        Self::from_metadata(metadata, subspace)
+        Self::from_metadata(metadata, subspace, cx)
     }
 
-    pub fn from_metadata(metadata: ProfileMetadata, subspace: Entity<Subspace>) -> Self {
-        let id = subspace.id();
+    pub fn from_metadata(
+        metadata: ProfileMetadata,
+        subspace: Entity<Subspace>,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let id = subspace.id(cx);
         let profile_identicon = plot_icon::generate_png(id.as_bytes(), 512).unwrap();
         let profile_identicon_image = Image::from_bytes(gpui::ImageFormat::Png, profile_identicon);
         let avatar = Arc::new(profile_identicon_image);
@@ -141,11 +143,6 @@ impl Profile {
             metadata,
             subspace,
         }
-    }
-
-    pub fn id(&self) -> SubspaceId {
-        //
-        self.subspace.id()
     }
 
     pub fn name(&self) -> SharedString {

@@ -1,11 +1,12 @@
-use std::{pin::Pin, sync::Arc};
+use std::{boxed::Box, pin::Pin};
 
+use anyhow::{Context as _, Result};
 use tokio::sync::oneshot;
-use tracing::{info, warn};
+use tracing::info;
 use zed::unstable::{
     gpui::{
-        AppContext as _, AsyncApp, Bounds, Entity, KeyDownEvent, TitlebarOptions, WindowBounds,
-        WindowHandle, WindowKind, WindowOptions,
+        AppContext, Bounds, Entity, KeyDownEvent, TitlebarOptions, WindowBounds, WindowHandle,
+        WindowKind, WindowOptions,
     },
     ui::{
         ActiveTheme as _, App, Context, FluentBuilder as _, InteractiveElement as _, IntoElement,
@@ -16,7 +17,7 @@ use zed::unstable::{
     util::ResultExt,
 };
 
-use crate::{Unlock, VaultsExt as _, gpui::size, vault_db::VaultId};
+use crate::{Unlock, VaultsCx, gpui::size, vault_db::VaultId};
 
 impl<T: IntoElement> Locked for T {}
 pub trait Locked {
@@ -32,9 +33,9 @@ pub trait Locked {
         Self: Sized,
         Self: ParentElement,
     {
-        if cx.vault().is_unlocked() {
-            return f(self, cx);
-        }
+        // if cx.vault().is_unlocked() {
+        //     return f(self, cx);
+        // }
 
         self
             //
@@ -55,9 +56,9 @@ pub trait Locked {
         Self: Sized,
         Self: ParentElement,
     {
-        if cx.vault().is_unlocked() {
-            return f(self, window, cx);
-        }
+        // if cx.vault().is_unlocked() {
+        //     return f(self, window, cx);
+        // }
 
         // Enforce input field to be masked
         password_input.update(cx, |input, cx| input.set_masked(true, window, cx));
@@ -135,9 +136,9 @@ fn locked_ui<C: 'static>(
 
                                         let text = input.read(cx).text(cx);
                                         input.update(cx, |input, cx| input.clear(window, cx));
-                                        if cx.vault().unlock(&text).is_err() {
-                                            warn!("Incorrect password");
-                                        }
+                                        // if cx.vault().unlock(&text).is_err() {
+                                        //     warn!("Incorrect password");
+                                        // }
                                     }
                                 }))
                                 .child(input.clone()),
@@ -147,145 +148,149 @@ fn locked_ui<C: 'static>(
         )
 }
 
-impl<'a> VaultCx<'a> {
-    pub fn lock(&mut self) {
-        self.cx
-            .update_entity(&self.state, |state, cx| {
-                if let Some((_tx, window)) = state.pending_unlock.take() {
-                    window.update(cx, |_view, window, _cx| {
-                        window.remove_window();
-                    })?;
-                }
-                anyhow::Ok(())
-            })
-            .log_err();
+impl<'a> VaultsCx<'a, App> {
+    // pub fn lock(&mut self) {
+    //     self.cx
+    //         .update_entity(&self.state, |state, cx| {
+    //             if let Some((_tx, window)) = state.pending_unlock.take() {
+    //                 window.update(cx, |_view, window, _cx| {
+    //                     window.remove_window();
+    //                 })?;
+    //             }
+    //             anyhow::Ok(())
+    //         })
+    //         .log_err();
+    // }
+
+    // pub fn unlock(&mut self, password: &str) -> Result<TimedCap<VaultAll>> {
+    //     // TODO: Obviously we need to do a check here
+    //     if password != "password" {
+    //         bail!("invalid password");
+    //     }
+
+    //     let cap = self.cx.update_entity(&self.state, |state, cx| {
+    //         if let Some((_tx, window)) = state.pending_unlock.take() {
+    //             window.update(cx, |_view, window, _cx| {
+    //                 window.remove_window();
+    //             })?;
+    //         }
+
+    //         let cap = state.root.grant();
+    //         let cap = TimedCap::new(cap, LOCK_TIMEOUT);
+    //         state.vault_cap = Some(cap.clone());
+    //         anyhow::Ok(cap)
+    //     })?;
+    //     Ok(cap)
+    // }
+
+    pub fn unlock_window(&mut self) {
+        //
     }
 
-    pub fn unlock(&mut self, password: &str) -> Result<TimedCap<VaultAll>> {
-        // TODO: Obviously we need to do a check here
-        if password != "password" {
-            bail!("invalid password");
-        }
+    // /// Time-bounded permission to full profile access
+    // pub fn unlock_window(&mut self) -> Task<Result<TimedCap<VaultAll>>> {
+    //     // Three possible states:
+    //     // 1) Vault is already unlocked, return cached capability
+    //     // 2) Vault is locked and no pending unlock exists, open a new unlock window
+    //     // 3) Vault is locked but a pending unlock exists, return the existing cap
 
-        let cap = self.cx.update_entity(&self.state, |state, cx| {
-            if let Some((_tx, window)) = state.pending_unlock.take() {
-                window.update(cx, |_view, window, _cx| {
-                    window.remove_window();
-                })?;
-            }
+    //     // 1) Check if the vault is already unlocked
+    //     {
+    //         let vault_cap = self
+    //             .cx
+    //             .read_entity(&self.state, |state, _cx| state.vault_cap.clone());
 
-            let cap = state.root.grant();
-            let cap = TimedCap::new(cap, LOCK_TIMEOUT);
-            state.vault_cap = Some(cap.clone());
-            anyhow::Ok(cap)
-        })?;
-        Ok(cap)
-    }
+    //         if let Some(timed_cap) = vault_cap {
+    //             if timed_cap.is_active() {
+    //                 info!("Vault already unlocked, returning cached capability");
+    //                 return Task::ready(Ok(timed_cap));
+    //             }
+    //             debug!("Vault cap present but expired");
+    //         }
+    //     }
 
-    /// Time-bounded permission to full profile access
-    pub fn unlock_window(&mut self) -> Task<Result<TimedCap<VaultAll>>> {
-        // Three possible states:
-        // 1) Vault is already unlocked, return cached capability
-        // 2) Vault is locked and no pending unlock exists, open a new unlock window
-        // 3) Vault is locked but a pending unlock exists, return the existing cap
+    //     // 2) If there's an open Unlock window, return a task subscribed to it
+    //     {
+    //         let pending_rx = self.cx.update_entity(&self.state, |state, _cx| {
+    //             state
+    //                 .pending_unlock
+    //                 .as_ref()
+    //                 .map(|(tx, _window)| tx.subscribe())
+    //         });
 
-        // 1) Check if the vault is already unlocked
-        {
-            let vault_cap = self
-                .cx
-                .read_entity(&self.state, |state, _cx| state.vault_cap.clone());
+    //         // If an Unlock window is already open, return a task that yields the result
+    //         // In other words, only open one unlock window at a time
+    //         if let Some(mut pending_rx) = pending_rx {
+    //             info!("Unlock window already open, waiting for password");
+    //             let task = self.cx.spawn(async move |_cx| {
+    //                 let cap = pending_rx.recv().await?;
+    //                 anyhow::Ok(cap)
+    //             });
 
-            if let Some(timed_cap) = vault_cap {
-                if timed_cap.is_active() {
-                    info!("Vault already unlocked, returning cached capability");
-                    return Task::ready(Ok(timed_cap));
-                }
-                debug!("Vault cap present but expired");
-            }
-        }
+    //             return task;
+    //         }
+    //     }
 
-        // 2) If there's an open Unlock window, return a task subscribed to it
-        {
-            let pending_rx = self.cx.update_entity(&self.state, |state, _cx| {
-                state
-                    .pending_unlock
-                    .as_ref()
-                    .map(|(tx, _window)| tx.subscribe())
-            });
+    //     // 3) Open a new Unlock window
+    //     // - Oneshot from Unlock window -> Vault when password is accepted
+    //     // - Vault task grants and caches capability
+    //     // - Vault broadcasts capability to all waiting client tasks
+    //     let (unlock_tx, unlock_rx) = oneshot::channel();
+    //     let unlock_init_result = (|| {
+    //         let window = self.open_unlock_window(unlock_tx)?;
+    //         let (tx, _rx) = broadcast::channel(1);
+    //         self.state.update(self.cx, |state, _cx| {
+    //             state.pending_unlock = Some((tx, window));
+    //         });
+    //         anyhow::Ok(())
+    //     })();
 
-            // If an Unlock window is already open, return a task that yields the result
-            // In other words, only open one unlock window at a time
-            if let Some(mut pending_rx) = pending_rx {
-                info!("Unlock window already open, waiting for password");
-                let task = self.cx.spawn(async move |_cx| {
-                    let cap = pending_rx.recv().await?;
-                    anyhow::Ok(cap)
-                });
+    //     let state = self.state.clone();
+    //     let task = self.cx.spawn(async move |cx| {
+    //         // Propagate potential window error from above
+    //         unlock_init_result?;
 
-                return task;
-            }
-        }
+    //         // Wait for unlock to complete
+    //         unlock_rx.await?;
 
-        // 3) Open a new Unlock window
-        // - Oneshot from Unlock window -> Vault when password is accepted
-        // - Vault task grants and caches capability
-        // - Vault broadcasts capability to all waiting client tasks
-        let (unlock_tx, unlock_rx) = oneshot::channel();
-        let unlock_init_result = (|| {
-            let window = self.open_unlock_window(unlock_tx)?;
-            let (tx, _rx) = broadcast::channel(1);
-            self.state.update(self.cx, |state, _cx| {
-                state.pending_unlock = Some((tx, window));
-            });
-            anyhow::Ok(())
-        })();
+    //         let cap = cx.update_entity(&state, |state, cx| {
+    //             // Newly minted capability
+    //             let cap = state.root.grant::<VaultAll>();
+    //             let cap = TimedCap::new(cap, LOCK_TIMEOUT);
+    //             state.vault_cap = Some(cap.clone());
 
-        let state = self.state.clone();
-        let task = self.cx.spawn(async move |cx| {
-            // Propagate potential window error from above
-            unlock_init_result?;
+    //             // Take the receiver, so future unlocks prompt a new window
+    //             if let Some((tx, window)) = state.pending_unlock.take() {
+    //                 tx.send(cap.clone()).ok();
 
-            // Wait for unlock to complete
-            unlock_rx.await?;
+    //                 // Close unlock window in case it wasn't already scheduled
+    //                 window.update(cx, |_view, window, _cx| {
+    //                     window.remove_window();
+    //                 })?;
+    //             }
 
-            let cap = cx.update_entity(&state, |state, cx| {
-                // Newly minted capability
-                let cap = state.root.grant::<VaultAll>();
-                let cap = TimedCap::new(cap, LOCK_TIMEOUT);
-                state.vault_cap = Some(cap.clone());
+    //             anyhow::Ok(cap)
+    //         })?;
 
-                // Take the receiver, so future unlocks prompt a new window
-                if let Some((tx, window)) = state.pending_unlock.take() {
-                    tx.send(cap.clone()).ok();
+    //         anyhow::Ok(cap)
+    //     });
 
-                    // Close unlock window in case it wasn't already scheduled
-                    window.update(cx, |_view, window, _cx| {
-                        window.remove_window();
-                    })?;
-                }
+    //     task
+    // }
 
-                anyhow::Ok(cap)
-            })?;
-
-            anyhow::Ok(cap)
-        });
-
-        task
-    }
-
-    pub fn is_unlocked(&self) -> bool {
-        self.state
-            .read(self.cx)
-            .vault_cap
-            .as_ref()
-            .map(|cap| cap.is_active())
-            .unwrap_or(false)
-    }
+    // pub fn is_unlocked(&self) -> bool {
+    //     self.state
+    //         .read(self.cx)
+    //         .vault_cap
+    //         .as_ref()
+    //         .map(|cap| cap.is_active())
+    //         .unwrap_or(false)
+    // }
 
     fn open_unlock_window(
         &mut self,
-        tx: oneshot::Sender<()>,
-    ) -> anyhow::Result<WindowHandle<VaultUnlockUi>> {
+        tx: oneshot::Sender<String>,
+    ) -> Result<WindowHandle<VaultUnlockUi>> {
         let bounds = Bounds::centered(None, size(px(300.), px(300.)), self.cx);
         let titlebar = TitlebarOptions {
             title: Some("Vault Unlock".into()),
@@ -317,7 +322,7 @@ pub trait UnlockPrompt {
         &mut self,
         vault_id: &VaultId,
         cx: &mut App,
-    ) -> Pin<Box<dyn Future<Output = String>>>;
+    ) -> Pin<Box<dyn Future<Output = Result<String>>>>;
 }
 
 pub struct WindowUnlockPrompt {
@@ -329,7 +334,7 @@ impl UnlockPrompt for WindowUnlockPrompt {
         &mut self,
         vault_id: &VaultId,
         cx: &mut App,
-    ) -> Pin<Box<dyn Future<Output = String>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<String>>>> {
         let (tx, rx) = oneshot::channel();
 
         let bounds = Bounds::centered(None, size(px(300.), px(300.)), cx);
@@ -357,19 +362,26 @@ impl UnlockPrompt for WindowUnlockPrompt {
         let vault_id = vault_id.clone();
         Box::pin(async move {
             let password = rx.await.expect("channel error");
-            let task = cx.vaults().unlock(&vault_id, password);
-
-            todo!()
+            // let task = cx.vaults().unlock(&vault_id, password);
+            Ok(password)
         })
     }
 }
 
 impl<F> UnlockPrompt for F
 where
-    F: Fn(AsyncApp) -> String,
+    F: Fn(&VaultId, &mut App) -> String,
 {
-    fn prompt_unlock(&mut self, cx: AsyncApp) -> String {
-        (self)(cx)
+    fn prompt_unlock(
+        &mut self,
+        vault_id: &VaultId,
+        cx: &mut App,
+    ) -> Pin<Box<dyn Future<Output = Result<String>> + 'static>> {
+        let password = (self)(vault_id, cx);
+        Box::pin(async move {
+            //
+            Ok(password)
+        })
     }
 }
 
@@ -393,9 +405,9 @@ impl VaultUnlockUi {
 impl Render for VaultUnlockUi {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // If the unlock window is closed, reset vault state
-        window.on_window_should_close(cx, |_window, cx| {
+        window.on_window_should_close(cx, |_window, _cx| {
             info!("Closing Unlock window, locking");
-            cx.vault().lock();
+            // cx.vault().lock();
             true
         });
 
@@ -445,15 +457,10 @@ impl Render for VaultUnlockUi {
                                                 return;
                                             }
 
-                                            let text = this.input.read(cx).text(cx);
-                                            // TODO actual password verification
-                                            if text == "password" {
-                                                if let Some(tx) = this.tx.take() {
-                                                    tx.send(()).log_err();
-                                                    window.remove_window();
-                                                }
-                                            } else {
-                                                warn!("Incorrect password");
+                                            let password = this.input.read(cx).text(cx);
+                                            if let Some(tx) = this.tx.take() {
+                                                tx.send(password).log_err();
+                                                window.remove_window();
                                             }
                                         },
                                     ))

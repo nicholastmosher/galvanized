@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Context as _;
 use image::imageops::FilterType;
-use tracing::info;
+use tracing::{info, warn};
 use uuid::Uuid;
 use zed::unstable::{
     gpui::{
@@ -31,10 +31,7 @@ use crate::{
     components::{dropdown::Dropdown, profile_bar::ProfileBar, space_header::SpaceHeader},
     identicon,
     profiles::{Profile, ProfilesExt as _},
-    views::{
-        connections::ConnectionsUi, create_profile_modal::CreateProfileModal,
-        create_space_modal::CreateSpaceModal,
-    },
+    views::connections::ConnectionsUi,
 };
 use plugin_willow::{WillowExt, space::Space};
 
@@ -305,10 +302,13 @@ impl PanelRoot {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let id = profile.read(cx).id();
+        // let id = profile.read(cx).id();
+        // let id = Uuid::new_v4();
+        // warn!("TODO proper ID");
         let name = profile.read(cx).name();
-        // TODO don't generate every render
-        let image = plot_icon::generate_png(id.as_bytes(), 256).unwrap();
+        // // TODO don't generate every render
+        // let image = plot_icon::generate_png(id.as_bytes(), 256).unwrap();
+        let image = self.profile_identicon.clone();
 
         v_flex()
             .size_full()
@@ -374,13 +374,7 @@ impl PanelRoot {
                                             //
                                             .child(
                                                 //
-                                                img(ImageSource::Image(Arc::new(
-                                                    Image::from_bytes(
-                                                        gpui::ImageFormat::Png,
-                                                        image,
-                                                    ),
-                                                )))
-                                                .size(px(28.)),
+                                                img(ImageSource::Image(image)).size(px(28.)),
                                                 // .size(px(32.)),
                                             ),
                                     )
@@ -422,6 +416,7 @@ impl PanelRoot {
                                             return;
                                         }
 
+                                        info!("Login clicked");
                                         // TODO login
                                     }))
                                     //
@@ -471,9 +466,12 @@ impl PanelRoot {
                     .iter()
                     .enumerate()
                     .map(|(ix, profile)| {
-                        let id = profile.read(cx).id();
+                        // let id = profile.read(cx).id();
+                        // let id = Uuid::new_v4();
+                        // warn!("TODO proper ID");
                         let name = profile.read(cx).name();
-                        let image = plot_icon::generate_png(id.as_bytes(), 256).unwrap();
+                        let image = self.profile_identicon.clone();
+                        // let image = plot_icon::generate_png(id.as_bytes(), 256).unwrap();
 
                         h_flex()
                             .id(format!("login-profile-{}", name))
@@ -497,11 +495,7 @@ impl PanelRoot {
                                     //
                                     .child(
                                         //
-                                        img(ImageSource::Image(Arc::new(Image::from_bytes(
-                                            gpui::ImageFormat::Png,
-                                            image,
-                                        ))))
-                                        .size(px(28.)),
+                                        img(ImageSource::Image(image)).size(px(28.)),
                                         // .size(px(32.)),
                                     ),
                             )
@@ -829,9 +823,10 @@ impl PanelRoot {
                             .bg(cx.theme().colors().ghost_element_active)
                     })
                     .on_click(cx.listener(|this, _e, window, cx| {
-                        this.workspace.update(cx, |workspace, cx| {
-                            CreateProfileModal::toggle(workspace, window, cx);
-                        })
+                        info!("Clicked Create Profile");
+                        // this.workspace.update(cx, |workspace, cx| {
+                        //     CreateProfileModal::toggle(workspace, window, cx);
+                        // })
                     }))
                     .child(
                         img(PathBuf::from(".assets/create-profile.svg"))
@@ -972,8 +967,8 @@ impl PanelRoot {
             .child(div().flex_grow())
             .child({
                 // Bounce when empty to prompt user to create a space
-                let new_space_bounces =
-                    cx.willow().active_profile().is_some() && cx.willow().spaces().is_empty();
+                let new_space_bounces = true;
+                // cx.willow().active_profile().is_some() && cx.willow().spaces().is_empty();
 
                 div()
                     //
@@ -991,9 +986,10 @@ impl PanelRoot {
                             .bg(cx.theme().colors().ghost_element_active)
                     })
                     .on_click(cx.listener(|this, _e, window, cx| {
-                        this.workspace.update(cx, |workspace, cx| {
-                            CreateSpaceModal::toggle(workspace, window, cx);
-                        })
+                        info!("Clicked create space");
+                        // this.workspace.update(cx, |workspace, cx| {
+                        //     CreateSpaceModal::toggle(workspace, window, cx);
+                        // })
                     }))
                     .child(
                         img(PathBuf::from(".assets/create-space.svg"))
