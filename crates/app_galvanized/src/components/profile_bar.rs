@@ -107,11 +107,11 @@ impl RenderOnce for ProfileNugget {
                 //     profile.toggle_online();
                 // });
             })
-            .child(
-                div()
-                    //
-                    .child(img(ImageSource::Image(self.profile.read(cx).avatar())).size(px(32.))),
-            )
+            // .child(
+            //     div()
+            //         //
+            //         .child(img(ImageSource::Image(self.profile.read(cx).avatar())).size(px(32.))),
+            // )
             .child(
                 v_flex()
                     //

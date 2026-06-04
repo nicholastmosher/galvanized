@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
+use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
 use plugin_willow::{Subspace, SubspaceHandle as _, WillowExt};
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -47,33 +48,61 @@ impl<C: AppContext> ProfilesExt for C {
 }
 
 impl<C: AppContext> ProfilesCx<'_, C> {
+    /// Creates a new Profile from the given display name and password.
+    ///
+    /// This creates a new backing Vault with the display name used as
+    /// metadata to identify the vault, and the password used to encrypt
+    /// the future content of the vault, which begins empty.
     pub async fn create(
         &mut self,
         display_name: String,
         password: String,
     ) -> Result<Entity<Profile>> {
-        let profile_metadata = ProfileMetadata::new(display_name);
-        let subspace = self
-            .cx
-            .willow()
-            .create_subspace(password, Some(&profile_metadata))
-            .await?;
-        let profile = self
-            .cx
-            .new(|cx| Profile::from_metadata(profile_metadata, subspace, cx));
+        let vault_id = self.cx.vaults().create(password.to_string()).await?;
+        let vault_handle = self.cx.vaults().unlock(&vault_id, password).await?;
+
+        let profile_metadata = ProfileMetadata::new(display_name.clone());
+        let profile_metadata_bytes = serde_json::to_vec(&profile_metadata)
+            .context("failed to serialize profile metadata")?;
+
+        let profile_vault = ProfileVault::new();
+        let profile_vault_bytes = serde_json::to_vec(&profile_vault)
+            .context("failed to serialize profile vault content")?;
+
+        // Initial vault should be empty, so we just write to the vault buffers
+        self.cx
+            .vaults()
+            .update(vault_handle, |mut vault| {
+                *vault.metadata() = profile_metadata_bytes;
+                *vault.secret() = profile_vault_bytes;
+            })
+            .await
+            .context("failed to write new subspace to vault")?;
+        info!(?vault_id, ?display_name, "Wrote profile to vault");
+
+        let profile = self.cx.new(|cx| Profile::new(vault_id, display_name, cx));
         Ok(profile)
+    }
+
+    pub async fn create_subspace(&mut self, profile: &Entity<Profile>) {
+        //
     }
 
     /// Attempts to log into this Profile by unlocking its underlying Willow Subspace
     pub async fn login(&mut self, profile: &Entity<Profile>, password: String) -> Result<()> {
-        let subspace = self
-            .cx
-            .read_entity(profile, |profile, _cx| profile.subspace.clone());
+        let (vault_id, vault_handle) = self.cx.read_entity(profile, |profile, cx| {
+            (profile.vault_id.clone(), profile.vault_handle.clone())
+        });
+        self.cx.vaults().unlock(&vault_id, password);
 
-        self.cx
-            .willow()
-            .unlock_subspace(&subspace, password)
-            .await?;
+        // let subspace = self
+        //     .cx
+        //     .read_entity(profile, |profile, _cx| profile.subspace.clone());
+
+        // self.cx
+        //     .willow()
+        //     .unlock_subspace(&subspace, password)
+        //     .await?;
 
         info!("Unlocked subspace");
         Ok(())
@@ -81,42 +110,56 @@ impl<C: AppContext> ProfilesCx<'_, C> {
 
     /// Return a list of Profiles stored in the underlying vault
     pub async fn list(&mut self) -> Result<Vec<Entity<Profile>>> {
-        let subspaces = self.cx.willow().list_subspaces().await?;
+        let vaults = self.cx.vaults().list().await?;
+        info!(?vaults, "vaults");
 
-        let profile_metadatas = subspaces
-            .into_iter()
-            // Skip and log any subspaces that don't have metadata matching Profile
-            .filter_map(|subspace| {
-                let profile_meta = subspace
-                    .read_metadata(&*self.cx, |meta, _cx| {
-                        meta.extra()
-                            .cloned()
-                            .map(|extra| serde_json::from_value::<ProfileMetadata>(extra))
-                    })? // ? -> None
-                    .log_err()?; // ? -> None
-                Some((subspace, profile_meta))
-            })
-            .collect::<Vec<_>>();
-
-        let profiles = profile_metadatas
-            .into_iter()
-            .map(|(subspace, metadata)| {
+        let tasks = vaults
+            .iter()
+            .cloned()
+            .map(|vault_id| {
                 self.cx
-                    .new(|cx| Profile::from_metadata(metadata, subspace, cx))
+                    .vaults()
+                    .read_metadata(&vault_id.clone(), move |vault| {
+                        info!(vault_metadata_bytes = ?vault.metadata(), "Reading metadata from vault");
+
+                        // We'll filter out anything that doesn't deeserialize as a SubspaceMetadata
+                        let meta =
+                            serde_json::from_slice::<ProfileMetadata>(vault.metadata());
+
+                        info!(?meta, "Deserialized vault metadata");
+                        meta.map(|it| (vault_id.clone(), it)).ok()
+                    })
             })
             .collect::<Vec<_>>();
-        info!(?profiles, "profiles.list()");
 
+        // Concurrently query/read the metadata from each vault
+        use futures_concurrency::prelude::*;
+        let maybe_submetas = tasks
+            .join()
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let submetas = maybe_submetas
+            .into_iter()
+            .filter_map(|it| it)
+            .collect::<Vec<_>>();
+
+        let profiles = submetas
+            .into_iter()
+            .map(|(vault_id, metadata)| {
+                self.cx
+                    .new(|cx| Profile::from_metadata(vault_id, metadata, cx))
+            })
+            .collect::<Vec<_>>();
+
+        info!(?profiles, "profiles().list()");
         Ok(profiles)
     }
 }
 
 pub trait ProfileHandle {
     async fn login<C: AppContext>(&self, cx: &mut C, password: String) -> Result<()>;
-
-    fn in_unlocked<C: AppContext, F>(&self, cx: &C, f: F)
-    where
-        F: FnOnce(&UnlockedProfile);
 }
 
 impl ProfileHandle for Entity<Profile> {
@@ -124,25 +167,13 @@ impl ProfileHandle for Entity<Profile> {
         cx.profiles().login(self, password).await?;
         Ok(())
     }
-
-    fn in_unlocked<C: AppContext, F>(&self, cx: &C, f: F)
-    where
-        F: FnOnce(&UnlockedProfile),
-    {
-        cx.read_entity(self, |profile, cx| {
-            profile.subspace.in_unlocked(cx, |subspace| {
-                //
-            });
-        })
-    }
 }
 
 #[derive(derive_more::Debug)]
 pub struct Profile {
-    #[debug("Avatar")]
-    avatar: Arc<Image>,
     metadata: ProfileMetadata,
-    subspace: Entity<Subspace>,
+    vault_id: VaultId,
+    vault_handle: Option<VaultHandle>,
 }
 
 /// Private / privileged access to a profile
@@ -155,34 +186,25 @@ impl UnlockedProfile {
 }
 
 impl Profile {
-    pub fn new(display_name: String, subspace: Entity<Subspace>, cx: &mut Context<Self>) -> Self {
-        let metadata = ProfileMetadata { display_name };
-        Self::from_metadata(metadata, subspace, cx)
+    pub fn new(vault_id: VaultId, display_name: String, cx: &mut Context<Self>) -> Self {
+        let metadata = ProfileMetadata::new(display_name);
+        Self::from_metadata(vault_id, metadata, cx)
     }
 
     pub fn from_metadata(
+        vault_id: VaultId,
         metadata: ProfileMetadata,
-        subspace: Entity<Subspace>,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) -> Self {
-        let id = subspace.id(cx);
-        let profile_identicon = plot_icon::generate_png(id.as_bytes(), 512).unwrap();
-        let profile_identicon_image = Image::from_bytes(gpui::ImageFormat::Png, profile_identicon);
-        let avatar = Arc::new(profile_identicon_image);
-
         Self {
-            avatar,
             metadata,
-            subspace,
+            vault_id,
+            vault_handle: None,
         }
     }
 
     pub fn name(&self) -> SharedString {
         SharedString::from(&self.metadata.display_name)
-    }
-
-    pub(crate) fn avatar(&self) -> Arc<Image> {
-        self.avatar.clone()
     }
 }
 
@@ -196,5 +218,18 @@ pub struct ProfileMetadata {
 impl ProfileMetadata {
     pub fn new(display_name: String) -> Self {
         Self { display_name }
+    }
+}
+
+/// Profile's contents that are locked behind the vault
+#[derive(derive_more::Debug, Serialize, Deserialize)]
+#[debug("ProfileVault")]
+pub struct ProfileVault {
+    //
+}
+
+impl ProfileVault {
+    pub fn new() -> Self {
+        Self {}
     }
 }
