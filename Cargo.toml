@@ -72,8 +72,8 @@ zeroize = { version = "1.8.2", features = ["std", "zeroize_derive"] }
 
 # If you run into build errors, make sure this is using the git dep, not path
 # I sometimes switch it to path dep when tweaking Zed itself
-# zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
-zed = { path = "../zed/crates/zed" }
+zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+# zed = { path = "../zed/crates/zed" }
 
 # Path dependencies
 # csh-demo = { path = "crates/csh-demo" }
