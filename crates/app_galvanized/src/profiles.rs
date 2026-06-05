@@ -1,5 +1,6 @@
 use anyhow::{Context as _, Result};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
+use plugin_willow::willow_serde::{namespace_id::NamespaceIdDef, subspace_id::SubspaceIdDef};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::info;
@@ -242,20 +243,21 @@ impl ProfileMetadata {
 }
 
 /// Data structure to serialize the secret content of a [`Profile`]
-// #[serde_as]
+#[serde_as]
 #[derive(derive_more::Debug, Serialize, Deserialize)]
 #[debug("ProfileVault")]
 pub struct ProfileVault {
-    // #[serde_as(as = "Vec<plugin_willow::willow_serde::namespace_id>")]
-    // namespaces: Vec<NamespaceId>,
-    // subspaces: Vec<SubspaceId>,
+    #[serde_as(as = "Vec<NamespaceIdDef>")]
+    namespaces: Vec<NamespaceId>,
+    #[serde_as(as = "Vec<SubspaceIdDef>")]
+    subspaces: Vec<SubspaceId>,
 }
 
 impl ProfileVault {
     pub fn new() -> Self {
         Self {
-            // namespaces: Default::default(),
-            // subspaces: Default::default(),
+            namespaces: Default::default(),
+            subspaces: Default::default(),
         }
     }
 }

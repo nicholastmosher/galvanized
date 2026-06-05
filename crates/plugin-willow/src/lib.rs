@@ -3,6 +3,7 @@ use std::{collections::HashMap, path::PathBuf};
 use anyhow::{Context as _, Result};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 use tracing::info;
 use willow25::{
     entry::{
@@ -84,9 +85,10 @@ struct SubspaceVault {
     subspace_secret: Vec<u8>,
 }
 
+#[serde_as]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SubspaceMetadata {
-    #[serde(with = "willow_serde::subspace_id")]
+    #[serde_as(as = "willow_serde::subspace_id::SubspaceIdDef")]
     subspace_id: SubspaceId,
 
     #[serde(skip_serializing_if = "Option::is_none")]

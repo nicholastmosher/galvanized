@@ -15208,6 +15208,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "serde_with",
  "tokio",
  "tracing",
  "willow25",
