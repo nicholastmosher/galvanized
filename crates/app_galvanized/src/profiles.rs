@@ -1,14 +1,12 @@
-use std::sync::Arc;
-
 use anyhow::{Context as _, Result};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
-use plugin_willow::{Subspace, SubspaceHandle as _, WillowExt};
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 use tracing::info;
+use willow25::entry::{NamespaceId, NamespaceSecret, SubspaceId};
 use zed::unstable::{
     gpui::{self, AppContext, Entity, Global, Image},
     ui::{App, Context, SharedString},
-    util::ResultExt as _,
 };
 
 pub fn init(cx: &mut App) {
@@ -16,12 +14,12 @@ pub fn init(cx: &mut App) {
     cx.set_global(GlobalProfiles(profiles_state));
 }
 
+/// Global wrapper containing the instance state for the Profiles plugin
 struct GlobalProfiles(Entity<ProfilesState>);
 impl Global for GlobalProfiles {}
 
-struct ProfilesState {
-    //
-}
+/// Profiles plugin instance state
+struct ProfilesState {}
 
 impl ProfilesState {
     pub fn new() -> Self {
@@ -29,11 +27,13 @@ impl ProfilesState {
     }
 }
 
+/// API handle to the Profiles plugin, returned by [`cx.profiles()`]
 pub struct ProfilesCx<'a, C: AppContext> {
     cx: &'a mut C,
     state: Entity<ProfilesState>,
 }
 
+/// Extension trait for App context objects, provides [`cx.profiles()`]
 pub trait ProfilesExt {
     type Context: AppContext;
     fn profiles(&mut self) -> ProfilesCx<'_, Self::Context>;
@@ -84,27 +84,18 @@ impl<C: AppContext> ProfilesCx<'_, C> {
         Ok(profile)
     }
 
-    pub async fn create_subspace(&mut self, profile: &Entity<Profile>) {
-        //
-    }
-
     /// Attempts to log into this Profile by unlocking its underlying Willow Subspace
     pub async fn login(&mut self, profile: &Entity<Profile>, password: String) -> Result<()> {
-        let (vault_id, vault_handle) = self.cx.read_entity(profile, |profile, cx| {
-            (profile.vault_id.clone(), profile.vault_handle.clone())
+        let vault_id = self
+            .cx
+            .read_entity(profile, |profile, _cx| profile.vault_id.clone());
+
+        let vault_handle = self.cx.vaults().unlock(&vault_id, password).await?;
+        self.cx.update_entity(profile, |profile, _cx| {
+            profile.vault_handle = Some(vault_handle);
         });
-        self.cx.vaults().unlock(&vault_id, password);
 
-        // let subspace = self
-        //     .cx
-        //     .read_entity(profile, |profile, _cx| profile.subspace.clone());
-
-        // self.cx
-        //     .willow()
-        //     .unlock_subspace(&subspace, password)
-        //     .await?;
-
-        info!("Unlocked subspace");
+        info!("Unlocked profile");
         Ok(())
     }
 
@@ -169,28 +160,41 @@ impl ProfileHandle for Entity<Profile> {
     }
 }
 
+/// A Profile is conceptually the representation of a user that owns a Vault.
+///
+/// A Profile represents a user and their access to Willow data.
+///
+/// A Profile is backed by a vault which stores Willow namespace and subspace
+/// keys. One Profile may control any number of namespace and/or subspace keys.
+///
+/// A Profile also provides protected access to the Willow data it owns.
+/// Willow data access is gated behind the Profile's vault being unlocked.
 #[derive(derive_more::Debug)]
 pub struct Profile {
+    /// Public metadata about the profile, visible while the vault is locked.
     metadata: ProfileMetadata,
+
+    /// The ID of the vault underlying this Profile.
     vault_id: VaultId,
+
+    /// If unlocked, the handle to the Vault.
+    ///
+    /// The handle carries the capability to read and write to the vault, and
+    /// is obtained by unlocking the vault. A handle's capabilities may expire
+    /// over time or be revoked.
     vault_handle: Option<VaultHandle>,
 }
 
-/// Private / privileged access to a profile
-pub struct UnlockedProfile {
-    //
-}
-
-impl UnlockedProfile {
-    //
-}
-
 impl Profile {
-    pub fn new(vault_id: VaultId, display_name: String, cx: &mut Context<Self>) -> Self {
-        let metadata = ProfileMetadata::new(display_name);
+    /// Create a new Profile from the given [`VaultId`] and profile name.
+    pub fn new(vault_id: VaultId, profile_name: String, cx: &mut Context<Self>) -> Self {
+        let metadata = ProfileMetadata::new(profile_name);
         Self::from_metadata(vault_id, metadata, cx)
     }
 
+    /// Create a new Profile using the given vault and profile metadata.
+    ///
+    /// Profile metadata is public, and visible when the profile's vault is locked.
     pub fn from_metadata(
         vault_id: VaultId,
         metadata: ProfileMetadata,
@@ -203,33 +207,55 @@ impl Profile {
         }
     }
 
+    /// The name of this [`Profile`].
+    ///
+    /// The name is public, and visible even when the profile's vault is locked.
     pub fn name(&self) -> SharedString {
-        SharedString::from(&self.metadata.display_name)
+        self.metadata.profile_name.clone()
     }
+}
+
+/// API object providing Profile behavior that is gated behind vault unlock.
+pub struct UnlockedProfile {
+    //
+}
+
+impl UnlockedProfile {
+    //
 }
 
 /// Metadata about a profile that is visible even when the underlying vault
 /// holding the subspace is locked.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProfileMetadata {
-    display_name: String,
+    /// The name of the profile, visible on the profile login picker
+    profile_name: SharedString,
 }
 
 impl ProfileMetadata {
-    pub fn new(display_name: String) -> Self {
-        Self { display_name }
+    /// Create a new [`ProfileMetadata`] from the given public profile name
+    pub fn new(profile_name: impl Into<SharedString>) -> Self {
+        Self {
+            profile_name: profile_name.into(),
+        }
     }
 }
 
-/// Profile's contents that are locked behind the vault
+/// Data structure to serialize the secret content of a [`Profile`]
+// #[serde_as]
 #[derive(derive_more::Debug, Serialize, Deserialize)]
 #[debug("ProfileVault")]
 pub struct ProfileVault {
-    //
+    // #[serde_as(as = "Vec<plugin_willow::willow_serde::namespace_id>")]
+    // namespaces: Vec<NamespaceId>,
+    // subspaces: Vec<SubspaceId>,
 }
 
 impl ProfileVault {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            // namespaces: Default::default(),
+            // subspaces: Default::default(),
+        }
     }
 }

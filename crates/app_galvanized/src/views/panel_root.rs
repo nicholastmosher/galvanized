@@ -5,7 +5,6 @@ use std::{
 };
 
 use anyhow::Context as _;
-use image::imageops::FilterType;
 use tracing::{info, warn};
 use uuid::Uuid;
 use zed::unstable::{

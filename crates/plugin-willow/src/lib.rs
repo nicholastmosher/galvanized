@@ -26,6 +26,7 @@ pub mod model;
 pub mod space;
 // pub mod tasks;
 pub mod ui;
+pub mod willow_serde;
 
 pub fn init(cx: &mut App) {
     let store_path = zed::unstable::paths::data_dir();
@@ -85,37 +86,11 @@ struct SubspaceVault {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SubspaceMetadata {
-    #[serde(with = "serde_subspace_id")]
+    #[serde(with = "willow_serde::subspace_id")]
     subspace_id: SubspaceId,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     extra: Option<serde_json::Value>,
-}
-
-mod serde_subspace_id {
-    use serde::{Deserializer, Serializer};
-    use willow25::entry::SubspaceId;
-
-    pub fn serialize<S: Serializer>(value: &SubspaceId, serializer: S) -> Result<S::Ok, S::Error> {
-        let bytes = value.as_bytes();
-        serde_bytes::serialize(bytes, serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<SubspaceId, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let bytes: Vec<u8> = serde_bytes::deserialize(deserializer)?;
-        let bytes = <[u8; 32]>::try_from(bytes).map_err(|vec| {
-            serde::de::Error::custom(format!(
-                "deserializing SubspaceId, expected [u8; 32], found Vec<u8> with len={}",
-                vec.len()
-            ))
-        })?;
-
-        let subspace_id = SubspaceId::from_bytes(&bytes);
-        Ok(subspace_id)
-    }
 }
 
 impl SubspaceMetadata {

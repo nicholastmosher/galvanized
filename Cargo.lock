@@ -332,7 +332,7 @@ dependencies = [
  "prompt_store 0.1.0",
  "regex",
  "rust-embed",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -397,7 +397,7 @@ dependencies = [
  "prompt_store 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "regex",
  "rust-embed",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -446,7 +446,7 @@ checksum = "e0497b9a95a404e35799904835c57c6f8c69b9d08ccfd3cb5b7d746425cd6789"
 dependencies = [
  "anyhow",
  "derive_more 2.1.1",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "strum 0.28.0",
@@ -547,7 +547,7 @@ dependencies = [
  "log",
  "project 0.1.0",
  "regex",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0",
  "util 0.1.0",
@@ -568,7 +568,7 @@ dependencies = [
  "log",
  "project 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "regex",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "util 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -641,7 +641,7 @@ dependencies = [
  "release_channel 0.1.0",
  "rope 0.1.0",
  "rules_library 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "search 0.1.0",
  "serde",
  "serde_json",
@@ -735,7 +735,7 @@ dependencies = [
  "release_channel 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "rope 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "rules_library 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "search 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "serde",
  "serde_json",
@@ -1001,7 +1001,7 @@ dependencies = [
  "chrono",
  "futures",
  "http_client 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -1018,7 +1018,7 @@ dependencies = [
  "chrono",
  "futures",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -2678,7 +2678,7 @@ dependencies = [
  "aws-sdk-bedrockruntime",
  "aws-smithy-types",
  "futures",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "strum 0.27.2",
@@ -2694,7 +2694,7 @@ dependencies = [
  "aws-sdk-bedrockruntime",
  "aws-smithy-types",
  "futures",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "strum 0.27.2",
@@ -3460,7 +3460,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eadd868a2ce9ca38de7eeafdcec9c7065ef89b42b32f0839278d55f35c54d1ff"
 dependencies = [
  "heck 0.4.1",
- "indexmap",
+ "indexmap 2.12.0",
  "log",
  "proc-macro2",
  "quote",
@@ -4220,7 +4220,7 @@ dependencies = [
 name = "collections"
 version = "0.1.0"
 dependencies = [
- "indexmap",
+ "indexmap 2.12.0",
  "rustc-hash 2.1.1",
 ]
 
@@ -4229,7 +4229,7 @@ name = "collections"
 version = "0.1.0"
 source = "git+https://github.com/nicholastmosher/zed?branch=first-class-plugins#682f3ea1bc816a30dbf9328090652d406bdee65f"
 dependencies = [
- "indexmap",
+ "indexmap 2.12.0",
  "rustc-hash 2.1.1",
 ]
 
@@ -4572,7 +4572,7 @@ dependencies = [
  "net 0.1.0",
  "parking_lot",
  "postage",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -4599,7 +4599,7 @@ dependencies = [
  "net 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "parking_lot",
  "postage",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -5708,7 +5708,7 @@ checksum = "d74b6bcf49ebbd91f1b1875b706ea46545032a14003b5557b7dfa4bbeba6766e"
 dependencies = [
  "cc",
  "codespan-reporting 0.13.1",
- "indexmap",
+ "indexmap 2.12.0",
  "proc-macro2",
  "quote",
  "scratch",
@@ -5723,7 +5723,7 @@ checksum = "94ca2ad69673c4b35585edfa379617ac364bccd0ba0adf319811ba3a74ffa48a"
 dependencies = [
  "clap",
  "codespan-reporting 0.13.1",
- "indexmap",
+ "indexmap 2.12.0",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -5741,7 +5741,7 @@ version = "1.0.187"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a8ebf0b6138325af3ec73324cb3a48b64d57721f17291b151206782e61f66cd"
 dependencies = [
- "indexmap",
+ "indexmap 2.12.0",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -5769,7 +5769,7 @@ dependencies = [
  "parking_lot",
  "paths 0.1.0",
  "proto 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -5803,7 +5803,7 @@ dependencies = [
  "parking_lot",
  "paths 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "proto 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -5819,7 +5819,7 @@ name = "dap-types"
 version = "0.0.1"
 source = "git+https://github.com/zed-industries/dap-types?rev=1b461b310481d01e02b2603c16d7144b926339f8#1b461b310481d01e02b2603c16d7144b926339f8"
 dependencies = [
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
 ]
@@ -5892,6 +5892,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "darling"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25ae13da2f202d56bd7f91c25fba009e7717a1e4a1cc98a76d844b65ae912e9d"
+dependencies = [
+ "darling_core 0.23.0",
+ "darling_macro 0.23.0",
+]
+
+[[package]]
 name = "darling_core"
 version = "0.20.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5920,6 +5930,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "darling_core"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9865a50f7c335f53564bb694ef660825eb8610e0a53d3e11bf1b0d3df31e03b0"
+dependencies = [
+ "ident_case",
+ "proc-macro2",
+ "quote",
+ "strsim",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "darling_macro"
 version = "0.20.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5937,6 +5960,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d38308df82d1080de0afee5d069fa14b0326a88c14f15c5ccda35b4a6c414c81"
 dependencies = [
  "darling_core 0.21.3",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "darling_macro"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac3984ec7bd6cfa798e62b4a642426a5be0e68f9401cfc2a01e3fa9ea2fcdb8d"
+dependencies = [
+ "darling_core 0.23.0",
  "quote",
  "syn 2.0.117",
 ]
@@ -6127,7 +6161,7 @@ dependencies = [
  "pretty_assertions",
  "project 0.1.0",
  "rpc 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -6181,7 +6215,7 @@ dependencies = [
  "pretty_assertions",
  "project 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "rpc 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -6217,7 +6251,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
 ]
@@ -6230,7 +6264,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
 ]
@@ -7204,7 +7238,7 @@ dependencies = [
  "regex",
  "rope 0.1.0",
  "rpc 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -7274,7 +7308,7 @@ dependencies = [
  "regex",
  "rope 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "rpc 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -8857,9 +8891,10 @@ dependencies = [
  "rand_core 0.6.4",
  "rand_core 0.9.3",
  "samod",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
+ "serde_with",
  "tokio",
  "tokio-util",
  "tracing",
@@ -9263,7 +9298,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 dependencies = [
  "fallible-iterator",
- "indexmap",
+ "indexmap 2.12.0",
  "stable_deref_trait",
 ]
 
@@ -9274,7 +9309,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
 dependencies = [
  "fallible-iterator",
- "indexmap",
+ "indexmap 2.12.0",
  "stable_deref_trait",
 ]
 
@@ -9309,7 +9344,7 @@ dependencies = [
  "parking_lot",
  "regex",
  "rope 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "smallvec",
  "smol",
@@ -9343,7 +9378,7 @@ dependencies = [
  "parking_lot",
  "regex",
  "rope 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "smallvec",
  "smol",
@@ -9493,7 +9528,7 @@ dependencies = [
  "proto 0.1.0",
  "remote 0.1.0",
  "remote_connection 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -9553,7 +9588,7 @@ dependencies = [
  "proto 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "remote 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "remote_connection 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -9761,7 +9796,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -9776,7 +9811,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -9872,7 +9907,7 @@ dependencies = [
  "refineable 0.1.0",
  "resvg",
  "scheduler 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "seahash",
  "serde",
  "serde_json",
@@ -9951,7 +9986,7 @@ dependencies = [
  "refineable 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "resvg",
  "scheduler 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "seahash",
  "serde",
  "serde_json",
@@ -10418,7 +10453,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 0.2.12",
- "indexmap",
+ "indexmap 2.12.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -10437,7 +10472,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "http 1.3.1",
- "indexmap",
+ "indexmap 2.12.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -10495,6 +10530,12 @@ checksum = "b0c35f58762feb77d74ebe43bdbc3210f09be9fe6742234d573bacc26ed92b67"
 dependencies = [
  "byteorder",
 ]
+
+[[package]]
+name = "hashbrown"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "hashbrown"
@@ -11500,6 +11541,17 @@ checksum = "964de6e86d545b246d84badc0fef527924ace5134f30641c203ef52ba83f58d5"
 
 [[package]]
 name = "indexmap"
+version = "1.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
+dependencies = [
+ "autocfg",
+ "hashbrown 0.12.3",
+ "serde",
+]
+
+[[package]]
+name = "indexmap"
 version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6717a8d2a5a929a1a2eb43a12812498ed141a0bcfb7e8f7844fbdbe4303bba9f"
@@ -11926,7 +11978,7 @@ dependencies = [
  "futures-lite 2.6.1",
  "futures-util",
  "hex",
- "indexmap",
+ "indexmap 2.12.0",
  "iroh",
  "iroh-base 0.96.0",
  "iroh-metrics",
@@ -12401,7 +12453,7 @@ dependencies = [
  "parking_lot",
  "paths 0.1.0",
  "project 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -12425,7 +12477,7 @@ dependencies = [
  "parking_lot",
  "paths 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "project 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -12694,7 +12746,7 @@ dependencies = [
  "postage",
  "regex",
  "rpc 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "semver",
  "serde",
  "serde_json",
@@ -12744,7 +12796,7 @@ dependencies = [
  "postage",
  "regex",
  "rpc 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "semver",
  "serde",
  "serde_json",
@@ -12836,7 +12888,7 @@ dependencies = [
  "open_router 0.1.0",
  "parking_lot",
  "proto 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -12870,7 +12922,7 @@ dependencies = [
  "open_router 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "parking_lot",
  "proto 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -12922,7 +12974,7 @@ dependencies = [
  "open_router 0.1.0",
  "partial-json-fixer",
  "release_channel 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "semver",
  "serde",
  "serde_json",
@@ -12982,7 +13034,7 @@ dependencies = [
  "open_router 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "partial-json-fixer",
  "release_channel 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "semver",
  "serde",
  "serde_json",
@@ -14467,7 +14519,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
 ]
@@ -14480,7 +14532,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
 ]
@@ -14610,7 +14662,7 @@ dependencies = [
  "parking_lot",
  "postage",
  "release_channel 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "smol",
@@ -14631,7 +14683,7 @@ dependencies = [
  "parking_lot",
  "postage",
  "release_channel 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "smol",
@@ -15258,7 +15310,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "strum 0.27.2",
@@ -15272,7 +15324,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "strum 0.27.2",
@@ -15511,7 +15563,7 @@ dependencies = [
  "half",
  "hashbrown 0.16.0",
  "hexf-parse",
- "indexmap",
+ "indexmap 2.12.0",
  "libm",
  "log",
  "num-traits",
@@ -15535,7 +15587,7 @@ dependencies = [
  "half",
  "hashbrown 0.16.0",
  "hexf-parse",
- "indexmap",
+ "indexmap 2.12.0",
  "libm",
  "log",
  "num-traits",
@@ -16198,9 +16250,9 @@ dependencies = [
 
 [[package]]
 name = "num-conv"
-version = "0.1.0"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
+checksum = "521739c6d2bac4aa25192232afe6841231376b2b26d4d9fae5ecf8ca5772e441"
 
 [[package]]
 name = "num-derive"
@@ -16485,7 +16537,7 @@ checksum = "62948e14d923ea95ea2c7c86c71013138b66525b86bdc08d2dcc262bdb497b87"
 dependencies = [
  "crc32fast",
  "hashbrown 0.15.5",
- "indexmap",
+ "indexmap 2.12.0",
  "memchr",
 ]
 
@@ -16497,7 +16549,7 @@ checksum = "ff76201f031d8863c38aa7f905eca4f53abbfa15f609db4277d44cd8938f33fe"
 dependencies = [
  "crc32fast",
  "hashbrown 0.15.5",
- "indexmap",
+ "indexmap 2.12.0",
  "memchr",
 ]
 
@@ -16526,7 +16578,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -16540,7 +16592,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -16562,7 +16614,7 @@ dependencies = [
  "notifications 0.1.0",
  "picker 0.1.0",
  "project 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0",
  "telemetry 0.1.0",
@@ -16592,7 +16644,7 @@ dependencies = [
  "notifications 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "picker 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "project 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "telemetry 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -16682,7 +16734,7 @@ dependencies = [
  "http_client 0.1.0",
  "log",
  "rand 0.9.2",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -16700,7 +16752,7 @@ dependencies = [
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "log",
  "rand 0.9.2",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -16718,7 +16770,7 @@ dependencies = [
  "gpui 0.2.2",
  "picker 0.1.0",
  "project 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0",
  "ui 0.1.0",
@@ -16737,7 +16789,7 @@ dependencies = [
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "picker 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "project 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "ui 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -16752,7 +16804,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -16768,7 +16820,7 @@ dependencies = [
  "anyhow",
  "futures",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -17877,7 +17929,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
 dependencies = [
  "fixedbitset 0.4.2",
- "indexmap",
+ "indexmap 2.12.0",
 ]
 
 [[package]]
@@ -17991,7 +18043,7 @@ dependencies = [
  "anyhow",
  "gpui 0.2.2",
  "menu 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "theme 0.1.0",
  "ui 0.1.0",
@@ -18008,7 +18060,7 @@ dependencies = [
  "anyhow",
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "menu 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "theme 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "ui 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -18180,7 +18232,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "740ebea15c5d1428f910cd1a5f52cebf8d25006245ed8ade92702f4943d91e07"
 dependencies = [
  "base64 0.22.1",
- "indexmap",
+ "indexmap 2.12.0",
  "quick-xml 0.38.3",
  "serde",
  "time",
@@ -18301,7 +18353,7 @@ dependencies = [
  "hex",
  "plugin-vault",
  "rand_core 0.6.4",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -18755,7 +18807,7 @@ dependencies = [
  "gpui 0.2.2",
  "http_client 0.1.0",
  "image 0.25.10",
- "indexmap",
+ "indexmap 2.12.0",
  "itertools 0.14.0",
  "language 0.1.0",
  "log",
@@ -18771,7 +18823,7 @@ dependencies = [
  "release_channel 0.1.0",
  "remote 0.1.0",
  "rpc 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "semver",
  "serde",
  "serde_json",
@@ -18828,7 +18880,7 @@ dependencies = [
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "http_client 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "image 0.25.10",
- "indexmap",
+ "indexmap 2.12.0",
  "itertools 0.14.0",
  "language 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "log",
@@ -18844,7 +18896,7 @@ dependencies = [
  "release_channel 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "remote 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "rpc 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "semver",
  "serde",
  "serde_json",
@@ -18894,7 +18946,7 @@ dependencies = [
  "pretty_assertions",
  "project 0.1.0",
  "rayon",
- "schemars",
+ "schemars 1.2.1",
  "search 0.1.0",
  "serde",
  "serde_json",
@@ -18931,7 +18983,7 @@ dependencies = [
  "pretty_assertions",
  "project 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "rayon",
- "schemars",
+ "schemars 1.2.1",
  "search 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "serde",
  "serde_json",
@@ -20037,7 +20089,7 @@ dependencies = [
  "prost 0.9.0",
  "release_channel 0.1.0",
  "rpc 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "semver",
  "serde",
  "serde_json",
@@ -20069,7 +20121,7 @@ dependencies = [
  "prost 0.9.0",
  "release_channel 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "rpc 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "semver",
  "serde",
  "serde_json",
@@ -21053,12 +21105,24 @@ dependencies = [
 
 [[package]]
 name = "schemars"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cd191f9397d57d581cddd31014772520aa448f65ef991055d7f61582c65165f"
+dependencies = [
+ "dyn-clone",
+ "ref-cast",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schemars"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2b42f36aa1cd011945615b92222f6bf73c599a102a300334cd7f8dbeec726cc"
 dependencies = [
  "dyn-clone",
- "indexmap",
+ "indexmap 2.12.0",
  "ref-cast",
  "schemars_derive",
  "serde",
@@ -21393,7 +21457,7 @@ version = "1.0.149"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
 dependencies = [
- "indexmap",
+ "indexmap 2.12.0",
  "itoa",
  "memchr",
  "serde",
@@ -21407,7 +21471,7 @@ version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e033097bf0d2b59a62b42c18ebbb797503839b26afdda2c4e1415cb6c813540"
 dependencies = [
- "indexmap",
+ "indexmap 2.12.0",
  "itoa",
  "memchr",
  "ryu",
@@ -21467,6 +21531,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_with"
+version = "3.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76a5c54c7310e7b8b9577c286d7e399ddd876c3e12b3ed917a8aabc4b96e9e8c"
+dependencies = [
+ "base64 0.22.1",
+ "bs58",
+ "chrono",
+ "hex",
+ "indexmap 1.9.3",
+ "indexmap 2.12.0",
+ "schemars 0.9.0",
+ "schemars 1.2.1",
+ "serde_core",
+ "serde_json",
+ "serde_with_macros",
+ "time",
+]
+
+[[package]]
+name = "serde_with_macros"
+version = "3.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84d57bc0c8b9a17920c178daa6bb924850d54a9c97ab45194bb8c17ad66bb660"
+dependencies = [
+ "darling 0.23.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "serial2"
 version = "0.2.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -21516,7 +21612,7 @@ dependencies = [
  "paths 0.1.0",
  "release_channel 0.1.0",
  "rust-embed",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -21545,7 +21641,7 @@ dependencies = [
  "paths 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "release_channel 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "rust-embed",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -21566,7 +21662,7 @@ dependencies = [
  "derive_more 2.1.1",
  "gpui 0.2.2",
  "log",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -21586,7 +21682,7 @@ dependencies = [
  "derive_more 2.1.1",
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "log",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -21702,7 +21798,7 @@ dependencies = [
  "regex",
  "release_channel 0.1.0",
  "rodio",
- "schemars",
+ "schemars 1.2.1",
  "search 0.1.0",
  "serde",
  "serde_json",
@@ -21751,7 +21847,7 @@ dependencies = [
  "regex",
  "release_channel 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "rodio",
- "schemars",
+ "schemars 1.2.1",
  "search 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "serde",
  "serde_json",
@@ -22190,7 +22286,7 @@ dependencies = [
  "gpui 0.2.2",
  "parking_lot",
  "paths 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -22211,7 +22307,7 @@ dependencies = [
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "parking_lot",
  "paths 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -22479,7 +22575,7 @@ dependencies = [
  "futures-util",
  "hashbrown 0.15.5",
  "hashlink 0.10.0",
- "indexmap",
+ "indexmap 2.12.0",
  "log",
  "memchr",
  "once_cell",
@@ -23393,7 +23489,7 @@ dependencies = [
  "menu 0.1.0",
  "picker 0.1.0",
  "project 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0",
  "smol",
@@ -23414,7 +23510,7 @@ dependencies = [
  "menu 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "picker 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "project 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "smol",
@@ -23477,7 +23573,7 @@ dependencies = [
  "log",
  "parking_lot",
  "proto 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -23500,7 +23596,7 @@ dependencies = [
  "log",
  "parking_lot",
  "proto 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -23645,7 +23741,7 @@ dependencies = [
  "parking_lot",
  "regex",
  "release_channel 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0",
  "smol",
@@ -23675,7 +23771,7 @@ dependencies = [
  "parking_lot",
  "regex",
  "release_channel 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "smol",
@@ -23720,7 +23816,7 @@ dependencies = [
  "pretty_assertions",
  "project 0.1.0",
  "regex",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0",
@@ -23756,7 +23852,7 @@ dependencies = [
  "pretty_assertions",
  "project 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "regex",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -23819,7 +23915,7 @@ dependencies = [
  "palette 0.7.6",
  "parking_lot",
  "refineable 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -23845,7 +23941,7 @@ dependencies = [
  "palette 0.7.6",
  "parking_lot",
  "refineable 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -24008,9 +24104,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.44"
+version = "0.3.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91e7d9e3bb61134e77bde20dd4825b97c010155709965fedf0f49bb138e52a9d"
+checksum = "743bd48c283afc0388f9b8827b976905fb217ad9e647fae3a379a9283c4def2c"
 dependencies = [
  "deranged",
  "itoa",
@@ -24019,22 +24115,22 @@ dependencies = [
  "num-conv",
  "num_threads",
  "powerfmt",
- "serde",
+ "serde_core",
  "time-core",
  "time-macros",
 ]
 
 [[package]]
 name = "time-core"
-version = "0.1.6"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40868e7c1d2f0b8d73e4a8c7f0ff63af4f6d19be117e90bd73eb1d62cf831c6b"
+checksum = "7694e1cfe791f8d31026952abf09c69ca6f6fa4e1a1229e18988f06a04a12dca"
 
 [[package]]
 name = "time-macros"
-version = "0.2.24"
+version = "0.2.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30cfb0125f12d9c277f35663a0a33f8c30190f4e4574868a330595412d34ebf3"
+checksum = "2e70e4c5a0e0a8a4823ad65dfe1a6930e4f4d756dcd9dd7939022b5e8c501215"
 dependencies = [
  "num-conv",
  "time-core",
@@ -24157,7 +24253,7 @@ dependencies = [
  "recent_projects 0.1.0",
  "remote 0.1.0",
  "rpc 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "semver",
  "serde",
  "settings 0.1.0",
@@ -24193,7 +24289,7 @@ dependencies = [
  "recent_projects 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "remote 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "rpc 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "semver",
  "serde",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -24369,7 +24465,7 @@ version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0dc8b1fb61449e27716ec0e1bdf0f6b8f3e8f6b05391e8497b8b6d7804ea6d8"
 dependencies = [
- "indexmap",
+ "indexmap 2.12.0",
  "serde_core",
  "serde_spanned 1.0.3",
  "toml_datetime 0.7.3",
@@ -24402,7 +24498,7 @@ version = "0.22.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
 dependencies = [
- "indexmap",
+ "indexmap 2.12.0",
  "serde",
  "serde_spanned 0.6.9",
  "toml_datetime 0.6.11",
@@ -24416,7 +24512,7 @@ version = "0.23.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6485ef6d0d9b5d0ec17244ff7eb05310113c3f316f2d14200d4de56b3cb98f8d"
 dependencies = [
- "indexmap",
+ "indexmap 2.12.0",
  "toml_datetime 0.7.3",
  "toml_parser",
  "winnow",
@@ -24529,7 +24625,7 @@ checksum = "d039ad9159c98b70ecfd540b2573b97f7f52c3e8d9f8ad57a24b916a536975f9"
 dependencies = [
  "futures-core",
  "futures-util",
- "indexmap",
+ "indexmap 2.12.0",
  "pin-project-lite",
  "slab",
  "sync_wrapper",
@@ -25060,7 +25156,7 @@ dependencies = [
  "icons 0.1.0",
  "itertools 0.14.0",
  "menu 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0",
  "smallvec",
@@ -25084,7 +25180,7 @@ dependencies = [
  "icons 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "itertools 0.14.0",
  "menu 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "settings 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "smallvec",
@@ -25396,7 +25492,7 @@ dependencies = [
  "percent-encoding",
  "regex",
  "rust-embed",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -25435,7 +25531,7 @@ dependencies = [
  "percent-encoding",
  "regex",
  "rust-embed",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
@@ -25573,7 +25669,7 @@ name = "vercel"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "strum 0.27.2",
 ]
@@ -25584,7 +25680,7 @@ version = "0.1.0"
 source = "git+https://github.com/nicholastmosher/zed?branch=first-class-plugins#682f3ea1bc816a30dbf9328090652d406bdee65f"
 dependencies = [
  "anyhow",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "strum 0.27.2",
 ]
@@ -25671,7 +25767,7 @@ dependencies = [
  "picker 0.1.0",
  "project 0.1.0",
  "regex",
- "schemars",
+ "schemars 1.2.1",
  "search 0.1.0",
  "serde",
  "serde_json",
@@ -25710,7 +25806,7 @@ dependencies = [
  "picker 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "project 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "regex",
- "schemars",
+ "schemars 1.2.1",
  "search 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "serde",
  "serde_json",
@@ -25954,7 +26050,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb0e353e6a2fbdc176932bbaab493762eb1255a7900fe0fea1a2f96c296cc909"
 dependencies = [
  "anyhow",
- "indexmap",
+ "indexmap 2.12.0",
  "wasm-encoder 0.244.0",
  "wasmparser 0.244.0",
 ]
@@ -25992,7 +26088,7 @@ checksum = "d06bfa36ab3ac2be0dee563380147a5b81ba10dd8885d7fbbc9eb574be67d185"
 dependencies = [
  "bitflags 2.10.0",
  "hashbrown 0.15.5",
- "indexmap",
+ "indexmap 2.12.0",
  "semver",
  "serde",
 ]
@@ -26005,7 +26101,7 @@ checksum = "0cc3b1f053f5d41aa55640a1fa9b6d1b8a9e4418d118ce308d20e24ff3575a8c"
 dependencies = [
  "bitflags 2.10.0",
  "hashbrown 0.15.5",
- "indexmap",
+ "indexmap 2.12.0",
  "semver",
  "serde",
 ]
@@ -26018,7 +26114,7 @@ checksum = "a9b1e81f3eb254cf7404a82cee6926a4a3ccc5aad80cc3d43608a070c67aa1d7"
 dependencies = [
  "bitflags 2.10.0",
  "hashbrown 0.15.5",
- "indexmap",
+ "indexmap 2.12.0",
  "semver",
  "serde",
 ]
@@ -26031,7 +26127,7 @@ checksum = "47b807c72e1bac69382b3a6fb3dbe8ea4c0ed87ff5629b8685ae6b9a611028fe"
 dependencies = [
  "bitflags 2.10.0",
  "hashbrown 0.15.5",
- "indexmap",
+ "indexmap 2.12.0",
  "semver",
 ]
 
@@ -26072,7 +26168,7 @@ dependencies = [
  "cfg-if",
  "encoding_rs",
  "hashbrown 0.15.5",
- "indexmap",
+ "indexmap 2.12.0",
  "libc",
  "log",
  "mach2 0.4.3",
@@ -26119,7 +26215,7 @@ dependencies = [
  "cc",
  "cfg-if",
  "hashbrown 0.15.5",
- "indexmap",
+ "indexmap 2.12.0",
  "libc",
  "log",
  "mach2 0.4.3",
@@ -26228,7 +26324,7 @@ dependencies = [
  "cranelift-bitset 0.120.2",
  "cranelift-entity 0.120.2",
  "gimli 0.31.1",
- "indexmap",
+ "indexmap 2.12.0",
  "log",
  "object 0.36.7",
  "postcard",
@@ -26254,7 +26350,7 @@ dependencies = [
  "cranelift-bitset 0.123.6",
  "cranelift-entity 0.123.6",
  "gimli 0.32.3",
- "indexmap",
+ "indexmap 2.12.0",
  "log",
  "object 0.37.3",
  "postcard",
@@ -26529,7 +26625,7 @@ checksum = "1382f4f09390eab0d75d4994d0c3b0f6279f86a571807ec67a8253c87cf6a145"
 dependencies = [
  "anyhow",
  "heck 0.5.0",
- "indexmap",
+ "indexmap 2.12.0",
  "wit-parser 0.229.0",
 ]
 
@@ -26857,7 +26953,7 @@ dependencies = [
  "cfg_aliases 0.2.1",
  "document-features",
  "hashbrown 0.16.0",
- "indexmap",
+ "indexmap 2.12.0",
  "log",
  "naga 28.0.1",
  "once_cell",
@@ -27100,7 +27196,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "async-tungstenite",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "zed 0.229.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -28020,7 +28116,7 @@ checksum = "b7c566e0f4b284dd6561c786d9cb0142da491f46a9fbed79ea69cdad5db17f21"
 dependencies = [
  "anyhow",
  "heck 0.5.0",
- "indexmap",
+ "indexmap 2.12.0",
  "prettyplease",
  "syn 2.0.117",
  "wasm-metadata",
@@ -28051,7 +28147,7 @@ checksum = "9d66ea20e9553b30172b5e831994e35fbde2d165325bec84fc43dbf6f4eb9cb2"
 dependencies = [
  "anyhow",
  "bitflags 2.10.0",
- "indexmap",
+ "indexmap 2.12.0",
  "log",
  "serde",
  "serde_derive",
@@ -28070,7 +28166,7 @@ checksum = "459c6ba62bf511d6b5f2a845a2a736822e38059c1cfa0b644b467bbbfae4efa6"
 dependencies = [
  "anyhow",
  "id-arena",
- "indexmap",
+ "indexmap 2.12.0",
  "log",
  "semver",
  "serde",
@@ -28088,7 +28184,7 @@ checksum = "ecc8ac4bc1dc3381b7f59c34f00b67e18f910c2c0f50015669dde7def656a736"
 dependencies = [
  "anyhow",
  "id-arena",
- "indexmap",
+ "indexmap 2.12.0",
  "log",
  "semver",
  "serde",
@@ -28154,7 +28250,7 @@ dependencies = [
  "postage",
  "project 0.1.0",
  "remote 0.1.0",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "session 0.1.0",
@@ -28202,7 +28298,7 @@ dependencies = [
  "postage",
  "project 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "remote 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "session 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
@@ -28417,7 +28513,7 @@ name = "x_ai"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "strum 0.27.2",
 ]
@@ -28428,7 +28524,7 @@ version = "0.1.0"
 source = "git+https://github.com/nicholastmosher/zed?branch=first-class-plugins#682f3ea1bc816a30dbf9328090652d406bdee65f"
 dependencies = [
  "anyhow",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "strum 0.27.2",
 ]
@@ -29202,7 +29298,7 @@ name = "zed_actions"
 version = "0.1.0"
 dependencies = [
  "gpui 0.2.2",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "util 0.1.0",
  "uuid",
@@ -29214,7 +29310,7 @@ version = "0.1.0"
 source = "git+https://github.com/nicholastmosher/zed?branch=first-class-plugins#682f3ea1bc816a30dbf9328090652d406bdee65f"
 dependencies = [
  "gpui 0.2.2 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
- "schemars",
+ "schemars 1.2.1",
  "serde",
  "util 0.1.0 (git+https://github.com/nicholastmosher/zed?branch=first-class-plugins)",
  "uuid",
@@ -29408,7 +29504,7 @@ dependencies = [
  "crc32fast",
  "crossbeam-utils",
  "displaydoc",
- "indexmap",
+ "indexmap 2.12.0",
  "num_enum",
  "thiserror 1.0.69",
 ]
