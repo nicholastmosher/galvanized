@@ -88,7 +88,7 @@ struct SubspaceVault {
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SubspaceMetadata {
-    #[serde_as(as = "willow_serde::subspace_id::SubspaceIdDef")]
+    #[serde_as(as = "willow_serde::SubspaceIdSerde")]
     subspace_id: SubspaceId,
 
     #[serde(skip_serializing_if = "Option::is_none")]

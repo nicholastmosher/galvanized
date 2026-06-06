@@ -184,6 +184,18 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 June 6
+
+Workflow for unlocking a profile:
+
+- Initial state: Profile is locked
+- UI attempts to render content from a Profile, but cannot due to lock
+- Attempt to render initiates "Unlock Prompt" for the given profile,
+  a window with a password input.
+- I feel like I should have capabilities for reading/updating Profile content, whose
+  authority is derived from the unlocked vault capabilities.
+  - I want some way to link the Profile access to the vault unlock state, automatically
+
 # 2026 June 3
 
 - Plumbed the login flow from UI to Profile to Subspace to Vault

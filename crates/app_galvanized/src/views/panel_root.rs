@@ -158,12 +158,7 @@ impl PanelRoot {
         let profile_identicon = identicon(id.as_bytes());
 
         cx.spawn(async move |this, cx| {
-            let profiles = cx
-                .profiles()
-                .list()
-                .await
-                .context("failed to list Profiles")?;
-
+            let profiles = cx.profiles().list().await;
             this.update(cx, |this, _cx| {
                 this.profiles = profiles;
             })?;
@@ -420,7 +415,7 @@ impl PanelRoot {
                                         info!("Login clicked");
                                         let profile = profile.clone();
                                         cx.spawn(async move |_this, cx| {
-                                            profile.login(cx, password).await?;
+                                            profile.unlock(cx, password).await?;
                                             info!("Login succeeded?");
                                             anyhow::Ok(())
                                         })
