@@ -13,10 +13,9 @@ use zed::unstable::{
         rgb, rgba,
     },
     ui::{
-        ActiveTheme, App, Context, ContextMenu, FluentBuilder as _, IconName,
-        InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Pixels,
-        PopoverMenu, Render, SharedString, StatefulInteractiveElement, Styled, Tooltip, Window,
-        div, h_flex, px, v_flex,
+        ActiveTheme, App, Color, Context, Icon, IconName, InteractiveElement as _, IntoElement,
+        ListSeparator, ParentElement as _, Pixels, Render, SharedString,
+        StatefulInteractiveElement, Styled, Tooltip, Window, div, h_flex, px, v_flex,
     },
     ui_input::InputField,
     workspace::{
@@ -26,12 +25,11 @@ use zed::unstable::{
 };
 
 use crate::{
-    components::{dropdown::Dropdown, space_header::SpaceHeader},
     identicon,
     profiles::{Profile, ProfilesExt as _},
     views::connections::ConnectionsUi,
 };
-use plugin_willow::{WillowExt, space::Space};
+use plugin_willow::WillowExt;
 
 actions!(
     galvanized,
@@ -64,7 +62,6 @@ pub fn init(cx: &mut App) {
 
 pub struct PanelRoot {
     connections_ui: Entity<ConnectionsUi>,
-    content: PanelContent,
     focus_handle: FocusHandle,
     width: Option<Pixels>,
     _workspace: Entity<Workspace>,
@@ -83,29 +80,6 @@ pub enum LoginState {
     Picker,
     CreateProfile,
     LoginPrompt(Entity<Profile>),
-}
-
-pub enum PanelContent {
-    Home(HomeContent),
-    Space(Entity<Space>),
-}
-
-#[derive(Debug, Clone)]
-pub enum HomeContent {
-    Connections,
-    DirectMessages,
-    Settings,
-}
-
-impl HomeContent {
-    //
-    fn title(&self) -> &'static str {
-        match self {
-            HomeContent::Connections => "Connections",
-            HomeContent::DirectMessages => "Direct Messages",
-            HomeContent::Settings => "Settings",
-        }
-    }
 }
 
 impl PanelRoot {
@@ -138,7 +112,6 @@ impl PanelRoot {
 
         Self {
             connections_ui,
-            content: PanelContent::Home(HomeContent::Settings),
             focus_handle: cx.focus_handle(),
             width: None,
             _workspace: workspace,
@@ -181,11 +154,11 @@ impl PanelRoot {
         h_flex()
             .h_full()
             .w(self.width.unwrap_or(px(300.)) - px(1.))
+            .bg(cx.theme().colors().editor_background)
             .flex_grow()
-            // Spaces bar
             .child(
                 //
-                self.render_spaces_column(profile, window, cx),
+                self.render_left_column(profile, window, cx),
             )
             .child(
                 //
@@ -193,26 +166,28 @@ impl PanelRoot {
             )
     }
 
-    fn render_spaces_column(
+    fn render_left_column(
         &mut self,
         profile: Entity<Profile>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         v_flex()
-            .id("spaces-column")
+            .id("left-column")
             .bg(cx.theme().colors().editor_background)
             .h_full()
             .p_2()
             .gap_1()
+            .border_r_1()
+            .border_color(cx.theme().colors().border)
             .overflow_y_scroll()
             .child(
                 div()
                     .id("home-icon")
                     .hover(|style| style.opacity(0.6))
                     .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                    .on_click(cx.listener(|this, _e, _window, _cx| {
-                        this.content = PanelContent::Home(HomeContent::Connections);
+                    .on_click(cx.listener(|_this, _e, _window, _cx| {
+                        info!("Clicked home icon");
                     }))
                     //
                     .rounded_xl()
@@ -261,7 +236,6 @@ impl PanelRoot {
                                             30. + 360. * t,
                                             //
                                             linear_color_stop(rgb(0xff6600), 0.0),
-                                            // linear_color_stop(rgb(0x000000), 1.0),
                                             linear_color_stop(rgb(0x00002b), 1.0),
                                         ))
                                 },
@@ -280,9 +254,9 @@ impl PanelRoot {
                     .tooltip(Tooltip::text(space.read(cx).name()))
                     .on_click(cx.listener({
                         let space = space.clone();
-                        move |this, _e, _window, cx| {
+                        move |_this, _e, _window, cx| {
                             cx.willow().set_active_space(space.clone());
-                            this.content = PanelContent::Space(space.clone());
+                            info!("Clicked space icon {i}");
                         }
                     }))
                     .child(
@@ -319,168 +293,59 @@ impl PanelRoot {
             )
     }
 
-    /// The area above the Profiles bar and right of the Spaces bar
+    /// The area in the panel to the right of the left vertical bar
     fn render_panel_content(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        match &self.content {
-            PanelContent::Home(content) => {
-                //
-                self.render_home_content(content.clone(), window, cx)
-                    .into_any_element()
-            }
-            PanelContent::Space(space) => {
-                //
-                self.render_content_space(space.clone(), window, cx)
-                    .into_any_element()
-            }
-        }
-    }
-
-    fn render_home_content(
-        &mut self,
-        content: HomeContent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let panel = cx.entity();
-        let menu = ContextMenu::build(window, cx, |this, _window, _cx| {
-            this.custom_entry(
-                |_window, _cx| {
-                    //
-                    div()
-                        //
-                        .p_2()
-                        .child("Connections")
-                        .into_any_element()
-                },
-                {
-                    let panel = panel.clone();
-                    move |_window, cx| {
-                        //
-                        info!("Focus Connections");
-                        panel.update(cx, |panel, _cx| {
-                            //
-                            panel.content = PanelContent::Home(HomeContent::Connections);
-                        });
-                    }
-                },
-            )
-            .custom_entry(
-                |_window, _cx| {
-                    //
-                    div()
-                        //
-                        .p_2()
-                        .child("Direct Messages")
-                        .into_any_element()
-                },
-                {
-                    let panel = panel.clone();
-                    move |_window, cx| {
-                        //
-                        info!("Focus Direct Messages");
-                        panel.update(cx, |panel, _cx| {
-                            //
-                            panel.content = PanelContent::Home(HomeContent::DirectMessages);
-                        });
-                    }
-                },
-            )
-            .custom_entry(
-                move |_window, _cx| {
-                    //
-                    div()
-                        //
-                        .p_2()
-                        .child("Settings")
-                        .into_any_element()
-                },
-                {
-                    let panel = panel.clone();
-                    move |_window, cx| {
-                        //
-                        info!("Focus Settings");
-                        panel.update(cx, |panel, _cx| {
-                            //
-                            panel.content = PanelContent::Home(HomeContent::Settings);
-                        });
-                    }
-                },
-            )
-        });
-
         v_flex()
             //
+            .debug()
             .size_full()
-            .p_2()
-            .gap_2()
             .child(
-                //
-                PopoverMenu::new("home-panel-dropdown")
-                    .menu(move |_window, _cx| {
+                // "Apps" section
+                v_flex()
+                    .p_1()
+                    .w_full()
+                    //
+                    .child(
                         //
-                        Some(menu.clone())
-                    })
-                    .trigger(Dropdown::new(
-                        "home-panel-dropdown-trigger",
-                        content.title(),
-                    )),
+                        h_flex()
+                            .id("apps-section")
+                            .p_2()
+                            .gap_2()
+                            .text_color(cx.theme().colors().text_muted)
+                            .hover(|style| style.text_color(cx.theme().colors().text))
+                            .border_b_1()
+                            .border_color(cx.theme().colors().border_disabled)
+                            .child("Apps")
+                            .child(
+                                Icon::new(IconName::ChevronDown)
+                                    .color(Color::Custom(cx.theme().colors().text_muted)),
+                            ),
+                    )
+                    .child(
+                        //
+                        v_flex()
+                            //
+                            .p_1()
+                            .child(
+                                h_flex()
+                                    .p_2()
+                                    .gap_2()
+                                    .rounded_md()
+                                    .hover(|style| {
+                                        //
+                                        style
+                                            .bg(cx.theme().colors().element_hover)
+                                            .border_1()
+                                            .border_color(cx.theme().colors().border)
+                                    })
+                                    .child("Willow"),
+                            ),
+                    ),
             )
-            .map(|el| match &content {
-                HomeContent::Connections => {
-                    el
-                        //
-                        .child(
-                            //
-                            self.connections_ui.clone(),
-                        )
-                }
-                HomeContent::DirectMessages => {
-                    el
-                        //
-                        .child(
-                            //
-                            div()
-                                .debug()
-                                .size_full()
-                                //
-                                .p_2()
-                                .child("Direct Messages"),
-                        )
-                }
-                HomeContent::Settings => {
-                    el
-                        //
-                        .child(
-                            //
-                            div()
-                                .debug()
-                                .size_full()
-                                //
-                                .p_2()
-                                .child("Settings"),
-                        )
-                }
-            })
-    }
-
-    fn render_content_space(
-        &mut self,
-        space: Entity<Space>,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        // Container, no flex
-        v_flex()
-            .bg(cx.theme().colors().editor_background)
-            //
-            .p_2()
-            .size_full()
-            // Header
-            .child(SpaceHeader::new(space))
     }
 }
 
