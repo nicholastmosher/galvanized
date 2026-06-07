@@ -161,7 +161,8 @@
     <div class="text-center max-w-md p-8 fade-in">
       <div
         class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-600 to-gray-900 flex items-center justify-center shadow-2xl">
-        <span class="text-3xl font-bold text-white">G</span></div>
+        <span class="text-3xl font-bold text-white">G</span>
+      </div>
       <h1 class="text-3xl font-bold text-white mb-3">Welcome to Galvanized</h1>
       <p class="text-gray-400 mb-8 leading-relaxed">Your decentralized data space. Everything encrypted, unlocked by one
         master password.</p>
@@ -212,7 +213,8 @@
           class="w-12 h-12 mx-auto mb-2 rounded-full bg-green-600/20 border border-green-500/30 flex items-center justify-center">
           <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-          </svg></div>
+          </svg>
+        </div>
         <p class="text-green-400 text-xs font-medium">Vault created and unlocked</p>
       </div>
       <div
@@ -220,7 +222,8 @@
         <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
             d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg></div>
+        </svg>
+      </div>
       <h2 class="text-2xl font-bold text-white text-center mb-2">Create Your First Profile</h2>
       <p class="text-gray-400 text-center mb-8 text-sm">A profile is your identity within your vault. Add more later.
       </p>
@@ -258,7 +261,8 @@
           <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
               d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg></div>
+          </svg>
+        </div>
         <div class="flex-1">
           <h3 class="text-white font-semibold text-lg">Personal Space (Owned)</h3>
           <p class="text-gray-400 text-sm mt-1">Private by default. You control access and delegate capabilities.</p>
@@ -271,7 +275,8 @@
           <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
               d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg></div>
+          </svg>
+        </div>
         <div class="flex-1">
           <h3 class="text-white font-semibold text-lg">Community Space (Communal)</h3>
           <p class="text-gray-400 text-sm mt-1">Open to anyone. Any subspace can write.</p>
@@ -581,7 +586,8 @@
         <svg class="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
             d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-        </svg></div>
+        </svg>
+      </div>
       <h3 class="text-xl font-bold text-white mb-1">Session Locked</h3>
       <p class="text-gray-400 text-sm mb-6">Re-enter your password to continue.</p>
       <div
@@ -1121,26 +1127,27 @@
       document.querySelectorAll('body > .flex, body > .hidden').forEach(el => {if (el.id && el.id.startsWith('scene-')) el.classList.add('hidden');});
       document.getElementById(id).classList.remove('hidden');
       document.getElementById('lock-overlay').classList.add('hidden');
-      if (id === 'scene-main') {startLockTimer(); renderContent();}
-      else stopLockTimer();
+      if (id === 'scene-main') {renderContent();}
     }
     function createVaultAndProfile() {showScene('scene-create-profile');}
     function unlockSuccess() {showScene('scene-main');}
 
     // ==================== LOCK TIMER ====================
-    function startLockTimer() {lockTimer = 60; stopLockTimer(); updateTimerDisplay(); timerInterval = setInterval(() => {lockTimer--; updateTimerDisplay(); if (lockTimer <= 0) {stopLockTimer(); showLockOverlay();} }, 1000);}
-    function stopLockTimer() {if (timerInterval) {clearInterval(timerInterval); timerInterval = null;} }
+    // Lock timer is commented out during development
+    function startLockTimer() { /* timer disabled for development */}
+    function stopLockTimer() { }
     function updateTimerDisplay() {const m = Math.floor(lockTimer / 60), s = lockTimer % 60; const el = document.getElementById('timer-display'); if (el) el.textContent = `Lock in: ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;}
-    function showLockOverlay() {stopLockTimer(); document.getElementById('lock-overlay').classList.remove('hidden');}
-    function hideLockOverlay() {document.getElementById('lock-overlay').classList.add('hidden'); startLockTimer();}
+    function showLockOverlay() {document.getElementById('lock-overlay').classList.remove('hidden');}
+    function hideLockOverlay() {document.getElementById('lock-overlay').classList.add('hidden');}
     function toggleLock() {
       isLocked = !isLocked; const btn = document.getElementById('lock-toggle-btn');
       if (isLocked) {btn.textContent = '🔒 Locked'; btn.classList.add('text-red-400', 'border-red-400/30'); btn.classList.remove('text-gray-300'); showLockOverlay();}
       else {btn.textContent = '🔓 Unlocked'; btn.classList.remove('text-red-400', 'border-red-400/30'); btn.classList.add('text-gray-300'); hideLockOverlay();}
     }
-    function unlockApp() {document.getElementById('lock-screen').classList.add('hidden'); if (document.getElementById('scene-main').classList.contains('hidden')) showScene('scene-main'); isLocked = false; const btn = document.getElementById('lock-toggle-btn'); btn.textContent = '🔓 Unlocked'; btn.classList.remove('text-red-400', 'border-red-400/30'); btn.classList.add('text-gray-300'); startLockTimer();}
-    document.addEventListener('click', () => {if (!document.getElementById('lock-overlay').classList.contains('hidden')) return; if (!document.getElementById('lock-screen').classList.contains('hidden')) return; if (timerInterval) lockTimer = 60;});
-    document.addEventListener('keydown', () => {if (!document.getElementById('lock-overlay').classList.contains('hidden')) return; if (!document.getElementById('lock-screen').classList.contains('hidden')) return; if (timerInterval) lockTimer = 60;});
+    function unlockApp() {document.getElementById('lock-screen').classList.add('hidden'); if (document.getElementById('scene-main').classList.contains('hidden')) showScene('scene-main'); isLocked = false; const btn = document.getElementById('lock-toggle-btn'); btn.textContent = '🔓 Unlocked'; btn.classList.remove('text-red-400', 'border-red-400/30'); btn.classList.add('text-gray-300');}
+    // Activity reset timer disabled
+    // document.addEventListener('click', () => { if (timerInterval) lockTimer = 60; });
+    // document.addEventListener('keydown', () => { if (timerInterval) lockTimer = 60; });
   </script>
 
 </body>
