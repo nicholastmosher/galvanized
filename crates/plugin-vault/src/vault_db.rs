@@ -38,7 +38,9 @@ struct Assets;
 ///
 /// This is also used as a [`Scope`] for narrowing capabilities
 /// such that they only apply to a specific vault
-#[derive(Debug, Display, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
+#[derive(
+    Debug, Display, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, sqlx::Type,
+)]
 #[sqlx(transparent)]
 // TODO: Restore impl to Uuid
 // pub struct VaultId(Uuid);

@@ -158,7 +158,7 @@ impl PanelRoot {
         let profile_identicon = identicon(id.as_bytes());
 
         cx.spawn(async move |this, cx| {
-            let profiles = cx.profiles().list().await;
+            let profiles = cx.profiles().list().await?;
             this.update(cx, |this, _cx| {
                 this.profiles = profiles;
             })?;

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use anyhow::{Context as _, Result, bail};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
 use plugin_willow::willow_serde::{NamespaceSecretSerde, SubspaceSecretSerde};
@@ -21,7 +23,7 @@ impl Global for GlobalProfiles {}
 
 /// Profiles plugin instance state
 struct ProfilesState {
-    profiles: Vec<Entity<Profile>>,
+    profiles: BTreeMap<VaultId, Entity<Profile>>,
 }
 
 impl ProfilesState {
@@ -90,9 +92,11 @@ impl<'a, C: AppContext> ProfilesCx<'a, C> {
             .context("failed to write new subspace to vault")?;
         info!(?vault_id, ?display_name, "Wrote profile to vault");
 
-        let profile = self.cx.new(|cx| Profile::new(vault_id, display_name, cx));
+        let profile = self
+            .cx
+            .new(|cx| Profile::new(vault_id.clone(), display_name, cx));
         self.cx.update_entity(&self.state, |state, _cx| {
-            state.profiles.push(profile.clone());
+            state.profiles.insert(vault_id, profile.clone());
         });
 
         Ok(profile)
@@ -120,6 +124,11 @@ impl<'a, C: AppContext> ProfilesCx<'a, C> {
     /// UI elements above this should spawn this only when they need a fresh view of
     /// profiles, such as after a new [`Profile`] is created. Otherwise, they should
     /// cache the entities to use while rendering.
+    // Implementation notes:
+    //
+    // - We want to only ever create one `Entity<Profile>` per vault, ever.
+    // - To do this, when listing profiles by vaults, we check and only create
+    //   a new `Entity<Profile>` for profiles that don't already exist in our list
     pub async fn list(&mut self) -> Result<Vec<Entity<Profile>>> {
         let vaults = self.cx.vaults().list().await?;
         info!(?vaults, "vaults");
@@ -156,13 +165,19 @@ impl<'a, C: AppContext> ProfilesCx<'a, C> {
             .filter_map(|it| it)
             .collect::<Vec<_>>();
 
-        let profiles = submetas
-            .into_iter()
-            .map(|(vault_id, metadata)| {
-                self.cx
-                    .new(|cx| Profile::from_metadata(vault_id, metadata, cx))
-            })
-            .collect::<Vec<_>>();
+        // Get the list of Entity<Profile>, creating new entities ONLY for profiles that exist in the vault but not yet in memory.
+        let profiles = self.cx.update_entity(&self.state, |state, cx| {
+            for (vault_id, metadata) in submetas {
+                if !state.profiles.contains_key(&vault_id) {
+                    let profile =
+                        cx.new(|cx| Profile::from_metadata(vault_id.clone(), metadata, cx));
+
+                    state.profiles.insert(vault_id, profile);
+                }
+            }
+
+            state.profiles.values().cloned().collect()
+        });
 
         info!(?profiles, "profiles().list()");
         Ok(profiles)
