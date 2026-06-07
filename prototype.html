@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galvanized UI Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom app-like feel */
+    body { background: #111; font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+    .transition-height { transition: height 0.3s ease, opacity 0.3s ease; overflow: hidden; }
+    .sidebar-slide { transition: transform 0.2s ease, opacity 0.2s ease; }
+    .modal-overlay { transition: opacity 0.2s ease; }
+
+    .space-icon { transition: border-radius 0.15s ease, background 0.15s ease; }
+
+    /* Indent guide lines for nested items */
+    .tree-line { border-left: 2px solid #2a2a2a; }
+
+    /* Badge pulse */
+    @keyframes pulse-badge { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    .badge-pulse { animation: pulse-badge 2s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- SCENE 1: First Launch - No profiles found                    -->
+<!-- ============================================================ -->
+<div id="scene-welcome" class="flex items-center justify-center h-screen w-screen">
+  <div class="text-center max-w-md p-8">
+    <!-- Logo -->
+    <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-600 to-gray-900 flex items-center justify-center shadow-2xl">
+      <span class="text-3xl font-bold text-white">G</span>
+    </div>
+    <h1 class="text-3xl font-bold text-white mb-3">Welcome to Galvanized</h1>
+    <p class="text-gray-400 mb-8 leading-relaxed">
+      Your decentralized data space. Create a profile to get started — your identity, your keys, your data.
+    </p>
+    <button onclick="showScene('scene-create-profile')"
+            class="px-8 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg hover:shadow-orange-600/30">
+      Create Your First Profile
+    </button>
+    <p class="text-gray-600 text-sm mt-6">
+      Already have a profile? <a href="#" onclick="showScene('scene-picker')" class="text-orange-400 hover:text-orange-300">Sign in</a>
+    </p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCENE 2: Create Profile                                      -->
+<!-- ============================================================ -->
+<div id="scene-create-profile" class="hidden flex items-center justify-center h-screen w-screen">
+  <div class="w-full max-w-md p-8">
+    <div class="w-16 h-16 mx-auto mb-6 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center">
+      <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+      </svg>
+    </div>
+    <h2 class="text-2xl font-bold text-white text-center mb-2">Create Your Profile</h2>
+    <p class="text-gray-400 text-center mb-8 text-sm">Your profile is your identity. It's encrypted locally and never leaves your device without your permission.</p>
+
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-400 mb-1">Display Name</label>
+        <input type="text" value="Alex"
+               class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
+      </div>
+      <div>
+        <label class="block text-sm text-gray-400 mb-1">Password</label>
+        <input type="password" value="········"
+               class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
+      </div>
+      <div>
+        <label class="block text-sm text-gray-400 mb-1">Confirm Password</label>
+        <input type="password" value="········"
+               class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
+      </div>
+    </div>
+
+    <div class="flex gap-3 mt-8">
+      <button onclick="showScene('scene-welcome')"
+              class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">
+        Back
+      </button>
+      <button onclick="showScene('scene-create-space-intro')"
+              class="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg">
+        Create Profile
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCENE 3: Post-creation - Create Your First Space banner      -->
+<!-- ============================================================ -->
+<div id="scene-create-space-intro" class="hidden flex items-center justify-center h-screen w-screen">
+  <div class="w-full max-w-lg p-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 rounded-full bg-orange-600 flex items-center justify-center text-sm font-bold text-white">Al</div>
+      <div>
+        <div class="text-white font-semibold">Alex</div>
+        <div class="text-gray-500 text-xs">Profile created and unlocked</div>
+      </div>
+    </div>
+
+    <h2 class="text-2xl font-bold text-white mb-3">Set Up Your First Space</h2>
+    <p class="text-gray-400 mb-8 leading-relaxed">
+      Spaces are shared data stores — like a Discord server for your data. You can create a private space for yourself, or a communal space to share with others.
+    </p>
+
+    <!-- Owned Space card -->
+    <div onclick="showScene('scene-create-space-owned')"
+         class="flex items-start gap-4 p-4 rounded-xl border-2 border-orange-500 bg-gray-800/50 mb-4 cursor-pointer hover:bg-gray-800 transition">
+      <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 flex-shrink-0 flex items-center justify-center border border-gray-600">
+        <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-white font-semibold text-lg">Personal Space (Owned)</h3>
+        <p class="text-gray-400 text-sm mt-1">Private by default. You control access. Best for personal data, journals, or invite-only groups.</p>
+      </div>
+    </div>
+
+    <!-- Communal Space card -->
+    <div onclick="showScene('scene-create-space-communal')"
+         class="flex items-start gap-4 p-4 rounded-xl border-2 border-gray-700 bg-gray-800/50 mb-6 cursor-pointer hover:border-gray-600 hover:bg-gray-800 transition">
+      <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 flex-shrink-0 flex items-center justify-center border border-gray-600">
+        <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-white font-semibold text-lg">Community Space (Communal)</h3>
+        <p class="text-gray-400 text-sm mt-1">Open to anyone. Great for public groups, open-source projects, or shared interests.</p>
+      </div>
+    </div>
+
+    <div class="text-center">
+      <a href="#" onclick="showScene('scene-main')" class="text-gray-500 hover:text-gray-300 text-sm">Skip for now — explore the app</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCENE 4: Create an Owned Space                               -->
+<!-- ============================================================ -->
+<div id="scene-create-space-owned" class="hidden flex items-center justify-center h-screen w-screen">
+  <div class="w-full max-w-lg p-8">
+    <h2 class="text-2xl font-bold text-white mb-6">Create Personal Space</h2>
+
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-400 mb-1">Space Name</label>
+        <input type="text" placeholder="Personal, Family, Work..."
+               class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
+      </div>
+
+      <!-- Icon picker mock -->
+      <div>
+        <label class="block text-sm text-gray-400 mb-2">Icon</label>
+        <div class="flex gap-3">
+          <div class="w-20 h-20 rounded-xl bg-gray-800 border-2 border-orange-500 flex items-center justify-center cursor-pointer">
+            <span class="text-2xl">📁</span>
+          </div>
+          <div class="w-20 h-20 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center cursor-pointer hover:border-gray-500">
+            <span class="text-2xl">🏠</span>
+          </div>
+          <div class="w-20 h-20 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center cursor-pointer hover:border-gray-500">
+            <span class="text-2xl">⭐</span>
+          </div>
+          <div class="w-20 h-20 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center cursor-pointer hover:border-gray-500">
+            <span class="text-2xl">🎨</span>
+          </div>
+          <div class="w-20 h-20 rounded-xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center cursor-pointer hover:border-gray-400">
+            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Root profiles -->
+      <div>
+        <div class="flex items-center gap-2 mb-2">
+          <label class="block text-sm text-gray-400">Root Profiles</label>
+          <span class="text-gray-600 cursor-help text-xs" title="Profiles given full access to this space">ⓘ</span>
+        </div>
+        <div class="p-3 rounded-lg bg-gray-800/50 border border-dashed border-gray-700 space-y-2">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-orange-500 focus:ring-orange-500" />
+            <span class="text-gray-200 text-sm">Alex (you)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 mt-8">
+      <button onclick="showScene('scene-create-space-intro')"
+              class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">
+        Back
+      </button>
+      <button onclick="showScene('scene-main')"
+              class="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition">
+        Create Space
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCENE 5: Create a Communal Space (similar)                   -->
+<!-- ============================================================ -->
+<div id="scene-create-space-communal" class="hidden flex items-center justify-center h-screen w-screen">
+  <div class="w-full max-w-lg p-8">
+    <h2 class="text-2xl font-bold text-white mb-6">Create Community Space</h2>
+
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-400 mb-1">Space Name</label>
+        <input type="text" placeholder="Hobby Club, Study Group..."
+               class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
+      </div>
+
+      <div>
+        <label class="block text-sm text-gray-400 mb-1">Icon</label>
+        <div class="flex gap-3">
+          <div class="w-20 h-20 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center cursor-pointer hover:border-gray-500">
+            <span class="text-2xl">🌍</span>
+          </div>
+          <div class="w-20 h-20 rounded-xl bg-gray-800 border-2 border-orange-500 flex items-center justify-center cursor-pointer">
+            <span class="text-2xl">📢</span>
+          </div>
+          <div class="w-20 h-20 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center cursor-pointer hover:border-gray-500">
+            <span class="text-2xl">🎮</span>
+          </div>
+          <div class="w-20 h-20 rounded-xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center cursor-pointer hover:border-gray-400">
+            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-sm text-gray-400 mb-2">Communal spaces are public and joinable by anyone. Your profile will be a root member.</p>
+      </div>
+    </div>
+
+    <div class="flex gap-3 mt-8">
+      <button onclick="showScene('scene-create-space-intro')"
+              class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">
+        Back
+      </button>
+      <button onclick="showScene('scene-main')"
+              class="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition">
+        Create Space
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCENE 6: Main App Layout                                     -->
+<!-- ============================================================ -->
+<div id="scene-main" class="hidden h-screen w-screen flex overflow-hidden">
+  <!-- === LEFT SIDEBAR: Space Icon Rail === -->
+  <div id="space-rail" class="flex flex-col items-center w-[72px] bg-[#1e1e1e] py-3 flex-shrink-0 border-r border-gray-800">
+
+    <!-- Home button -->
+    <button onclick="selectSpace('home')"
+            class="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-gray-800 flex items-center justify-center mb-2 hover:rounded-xl transition-all duration-150 shadow-lg flex-shrink-0"
+            title="Home">
+      <span class="text-lg font-bold text-white">G</span>
+    </button>
+
+    <!-- Separator -->
+    <div class="w-8 h-[2px] bg-gray-700 rounded-full mb-2"></div>
+
+    <!-- Scrollable space icon list -->
+    <div class="flex-1 overflow-y-auto space-y-2 px-1 w-full flex flex-col items-center">
+
+      <!-- Space 1: Personal (Owned) - active -->
+      <div class="relative flex items-center">
+        <div class="absolute -left-3 w-1 h-10 bg-white rounded-r-full"></div>
+        <button onclick="selectSpace('personal')"
+                class="space-icon w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+                title="Personal Vault">
+          <span class="text-lg">🔒</span>
+        </button>
+      </div>
+
+      <!-- Space 2: Game Dev (Communal) -->
+      <div class="relative flex items-center">
+        <button onclick="selectSpace('gamedev')"
+                class="space-icon w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+                title="Game Dev Club">
+          <span class="text-lg">🎮</span>
+        </button>
+        <!-- Unread indicator -->
+        <div class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-[#1e1e1e]"></div>
+      </div>
+
+      <!-- Space 3: Photo Share (Communal) -->
+      <div class="relative flex items-center">
+        <button onclick="selectSpace('photos')"
+                class="space-icon w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+                title="Photo Share">
+          <span class="text-lg">📸</span>
+        </button>
+      </div>
+
+      <!-- Space 4: Book Club (Owned) -->
+      <div class="relative flex items-center">
+        <button onclick="selectSpace('books')"
+                class="space-icon w-12 h-12 rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+                title="Book Club">
+          <span class="text-lg">📚</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Separator before profile -->
+    <div class="w-8 h-[2px] bg-gray-700 rounded-full mb-2 mt-2"></div>
+
+    <!-- Add space button -->
+    <button class="w-12 h-12 rounded-2xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center hover:rounded-xl hover:border-gray-400 transition-all duration-150 mb-2 flex-shrink-0"
+            title="Add Space">
+      <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+    </button>
+
+    <!-- Profile avatar at bottom -->
+    <div class="relative mt-auto flex-shrink-0">
+      <button onclick="showProfileMenu()"
+              class="w-12 h-12 rounded-full bg-orange-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 border-2 border-gray-700 hover:border-green-400"
+              title="Alex">
+        <span class="text-sm font-bold text-white">Al</span>
+      </button>
+      <!-- Online indicator -->
+      <div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#1e1e1e]"></div>
+    </div>
+  </div>
+
+  <!-- === SECONDARY SIDEBAR: Space / App Channel List === -->
+  <div id="channel-sidebar" class="flex flex-col w-60 bg-[#2b2d31] flex-shrink-0">
+
+    <!-- Space header -->
+    <div id="space-header-area" class="flex items-center justify-between px-4 h-[48px] border-b border-gray-800 cursor-pointer hover:bg-gray-700/30 flex-shrink-0">
+      <div class="flex items-center gap-2">
+        <span id="active-space-name" class="text-white font-semibold text-sm">Personal Vault</span>
+        <svg class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
+      <div class="flex items-center gap-1">
+        <span class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-700 text-gray-400" id="space-kind-badge">OWNED</span>
+      </div>
+    </div>
+
+    <!-- Channel list / nav area -->
+    <div class="flex-1 overflow-y-auto px-2 py-3 space-y-1" id="channel-list">
+
+      <!-- ===== HOME VIEW ===== -->
+      <div id="channel-group-home" class="hidden">
+        <div class="text-gray-300 text-sm font-semibold px-2 mb-3">Welcome</div>
+
+        <div class="px-2 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+          Activity Feed
+        </div>
+        <div class="px-2 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+          </svg>
+          Connections
+        </div>
+        <div class="px-2 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          Settings
+        </div>
+      </div>
+
+      <!-- ===== SPACE: Personal Vault ===== -->
+      <div id="channel-group-personal">
+        <!-- Apps section header -->
+        <div class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-2">
+          <span>Apps</span>
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+
+        <!-- App: Notes -->
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm group">
+          <span class="text-base">📝</span>
+          <span class="flex-1">Notes</span>
+          <span class="text-[10px] text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">⌘1</span>
+        </div>
+
+        <!-- App: Checklist -->
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm group">
+          <span class="text-base">✅</span>
+          <span class="flex-1">Checklist</span>
+          <span class="text-[10px] text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">⌘2</span>
+        </div>
+
+        <!-- App: Calendar -->
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm group">
+          <span class="text-base">📅</span>
+          <span class="flex-1">Calendar</span>
+          <span class="text-[10px] text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">⌘3</span>
+        </div>
+
+        <!-- Channels section -->
+        <div class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-4">
+          <span>Channels</span>
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+
+        <div class="flex items-center gap-1.5 px-2 py-1.5 rounded bg-gray-700/60 cursor-pointer text-white text-sm">
+          <span class="text-gray-400">#</span>
+          <span>general</span>
+        </div>
+        <div class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
+          <span class="text-gray-500">#</span>
+          <span>journal</span>
+        </div>
+        <div class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
+          <span class="text-gray-500">#</span>
+          <span>todo-discussion</span>
+        </div>
+      </div>
+
+      <!-- ===== SPACE: Game Dev Club ===== -->
+      <div id="channel-group-gamedev" class="hidden">
+        <div class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1">
+          <span>Apps</span>
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm">
+          <span class="text-base">🗺️</span>
+          <span>Whiteboard</span>
+        </div>
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm">
+          <span class="text-base">📋</span>
+          <span>Sprint Board</span>
+        </div>
+
+        <div class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-4">
+          <span>Channels</span>
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+        <div class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
+          <span class="text-gray-500">#</span>
+          <span>general</span>
+        </div>
+        <div class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
+          <span class="text-gray-500">#</span>
+          <span>show-and-tell</span>
+        </div>
+        <div class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm relative">
+          <span class="text-gray-500">#</span>
+          <span>assets</span>
+          <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-medium">3</span>
+        </div>
+      </div>
+
+      <!-- ===== SPACE: Photo Share ===== -->
+      <div id="channel-group-photos" class="hidden">
+        <div class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1">
+          <span>Apps</span>
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm">
+          <span class="text-base">🖼️</span>
+          <span>Gallery</span>
+        </div>
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm">
+          <span class="text-base">🏷️</span>
+          <span>Albums</span>
+        </div>
+
+        <div class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-4">
+          <span>Channels</span>
+        </div>
+        <div class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
+          <span class="text-gray-500">#</span>
+          <span>photo-critique</span>
+        </div>
+        <div class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
+          <span class="text-gray-500">#</span>
+          <span>gear-talk</span>
+        </div>
+      </div>
+
+      <!-- ===== SPACE: Book Club ===== -->
+      <div id="channel-group-books" class="hidden">
+        <div class="text-gray-300 text-xs font-semibold px-2 mb-2">No apps installed</div>
+        <div class="px-2 py-6 text-center text-gray-500 text-xs">
+          <p class="mb-2">This space has no apps yet.</p>
+          <button class="text-orange-400 hover:text-orange-300 text-xs font-medium">Browse App Library →</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- User status bar at bottom of secondary sidebar -->
+    <div id="user-status-bar" class="flex items-center gap-2 px-3 py-2 bg-[#232428] flex-shrink-0 border-t border-gray-800">
+      <div class="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">Al</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-white text-sm font-semibold truncate">Alex</div>
+        <div class="text-gray-400 text-[11px]">Online</div>
+      </div>
+      <div class="flex items-center gap-1">
+        <button class="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200" title="Mute">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+          </svg>
+        </button>
+        <button class="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200" title="Deafen">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+          </svg>
+        </button>
+        <button class="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200" title="Settings">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- === MAIN CONTENT AREA === -->
+  <div id="main-content" class="flex-1 bg-[#313338] flex flex-col overflow-hidden">
+
+    <!-- Top bar -->
+    <div class="flex items-center h-[48px] px-4 border-b border-gray-800 flex-shrink-0 bg-[#313338]">
+      <div class="flex items-center gap-2">
+        <span class="text-gray-400 text-lg">#</span>
+        <span class="text-white font-semibold text-sm" id="content-title">general</span>
+      </div>
+      <div class="flex-1"></div>
+      <div class="flex items-center gap-3 text-gray-400">
+        <svg class="w-5 h-5 hover:text-gray-200 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+        </svg>
+        <svg class="w-5 h-5 hover:text-gray-200 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Messages area (mock content) -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+
+      <!-- Message group -->
+      <div class="flex items-start gap-4 group">
+        <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0 mt-0.5">JD</div>
+        <div class="flex-1">
+          <div class="flex items-baseline gap-2">
+            <span class="text-white font-semibold text-sm">Jane Doe</span>
+            <span class="text-gray-500 text-[11px]">Yesterday at 3:42 PM</span>
+          </div>
+          <p class="text-gray-300 text-sm mt-0.5">Hey! I just joined this space. Loving the concept so far! 🎉</p>
+        </div>
+      </div>
+
+      <div class="flex items-start gap-4 group">
+        <div class="w-10 h-10 rounded-full bg-orange-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0 mt-0.5">Al</div>
+        <div class="flex-1">
+          <div class="flex items-baseline gap-2">
+            <span class="text-white font-semibold text-sm">Alex</span>
+            <span class="text-gray-500 text-[11px]">Yesterday at 4:15 PM</span>
+          </div>
+          <p class="text-gray-300 text-sm mt-0.5">Welcome @Jane! Make sure to check out the Checklist app — it's great for tracking tasks across the team.</p>
+        </div>
+      </div>
+
+      <div class="flex items-start gap-4 group">
+        <div class="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0 mt-0.5">MK</div>
+        <div class="flex-1">
+          <div class="flex items-baseline gap-2">
+            <span class="text-white font-semibold text-sm">Mike K.</span>
+            <span class="text-gray-500 text-[11px]">12:30 PM</span>
+          </div>
+          <p class="text-gray-300 text-sm mt-0.5">We should add a new channel for discussing the calendar app design.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Message input -->
+    <div class="px-4 pb-4 pt-2 flex-shrink-0">
+      <div class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-700/50 border border-gray-700 focus-within:border-gray-500">
+        <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <input type="text" placeholder="Message #general"
+               class="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm" />
+        <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- === RIGHT SIDEBAR: Members list (optional, shown for spaces) === -->
+  <div id="member-sidebar" class="w-60 bg-[#2b2d31] flex-shrink-0 hidden border-l border-gray-800 p-3">
+    <div class="text-gray-400 text-[11px] font-semibold uppercase tracking-wide mb-3 px-2">Members — 3</div>
+
+    <!-- Online members -->
+    <div class="text-gray-500 text-[10px] font-semibold uppercase tracking-wide px-2 mb-1">Online — 2</div>
+    <div class="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer mb-1">
+      <div class="relative">
+        <div class="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center text-xs font-bold text-white">Al</div>
+        <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2b2d31]"></div>
+      </div>
+      <span class="text-gray-300 text-sm">Alex</span>
+    </div>
+    <div class="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer mb-3">
+      <div class="relative">
+        <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">JD</div>
+        <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2b2d31]"></div>
+      </div>
+      <span class="text-gray-300 text-sm">Jane Doe</span>
+    </div>
+
+    <!-- Offline members -->
+    <div class="text-gray-500 text-[10px] font-semibold uppercase tracking-wide px-2 mb-1">Offline — 1</div>
+    <div class="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer">
+      <div class="relative">
+        <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold text-white">MK</div>
+        <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-gray-500 rounded-full border-2 border-[#2b2d31]"></div>
+      </div>
+      <span class="text-gray-300 text-sm">Mike K.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCENE 7: Profile Picker (Returning User)                     -->
+<!-- ============================================================ -->
+<div id="scene-picker" class="hidden flex items-center justify-center h-screen w-screen">
+  <div class="w-full max-w-xs p-8">
+    <h2 class="text-2xl font-bold text-white text-center mb-2">Welcome Back</h2>
+    <p class="text-gray-400 text-center mb-8 text-sm">Choose a profile to unlock</p>
+
+    <!-- Profile list -->
+    <div class="space-y-3">
+      <div onclick="showScene('scene-login-prompt')"
+           class="flex items-center gap-4 p-3 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 cursor-pointer transition">
+        <div class="w-12 h-12 rounded-full bg-orange-600 flex items-center justify-center text-lg font-bold text-white">Al</div>
+        <div>
+          <div class="text-white font-semibold">Alex</div>
+          <div class="text-gray-500 text-xs">Last used 2 hours ago</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4 p-3 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 cursor-pointer transition opacity-60">
+        <div class="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-lg font-bold text-white">Sa</div>
+        <div>
+          <div class="text-white font-semibold">Sam (work)</div>
+          <div class="text-gray-500 text-xs">Last used yesterday</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-8 text-center">
+      <button onclick="showScene('scene-welcome')"
+              class="text-gray-500 hover:text-gray-300 text-sm flex items-center gap-1 mx-auto">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Add another profile
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCENE 8: Login/Unlock Prompt                                 -->
+<!-- ============================================================ -->
+<div id="scene-login-prompt" class="hidden flex items-center justify-center h-screen w-screen">
+  <div class="w-full max-w-xs p-8 text-center">
+    <div class="w-20 h-20 rounded-full bg-orange-600 flex items-center justify-center text-3xl font-bold text-white mx-auto mb-4">Al</div>
+    <h2 class="text-2xl font-bold text-white mb-1">Alex</h2>
+    <p class="text-gray-400 text-sm mb-8">Enter your password to unlock</p>
+
+    <input type="password" placeholder="Password"
+           class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 mb-4 text-center" />
+
+    <button onclick="showScene('scene-main')"
+            class="w-full px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg">
+      Unlock
+    </button>
+
+    <div class="mt-6">
+      <a href="#" onclick="showScene('scene-picker')" class="text-gray-500 hover:text-gray-300 text-sm">← Back to profiles</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showScene(id) {
+    // Hide all scenes that are direct children of body
+    document.querySelectorAll('body > div').forEach(el => el.classList.add('hidden'));
+    // Show the target scene
+    document.getElementById(id).classList.remove('hidden');
+  }
+
+  function selectSpace(id) {
+    // Update active space visual
+    document.querySelectorAll('#space-rail .relative').forEach(el => {
+      const indicator = el.querySelector('.absolute.-left-3');
+      if (indicator) indicator.remove();
+    });
+
+    const buttons = document.querySelectorAll('#space-rail button');
+    buttons.forEach(b => {
+      const parent = b.closest('.relative');
+      if (!parent) return;
+      const existing = parent.querySelector('.absolute.-left-3');
+      if (existing) existing.remove();
+
+      // Check if this button's onclick contains selectSpace('" + id + "')
+      if (b.getAttribute('onclick') && b.getAttribute('onclick').includes("'" + id + "'")) {
+        // Remove old indicator if any
+        // Add indicator
+        const indicator = document.createElement('div');
+        indicator.className = 'absolute -left-3 w-1 h-10 bg-white rounded-r-full';
+        parent.appendChild(indicator);
+      }
+    });
+
+    // Update space name
+    const names = {
+      'home': { name: 'Home', kind: '' },
+      'personal': { name: 'Personal Vault', kind: 'OWNED' },
+      'gamedev': { name: 'Game Dev Club', kind: 'COMMUNAL' },
+      'photos': { name: 'Photo Share', kind: 'COMMUNAL' },
+      'books': { name: 'Book Club', kind: 'OWNED' },
+    };
+
+    const info = names[id] || { name: 'Unknown', kind: '' };
+    document.getElementById('active-space-name').textContent = info.name;
+    document.getElementById('space-kind-badge').textContent = info.kind;
+
+    // Hide all channel groups
+    document.querySelectorAll('[id^="channel-group-"]').forEach(el => el.classList.add('hidden'));
+    // Show selected channel group
+    const target = document.getElementById('channel-group-' + id);
+    if (target) target.classList.remove('hidden');
+
+    // Update content title
+    document.getElementById('content-title').textContent = info.name;
+
+    // Show member sidebar for spaces, hide for home
+    const memberSidebar = document.getElementById('member-sidebar');
+    if (id === 'home') {
+      memberSidebar.classList.add('hidden');
+    } else {
+      memberSidebar.classList.remove('hidden');
+    }
+  }
+
+  function showProfileMenu() {
+    alert('Profile menu:\n- View Profile\n- Switch Profile\n- Settings\n- Lock Vault\n- Sign Out');
+  }
+</script>
+
+</body>
+</html>
