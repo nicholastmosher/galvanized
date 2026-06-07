@@ -174,7 +174,7 @@ impl Render for PanelRoot {
 impl PanelRoot {
     fn render_profile_panel(
         &mut self,
-        _profile: Entity<Profile>,
+        profile: Entity<Profile>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -185,7 +185,7 @@ impl PanelRoot {
             // Spaces bar
             .child(
                 //
-                self.render_spaces_column(window, cx),
+                self.render_spaces_column(profile, window, cx),
             )
             .child(
                 //
@@ -195,6 +195,7 @@ impl PanelRoot {
 
     fn render_spaces_column(
         &mut self,
+        profile: Entity<Profile>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -295,23 +296,27 @@ impl PanelRoot {
                     )
             }))
             .child(div().flex_grow())
-            .child({
-                div()
-                    //
-                    .id("create-space")
+            .child(
+                //
+                h_flex()
+                    .id("active-profile-icon")
+                    .size(px(48.))
                     .bg(cx.theme().colors().panel_background)
-                    .rounded_xl()
-                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                    .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                    .on_click(cx.listener(|_this, _e, _window, _cx| {
-                        info!("Clicked create space");
-                    }))
-                    .child(
-                        img(PathBuf::from(".assets/create-space.svg"))
-                            .size(px(48.))
-                            .tooltip(Tooltip::text("Create Space")),
-                    )
-            })
+                    .border_2()
+                    .border_color(cx.theme().colors().border)
+                    .hover(|style| style.bg(cx.theme().colors().element_hover))
+                    .rounded_full()
+                    .items_center()
+                    .child({
+                        let letter = profile.read(cx).name().chars().next().unwrap_or('?');
+                        //
+                        div()
+                            //
+                            .mx_auto()
+                            .text_2xl()
+                            .child(letter.to_string())
+                    }),
+            )
     }
 
     /// The area above the Profiles bar and right of the Spaces bar
