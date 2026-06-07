@@ -76,36 +76,54 @@
     .slide-up {
       animation: slideUp 0.4s ease-out;
     }
+
+    /* Badge dismiss animation */
+    @keyframes badgePop {
+      0% {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .badge-pop {
+      animation: badgePop 0.2s ease-out;
+    }
+
+    /* Photo grid hover */
+    .photo-hover {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .photo-hover:hover {
+      transform: scale(1.03);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    }
   </style>
 </head>
 
 <body>
 
   <!-- ============================================================ -->
-  <!-- VAULT / LOCK STATE CONTROLS (floating debug bar)             -->
+  <!-- VAULT / LOCK STATE CONTROLS (debug bar)                      -->
   <!-- ============================================================ -->
   <div class="fixed top-0 right-0 z-50 m-3 flex gap-2">
     <button onclick="toggleLock()"
       class="px-3 py-1.5 text-xs font-mono rounded bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 transition"
-      id="lock-toggle-btn">
-      🔓 App Unlocked
-    </button>
+      id="lock-toggle-btn">🔓 Unlocked</button>
     <span class="px-3 py-1.5 text-xs font-mono rounded bg-gray-800 border border-gray-700 text-gray-500"
-      id="timer-display">
-      Lock in: --:--
-    </span>
-    <span class="px-3 py-1.5 text-xs font-mono rounded bg-gray-800 border border-gray-700 text-gray-500"
-      id="profile-indicator">
-      Alex (1 vault unlocked)
-    </span>
+      id="timer-display">Lock in: --:--</span>
   </div>
 
   <!-- ============================================================ -->
-  <!-- SCENE: LOCK SCREEN (app-wide lock overlay)                    -->
+  <!-- LOCK SCREEN                                                  -->
   <!-- ============================================================ -->
   <div id="scene-lock-screen" class="hidden fixed inset-0 z-40 bg-[#1a1a1e] flex items-center justify-center">
     <div class="max-w-sm w-full p-8 text-center slide-up">
-      <!-- Lock icon -->
       <div
         class="w-20 h-20 mx-auto mb-6 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center lock-glow">
         <svg class="w-10 h-10 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -115,8 +133,6 @@
       </div>
       <h2 class="text-2xl font-bold text-white mb-2">App Locked</h2>
       <p class="text-gray-400 text-sm mb-8">Your session timed out. Re-enter your password to unlock.</p>
-
-      <!-- Last-used profile shown prominently -->
       <div
         class="flex items-center gap-3 p-3 mb-6 rounded-xl bg-gray-800/50 border border-gray-700 mx-auto max-w-[220px]">
         <div
@@ -127,24 +143,19 @@
           <div class="text-gray-500 text-xs">Last profile</div>
         </div>
       </div>
-
-      <input type="password" id="lock-screen-password" placeholder="Enter password"
+      <input type="password" placeholder="Enter password"
         class="w-full px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 mb-4 text-center text-lg" />
-
       <button onclick="unlockApp()"
-        class="w-full px-4 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg text-lg">
-        Unlock
-      </button>
-
+        class="w-full px-4 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg text-lg">Unlock</button>
       <div class="mt-6 text-gray-600 text-xs space-y-1">
-        <p>⏱️ Auto-lock in <span id="lock-screen-timer">60 seconds</span> of inactivity</p>
-        <p class="text-gray-700">🔐 1 vault · 2 spaces · 3 profiles locked</p>
+        <p>⏱️ Auto-lock after inactivity</p>
+        <p class="text-gray-700">🔐 1 vault · 4 spaces · 1 profile</p>
       </div>
     </div>
   </div>
 
   <!-- ============================================================ -->
-  <!-- SCENE: Welcome (no profiles exist)                           -->
+  <!-- SCENE: Welcome                                               -->
   <!-- ============================================================ -->
   <div id="scene-welcome" class="flex items-center justify-center h-screen w-screen">
     <div class="text-center max-w-md p-8 fade-in">
@@ -154,8 +165,7 @@
       </div>
       <h1 class="text-3xl font-bold text-white mb-3">Welcome to Galvanized</h1>
       <p class="text-gray-400 mb-8 leading-relaxed">
-        Your decentralized data space. Everything is encrypted locally and locked behind your password — like a password
-        manager for your identity and data.
+        Your decentralized data space. Everything encrypted, unlocked by one master password.
       </p>
       <button onclick="showScene('scene-create-vault')"
         class="px-8 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg hover:shadow-orange-600/30">
@@ -169,7 +179,7 @@
   </div>
 
   <!-- ============================================================ -->
-  <!-- SCENE: Create Vault (the root encrypted container)            -->
+  <!-- SCENE: Create Vault                                          -->
   <!-- ============================================================ -->
   <div id="scene-create-vault" class="hidden flex items-center justify-center h-screen w-screen">
     <div class="w-full max-w-md p-8 fade-in">
@@ -182,50 +192,33 @@
       </div>
       <h2 class="text-2xl font-bold text-white text-center mb-2">Create Your Vault</h2>
       <p class="text-gray-400 text-center mb-8 text-sm">
-        Your vault is a local encrypted store. It holds your profiles, keys, and identities. Everything is protected by
-        one master password.
+        One master password unlocks all your profiles, keys, and data.
       </p>
-
       <div class="space-y-4">
         <div>
           <label class="block text-sm text-gray-400 mb-1">Master Password</label>
           <input type="password" value="········"
             class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
-          <p class="text-gray-600 text-xs mt-1">This unlocks everything. There is no password recovery.</p>
+          <p class="text-gray-600 text-xs mt-1">There is no password recovery.</p>
         </div>
         <div>
-          <label class="block text-sm text-gray-400 mb-1">Confirm Password</label>
+          <label class="block text-sm text-gray-400 mb-1">Confirm</label>
           <input type="password" value="········"
             class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
         </div>
       </div>
-
-      <div class="mt-8 p-4 rounded-xl bg-gray-800/30 border border-gray-700">
-        <h3 class="text-white text-sm font-semibold mb-2">What goes in your vault:</h3>
-        <ul class="text-gray-400 text-xs space-y-1.5">
-          <li>👤 <strong class="text-gray-300">Profiles</strong> — your named identities (you can have more than one)
-          </li>
-          <li>🔑 <strong class="text-gray-300">Space keys</strong> — control over the namespaces you create or join</li>
-          <li>🪪 <strong class="text-gray-300">Subspace keys</strong> — your identity within each space</li>
-          <li>📦 <strong class="text-gray-300">App data</strong> — all data from integrated apps</li>
-        </ul>
-      </div>
-
       <div class="flex gap-3 mt-8">
         <button onclick="showScene('scene-welcome')"
-          class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">
-          Back
-        </button>
+          class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">Back</button>
         <button onclick="createVaultAndProfile()"
-          class="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg">
-          Create Vault
-        </button>
+          class="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg">Create
+          Vault</button>
       </div>
     </div>
   </div>
 
   <!-- ============================================================ -->
-  <!-- SCENE: Create First Profile (after vault creation)            -->
+  <!-- SCENE: Create Profile                                        -->
   <!-- ============================================================ -->
   <div id="scene-create-profile" class="hidden flex items-center justify-center h-screen w-screen">
     <div class="w-full max-w-md p-8 fade-in">
@@ -238,7 +231,6 @@
         </div>
         <p class="text-green-400 text-xs font-medium">Vault created and unlocked</p>
       </div>
-
       <div
         class="w-16 h-16 mx-auto mb-6 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center">
         <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -248,10 +240,8 @@
       </div>
       <h2 class="text-2xl font-bold text-white text-center mb-2">Create Your First Profile</h2>
       <p class="text-gray-400 text-center mb-8 text-sm">
-        A profile is a named identity. It holds your keys and data within a space. You can create multiple profiles
-        later for different roles.
+        A profile is your identity within your vault. Add more later.
       </p>
-
       <div class="space-y-4">
         <div>
           <label class="block text-sm text-gray-400 mb-1">Display Name</label>
@@ -259,22 +249,18 @@
             class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
         </div>
       </div>
-
       <div class="flex gap-3 mt-8">
         <button onclick="showScene('scene-create-vault')"
-          class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">
-          Back
-        </button>
+          class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">Back</button>
         <button onclick="showScene('scene-create-space-intro')"
-          class="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg">
-          Create Profile
-        </button>
+          class="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg">Create
+          Profile</button>
       </div>
     </div>
   </div>
 
   <!-- ============================================================ -->
-  <!-- SCENE: Create or Join a Space                                 -->
+  <!-- SCENE: Create Space Intro                                    -->
   <!-- ============================================================ -->
   <div id="scene-create-space-intro" class="hidden flex items-center justify-center h-screen w-screen">
     <div class="w-full max-w-lg p-8 fade-in">
@@ -286,13 +272,9 @@
           <div class="text-gray-500 text-xs">Profile created · Vault unlocked</div>
         </div>
       </div>
-
       <h2 class="text-2xl font-bold text-white mb-3">Set Up Your First Space</h2>
-      <p class="text-gray-400 mb-8 leading-relaxed">
-        Spaces are shared data stores. Create one for yourself or join an existing one.
+      <p class="text-gray-400 mb-8 leading-relaxed">Spaces are shared data stores. Create one or join an existing one.
       </p>
-
-      <!-- Owned Space card -->
       <div onclick="showScene('scene-create-space-owned')"
         class="flex items-start gap-4 p-4 rounded-xl border-2 border-orange-500/70 bg-gray-800/50 mb-4 cursor-pointer hover:bg-gray-800 transition">
         <div
@@ -304,12 +286,9 @@
         </div>
         <div class="flex-1">
           <h3 class="text-white font-semibold text-lg">Personal Space (Owned)</h3>
-          <p class="text-gray-400 text-sm mt-1">Private by default. You control who has access. Your subspace key here
-            is like a personal admin account.</p>
+          <p class="text-gray-400 text-sm mt-1">Private by default. You control access.</p>
         </div>
       </div>
-
-      <!-- Communal Space card -->
       <div onclick="showScene('scene-create-space-communal')"
         class="flex items-start gap-4 p-4 rounded-xl border-2 border-gray-700 bg-gray-800/50 mb-4 cursor-pointer hover:border-gray-600 hover:bg-gray-800 transition">
         <div
@@ -321,34 +300,21 @@
         </div>
         <div class="flex-1">
           <h3 class="text-white font-semibold text-lg">Community Space (Communal)</h3>
-          <p class="text-gray-400 text-sm mt-1">Open to anyone. Your subspace here is just one identity among many.</p>
+          <p class="text-gray-400 text-sm mt-1">Open to anyone.</p>
         </div>
       </div>
-
-      <!-- Join via ticket -->
-      <div
-        class="flex items-center gap-3 p-3 rounded-lg bg-gray-800/30 border border-dashed border-gray-700 cursor-pointer hover:bg-gray-800/50 transition">
-        <svg class="w-5 h-5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-        </svg>
-        <span class="text-gray-400 text-sm">Paste an invite link to join a space</span>
-      </div>
-
       <div class="text-center mt-6">
-        <a href="#" onclick="showScene('scene-main')" class="text-gray-500 hover:text-gray-300 text-sm">Skip for now —
-          explore the app</a>
+        <a href="#" onclick="showScene('scene-main')" class="text-gray-500 hover:text-gray-300 text-sm">Skip for now</a>
       </div>
     </div>
   </div>
 
   <!-- ============================================================ -->
-  <!-- SCENE: Create Owned Space                                     -->
+  <!-- SCENE: Create Owned Space                                    -->
   <!-- ============================================================ -->
   <div id="scene-create-space-owned" class="hidden flex items-center justify-center h-screen w-screen">
     <div class="w-full max-w-lg p-8 fade-in">
       <h2 class="text-2xl font-bold text-white mb-6">Create Personal Space</h2>
-
       <div class="space-y-4">
         <div>
           <label class="block text-sm text-gray-400 mb-1">Space Name</label>
@@ -356,43 +322,16 @@
             class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
         </div>
         <div>
-          <label class="block text-sm text-gray-400 mb-1">Icon</label>
-          <div class="flex gap-3 flex-wrap">
-            <div
-              class="w-16 h-16 rounded-xl bg-gray-800 border-2 border-orange-500 flex items-center justify-center cursor-pointer text-2xl">
-              📁</div>
-            <div
-              class="w-16 h-16 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center cursor-pointer hover:border-gray-500 text-2xl">
-              🏠</div>
-            <div
-              class="w-16 h-16 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center cursor-pointer hover:border-gray-500 text-2xl">
-              ⭐</div>
-            <div
-              class="w-16 h-16 rounded-xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center cursor-pointer hover:border-gray-400">
-              <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <!-- Profile (subspace) selector -->
-        <div>
-          <div class="flex items-center gap-2 mb-2">
-            <label class="block text-sm text-gray-400">Profiles in this space</label>
-            <span class="text-gray-600 cursor-help text-xs"
-              title="Each profile gets a subspace identity in this space">ⓘ</span>
-          </div>
+          <label class="block text-sm text-gray-400 mb-1">Profiles</label>
           <div class="p-3 rounded-lg bg-gray-800/50 border border-dashed border-gray-700 space-y-2">
             <label class="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked
-                class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-orange-500 focus:ring-orange-500" />
+              <input type="checkbox" checked class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-orange-500" />
               <span class="text-gray-200 text-sm">Alex</span>
               <span class="text-gray-500 text-xs ml-auto">Root admin</span>
             </label>
           </div>
         </div>
       </div>
-
       <div class="flex gap-3 mt-8">
         <button onclick="showScene('scene-create-space-intro')"
           class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">Back</button>
@@ -404,7 +343,7 @@
   </div>
 
   <!-- ============================================================ -->
-  <!-- SCENE: Create Communal Space                                  -->
+  <!-- SCENE: Create Communal Space                                 -->
   <!-- ============================================================ -->
   <div id="scene-create-space-communal" class="hidden flex items-center justify-center h-screen w-screen">
     <div class="w-full max-w-lg p-8 fade-in">
@@ -414,26 +353,6 @@
           <label class="block text-sm text-gray-400 mb-1">Space Name</label>
           <input type="text" placeholder="Hobby Club, Study Group..."
             class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
-        </div>
-        <div>
-          <label class="block text-sm text-gray-400 mb-1">Icon</label>
-          <div class="flex gap-3 flex-wrap">
-            <div
-              class="w-16 h-16 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center cursor-pointer hover:border-gray-500 text-2xl">
-              🌍</div>
-            <div
-              class="w-16 h-16 rounded-xl bg-gray-800 border-2 border-orange-500 flex items-center justify-center cursor-pointer text-2xl">
-              📢</div>
-            <div
-              class="w-16 h-16 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center cursor-pointer hover:border-gray-500 text-2xl">
-              🎮</div>
-            <div
-              class="w-16 h-16 rounded-xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center cursor-pointer hover:border-gray-400">
-              <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-            </div>
-          </div>
         </div>
         <p class="text-sm text-gray-400">Communal spaces are public. Your profile will create a subspace identity here.
         </p>
@@ -449,15 +368,16 @@
   </div>
 
   <!-- ============================================================ -->
-  <!-- SCENE: Main App Layout (unlocked state)                      -->
+  <!-- SCENE: Main App (app-first navigation)                       -->
   <!-- ============================================================ -->
   <div id="scene-main" class="hidden h-screen w-screen flex overflow-hidden">
 
-    <!-- === LEFT RAIL: Spaces === -->
+    <!-- ======================== -->
+    <!-- LEFT RAIL: Space Icons   -->
+    <!-- ======================== -->
     <div class="flex flex-col items-center w-[72px] bg-[#1e1e1e] py-3 flex-shrink-0 border-r border-gray-800">
 
-      <!-- Home button -->
-      <button onclick="selectChannel('home')"
+      <button onclick="selectApp('home')"
         class="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-gray-800 flex items-center justify-center mb-2 hover:rounded-xl transition-all duration-150 shadow-lg flex-shrink-0"
         title="Home">
         <span class="text-lg font-bold text-white">G</span>
@@ -465,37 +385,40 @@
 
       <div class="w-8 h-[2px] bg-gray-700 rounded-full mb-2"></div>
 
-      <!-- Spaces -->
       <div class="flex-1 overflow-y-auto space-y-2 px-1 w-full flex flex-col items-center">
-        <!-- Personal (Owned) - active -->
+        <!-- Personal (Owned) -->
         <div class="relative flex items-center" data-space="personal">
           <div class="absolute -left-3 w-1 h-10 bg-white rounded-r-full" id="space-indicator-personal"></div>
-          <button onclick="selectChannel('personal')"
-            class="space-icon w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-            title="Personal Vault">
+          <button onclick="toggleSpaceFilter('personal')"
+            class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+            title="Personal Vault" id="space-btn-personal">
             <span class="text-lg">🔒</span>
           </button>
         </div>
         <!-- Game Dev (Communal) -->
         <div class="relative flex items-center" data-space="gamedev">
-          <button onclick="selectChannel('gamedev')"
-            class="space-icon w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-            title="Game Dev Club">
+          <button onclick="toggleSpaceFilter('gamedev')"
+            class="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+            title="Game Dev Club" id="space-btn-gamedev">
             <span class="text-lg">🎮</span>
           </button>
           <div class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-[#1e1e1e]"></div>
         </div>
         <!-- Photos (Communal) -->
         <div class="relative flex items-center" data-space="photos">
-          <button onclick="selectChannel('photos')"
-            class="space-icon w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-            title="Photo Share"><span class="text-lg">📸</span></button>
+          <button onclick="toggleSpaceFilter('photos')"
+            class="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+            title="Photo Share" id="space-btn-photos">
+            <span class="text-lg">📸</span>
+          </button>
         </div>
         <!-- Book Club (Owned) -->
         <div class="relative flex items-center" data-space="books">
-          <button onclick="selectChannel('books')"
-            class="space-icon w-12 h-12 rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-            title="Book Club"><span class="text-lg">📚</span></button>
+          <button onclick="toggleSpaceFilter('books')"
+            class="w-12 h-12 rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+            title="Book Club" id="space-btn-books">
+            <span class="text-lg">📚</span>
+          </button>
         </div>
       </div>
 
@@ -513,231 +436,106 @@
       <!-- Profile avatar -->
       <div class="relative mt-auto flex-shrink-0 group">
         <button
-          class="w-12 h-12 rounded-full bg-orange-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 border-2 border-gray-700 hover:border-green-400"
+          class="w-12 h-12 rounded-full bg-orange-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 border-2 border-gray-700"
           title="Alex">
           <span class="text-sm font-bold text-white">Al</span>
         </button>
         <div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#1e1e1e]"></div>
-        <!-- Dropdown on hover -->
-        <div
-          class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 rounded-lg border border-gray-700 shadow-xl py-1 min-w-[160px] text-sm">
-          <div class="px-3 py-2 text-white font-medium border-b border-gray-700">Alex</div>
-          <div class="px-3 py-1.5 hover:bg-gray-700 cursor-pointer text-gray-300 flex items-center gap-2">👤 Switch
-            Profile</div>
-          <div class="px-3 py-1.5 hover:bg-gray-700 cursor-pointer text-gray-300 flex items-center gap-2">⚙️ Settings
-          </div>
-          <div class="px-3 py-1.5 hover:bg-gray-700 cursor-pointer text-gray-300 flex items-center gap-2">🔗 Connections
-          </div>
-          <div
-            class="border-t border-gray-700 px-3 py-1.5 hover:bg-gray-700 cursor-pointer text-red-400 flex items-center gap-2">
-            🔒 Lock Vault</div>
-        </div>
       </div>
     </div>
 
-    <!-- === SECONDARY SIDEBAR: Space contents === -->
+    <!-- ======================== -->
+    <!-- SECONDARY SIDEBAR: Apps  -->
+    <!-- ======================== -->
     <div class="flex flex-col w-60 bg-[#2b2d31] flex-shrink-0">
 
-      <!-- Space header -->
-      <div
-        class="flex items-center justify-between px-4 h-[48px] border-b border-gray-800 cursor-pointer hover:bg-gray-700/30 flex-shrink-0">
+      <!-- Sidebar header with space context -->
+      <div class="flex items-center justify-between px-4 h-[48px] border-b border-gray-800 flex-shrink-0">
         <div class="flex items-center gap-2">
-          <span id="active-space-name" class="text-white font-semibold text-sm">Personal Vault</span>
-          <svg class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-          </svg>
+          <span class="text-white font-semibold text-sm">Apps</span>
         </div>
-        <span class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-700 text-gray-400"
-          id="space-kind-badge">OWNED</span>
+        <button class="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200" title="App Library">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
       </div>
 
-      <!-- Channel list -->
-      <div class="flex-1 overflow-y-auto px-2 py-3 space-y-1" id="channel-list">
+      <!-- App navigation -->
+      <div class="flex-1 overflow-y-auto px-2 py-3 space-y-1" id="app-list">
 
-        <!-- HOME -->
-        <div id="channel-group-home" class="hidden">
-          <div class="text-gray-300 text-sm font-semibold px-2 mb-3">Home</div>
-          <div
-            class="px-2 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg> Activity Feed
-          </div>
-          <div
-            class="px-2 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg> Connections
-          </div>
-          <div
-            class="px-2 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg> Settings
-          </div>
+        <!-- App categories -->
+        <div class="text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-1">Data Apps</div>
+
+        <!-- Photos - active -->
+        <div onclick="selectApp('photos')"
+          class="flex items-center gap-2 px-2 py-1.5 rounded bg-orange-600/20 text-orange-300 text-sm cursor-pointer"
+          id="app-btn-photos">
+          <span class="text-base">📸</span>
+          <span class="flex-1 font-medium">Photos</span>
+          <span class="text-[10px] text-orange-400/60">12</span>
         </div>
 
-        <!-- PERSONAL SPACE -->
-        <div id="channel-group-personal">
-          <!-- Apps -->
-          <div
-            class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-2">
-            <span class="flex items-center gap-1">
-              <span>Apps</span>
-              <span class="text-[10px] text-green-500/60 font-normal normal-case">(3 installed)</span>
-            </span>
-            <svg class="w-3 h-3 cursor-pointer hover:text-gray-200" fill="none" stroke="currentColor"
-              viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-          </div>
-          <div
-            class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm group">
-            <span class="text-base">📝</span><span class="flex-1">Notes</span>
-            <span class="text-[10px] text-gray-600 opacity-0 group-hover:opacity-100">⌘1</span>
-          </div>
-          <div
-            class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm group">
-            <span class="text-base">✅</span><span class="flex-1">Checklist</span>
-            <span class="text-[10px] text-gray-600 opacity-0 group-hover:opacity-100">⌘2</span>
-          </div>
-          <div
-            class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm group">
-            <span class="text-base">📅</span><span class="flex-1">Calendar</span>
-            <span class="text-[10px] text-gray-600 opacity-0 group-hover:opacity-100">⌘3</span>
-          </div>
-
-          <!-- Channels -->
-          <div
-            class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-4">
-            <span>Channels</span>
-            <svg class="w-3 h-3 cursor-pointer hover:text-gray-200" fill="none" stroke="currentColor"
-              viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-          </div>
-          <div class="flex items-center gap-1.5 px-2 py-1.5 rounded bg-gray-700/60 cursor-pointer text-white text-sm">
-            <span class="text-gray-400">#</span><span>general</span>
-          </div>
-          <div
-            class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
-            <span class="text-gray-500">#</span><span>journal</span>
-          </div>
-          <div
-            class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
-            <span class="text-gray-500">#</span><span>todo-discussion</span>
-          </div>
-
-          <!-- Profiles in this space -->
-          <div
-            class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-4">
-            <span>Profiles</span>
-            <svg class="w-3 h-3 cursor-pointer hover:text-gray-200" fill="none" stroke="currentColor"
-              viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-          </div>
-          <div class="flex items-center gap-2 px-2 py-1.5 rounded bg-blue-600/10 cursor-pointer text-sm group">
-            <div
-              class="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
-              Al</div>
-            <span class="text-gray-200 text-sm">Alex</span>
-            <span class="ml-auto text-[10px] text-blue-400">active</span>
-          </div>
-          <div
-            class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
-            <div
-              class="w-6 h-6 rounded-full bg-gray-700 border border-dashed border-gray-500 flex items-center justify-center text-[10px] flex-shrink-0">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-            </div>
-            <span>Add profile to space</span>
-          </div>
+        <div onclick="selectApp('notes')"
+          class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm"
+          id="app-btn-notes">
+          <span class="text-base">📝</span>
+          <span class="flex-1">Notes</span>
+          <span class="text-[10px] text-gray-600">8</span>
         </div>
 
-        <!-- GAME DEV SPACE -->
-        <div id="channel-group-gamedev" class="hidden">
-          <div
-            class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-2">
-            <span>Apps</span>
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-          </div>
-          <div
-            class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm">
-            <span class="text-base">🗺️</span><span>Whiteboard</span></div>
-          <div
-            class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm">
-            <span class="text-base">📋</span><span>Sprint Board</span></div>
-          <div
-            class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-4">
-            <span>Channels</span><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-          </div>
-          <div
-            class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
-            <span class="text-gray-500">#</span><span>general</span></div>
-          <div
-            class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
-            <span class="text-gray-500">#</span><span>show-and-tell</span></div>
-          <div
-            class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm relative">
-            <span class="text-gray-500">#</span><span>assets</span>
-            <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-medium">3</span>
-          </div>
-          <div
-            class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-4">
-            <span>Profiles</span>
-          </div>
-          <div class="flex items-center gap-2 px-2 py-1.5 rounded bg-purple-600/10 cursor-pointer text-sm">
-            <div
-              class="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center text-[10px] font-bold text-white">
-              Al</div>
-            <span class="text-gray-200 text-sm">Alex</span>
-            <span class="ml-auto text-[10px] text-purple-400">active</span>
-          </div>
+        <div onclick="selectApp('checklist')"
+          class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm"
+          id="app-btn-checklist">
+          <span class="text-base">✅</span>
+          <span class="flex-1">Checklist</span>
+          <span class="text-[10px] text-gray-600">3</span>
         </div>
 
-        <!-- PHOTOS SPACE -->
-        <div id="channel-group-photos" class="hidden">
-          <div
-            class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-2">
-            <span>Apps</span><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-          </div>
-          <div
-            class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm">
-            <span class="text-base">🖼️</span><span>Gallery</span></div>
-          <div
-            class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-300 hover:text-gray-100 text-sm">
-            <span class="text-base">🏷️</span><span>Albums</span></div>
-          <div
-            class="flex items-center justify-between text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-4">
-            <span>Channels</span>
-          </div>
-          <div
-            class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
-            <span class="text-gray-500">#</span><span>photo-critique</span></div>
-          <div
-            class="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
-            <span class="text-gray-500">#</span><span>gear-talk</span></div>
+        <div onclick="selectApp('calendar')"
+          class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm"
+          id="app-btn-calendar">
+          <span class="text-base">📅</span>
+          <span class="flex-1">Calendar</span>
         </div>
 
-        <!-- BOOKS SPACE -->
-        <div id="channel-group-books" class="hidden">
-          <div class="text-gray-300 text-xs font-semibold px-2 mb-2">No apps installed</div>
-          <div class="px-2 py-6 text-center text-gray-500 text-xs">
-            <p class="mb-2">This space has no apps yet.</p>
-            <button class="text-orange-400 hover:text-orange-300 text-xs font-medium">Browse App Library →</button>
-          </div>
+        <div class="text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-4">Communication</div>
+
+        <div onclick="selectApp('chat')"
+          class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm"
+          id="app-btn-chat">
+          <span class="text-base">💬</span>
+          <span class="flex-1">Chat</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-medium">3</span>
+        </div>
+
+        <div onclick="selectApp('whiteboard')"
+          class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm"
+          id="app-btn-whiteboard">
+          <span class="text-base">🗺️</span>
+          <span class="flex-1">Whiteboard</span>
+        </div>
+
+        <div class="text-gray-400 text-[11px] font-semibold uppercase tracking-wide px-2 mb-1 mt-4">System</div>
+
+        <div onclick="selectApp('connections')"
+          class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+          <span>Connections</span>
+        </div>
+
+        <div onclick="selectApp('settings')"
+          class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 cursor-pointer text-gray-400 hover:text-gray-200 text-sm">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span>Settings</span>
         </div>
 
       </div>
@@ -761,96 +559,126 @@
       </div>
     </div>
 
-    <!-- === MAIN CONTENT AREA === -->
+    <!-- ======================== -->
+    <!-- MAIN CONTENT             -->
+    <!-- ======================== -->
     <div class="flex-1 bg-[#313338] flex flex-col overflow-hidden">
 
-      <!-- Top bar -->
-      <div class="flex items-center h-[48px] px-4 border-b border-gray-800 flex-shrink-0 bg-[#313338]">
-        <div class="flex items-center gap-2">
-          <span class="text-gray-400 text-lg">#</span>
-          <span class="text-white font-semibold text-sm" id="content-title">general</span>
+      <!-- ======================== -->
+      <!-- BREADCRUMB + FILTER BAR  -->
+      <!-- ======================== -->
+      <div class="flex flex-col flex-shrink-0 bg-[#313338] border-b border-gray-800">
+
+        <!-- Breadcrumb row -->
+        <div class="flex items-center gap-1.5 px-4 pt-2 pb-1 text-xs text-gray-500">
+          <!-- App breadcrumb -->
+          <span class="flex items-center gap-1 text-orange-400 font-medium" id="breadcrumb-app">
+            <span>📸</span>
+            <span>Photos</span>
+          </span>
+          <svg class="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+          <!-- Namespace breadcrumb(s) -->
+          <span class="flex items-center gap-1 text-gray-400" id="breadcrumb-filter-summary">
+            <span>All spaces</span>
+          </span>
+          <svg class="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+          <!-- Profile / subspace -->
+          <span class="flex items-center gap-1 text-gray-400">
+            <span>All profiles</span>
+          </span>
+          <span class="ml-auto text-gray-600 text-[10px]">42 items across 4 spaces</span>
         </div>
-        <div class="flex-1"></div>
-        <div class="flex items-center gap-3 text-gray-400">
-          <svg class="w-5 h-5 hover:text-gray-200 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-          </svg>
-          <svg class="w-5 h-5 hover:text-gray-200 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+
+        <!-- Search + filter badges row -->
+        <div class="flex items-center gap-2 px-4 py-2">
+          <!-- Search input -->
+          <div
+            class="flex-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 focus-within:border-gray-500 text-sm flex-wrap min-h-[36px]">
+            <!-- Active filter badges -->
+            <div id="filter-badges" class="flex items-center gap-1 flex-wrap">
+              <!-- Badges injected here by JS -->
+            </div>
+            <input type="text" id="search-input" placeholder="Search across all data..."
+              class="flex-1 min-w-[120px] bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none text-sm" />
+          </div>
+
+          <!-- Quick filter buttons -->
+          <div class="flex items-center gap-1">
+            <button onclick="showPhotoFilter('all')"
+              class="px-2.5 py-1.5 text-xs rounded-md bg-orange-600/20 text-orange-300 font-medium" id="filter-all">
+              All
+            </button>
+            <button onclick="showPhotoFilter('recent')"
+              class="px-2.5 py-1.5 text-xs rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 font-medium"
+              id="filter-recent">
+              Recent
+            </button>
+            <button onclick="showPhotoFilter('albums')"
+              class="px-2.5 py-1.5 text-xs rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 font-medium"
+              id="filter-albums">
+              Albums
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Messages / app content -->
-      <div class="flex-1 overflow-y-auto p-4 space-y-4">
-        <div class="flex items-start gap-4 group">
-          <div
-            class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0 mt-0.5">
-            JD</div>
-          <div class="flex-1">
-            <div class="flex items-baseline gap-2">
-              <span class="text-white font-semibold text-sm">Jane Doe</span>
-              <span class="text-gray-500 text-[11px]">Yesterday at 3:42 PM</span>
+      <!-- ======================== -->
+      <!-- PHOTO ALBUM CONTENT      -->
+      <!-- ======================== -->
+      <div class="flex-1 overflow-y-auto">
+        <div class="p-4">
+
+          <!-- Album header -->
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-white text-lg font-semibold">Your Photos</h2>
+              <p class="text-gray-500 text-xs mt-0.5">Aggregated across all your spaces</p>
             </div>
-            <p class="text-gray-300 text-sm mt-0.5">Hey! I just joined this space. Loving the concept so far! 🎉</p>
-          </div>
-        </div>
-        <div class="flex items-start gap-4 group">
-          <div
-            class="w-10 h-10 rounded-full bg-orange-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0 mt-0.5">
-            Al</div>
-          <div class="flex-1">
-            <div class="flex items-baseline gap-2">
-              <span class="text-white font-semibold text-sm">Alex</span>
-              <span class="text-gray-500 text-[11px]">Yesterday at 4:15 PM</span>
+            <div class="flex items-center gap-2">
+              <button
+                class="px-3 py-1.5 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition">
+                <span class="flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Upload
+                </span>
+              </button>
+              <button
+                class="px-3 py-1.5 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition">
+                <span class="flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                  Sort
+                </span>
+              </button>
             </div>
-            <p class="text-gray-300 text-sm mt-0.5">Welcome @Jane! Make sure to check out the Checklist app.</p>
           </div>
-        </div>
-        <div class="flex items-start gap-4 group">
-          <div
-            class="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0 mt-0.5">
-            MK</div>
-          <div class="flex-1">
-            <div class="flex items-baseline gap-2">
-              <span class="text-white font-semibold text-sm">Mike K.</span>
-              <span class="text-gray-500 text-[11px]">12:30 PM</span>
-            </div>
-            <p class="text-gray-300 text-sm mt-0.5">We should add a new channel for discussing the calendar app design.
-            </p>
+
+          <!-- Photo grid -->
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3" id="photo-grid">
+            <!-- Filled by JS with photo data -->
           </div>
+
         </div>
       </div>
 
-      <!-- Message input -->
-      <div class="px-4 pb-4 pt-2 flex-shrink-0">
-        <div
-          class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-700/50 border border-gray-700 focus-within:border-gray-500">
-          <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <input type="text" placeholder="Message #general"
-            class="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm" />
-          <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-          </svg>
-        </div>
-      </div>
     </div>
   </div>
 
   <!-- ============================================================ -->
-  <!-- SCENE: Profile Picker (returning user)                       -->
+  <!-- SCENE: Profile Picker                                        -->
   <!-- ============================================================ -->
   <div id="scene-picker" class="hidden flex items-center justify-center h-screen w-screen">
     <div class="w-full max-w-xs p-8 fade-in">
       <h2 class="text-2xl font-bold text-white text-center mb-2">Welcome Back</h2>
       <p class="text-gray-400 text-center mb-8 text-sm">Choose a vault to unlock</p>
-
       <div class="space-y-3">
         <div onclick="showScene('scene-login-prompt')"
           class="flex items-center gap-4 p-3 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 cursor-pointer transition">
@@ -873,7 +701,6 @@
           </div>
         </div>
       </div>
-
       <div class="mt-8 text-center">
         <button onclick="showScene('scene-welcome')"
           class="text-gray-500 hover:text-gray-300 text-sm flex items-center gap-1 mx-auto">
@@ -887,7 +714,7 @@
   </div>
 
   <!-- ============================================================ -->
-  <!-- SCENE: Login/Unlock Prompt                                   -->
+  <!-- SCENE: Login Prompt                                          -->
   <!-- ============================================================ -->
   <div id="scene-login-prompt" class="hidden flex items-center justify-center h-screen w-screen">
     <div class="w-full max-w-xs p-8 text-center fade-in">
@@ -896,25 +723,20 @@
         Al</div>
       <h2 class="text-2xl font-bold text-white mb-1">Alex</h2>
       <p class="text-gray-400 text-sm mb-2">Enter your vault password to unlock</p>
-      <p class="text-gray-600 text-xs mb-8">2 spaces · 3 subspace keys stored in this vault</p>
-
+      <p class="text-gray-600 text-xs mb-8">4 spaces · 1 profile</p>
       <input type="password" placeholder="Vault password"
         class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 mb-4 text-center" />
-
       <button onclick="unlockSuccess()"
-        class="w-full px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg">
-        Unlock Vault
-      </button>
-
+        class="w-full px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg">Unlock
+        Vault</button>
       <div class="mt-6">
-        <a href="#" onclick="showScene('scene-picker')" class="text-gray-500 hover:text-gray-300 text-sm">← Back to
-          profiles</a>
+        <a href="#" onclick="showScene('scene-picker')" class="text-gray-500 hover:text-gray-300 text-sm">← Back</a>
       </div>
     </div>
   </div>
 
   <!-- ============================================================ -->
-  <!-- LOCK OVERLAY (triggered by timeout or manual lock)           -->
+  <!-- LOCK OVERLAY                                                 -->
   <!-- ============================================================ -->
   <div id="lock-overlay"
     class="hidden fixed inset-0 z-30 bg-[#1a1a1e]/95 backdrop-blur-sm flex flex-col items-center justify-center">
@@ -927,8 +749,7 @@
         </svg>
       </div>
       <h3 class="text-xl font-bold text-white mb-1">Session Locked</h3>
-      <p class="text-gray-400 text-sm mb-6">Your session has been locked. Re-enter your password to continue.</p>
-
+      <p class="text-gray-400 text-sm mb-6">Re-enter your password to continue.</p>
       <div
         class="flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 border border-gray-700 mx-auto max-w-[220px] mb-4">
         <div
@@ -939,47 +760,425 @@
           <div class="text-gray-500 text-xs">Last unlocked 5min ago</div>
         </div>
       </div>
-
       <input type="password" placeholder="Vault password"
         class="w-64 px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 mb-3 text-center" />
-
       <div class="flex gap-2 justify-center">
         <button onclick="hideLockOverlay()"
-          class="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition text-sm">
-          Unlock
-        </button>
+          class="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition text-sm">Unlock</button>
         <button
-          class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700 text-sm">
-          Switch Profile
-        </button>
+          class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700 text-sm">Switch
+          Profile</button>
       </div>
-      <p class="text-gray-600 text-xs mt-4">⏱️ Auto-locked after 5 minutes of inactivity</p>
     </div>
   </div>
 
   <script>
+    // ==================== STATE ====================
     let isLocked = false;
-    let lockTimer = 300; // 5 minutes in seconds
+    let lockTimer = 60;
     let timerInterval = null;
-    let activeChannel = 'personal';
+    let activeApp = 'photos';
+    let activeSpaceFilter = 'personal'; // the "selected" space in the rail
+    let spaceFilters = [];             // which spaces are active as filter badges
+    let profileFilters = [];           // subspace profile filters
+    let currentFilter = 'all';
 
-    function showScene(id) {
-      document.querySelectorAll('body > .flex, body > .hidden').forEach(el => {
-        if (el.id && el.id.startsWith('scene-')) {
-          el.classList.add('hidden');
+    // ==================== DATA ====================
+    const spaces = {
+      personal: {name: 'Personal Vault', kind: 'OWNED', emoji: '🔒', color: 'from-blue-500 to-blue-700'},
+      gamedev: {name: 'Game Dev Club', kind: 'COMMUNAL', emoji: '🎮', color: 'from-purple-500 to-pink-600'},
+      photos: {name: 'Photo Share', kind: 'COMMUNAL', emoji: '📸', color: 'from-green-500 to-emerald-700'},
+      books: {name: 'Book Club', kind: 'OWNED', emoji: '📚', color: 'from-yellow-500 to-amber-700'},
+    };
+
+    const profiles = {
+      alex: {name: 'Alex', initial: 'Al', color: 'bg-orange-600'},
+      jane: {name: 'Jane Doe', initial: 'JD', color: 'bg-blue-600'},
+      mike: {name: 'Mike K.', initial: 'MK', color: 'bg-purple-600'},
+    };
+
+    // Photo data generator
+    function generatePhotos() {
+      const photos = [];
+      const adjectives = ['Sunset', 'Mountain', 'Ocean', 'Forest', 'Urban', 'Aerial', 'Macro', 'Portrait', 'Abstract', 'Night', 'Golden', 'Misty'];
+      const nouns = ['Vista', 'Horizon', 'Waves', 'Canopy', 'Skyline', 'Drone', 'Details', 'Smile', 'Pattern', 'Sky', 'Hour', 'Morning'];
+      const spaceKeys = ['personal', 'gamedev', 'photos', 'books'];
+      const profileKeys = ['alex', 'jane', 'mike'];
+
+      for (let i = 0; i < 42; i++) {
+        const adj = adjectives[i % adjectives.length];
+        const noun = nouns[Math.floor(i / adjectives.length) % nouns.length];
+        const sk = spaceKeys[i % spaceKeys.length];
+        const pk = profileKeys[i % profileKeys.length];
+        const hue = (i * 47) % 360;
+        const hue2 = (hue + 30) % 360;
+        photos.push({
+          id: i,
+          title: `${adj} ${noun}`,
+          space: sk,
+          profile: pk,
+          date: new Date(Date.now() - i * 86400000 * (Math.random() * 7 + 0.5)),
+          width: 300 + (i * 37) % 200,
+          height: 200 + (i * 53) % 250,
+          hue: hue,
+          hue2: hue2,
+          // SVG pattern type
+          pattern: i % 5,
+          liked: i % 7 === 0,
+        });
+      }
+      return photos;
+    }
+
+    const photoData = generatePhotos();
+
+    // SVG generator for each photo
+    function renderPhotoSvg(photo) {
+      const w = photo.width;
+      const h = photo.height;
+      const hue = photo.hue;
+      const hue2 = photo.hue2;
+
+      // Each pattern type produces a different SVG scene
+      let content = '';
+      switch (photo.pattern) {
+        case 0: // Mountain sunset
+          content = `
+            <defs>
+              <linearGradient id="g${photo.id}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="hsl(${hue}, 60%, 40%)"/>
+                <stop offset="60%" stop-color="hsl(${hue2}, 50%, 25%)"/>
+                <stop offset="100%" stop-color="hsl(${hue2}, 40%, 15%)"/>
+              </linearGradient>
+            </defs>
+            <rect width="${w}" height="${h}" fill="url(#g${photo.id})"/>
+            <circle cx="${w * 0.2}" cy="${h * 0.3}" r="${Math.min(w, h) * 0.12}" fill="hsl(${hue}, 80%, 60%)" opacity="0.3"/>
+            <polygon points="${w * 0.1},${h * 0.7} ${w * 0.35},${h * 0.35} ${w * 0.6},${h * 0.7}" fill="hsl(${hue2}, 30%, 20%)" opacity="0.7"/>
+            <polygon points="${w * 0.4},${h * 0.7} ${w * 0.55},${h * 0.4} ${w * 0.85},${h * 0.65} ${w * 0.9},${h * 0.7}" fill="hsl(${hue2}, 25%, 18%)" opacity="0.8"/>
+            <circle cx="${w * 0.75}" cy="${h * 0.25}" r="${Math.min(w, h) * 0.08}" fill="hsl(45, 90%, 70%)" opacity="0.6"/>`;
+        case 1: // Abstract waves
+          content = `
+            <defs>
+              <linearGradient id="g${photo.id}" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="hsl(${hue}, 70%, 35%)"/>
+                <stop offset="100%" stop-color="hsl(${hue2}, 60%, 20%)"/>
+              </linearGradient>
+            </defs>
+            <rect width="${w}" height="${h}" fill="url(#g${photo.id})"/>
+            <path d="M0 ${h * 0.6} Q${w * 0.25} ${h * 0.4} ${w * 0.5} ${h * 0.6} T${w} ${h * 0.5}" fill="none" stroke="hsl(${hue}, 60%, 50%)" stroke-width="3" opacity="0.5"/>
+            <path d="M0 ${h * 0.7} Q${w * 0.25} ${h * 0.5} ${w * 0.5} ${h * 0.7} T${w} ${h * 0.6}" fill="none" stroke="hsl(${hue2}, 50%, 45%)" stroke-width="2" opacity="0.4"/>
+            <circle cx="${w * 0.3}" cy="${h * 0.3}" r="15" fill="hsl(${hue}, 80%, 70%)" opacity="0.3"/>
+            <circle cx="${w * 0.7}" cy="${h * 0.4}" r="10" fill="hsl(${hue2}, 80%, 60%)" opacity="0.3"/>`;
+        case 2: // Forest / organic
+          content = `
+            <defs>
+              <linearGradient id="g${photo.id}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="hsl(${hue}, 50%, 25%)"/>
+                <stop offset="100%" stop-color="hsl(${hue2}, 60%, 15%)"/>
+              </linearGradient>
+            </defs>
+            <rect width="${w}" height="${h}" fill="url(#g${photo.id})"/>
+            <ellipse cx="${w * 0.2}" cy="${h * 0.4}" rx="25" ry="35" fill="hsl(${hue}, 40%, 20%)" opacity="0.7"/>
+            <ellipse cx="${w * 0.5}" cy="${h * 0.3}" rx="30" ry="40" fill="hsl(${hue2}, 35%, 18%)" opacity="0.7"/>
+            <ellipse cx="${w * 0.75}" cy="${h * 0.45}" rx="20" ry="30" fill="hsl(${hue}, 30%, 22%)" opacity="0.7"/>
+            <ellipse cx="${w * 0.35}" cy="${h * 0.65}" rx="35" ry="25" fill="hsl(${hue2}, 30%, 15%)" opacity="0.5"/>
+            <circle cx="${w * 0.45}" cy="${h * 0.25}" r="4" fill="hsl(50, 90%, 60%)" opacity="0.6"/>
+            <circle cx="${w * 0.55}" cy="${h * 0.35}" r="3" fill="hsl(50, 90%, 60%)" opacity="0.4"/>`;
+        case 3: // Geometric
+          content = `
+            <defs>
+              <linearGradient id="g${photo.id}" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="hsl(${hue}, 60%, 30%)"/>
+                <stop offset="100%" stop-color="hsl(${hue2}, 50%, 20%)"/>
+              </linearGradient>
+            </defs>
+            <rect width="${w}" height="${h}" fill="url(#g${photo.id})"/>
+            <rect x="${w * 0.1}" y="${h * 0.1}" width="${w * 0.35}" height="${h * 0.35}" fill="none" stroke="hsl(${hue}, 70%, 55%)" stroke-width="2" opacity="0.5"/>
+            <rect x="${w * 0.55}" y="${h * 0.45}" width="${w * 0.35}" height="${h * 0.35}" fill="hsl(${hue2}, 50%, 35%)" opacity="0.3"/>
+            <rect x="${w * 0.3}" y="${h * 0.3}" width="${w * 0.4}" height="${h * 0.4}" fill="none" stroke="hsl(45, 80%, 60%)" stroke-width="1.5" opacity="0.4"/>
+            <line x1="${w * 0.1}" y1="${h * 0.9}" x2="${w * 0.9}" y2="${h * 0.1}" stroke="hsl(${hue}, 50%, 50%)" stroke-width="1" opacity="0.3"/>`;
+        case 4: // Night sky
+          content = `
+            <defs>
+              <radialGradient id="g${photo.id}" cx="50%" cy="30%" r="70%">
+                <stop offset="0%" stop-color="hsl(${hue}, 50%, 20%)"/>
+                <stop offset="100%" stop-color="hsl(${hue2}, 60%, 8%)"/>
+              </radialGradient>
+            </defs>
+            <rect width="${w}" height="${h}" fill="url(#g${photo.id})"/>
+            <circle cx="${w * 0.5}" cy="${h * 0.3}" r="${Math.min(w, h) * 0.2}" fill="hsl(45, 90%, 60%)" opacity="0.15"/>
+            ${Array.from({length: 40}, (_, i) =>
+            `<circle cx="${(i * 37 + 13) % w}" cy="${(i * 53 + 7) % h}" r="${(i % 3) + 1}" fill="white" opacity="${0.3 + (i % 5) * 0.1}"/>`
+          ).join('')}
+            <ellipse cx="${w * 0.15}" cy="${h * 0.8}" rx="${w * 0.2}" ry="${h * 0.05}" fill="hsl(220, 30%, 15%)" opacity="0.8"/>
+            <ellipse cx="${w * 0.6}" cy="${h * 0.85}" rx="${w * 0.25}" ry="${h * 0.04}" fill="hsl(220, 30%, 12%)" opacity="0.7"/>`;
+      }
+      return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${content}</svg>`)}`;
+    }
+
+    // ==================== PHOTO GRID RENDER ====================
+    function renderPhotoGrid() {
+      const grid = document.getElementById('photo-grid');
+      if (!grid) return;
+
+      // Filter photos based on active space filters
+      let filtered = photoData;
+      if (spaceFilters.length > 0) {
+        filtered = filtered.filter(p => spaceFilters.includes(p.space));
+      }
+      if (profileFilters.length > 0) {
+        filtered = filtered.filter(p => profileFilters.includes(p.profile));
+      }
+
+      // Apply view filter
+      if (currentFilter === 'recent') {
+        const weekAgo = Date.now() - 7 * 86400000;
+        filtered = filtered.filter(p => p.date.getTime() > weekAgo);
+      } else if (currentFilter === 'albums') {
+        // Just show a subset
+        filtered = filtered.filter(p => p.id % 2 === 0);
+      }
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full flex flex-col items-center justify-center py-20 text-gray-500">
+            <svg class="w-16 h-16 mb-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <p class="text-sm">No photos match your filters</p>
+            <button onclick="clearAllFilters()" class="mt-2 text-xs text-orange-400 hover:text-orange-300">Clear filters</button>
+          </div>`;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach((photo, idx) => {
+        const space = spaces[photo.space];
+        const profile = profiles[photo.profile];
+        const src = renderPhotoSvg(photo);
+        const dateStr = photo.date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+        const delay = (idx % 20) * 30;
+
+        html += `
+          <div class="photo-hover rounded-xl overflow-hidden bg-gray-800 border border-gray-700/50 cursor-pointer group"
+               style="animation: fadeIn ${0.3 + delay / 1000}s ease-out">
+            <!-- Image -->
+            <div class="relative aspect-[4/3] bg-gray-900 overflow-hidden">
+              <img src="${src}" alt="${photo.title}"
+                   class="w-full h-full object-cover"
+                   loading="lazy" />
+              <!-- Space/profile badge -->
+              <div class="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/60 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span>${space.emoji}</span>
+                <span>${space.name}</span>
+              </div>
+              <!-- Profile badge -->
+              <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div class="w-6 h-6 rounded-full ${profile.color} flex items-center justify-center text-[8px] font-bold text-white border border-black/30">${profile.initial}</div>
+              </div>
+              <!-- Like button -->
+              <button onclick="event.stopPropagation()"
+                class="absolute bottom-2 right-2 p-1.5 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70">
+                <svg class="w-4 h-4 ${photo.liked ? 'text-red-400 fill-red-400' : 'text-gray-300'}" fill="${photo.liked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                </svg>
+              </button>
+            </div>
+            <!-- Meta -->
+            <div class="p-2.5">
+              <div class="flex items-center justify-between">
+                <span class="text-white text-xs font-medium truncate">${photo.title}</span>
+              </div>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-gray-600 text-[10px]">${dateStr}</span>
+                <span class="text-gray-600 text-[10px]">${photo.width}×${photo.height}</span>
+              </div>
+            </div>
+          </div>`;
+      });
+
+      grid.innerHTML = html;
+      updateBreadcrumb();
+    }
+
+    // ==================== FILTER BADGES ====================
+    function updateFilterBadges() {
+      const container = document.getElementById('filter-badges');
+      if (!container) return;
+      container.innerHTML = '';
+
+      spaceFilters.forEach(sf => {
+        const space = spaces[sf];
+        if (!space) return;
+        const badge = document.createElement('span');
+        badge.className = 'badge-pop inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-blue-500/20 text-blue-300 border border-blue-500/30';
+        badge.innerHTML = `${space.emoji} ${space.name} <button onclick="removeSpaceFilter('${sf}')" class="ml-0.5 hover:text-white">&times;</button>`;
+        container.appendChild(badge);
+      });
+
+      profileFilters.forEach(pf => {
+        const profile = profiles[pf];
+        if (!profile) return;
+        const badge = document.createElement('span');
+        badge.className = 'badge-pop inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-orange-500/20 text-orange-300 border border-orange-500/30';
+        badge.innerHTML = `${profile.name} <button onclick="removeProfileFilter('${pf}')" class="ml-0.5 hover:text-white">&times;</button>`;
+        container.appendChild(badge);
+      });
+
+      // Update filter summary in breadcrumb
+      const summary = document.getElementById('breadcrumb-filter-summary');
+      if (summary) {
+        if (spaceFilters.length === 0 && profileFilters.length === 0) {
+          summary.innerHTML = '<span class="text-gray-400">All spaces</span>';
+        } else {
+          const parts = [];
+          if (spaceFilters.length > 0) {
+            parts.push(spaceFilters.map(sf => spaces[sf]?.name).join(', '));
+          }
+          if (profileFilters.length > 0) {
+            parts.push(profileFilters.map(pf => profiles[pf]?.name).join(', '));
+          }
+          summary.innerHTML = `<span class="text-gray-300">${parts.join(' · ')}</span>`;
+        }
+      }
+
+      renderPhotoGrid();
+    }
+
+    function toggleSpaceFilter(spaceId) {
+      const idx = spaceFilters.indexOf(spaceId);
+      if (idx >= 0) {
+        spaceFilters.splice(idx, 1);
+        document.getElementById(`space-btn-${spaceId}`)?.classList.remove('ring-2', 'ring-white/30');
+      } else {
+        spaceFilters.push(spaceId);
+        document.getElementById(`space-btn-${spaceId}`)?.classList.add('ring-2', 'ring-white/30');
+      }
+      updateFilterBadges();
+    }
+
+    function removeSpaceFilter(spaceId) {
+      const idx = spaceFilters.indexOf(spaceId);
+      if (idx >= 0) {
+        spaceFilters.splice(idx, 1);
+        document.getElementById(`space-btn-${spaceId}`)?.classList.remove('ring-2', 'ring-white/30');
+      }
+      updateFilterBadges();
+    }
+
+    function removeProfileFilter(profileId) {
+      const idx = profileFilters.indexOf(profileId);
+      if (idx >= 0) profileFilters.splice(idx, 1);
+      updateFilterBadges();
+    }
+
+    function clearAllFilters() {
+      spaceFilters = [];
+      profileFilters = [];
+      document.querySelectorAll('[id^="space-btn-"]').forEach(el => el.classList.remove('ring-2', 'ring-white/30'));
+      updateFilterBadges();
+    }
+
+    // ==================== NAVIGATION ====================
+    function selectApp(appId) {
+      activeApp = appId;
+
+      // Update sidebar highlight
+      document.querySelectorAll('[id^="app-btn-"]').forEach(el => {
+        el.classList.remove('bg-orange-600/20', 'text-orange-300');
+        el.classList.add('text-gray-400', 'hover:text-gray-200');
+      });
+      const btn = document.getElementById(`app-btn-${appId}`);
+      if (btn) {
+        btn.classList.remove('text-gray-400', 'hover:text-gray-200');
+        btn.classList.add('bg-orange-600/20', 'text-orange-300');
+      }
+
+      // Update breadcrumb
+      const appNames = {
+        photos: {icon: '📸', name: 'Photos'},
+        notes: {icon: '📝', name: 'Notes'},
+        checklist: {icon: '✅', name: 'Checklist'},
+        calendar: {icon: '📅', name: 'Calendar'},
+        chat: {icon: '💬', name: 'Chat'},
+        whiteboard: {icon: '🗺️', name: 'Whiteboard'},
+        connections: {icon: '🔗', name: 'Connections'},
+        settings: {icon: '⚙️', name: 'Settings'},
+        home: {icon: '🏠', name: 'Home'},
+      };
+
+      const info = appNames[appId] || {icon: '📱', name: appId};
+      const appBreadcrumb = document.getElementById('breadcrumb-app');
+      if (appBreadcrumb) {
+        appBreadcrumb.innerHTML = `<span>${info.icon}</span><span class="font-medium">${info.name}</span>`;
+      }
+
+      document.getElementById('content-title').textContent = info.name;
+
+      // Show/hide the photo-specific filter bar buttons based on app
+      const filterBtns = document.getElementById('filter-all')?.parentElement;
+      if (filterBtns) {
+        filterBtns.style.display = appId === 'photos' ? 'flex' : 'none';
+      }
+
+      // If switching away from photos, show placeholder
+      if (appId !== 'photos') {
+        document.getElementById('photo-grid').innerHTML = `
+          <div class="col-span-full flex flex-col items-center justify-center py-20 text-gray-500">
+            <span class="text-4xl mb-4">${info.icon}</span>
+            <p class="text-gray-400 font-medium">${info.name}</p>
+            <p class="text-xs text-gray-600 mt-1">Aggregated view across all spaces</p>
+            <p class="text-xs text-gray-600 mt-4 max-w-md">🔍 This app will display data from all your spaces. Use the search bar to filter by space or profile.</p>
+          </div>`;
+      } else {
+        renderPhotoGrid();
+      }
+    }
+
+    function showPhotoFilter(filter) {
+      currentFilter = filter;
+      ['all', 'recent', 'albums'].forEach(f => {
+        const btn = document.getElementById(`filter-${f}`);
+        if (btn) {
+          if (f === filter) {
+            btn.className = 'px-2.5 py-1.5 text-xs rounded-md bg-orange-600/20 text-orange-300 font-medium';
+          } else {
+            btn.className = 'px-2.5 py-1.5 text-xs rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 font-medium';
+          }
         }
       });
+      renderPhotoGrid();
+    }
+
+    function updateBreadcrumb() {
+      // Update item count
+      const countEl = document.querySelector('.text-gray-600.text-\\[10px\\]');
+      let filtered = photoData;
+      if (spaceFilters.length > 0) filtered = filtered.filter(p => spaceFilters.includes(p.space));
+      if (profileFilters.length > 0) filtered = filtered.filter(p => profileFilters.includes(p.profile));
+      if (countEl) {
+        const total = photoData.length;
+        const shown = filtered.length;
+        countEl.textContent = `${shown} items across ${spaceFilters.length || 4} spaces`;
+      }
+    }
+
+    // ==================== SCENE MANAGEMENT ====================
+    function showScene(id) {
+      document.querySelectorAll('body > .flex, body > .hidden').forEach(el => {
+        if (el.id && el.id.startsWith('scene-')) el.classList.add('hidden');
+      });
       document.getElementById(id).classList.remove('hidden');
+      document.getElementById('lock-overlay').classList.add('hidden');
       if (id === 'scene-main') {
         startLockTimer();
+        renderPhotoGrid();
       } else {
         stopLockTimer();
       }
-      document.getElementById('lock-overlay').classList.add('hidden');
     }
 
     function createVaultAndProfile() {
-      // In the real app: create vault with password, then create first profile inside it
       showScene('scene-create-profile');
     }
 
@@ -987,48 +1186,9 @@
       showScene('scene-main');
     }
 
-    function selectChannel(id) {
-      activeChannel = id;
-
-      // Update space rail indicator
-      document.querySelectorAll('[data-space]').forEach(el => {
-        const indicator = el.querySelector('[id^="space-indicator-"]');
-        if (indicator) indicator.remove();
-      });
-
-      const spaceEl = document.querySelector(`[data-space="${id}"]`);
-      if (spaceEl) {
-        const existing = spaceEl.querySelector('[id^="space-indicator-"]');
-        if (existing) existing.remove();
-        const indicator = document.createElement('div');
-        indicator.className = 'absolute -left-3 w-1 h-10 bg-white rounded-r-full';
-        indicator.id = 'space-indicator-' + id;
-        spaceEl.insertBefore(indicator, spaceEl.firstChild);
-      }
-
-      // Update header
-      const names = {
-        'home': {name: 'Home', kind: ''},
-        'personal': {name: 'Personal Vault', kind: 'OWNED'},
-        'gamedev': {name: 'Game Dev Club', kind: 'COMMUNAL'},
-        'photos': {name: 'Photo Share', kind: 'COMMUNAL'},
-        'books': {name: 'Book Club', kind: 'OWNED'},
-      };
-
-      const info = names[id] || {name: 'Unknown', kind: ''};
-      document.getElementById('active-space-name').textContent = info.name;
-      document.getElementById('space-kind-badge').textContent = info.kind;
-
-      document.querySelectorAll('[id^="channel-group-"]').forEach(el => el.classList.add('hidden'));
-      const target = document.getElementById('channel-group-' + id);
-      if (target) target.classList.remove('hidden');
-
-      document.getElementById('content-title').textContent = info.name;
-    }
-
-    // === LOCK TIMER ===
+    // ==================== LOCK TIMER ====================
     function startLockTimer() {
-      lockTimer = 60; // shorter for demo: 60 sec
+      lockTimer = 60;
       stopLockTimer();
       updateTimerDisplay();
       timerInterval = setInterval(() => {
@@ -1042,10 +1202,7 @@
     }
 
     function stopLockTimer() {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
+      if (timerInterval) {clearInterval(timerInterval); timerInterval = null;}
     }
 
     function updateTimerDisplay() {
@@ -1055,7 +1212,6 @@
       if (el) el.textContent = `Lock in: ${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
     }
 
-    // === LOCK OVERLAY (partial / session lock, not full screen) ===
     function showLockOverlay() {
       stopLockTimer();
       document.getElementById('lock-overlay').classList.remove('hidden');
@@ -1066,17 +1222,16 @@
       startLockTimer();
     }
 
-    // === APP-WIDE LOCK TOGGLE ===
     function toggleLock() {
       isLocked = !isLocked;
       const btn = document.getElementById('lock-toggle-btn');
       if (isLocked) {
-        btn.textContent = '🔒 App Locked';
+        btn.textContent = '🔒 Locked';
         btn.classList.add('text-red-400', 'border-red-400/30');
         btn.classList.remove('text-gray-300');
         showLockOverlay();
       } else {
-        btn.textContent = '🔓 App Unlocked';
+        btn.textContent = '🔓 Unlocked';
         btn.classList.remove('text-red-400', 'border-red-400/30');
         btn.classList.add('text-gray-300');
         hideLockOverlay();
@@ -1084,26 +1239,22 @@
     }
 
     function unlockApp() {
-      // Simulate unlock from lock screen
       document.getElementById('scene-lock-screen').classList.add('hidden');
-      if (document.getElementById('scene-main').classList.contains('hidden')) {
-        showScene('scene-main');
-      }
+      if (document.getElementById('scene-main').classList.contains('hidden')) showScene('scene-main');
       isLocked = false;
       const btn = document.getElementById('lock-toggle-btn');
-      btn.textContent = '🔓 App Unlocked';
+      btn.textContent = '🔓 Unlocked';
       btn.classList.remove('text-red-400', 'border-red-400/30');
       btn.classList.add('text-gray-300');
       startLockTimer();
     }
 
-    // Reset lock timer on user activity
+    // Activity resets timer
     document.addEventListener('click', () => {
       if (!document.getElementById('lock-overlay').classList.contains('hidden')) return;
       if (!document.getElementById('scene-lock-screen').classList.contains('hidden')) return;
       if (timerInterval) lockTimer = 60;
     });
-
     document.addEventListener('keydown', () => {
       if (!document.getElementById('lock-overlay').classList.contains('hidden')) return;
       if (!document.getElementById('scene-lock-screen').classList.contains('hidden')) return;
