@@ -4,17 +4,16 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Context as _;
-use tracing::{info, warn};
+use tracing::info;
 use uuid::Uuid;
 use zed::unstable::{
     gpui::{
         self, Action, Animation, AnimationExt as _, AppContext as _, Entity, EventEmitter,
-        FocusHandle, Focusable, Image, ImageSource, actions, bounce, img, linear_color_stop,
-        linear_gradient, quadratic, rgb, rgba, svg, white,
+        FocusHandle, Focusable, Image, actions, img, linear_color_stop, linear_gradient, quadratic,
+        rgb, rgba,
     },
     ui::{
-        ActiveTheme, App, Color, Context, ContextMenu, FluentBuilder as _, IconName,
+        ActiveTheme, App, Context, ContextMenu, FluentBuilder as _, IconName,
         InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Pixels,
         PopoverMenu, Render, SharedString, StatefulInteractiveElement, Styled, Tooltip, Window,
         div, h_flex, px, v_flex,
@@ -27,9 +26,9 @@ use zed::unstable::{
 };
 
 use crate::{
-    components::{dropdown::Dropdown, profile_bar::ProfileBar, space_header::SpaceHeader},
+    components::{dropdown::Dropdown, space_header::SpaceHeader},
     identicon,
-    profiles::{Profile, ProfileHandle, ProfilesExt as _},
+    profiles::{Profile, ProfilesExt as _},
     views::connections::ConnectionsUi,
 };
 use plugin_willow::{WillowExt, space::Space};
@@ -59,36 +58,6 @@ pub fn init(cx: &mut App) {
         workspace.register_action(|workspace, _: &TogglePanel, window, cx| {
             workspace.toggle_panel_focus::<PanelRoot>(window, cx);
         });
-        // .register_action({
-        //     let panel = panel.clone();
-        //     move |_workspace, _: &FocusConnections, _window, cx| {
-        //         panel.update(cx, |panel, _cx| {
-        //             //
-        //             info!("Focus Connections");
-        //             panel.content = PanelContent::Home(HomeContent::Connections);
-        //         })
-        //     }
-        // })
-        // .register_action({
-        //     let panel = panel.clone();
-        //     move |_workspace, _: &FocusDirectMessages, _window, cx| {
-        //         panel.update(cx, |panel, _cx| {
-        //             //
-        //             info!("Focus Direct Messages");
-        //             panel.content = PanelContent::Home(HomeContent::DirectMessages);
-        //         })
-        //     }
-        // })
-        // .register_action({
-        //     let panel = panel.clone();
-        //     move |_workspace, _: &FocusSettings, _window, cx| {
-        //         panel.update(cx, |panel, _cx| {
-        //             //
-        //             info!("Focus Settings");
-        //             panel.content = PanelContent::Home(HomeContent::Settings);
-        //         })
-        //     }
-        // });
     })
     .detach();
 }
@@ -98,7 +67,7 @@ pub struct PanelRoot {
     content: PanelContent,
     focus_handle: FocusHandle,
     width: Option<Pixels>,
-    workspace: Entity<Workspace>,
+    _workspace: Entity<Workspace>,
 
     pub(crate) login_state: LoginState,
     pub(crate) display_name_input: Entity<InputField>,
@@ -172,7 +141,7 @@ impl PanelRoot {
             content: PanelContent::Home(HomeContent::Settings),
             focus_handle: cx.focus_handle(),
             width: None,
-            workspace,
+            _workspace: workspace,
 
             login_state: LoginState::Picker,
             display_name_input,
@@ -202,152 +171,25 @@ impl Render for PanelRoot {
     }
 }
 
-// impl Render for PanelRoot {
-//     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-//         div()
-//             .h_full()
-//             .bg(cx.theme().colors().editor_background)
-//             .w(self.width.unwrap_or(px(300.)) - px(1.))
-//             .on_action(cx.listener(|this, _: &FocusConnections, window, cx| {
-//                 info!("Action: FocusConnections");
-//                 this.content = PanelContent::Home(HomeContent::Connections);
-//             }))
-//             .on_action(cx.listener(|this, _: &FocusDirectMessages, window, cx| {
-//                 info!("Action: FocusDirectMessages");
-//                 this.content = PanelContent::Home(HomeContent::DirectMessages);
-//             }))
-//             .on_action(cx.listener(|this, _: &FocusSettings, window, cx| {
-//                 info!("Action: FocusSettings");
-//                 this.content = PanelContent::Home(HomeContent::Settings);
-//             }))
-//             .child(self.render_active_panel(window, cx))
-//     }
-// }
-
 impl PanelRoot {
     fn render_profile_panel(
         &mut self,
-        profile: Entity<Profile>,
+        _profile: Entity<Profile>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        v_flex()
+        h_flex()
             .h_full()
             .w(self.width.unwrap_or(px(300.)) - px(1.))
-            // Profile space?
-            .gap_1()
+            .flex_grow()
+            // Spaces bar
             .child(
-                h_flex()
-                    .h_full()
-                    .flex_grow()
-                    // Spaces bar
-                    .child(
-                        //
-                        self.render_spaces_column(window, cx),
-                    )
-                    .child(
-                        div()
-                            .h_full()
-                            .w_0()
-                            .mt_2()
-                            .border_1()
-                            .border_color(cx.theme().colors().border),
-                    )
-                    // Active space content
-                    .child(
-                        //
-                        self.render_panel_content(window, cx),
-                    ),
+                //
+                self.render_spaces_column(window, cx),
             )
-            // Profile bar/selector
-            .child(self.render_bottom_bar(profile, window, cx))
-    }
-
-    fn render_bottom_bar(
-        &mut self,
-        profile: Entity<Profile>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        h_flex()
-            .w_full()
-            //
-            .p_1()
-            .child(ProfileBar::new(profile))
-        // .map(|el| {
-        //     match cx.willow().active_profile() {
-        //         None => {
-        //             //
-        //             el
-        //                 // Bottom bar initialization
-        //                 .child(
-        //                     //
-        //                     // self.render_bottom_bar_create_profile(window, cx),
-        //                     self.render_bottom_bar_create_profile_button(window, cx),
-        //                 )
-        //         }
-        //         Some(profile) => {
-        //             //
-        //             el
-        //                 //
-        //                 .child(
-        //                     //
-        //                     ProfileBar::new(profile),
-        //                 )
-        //         }
-        //     }
-        // })
-    }
-
-    fn render_bottom_bar_create_profile_button(
-        &mut self,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        h_flex()
-            .size_full()
-            .bg(cx.theme().colors().panel_background)
-            .p_1()
-            .rounded_lg()
             .child(
-                div()
-                    .id("create-profile-bar-button")
-                    .w_full()
-                    //
-                    .p_2()
-                    .rounded_lg()
-                    .hover(|style| {
-                        style
-                            //
-                            .bg(cx.theme().colors().ghost_element_hover)
-                    })
-                    .active(|style| {
-                        style
-                            //
-                            .bg(cx.theme().colors().ghost_element_active)
-                    })
-                    .on_click(cx.listener(|this, _e, window, cx| {
-                        info!("Clicked Create Profile");
-                        // this.workspace.update(cx, |workspace, cx| {
-                        //     CreateProfileModal::toggle(workspace, window, cx);
-                        // })
-                    }))
-                    .child(
-                        img(PathBuf::from(".assets/create-profile.svg"))
-                            .size(px(12. * 4.))
-                            .mx_auto()
-                            .with_animation(
-                                "create-profile-bounce",
-                                Animation::new(Duration::from_millis(1800))
-                                    .repeat()
-                                    .with_easing(bounce(quadratic)),
-                                move |this, t| {
-                                    this
-                                        //
-                                        .bottom(px((t * 6.) - 3.))
-                                },
-                            ),
-                    ),
+                //
+                self.render_panel_content(window, cx),
             )
     }
 
@@ -358,9 +200,9 @@ impl PanelRoot {
     ) -> impl IntoElement {
         v_flex()
             .id("spaces-column")
+            .bg(cx.theme().colors().editor_background)
             .h_full()
-            .pt_2()
-            .px_2()
+            .p_2()
             .gap_1()
             .overflow_y_scroll()
             .child(
@@ -377,7 +219,7 @@ impl PanelRoot {
                         //
                         div()
                             //
-                            .p(px(2.))
+                            .p(px(1.))
                             .rounded_xl()
                             .child(
                                 //
@@ -432,13 +274,6 @@ impl PanelRoot {
                     .hover(|style| style.opacity(0.6))
                     .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                     .rounded_lg()
-                    // .map(|el| {
-                    //     if space.read(cx).is_communal() {
-                    //         el.rounded_lg()
-                    //     } else {
-                    //         el.rounded_full()
-                    //     }
-                    // })
                     .border_1()
                     .border_color(cx.theme().colors().border)
                     .tooltip(Tooltip::text(space.read(cx).name()))
@@ -455,66 +290,26 @@ impl PanelRoot {
                             .read(cx)
                             .icon_path()
                             .unwrap_or_else(|| Path::new(&".assets/create-space.svg")))
-                        // img(PathBuf::from(".assets/galvanized.png"))
                         .size(px(48.))
                         .rounded_lg(),
-                        //
-                        // .map(|el| {
-                        //     if space.read(cx).is_communal() {
-                        //         el.rounded_lg()
-                        //     } else {
-                        //         el.rounded_full()
-                        //     }
-                        // }),
                     )
             }))
             .child(div().flex_grow())
             .child({
-                // Bounce when empty to prompt user to create a space
-                let new_space_bounces = true;
-                // cx.willow().active_profile().is_some() && cx.willow().spaces().is_empty();
-
                 div()
                     //
                     .id("create-space")
                     .bg(cx.theme().colors().panel_background)
                     .rounded_xl()
-                    .hover(|style| {
-                        style
-                            //
-                            .bg(cx.theme().colors().ghost_element_hover)
-                    })
-                    .active(|style| {
-                        style
-                            //
-                            .bg(cx.theme().colors().ghost_element_active)
-                    })
-                    .on_click(cx.listener(|this, _e, window, cx| {
+                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                    .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                    .on_click(cx.listener(|_this, _e, _window, _cx| {
                         info!("Clicked create space");
-                        // this.workspace.update(cx, |workspace, cx| {
-                        //     CreateSpaceModal::toggle(workspace, window, cx);
-                        // })
                     }))
                     .child(
                         img(PathBuf::from(".assets/create-space.svg"))
                             .size(px(48.))
                             .tooltip(Tooltip::text("Create Space")),
-                    )
-                    .with_animation(
-                        "create-space-animation",
-                        Animation::new(Duration::from_millis(1800))
-                            .repeat()
-                            .with_easing(bounce(quadratic)),
-                        move |el, t| {
-                            if new_space_bounces {
-                                el
-                                    //
-                                    .bottom(px((t * 6.) - 0.))
-                            } else {
-                                //
-                                el
-                            }
-                        },
                     )
             })
     }
@@ -545,16 +340,10 @@ impl PanelRoot {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        // v_flex()
-        //     .size_full()
-        //     //
-        //     .p_1()
-        //     .child(self.connections_ui.clone())
-
         let panel = cx.entity();
-        let menu = ContextMenu::build(window, cx, |this, window, cx| {
+        let menu = ContextMenu::build(window, cx, |this, _window, _cx| {
             this.custom_entry(
-                |window, cx| {
+                |_window, _cx| {
                     //
                     div()
                         //
@@ -564,10 +353,10 @@ impl PanelRoot {
                 },
                 {
                     let panel = panel.clone();
-                    move |window, cx| {
+                    move |_window, cx| {
                         //
                         info!("Focus Connections");
-                        panel.update(cx, |panel, cx| {
+                        panel.update(cx, |panel, _cx| {
                             //
                             panel.content = PanelContent::Home(HomeContent::Connections);
                         });
@@ -575,7 +364,7 @@ impl PanelRoot {
                 },
             )
             .custom_entry(
-                |window, cx| {
+                |_window, _cx| {
                     //
                     div()
                         //
@@ -585,10 +374,10 @@ impl PanelRoot {
                 },
                 {
                     let panel = panel.clone();
-                    move |window, cx| {
+                    move |_window, cx| {
                         //
                         info!("Focus Direct Messages");
-                        panel.update(cx, |panel, cx| {
+                        panel.update(cx, |panel, _cx| {
                             //
                             panel.content = PanelContent::Home(HomeContent::DirectMessages);
                         });
@@ -596,7 +385,7 @@ impl PanelRoot {
                 },
             )
             .custom_entry(
-                move |window, cx| {
+                move |_window, _cx| {
                     //
                     div()
                         //
@@ -606,10 +395,10 @@ impl PanelRoot {
                 },
                 {
                     let panel = panel.clone();
-                    move |window, cx| {
+                    move |_window, cx| {
                         //
                         info!("Focus Settings");
-                        panel.update(cx, |panel, cx| {
+                        panel.update(cx, |panel, _cx| {
                             //
                             panel.content = PanelContent::Home(HomeContent::Settings);
                         });
@@ -620,14 +409,13 @@ impl PanelRoot {
 
         v_flex()
             //
-            .debug()
             .size_full()
             .p_2()
             .gap_2()
             .child(
                 //
                 PopoverMenu::new("home-panel-dropdown")
-                    .menu(move |window, cx| {
+                    .menu(move |_window, _cx| {
                         //
                         Some(menu.clone())
                     })
