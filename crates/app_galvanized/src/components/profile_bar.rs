@@ -12,7 +12,7 @@ use zed::unstable::{
 
 use plugin_willow::WillowExt as _;
 
-use crate::profiles::Profile;
+use crate::users::User;
 
 pub fn init(_cx: &mut App) {
     //
@@ -20,11 +20,11 @@ pub fn init(_cx: &mut App) {
 
 #[derive(IntoElement)]
 pub struct ProfileBar {
-    profile: Entity<Profile>,
+    profile: Entity<User>,
 }
 
 impl ProfileBar {
-    pub fn new(profile: Entity<Profile>) -> Self {
+    pub fn new(profile: Entity<User>) -> Self {
         Self { profile }
     }
 }
@@ -76,11 +76,11 @@ impl EventEmitter<()> for ProfileBar {}
 /// The part of the ProfileBar that shows the avatar, name, and status
 #[derive(IntoElement)]
 struct ProfileNugget {
-    profile: Entity<Profile>,
+    profile: Entity<User>,
 }
 
 impl ProfileNugget {
-    pub fn new(profile: Entity<Profile>) -> Self {
+    pub fn new(profile: Entity<User>) -> Self {
         Self { profile }
     }
 }

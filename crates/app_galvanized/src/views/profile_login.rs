@@ -16,7 +16,7 @@ use zed::unstable::{
 
 use crate::{
     identicon,
-    profiles::{Profile, ProfileHandle as _, ProfilesExt as _},
+    users::{User, UserHandle as _, UsersExt as _},
     views::panel_root::{LoginState, PanelRoot},
 };
 
@@ -88,7 +88,7 @@ impl PanelRoot {
 
     fn render_login_prompt(
         &mut self,
-        profile: Entity<Profile>,
+        profile: Entity<User>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -484,7 +484,7 @@ impl PanelRoot {
                         }
 
                         cx.spawn(async move |this, cx| {
-                            let profile = cx.profiles().create(display_name, password).await?;
+                            let profile = cx.users().create(display_name, password).await?;
                             this.update(cx, |this, _cx| {
                                 this.profiles.push(profile.clone());
                                 this.active_profile = Some(profile);

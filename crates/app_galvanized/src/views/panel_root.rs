@@ -21,7 +21,7 @@ use zed::unstable::{
 
 use crate::{
     identicon,
-    profiles::{Profile, ProfilesExt as _},
+    users::{User, UsersExt as _},
     views::connections::ConnectionsUi,
 };
 
@@ -151,8 +151,8 @@ pub struct PanelRoot {
     pub(crate) create_password_confirmation_input: Entity<InputField>,
     pub(crate) login_password_input: Entity<InputField>,
     pub(crate) profile_identicon: Arc<gpui::Image>,
-    pub(crate) profiles: Vec<Entity<Profile>>,
-    pub(crate) active_profile: Option<Entity<Profile>>,
+    pub(crate) profiles: Vec<Entity<User>>,
+    pub(crate) active_profile: Option<Entity<User>>,
 
     // Sidebar UI state
     active_app: Option<AppId>,
@@ -161,7 +161,7 @@ pub struct PanelRoot {
 pub enum LoginState {
     Picker,
     CreateProfile,
-    LoginPrompt(Entity<Profile>),
+    LoginPrompt(Entity<User>),
 }
 
 impl PanelRoot {
@@ -183,7 +183,7 @@ impl PanelRoot {
         let profile_identicon = identicon(id.as_bytes());
 
         cx.spawn(async move |this, cx| {
-            let profiles = cx.profiles().list().await?;
+            let profiles = cx.users().list().await?;
             this.update(cx, |this, _cx| {
                 this.profiles = profiles;
             })?;
@@ -226,7 +226,7 @@ impl Render for PanelRoot {
 impl PanelRoot {
     fn render_profile_panel(
         &mut self,
-        profile: Entity<Profile>,
+        profile: Entity<User>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -243,7 +243,7 @@ impl PanelRoot {
 
     fn render_left_rail(
         &mut self,
-        profile: Entity<Profile>,
+        profile: Entity<User>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -311,7 +311,7 @@ impl PanelRoot {
                     .px_1()
                     .w_full()
                     .children([].into_iter().enumerate().map(
-                        |(i, space_entity): (usize, Entity<Profile>)| {
+                        |(i, space_entity): (usize, Entity<User>)| {
                             let name = space_entity.read(cx).name();
 
                             let gradient = linear_gradient(

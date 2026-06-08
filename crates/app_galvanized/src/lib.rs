@@ -5,7 +5,7 @@ use zed::unstable::gpui::{App, Image, ImageFormat};
 
 mod components;
 pub mod observability;
-mod profiles;
+mod users;
 mod views;
 
 pub fn init(cx: &mut App) {
@@ -17,7 +17,7 @@ pub fn init(cx: &mut App) {
     plugin_calendar::init(cx);
     plugin_chat::init(cx);
     plugin_theme_palette::init(cx);
-    profiles::init(cx);
+    users::init(cx);
     views::init(cx);
 }
 
