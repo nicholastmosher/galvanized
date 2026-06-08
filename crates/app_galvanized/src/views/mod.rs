@@ -2,7 +2,7 @@ use zed::unstable::ui::App;
 
 pub mod connections;
 pub mod panel_root;
-pub mod profile_login;
+pub mod user_login;
 pub mod vault_login_item;
 
 pub fn init(cx: &mut App) {

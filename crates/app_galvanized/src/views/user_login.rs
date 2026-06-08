@@ -55,7 +55,7 @@ impl PanelRoot {
                                 match &self.login_state {
                                     LoginState::Picker => {
                                         //
-                                        self.render_profile_picker(window, cx).into_any_element()
+                                        self.render_login_picker(window, cx).into_any_element()
                                     }
                                     LoginState::LoginPrompt(profile) => {
                                         //
@@ -250,7 +250,7 @@ impl PanelRoot {
             )
     }
 
-    fn render_profile_picker(
+    fn render_login_picker(
         &mut self,
         _window: &mut Window,
         cx: &mut Context<Self>,
