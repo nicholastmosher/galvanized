@@ -20,11 +20,11 @@ use zed::unstable::{
     ui::{App, SharedString},
 };
 
-use crate::{model::Willowize, space::Space};
+use crate::model::Willowize;
 
 pub mod model;
 // pub mod profile;
-pub mod space;
+// pub mod space;
 // pub mod tasks;
 pub mod ui;
 pub mod willow_serde;
@@ -72,11 +72,7 @@ pub struct WillowCx<'a, C: AppContext> {
 
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
 struct WillowState {
-    spaces: Vec<Entity<Space>>,
-    active_space: Option<Entity<Space>>,
-
     _store_path: PathBuf,
-
     store: MemoryStore,
 }
 
@@ -327,29 +323,29 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
     //     profile
     // }
 
-    pub fn create_owned_space(&mut self, name: impl Into<SharedString>) -> Entity<Space> {
-        let (_namespace_id, ns_secret) =
-            randomly_generate_owned_namespace(&mut rand_core_0_6_4::OsRng);
-        let space = self.cx.new(move |cx| Space::new(name, ns_secret, cx));
+    // pub fn create_owned_space(&mut self, name: impl Into<SharedString>) -> Entity<Space> {
+    //     let (_namespace_id, ns_secret) =
+    //         randomly_generate_owned_namespace(&mut rand_core_0_6_4::OsRng);
+    //     let space = self.cx.new(move |cx| Space::new(name, ns_secret, cx));
 
-        self.cx.update_entity(&self.entity, |state, _cx| {
-            state.spaces.push(space.clone());
-        });
+    //     self.cx.update_entity(&self.entity, |state, _cx| {
+    //         state.spaces.push(space.clone());
+    //     });
 
-        space
-    }
+    //     space
+    // }
 
-    pub fn create_communal_space(&mut self, name: impl Into<SharedString>) -> Entity<Space> {
-        let (_namespace_id, ns_secret) =
-            randomly_generate_communal_namespace(&mut rand_core_0_6_4::OsRng);
-        let space = self.cx.new(move |cx| Space::new(name, ns_secret, cx));
+    // pub fn create_communal_space(&mut self, name: impl Into<SharedString>) -> Entity<Space> {
+    //     let (_namespace_id, ns_secret) =
+    //         randomly_generate_communal_namespace(&mut rand_core_0_6_4::OsRng);
+    //     let space = self.cx.new(move |cx| Space::new(name, ns_secret, cx));
 
-        self.cx.update_entity(&self.entity, |state, _cx| {
-            state.spaces.push(space.clone());
-        });
+    //     self.cx.update_entity(&self.entity, |state, _cx| {
+    //         state.spaces.push(space.clone());
+    //     });
 
-        space
-    }
+    //     space
+    // }
 
     // pub fn active_profile(&self) -> Option<Entity<Profile>> {
     //     self.cx
@@ -361,21 +357,21 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
     //         .read_entity(&self.entity, |state, _cx| state.profiles.clone())
     // }
 
-    pub fn active_space(&self) -> Option<Entity<Space>> {
-        self.cx
-            .read_entity(&self.entity, |state, _cx| state.active_space.clone())
-    }
+    // pub fn active_space(&self) -> Option<Entity<Space>> {
+    //     self.cx
+    //         .read_entity(&self.entity, |state, _cx| state.active_space.clone())
+    // }
 
-    pub fn set_active_space(&mut self, space: Entity<Space>) {
-        self.cx.update_entity(&self.entity, |state, _cx| {
-            state.active_space = Some(space);
-        });
-    }
+    // pub fn set_active_space(&mut self, space: Entity<Space>) {
+    //     self.cx.update_entity(&self.entity, |state, _cx| {
+    //         state.active_space = Some(space);
+    //     });
+    // }
 
-    pub fn spaces(&self) -> Vec<Entity<Space>> {
-        self.cx
-            .read_entity(&self.entity, |state, _cx| state.spaces.clone())
-    }
+    // pub fn spaces(&self) -> Vec<Entity<Space>> {
+    //     self.cx
+    //         .read_entity(&self.entity, |state, _cx| state.spaces.clone())
+    // }
 
     // Todo
     // - this needs to be a friendly easy api
@@ -458,13 +454,9 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
 
 impl WillowState {
     fn new(store_path: PathBuf) -> Self {
-        let spaces = vec![];
-
         let store = MemoryStore::new();
 
         Self {
-            spaces,
-            active_space: None,
             _store_path: store_path,
             store,
         }

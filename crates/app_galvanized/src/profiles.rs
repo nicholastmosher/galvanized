@@ -328,6 +328,35 @@ impl Profile {
     pub fn name(&self) -> SharedString {
         self.metadata.profile_name.clone()
     }
+
+    /// Call the give function with the profile's secure content, if loaded
+    ///
+    /// If the content is not loaded, spawns a task to load it, after which subsequent
+    /// calls will provide the content.
+    pub fn with_content(
+        &mut self,
+        cx: &mut Context<Self>,
+        f: impl FnOnce(&mut ProfileContent),
+    ) -> Result<()> {
+        if let Some(mut vault) = self.unlocked_vault.take() {
+            let mut content = ProfileContent::new(&mut vault);
+            f(&mut content);
+            self.unlocked_vault = Some(vault);
+            return Ok(());
+        }
+
+        let task = cx.spawn(async move |this, cx| {
+            let Some(profile) = this.upgrade() else {
+                bail!("Profile weak handle has been dropped");
+            };
+
+            cx.profiles().load_content(&profile).await?;
+            anyhow::Ok(())
+        });
+        self.unlock_task = Some(task);
+
+        Ok(())
+    }
 }
 
 /// API object providing Profile behavior that is gated behind vault unlock.
@@ -341,21 +370,11 @@ impl<'a> ProfileContent<'a> {
     }
 
     pub fn namespaces(&self) -> Vec<NamespaceId> {
-        //
-        self.vault
-            .namespaces
-            .iter()
-            .map(|ns| ns.corresponding_namespace_id())
-            .collect()
+        self.vault.namespaces.iter().map(|ns| ns.id()).collect()
     }
 
     pub fn subspaces(&self) -> Vec<SubspaceId> {
-        //
-        self.vault
-            .subspaces
-            .iter()
-            .map(|s| s.corresponding_subspace_id())
-            .collect()
+        self.vault.subspaces.iter().map(|s| s.id()).collect()
     }
 }
 
@@ -376,16 +395,45 @@ impl ProfileMetadata {
     }
 }
 
-/// Data structure to serialize the secret content of a [`Profile`]
+/// Namespace data that gets seriazlied and stored in a user's vault
 #[serde_as]
+#[derive(derive_more::Debug, Serialize, Deserialize)]
+pub struct Namespace {
+    name: SharedString,
+    #[debug("NamespaceSecret")]
+    #[serde_as(as = "NamespaceSecretSerde")]
+    secret: NamespaceSecret,
+}
+
+impl Namespace {
+    /// Returns the [`NamespaceId`] of this namespace
+    pub fn id(&self) -> NamespaceId {
+        self.secret.corresponding_namespace_id()
+    }
+}
+
+#[serde_as]
+#[derive(derive_more::Debug, Serialize, Deserialize)]
+pub struct Subspace {
+    name: SharedString,
+    #[debug("SubspaceSecret")]
+    #[serde_as(as = "SubspaceSecretSerde")]
+    secret: SubspaceSecret,
+}
+
+impl Subspace {
+    /// Returns the [`SubspaceId`] of this subspace
+    pub fn id(&self) -> SubspaceId {
+        self.secret.corresponding_subspace_id()
+    }
+}
+
+/// Data structure to serialize the secret content of a [`Profile`]
 #[derive(derive_more::Debug, Serialize, Deserialize)]
 #[debug("ProfileVault")]
 pub struct ProfileVault {
-    #[serde_as(as = "Vec<NamespaceSecretSerde>")]
-    namespaces: Vec<NamespaceSecret>,
-
-    #[serde_as(as = "Vec<SubspaceSecretSerde>")]
-    subspaces: Vec<SubspaceSecret>,
+    namespaces: Vec<Namespace>,
+    subspaces: Vec<Subspace>,
 }
 
 impl ProfileVault {
