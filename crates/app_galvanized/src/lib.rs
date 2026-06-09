@@ -3,7 +3,6 @@ use image::imageops::FilterType;
 use serde::{Deserialize, Serialize};
 use zed::unstable::gpui::{App, Image, ImageFormat};
 
-mod components;
 pub mod observability;
 mod users;
 mod views;
