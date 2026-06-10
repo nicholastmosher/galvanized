@@ -211,22 +211,28 @@ impl<'a, C: AppContext> UsersCx<'a, C> {
     }
 
     /// Write the user's vault-protected content back to the vault, if it's unlocked
-    async fn write_content(&mut self, user: &Entity<User>) -> Result<()> {
+    async fn update_content(
+        &mut self,
+        user: &Entity<User>,
+        update_fn: impl FnOnce(&mut UserVault),
+    ) -> Result<()> {
+        // Reload the user's content from the vault before updating
+        self.load_content(user).await?;
+
         let vault_handle = self
             .cx
             .read_entity(user, |user, _cx| user.vault_handle.clone())
-            .context("user is not unlocked")?;
+            .context("user's vault is not unlocked")?;
 
         let user_vault_content = self
             .cx
-            .read_entity(user, |user, cx| {
-                user.unlocked_vault
-                    .as_ref()
-                    .map(|user_vault| serde_json::to_vec(user_vault))
+            .update_entity(user, |user, cx| {
+                let vault = user.unlocked_vault.as_mut()?;
+                update_fn(&vault);
+                serde_json::to_vec(vault).context("failed to serialize UserVault")
             })
-            .transpose()
-            .context("failed to serialize UserVault")?
-            .context("cannot write UserVault, not loaded")?;
+            .transpose()?
+            .context("cannot update UserVault, not loaded")?;
 
         self.cx
             .vaults()
@@ -234,6 +240,8 @@ impl<'a, C: AppContext> UsersCx<'a, C> {
                 *vault.secret() = user_vault_content;
             })
             .await?;
+
+        Ok(())
     }
 }
 
