@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
+derive_more = { workspace = true, features = ["display", "debug"] }
 futures-concurrency.workspace = true
 hex.workspace = true
 plugin-vault.workspace = true

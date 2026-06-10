@@ -2,7 +2,10 @@ use std::collections::BTreeMap;
 
 use anyhow::{Context as _, Result, bail};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
-use plugin_willow::willow_serde::{NamespaceSecretSerde, SubspaceSecretSerde};
+use plugin_willow::{
+    Namespace, Subspace,
+    willow_serde::{NamespaceSecretSerde, SubspaceSecretSerde},
+};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::info;
@@ -206,6 +209,32 @@ impl<'a, C: AppContext> UsersCx<'a, C> {
 
         Ok(())
     }
+
+    /// Write the user's vault-protected content back to the vault, if it's unlocked
+    async fn write_content(&mut self, user: &Entity<User>) -> Result<()> {
+        let vault_handle = self
+            .cx
+            .read_entity(user, |user, _cx| user.vault_handle.clone())
+            .context("user is not unlocked")?;
+
+        let user_vault_content = self
+            .cx
+            .read_entity(user, |user, cx| {
+                user.unlocked_vault
+                    .as_ref()
+                    .map(|user_vault| serde_json::to_vec(user_vault))
+            })
+            .transpose()
+            .context("failed to serialize UserVault")?
+            .context("cannot write UserVault, not loaded")?;
+
+        self.cx
+            .vaults()
+            .update(vault_handle, |vault| {
+                *vault.secret() = user_vault_content;
+            })
+            .await?;
+    }
 }
 
 pub trait UserHandle {
@@ -385,39 +414,6 @@ impl UserMetadata {
         Self {
             user_name: user_name.into(),
         }
-    }
-}
-
-/// Namespace data that gets seriazlied and stored in a user's vault
-#[serde_as]
-#[derive(derive_more::Debug, Serialize, Deserialize)]
-pub struct Namespace {
-    name: SharedString,
-    #[debug("NamespaceSecret")]
-    #[serde_as(as = "NamespaceSecretSerde")]
-    secret: NamespaceSecret,
-}
-
-impl Namespace {
-    /// Returns the [`NamespaceId`] of this namespace
-    pub fn id(&self) -> NamespaceId {
-        self.secret.corresponding_namespace_id()
-    }
-}
-
-#[serde_as]
-#[derive(derive_more::Debug, Serialize, Deserialize)]
-pub struct Subspace {
-    name: SharedString,
-    #[debug("SubspaceSecret")]
-    #[serde_as(as = "SubspaceSecretSerde")]
-    secret: SubspaceSecret,
-}
-
-impl Subspace {
-    /// Returns the [`SubspaceId`] of this subspace
-    pub fn id(&self) -> SubspaceId {
-        self.secret.corresponding_subspace_id()
     }
 }
 

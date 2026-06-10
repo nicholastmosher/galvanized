@@ -15200,6 +15200,7 @@ name = "plugin-willow"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "derive_more 2.1.1",
  "futures-concurrency",
  "hex",
  "plugin-vault",
