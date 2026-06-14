@@ -8,6 +8,7 @@ use anyhow::{Context as _, Result};
 use capsec::{CapProvider, SendCap};
 use derive_more::Debug;
 use futures::{Stream, StreamExt as _};
+use strict_cap::{StrictRevoker, StrictSendCap};
 
 use crate::{
     vault_actor::{
@@ -16,8 +17,7 @@ use crate::{
         read_vault::ReadVaultRequest, unlock_vault::UnlockVaultRequest,
         update_vault::UpdateVaultRequest,
     },
-    vault_cap::{VaultAccess, VaultRevoker, VaultSendCap},
-    vault_db::{VaultId, VaultsDb},
+    vault_db::{VaultAccess, VaultId, VaultsDb},
 };
 
 pub mod create_vault;
@@ -37,17 +37,17 @@ const ACTOR_CHANNEL_CAPACITY: usize = 50;
 pub struct VaultHandle {
     vault_id: VaultId,
     #[debug(skip)]
-    cap: VaultSendCap<VaultAccess, VaultId>,
+    cap: StrictSendCap<VaultAccess, VaultId>,
     #[debug(skip)]
-    revoker: VaultRevoker,
+    revoker: StrictRevoker,
 }
 
 impl VaultHandle {
     /// Creates a new [`VaultHandle`] with the given ID, capability, and revoker.
     pub fn new(
         vault_id: VaultId,
-        cap: VaultSendCap<VaultAccess, VaultId>,
-        revoker: VaultRevoker,
+        cap: StrictSendCap<VaultAccess, VaultId>,
+        revoker: StrictRevoker,
     ) -> Self {
         Self {
             vault_id,

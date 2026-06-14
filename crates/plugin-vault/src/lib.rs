@@ -12,15 +12,13 @@ use crate::{
     error::{ReadVaultError, VaultError},
     unlock_ui::UnlockPrompt,
     vault_actor::{VaultActor, VaultActorHandle, VaultHandle},
-    vault_cap::VaultAccess,
-    vault_db::{VaultId, VaultMetadataRef, VaultMut, VaultRef},
+    vault_db::{VaultAccess, VaultId, VaultMetadataRef, VaultMut, VaultRef},
 };
 
 pub mod encryption;
 pub mod error;
 pub mod unlock_ui;
 pub mod vault_actor;
-pub mod vault_cap;
 pub mod vault_db;
 
 actions!(vault, [Lock, Unlock]);

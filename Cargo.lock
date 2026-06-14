@@ -15185,6 +15185,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "strict-cap",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
@@ -18942,6 +18943,14 @@ name = "strength_reduce"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe895eb47f22e2ddd4dabc02bce419d2e643c8e3b585c78158b349195bc24d82"
+
+[[package]]
+name = "strict-cap"
+version = "0.1.0"
+dependencies = [
+ "capsec",
+ "capsec-core",
+]
 
 [[package]]
 name = "strict-num"

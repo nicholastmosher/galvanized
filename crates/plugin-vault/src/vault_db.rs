@@ -1,4 +1,5 @@
 use anyhow::{Context as _, Result};
+use capsec::{CapSecError, Scope};
 use derive_more::{Debug, Display};
 use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
@@ -34,6 +35,10 @@ use crate::{
 #[folder = "assets/"]
 struct Assets;
 
+/// Read/write permission for a vault
+#[capsec::permission]
+pub struct VaultAccess;
+
 /// A unique ID for a [`Vault`]
 ///
 /// This is also used as a [`Scope`] for narrowing capabilities
@@ -63,6 +68,28 @@ impl FromStr for VaultId {
     fn from_str(s: &str) -> Result<Self> {
         let _uuid = Uuid::from_str(s)?;
         Ok(Self(s.to_string()))
+    }
+}
+
+impl Scope for VaultId {
+    fn check(&self, target: &str) -> Result<(), CapSecError> {
+        let target_uuid =
+            target
+                .parse::<Uuid>()
+                .map_err(|_parse_error| CapSecError::OutOfScope {
+                    target: target.to_string(),
+                    scope: self.to_string(),
+                })?;
+
+        // VaultId matches iff the target is exactly the same as the VaultId
+        if self.uuid() == target_uuid {
+            return Ok(());
+        }
+
+        Err(CapSecError::OutOfScope {
+            target: target.to_string(),
+            scope: self.to_string(),
+        })
     }
 }
 

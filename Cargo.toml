@@ -84,6 +84,7 @@ plugin-p2p = { path = "crates/plugin-p2p" }
 plugin-theme-palette = { path = "crates/plugin-theme-palette" }
 plugin-vault = { path = "crates/plugin-vault" }
 plugin-willow = { path = "crates/plugin-willow" }
+strict-cap = { path = "crates/strict-cap" }
 
 # iroh-automerge = { path = "crates/iroh-automerge" }
 # iroh-automerge = { path = "../../../../n0-computer/iroh-examples/iroh-automerge" }

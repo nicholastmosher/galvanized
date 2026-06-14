@@ -1,11 +1,11 @@
-//! Capabilities for vault management.
+//! Strict capability management.
 //!
-//! These capabilities are a combination of the following primitive caps:
+//! This is a combination of all of `capsec`'s runtime capability features:
 //!
 //! - Revokable capabilities
 //! - Timed capabilities
 //! - Attenuated capabilities
-//!   - Scoped to particular unlockable vaults
+//!   - Scoped to particular target instances
 
 use std::{
     marker::PhantomData,
@@ -17,45 +17,16 @@ use std::{
 };
 
 use capsec::{Cap, CapProvider, CapSecError, Permission, Scope, SendCap};
-use uuid::Uuid;
-
-use crate::vault_db::VaultId;
-
-/// Read/write permission for a vault
-#[capsec::permission]
-pub struct VaultAccess;
-
-impl Scope for VaultId {
-    fn check(&self, target: &str) -> Result<(), CapSecError> {
-        let target_uuid =
-            target
-                .parse::<Uuid>()
-                .map_err(|_parse_error| CapSecError::OutOfScope {
-                    target: target.to_string(),
-                    scope: self.to_string(),
-                })?;
-
-        // VaultId matches iff the target is exactly the same as the VaultId
-        if self.uuid() == target_uuid {
-            return Ok(());
-        }
-
-        Err(CapSecError::OutOfScope {
-            target: target.to_string(),
-            scope: self.to_string(),
-        })
-    }
-}
 
 /// A revocable, timed, scoped capability token proving the holder has permission `P`.
 ///
-/// Created via [`VaultCap::new`], which consumes a [`Cap<P>`] as proof of
-/// possession and returns a `(VaultCap<P>, VaultRevoker)` pair.
+/// Created via [`StrictCap::new`], which consumes a [`Cap<P>`] as proof of
+/// possession and returns a `(StrictCap<P>, StrictRevoker)` pair.
 ///
-/// `!Send + !Sync` by default — use [`make_send`](VaultCap::make_send) for
+/// `!Send + !Sync` by default — use [`make_send`](StrictCap::make_send) for
 /// cross-thread transfer. Cloning shares the same revocation state: revoking
 /// one clone revokes all of them.
-pub struct VaultCap<P, S>
+pub struct StrictCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
@@ -70,7 +41,7 @@ where
     expires_at: Instant,
 }
 
-impl<P, S> CapProvider<P> for VaultCap<P, S>
+impl<P, S> CapProvider<P> for StrictCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
@@ -80,18 +51,18 @@ where
     }
 }
 
-impl<P, S> VaultCap<P, S>
+impl<P, S> StrictCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
 {
     /// Creates a revocable capability by consuming a [`Cap<P>`] as proof of possession.
     ///
-    /// Returns a `(VaultCap<P>, VaultRevoker)` pair. The `Revoker` can invalidate
+    /// Returns a `(StrictCap<P>, StrictRevoker)` pair. The `Revoker` can invalidate
     /// this capability (and all its clones) from any thread.
-    pub fn new(cap: Cap<P>, ttl: Duration, scope: S) -> (Self, VaultRevoker) {
+    pub fn new(cap: Cap<P>, ttl: Duration, scope: S) -> (Self, StrictRevoker) {
         let revoked = Arc::new(AtomicBool::new(false));
-        let revoker = VaultRevoker {
+        let revoker = StrictRevoker {
             revoked: Arc::clone(&revoked),
         };
         let secrets_cap = Self {
@@ -106,7 +77,7 @@ where
         (secrets_cap, revoker)
     }
 
-    /// Attempts to obtain a [`Cap<P>`] from this vault capability.
+    /// Attempts to obtain a [`Cap<P>`] from this strict capability.
     ///
     /// Must pass three checks to obtain the capability:
     ///
@@ -136,7 +107,7 @@ where
     /// Advisory check — returns `true` if the capability has been revoked.
     ///
     /// The result is immediately stale; do not use for control flow.
-    /// Always use [`try_cap`](VaultCap::try_cap) for actual access.
+    /// Always use [`try_cap`](StrictCap::try_cap) for actual access.
     pub fn is_revoked(&self) -> bool {
         self.revoked.load(Ordering::Acquire)
     }
@@ -156,12 +127,12 @@ where
         self.expires_at.saturating_duration_since(Instant::now())
     }
 
-    /// Converts this capability into a [`VaultSendCap`] that can cross thread boundaries.
+    /// Converts this capability into a [`StrictSendCap`] that can cross thread boundaries.
     ///
     /// This is an explicit opt-in — you're acknowledging that this capability
     /// will be used in a multi-threaded context.
-    pub fn make_send(self) -> VaultSendCap<P, S> {
-        VaultSendCap {
+    pub fn make_send(self) -> StrictSendCap<P, S> {
+        StrictSendCap {
             _phantom: PhantomData,
             cap: self.cap,
 
@@ -172,7 +143,7 @@ where
     }
 }
 
-impl<P, S> Clone for VaultCap<P, S>
+impl<P, S> Clone for StrictCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
@@ -190,17 +161,17 @@ where
     }
 }
 
-/// A handle that can revoke its associated [`VaultCap`] (and all clones).
+/// A handle that can revoke its associated [`StrictCap`] (and all clones).
 ///
 /// `Revoker` is `Send + Sync` and `Clone` — multiple owners can hold revokers
 /// to the same capability, and any of them can revoke it from any thread.
 /// Revocation is idempotent: calling [`revoke`](Revoker::revoke) multiple times
 /// is safe and has no additional effect.
-pub struct VaultRevoker {
+pub struct StrictRevoker {
     revoked: Arc<AtomicBool>,
 }
 
-impl VaultRevoker {
+impl StrictRevoker {
     /// Revokes the associated capability. All subsequent calls to
     /// [`RuntimeCap::try_cap`] (and clones) will return `Err(CapSecError::Revoked)`.
     ///
@@ -215,7 +186,7 @@ impl VaultRevoker {
     }
 }
 
-impl Clone for VaultRevoker {
+impl Clone for StrictRevoker {
     fn clone(&self) -> Self {
         Self {
             revoked: Arc::clone(&self.revoked),
@@ -226,9 +197,9 @@ impl Clone for VaultRevoker {
 /// A thread-safe, revocable, timed, scoped capability token proving the holder
 /// has permission `P`.
 ///
-/// Created via [`VaultCap::make_send`]. Unlike [`VaultCap`], this implements
+/// Created via [`StrictCap::make_send`]. Unlike [`StrictCap`], this implements
 /// `Send + Sync`, making it usable with `std::thread::spawn`, `tokio::spawn`, etc.
-pub struct VaultSendCap<P, S>
+pub struct StrictSendCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
@@ -241,13 +212,13 @@ where
     expires_at: Instant,
 }
 
-// SAFETY: VaultSendCap is explicitly opted into cross-thread transfer via make_send().
+// SAFETY: StrictSendCap is explicitly opted into cross-thread transfer via make_send().
 // The inner Arc<AtomicBool> is already Send+Sync; PhantomData<P> is Send+Sync when P is.
 // Permission types are marker traits (ZSTs) that are always Send+Sync.
-unsafe impl<P: Permission, S: Scope + Clone> Send for VaultSendCap<P, S> {}
-unsafe impl<P: Permission, S: Scope + Clone> Sync for VaultSendCap<P, S> {}
+unsafe impl<P: Permission, S: Scope + Clone> Send for StrictSendCap<P, S> {}
+unsafe impl<P: Permission, S: Scope + Clone> Sync for StrictSendCap<P, S> {}
 
-impl<P, S> CapProvider<P> for VaultSendCap<P, S>
+impl<P, S> CapProvider<P> for StrictSendCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
@@ -257,18 +228,18 @@ where
     }
 }
 
-impl<P, S> VaultSendCap<P, S>
+impl<P, S> StrictSendCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,
 {
     /// Creates a revocable capability by consuming a [`Cap<P>`] as proof of possession.
     ///
-    /// Returns a `(VaultCap<P>, VaultRevoker)` pair. The `Revoker` can invalidate
+    /// Returns a `(StrictCap<P>, StrictRevoker)` pair. The `Revoker` can invalidate
     /// this capability (and all its clones) from any thread.
-    pub fn new(cap: SendCap<P>, ttl: Duration, scope: S) -> (Self, VaultRevoker) {
+    pub fn new(cap: SendCap<P>, ttl: Duration, scope: S) -> (Self, StrictRevoker) {
         let revoked = Arc::new(AtomicBool::new(false));
-        let revoker = VaultRevoker {
+        let revoker = StrictRevoker {
             revoked: Arc::clone(&revoked),
         };
         let secrets_cap = Self {
@@ -303,7 +274,7 @@ where
     /// Advisory check — returns `true` if the capability has been revoked.
     ///
     /// The result is immediately stale; do not use for control flow.
-    /// Always use [`try_cap`](VaultCap::try_cap) for actual access.
+    /// Always use [`try_cap`](StrictCap::try_cap) for actual access.
     pub fn is_revoked(&self) -> bool {
         self.revoked.load(Ordering::Acquire)
     }
@@ -324,7 +295,7 @@ where
     }
 }
 
-impl<P, S> Clone for VaultSendCap<P, S>
+impl<P, S> Clone for StrictSendCap<P, S>
 where
     P: Permission,
     S: Scope + Clone,

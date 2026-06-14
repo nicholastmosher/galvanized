@@ -1,10 +1,10 @@
 use anyhow::Result;
+use strict_cap::StrictSendCap;
 use tokio::sync::oneshot;
 
 use crate::{
     error::VaultError,
     vault_actor::{DEFAULT_VAULT_TIMEOUT, VaultActor, VaultActorHandle, VaultHandle},
-    vault_cap::VaultSendCap,
     vault_db::VaultId,
 };
 
@@ -78,7 +78,7 @@ impl VaultActor {
         // If the vault was unlocked successfully, mint a new capability and handle
         let cap = self.cap.clone();
         let ttl = DEFAULT_VAULT_TIMEOUT;
-        let (cap, revoker) = VaultSendCap::new(cap, ttl, vault_id.clone());
+        let (cap, revoker) = StrictSendCap::new(cap, ttl, vault_id.clone());
         let handle = VaultHandle::new(vault_id, cap, revoker);
 
         client_tx
