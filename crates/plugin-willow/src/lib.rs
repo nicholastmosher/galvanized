@@ -6,6 +6,7 @@ use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::info;
+use willow25::entry::randomly_generate_namespace;
 use willow25::storage::Store;
 use willow25::{
     entry::{
@@ -80,7 +81,6 @@ struct WillowState {
 #[serde_as]
 #[derive(derive_more::Debug, Serialize, Deserialize)]
 pub struct Namespace {
-    name: SharedString,
     #[debug("NamespaceSecret")]
     #[serde_as(as = "NamespaceSecretSerde")]
     secret: NamespaceSecret,
@@ -96,7 +96,6 @@ impl Namespace {
 #[serde_as]
 #[derive(derive_more::Debug, Serialize, Deserialize)]
 pub struct Subspace {
-    name: SharedString,
     #[debug("SubspaceSecret")]
     #[serde_as(as = "SubspaceSecretSerde")]
     secret: SubspaceSecret,
@@ -109,78 +108,31 @@ impl Subspace {
     }
 }
 
-#[serde_as]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SubspaceMetadata {
-    #[serde_as(as = "willow_serde::SubspaceIdSerde")]
-    subspace_id: SubspaceId,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    extra: Option<serde_json::Value>,
-}
-
-impl SubspaceMetadata {
-    pub fn new(subspace_id: SubspaceId) -> Self {
-        Self {
-            subspace_id: subspace_id.to_bytes().into(),
-            extra: None,
-        }
-    }
-
-    pub fn extra(&self) -> Option<&serde_json::Value> {
-        self.extra.as_ref()
-    }
-
-    pub fn extra_mut(&mut self) -> Option<&mut serde_json::Value> {
-        self.extra.as_mut()
-    }
-}
-
-// pub trait SubspaceHandle {
-//     fn id<C: AppContext>(&self, cx: &C) -> SubspaceId;
-
-//     fn read_metadata<'a, C: AppContext, R>(
-//         &self,
-//         cx: &'a C,
-//         f: impl FnOnce(&SubspaceMetadata, &App) -> R,
-//     ) -> R;
-
-//     fn in_unlocked<C: AppContext, F>(&self, cx: &C, f: F)
-//     where
-//         F: FnOnce(&UnlockedSubspace);
-// }
-
-// impl SubspaceHandle for Entity<Subspace> {
-//     fn id<C: AppContext>(&self, cx: &C) -> SubspaceId {
-//         cx.read_entity(self, |this, _cx| this.id())
-//     }
-
-//     fn read_metadata<'a, C: AppContext, R>(
-//         &self,
-//         cx: &'a C,
-//         f: impl FnOnce(&SubspaceMetadata, &App) -> R,
-//     ) -> R {
-//         cx.read_entity(self, |it, cx| f(&it.metadata, cx))
-//     }
-
-//     /// Provides access to secure aspects of the [`Subspace`], i.e. locked behind vault access.
-//     fn in_unlocked<C: AppContext, F>(&self, cx: &C, f: F)
-//     where
-//         F: FnOnce(&UnlockedSubspace),
-//     {
-//         // let vault_handle = cx.vaults().unlock(vault_handle, read_fn);
-//     }
-// }
-
-// /// A [`Subspace`]'s privileged API, which may only be accessed while unlocked
-// pub struct UnlockedSubspace {
-//     //
-// }
-
 impl<'a, C: AppContext> WillowCx<'a, C> {
-    pub fn create_capability(&mut self, subspace: &Entity<Subspace>) {
-        //
-        let cap = WriteCapability::new_owned(keypair, user_key);
+    pub async fn create_namespace(&self) -> Result<Namespace> {
+        let (_id, secret) = Tokio::spawn(self.cx, async move {
+            tokio::task::spawn_blocking(move || {
+                randomly_generate_namespace(&mut rand_core_0_6_4::OsRng)
+            })
+            .await
+        })
+        .await??;
+
+        let namespace = Namespace { secret };
+        Ok(namespace)
+    }
+
+    pub async fn create_subspace(&self) -> Result<Subspace> {
+        let (_id, secret) = Tokio::spawn(self.cx, async move {
+            tokio::task::spawn_blocking(move || {
+                randomly_generate_subspace(&mut rand_core_0_6_4::OsRng)
+            })
+            .await
+        })
+        .await??;
+
+        let subspace = Subspace { secret };
+        Ok(subspace)
     }
 
     // /// Creates a new Willow subspace, storing the private key in a new vault

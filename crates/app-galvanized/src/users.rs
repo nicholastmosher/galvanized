@@ -2,14 +2,10 @@ use std::collections::BTreeMap;
 
 use anyhow::{Context as _, Result, bail};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
-use plugin_willow::{
-    Namespace, Subspace,
-    willow_serde::{NamespaceSecretSerde, SubspaceSecretSerde},
-};
+use plugin_willow::{Namespace, Subspace};
 use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
 use tracing::info;
-use willow25::entry::{NamespaceId, NamespaceSecret, SubspaceId, SubspaceSecret};
+use willow25::entry::{NamespaceId, SubspaceId};
 use zed::unstable::{
     gpui::{AppContext, Entity, Global, Task},
     ui::{App, Context, IntoElement, SharedString},
@@ -226,17 +222,19 @@ impl<'a, C: AppContext> UsersCx<'a, C> {
 
         let user_vault_content = self
             .cx
-            .update_entity(user, |user, cx| {
+            .update_entity(user, |user, _cx| {
                 let vault = user.unlocked_vault.as_mut()?;
-                update_fn(&vault);
-                serde_json::to_vec(vault).context("failed to serialize UserVault")
+                update_fn(vault);
+                let vault_bytes =
+                    serde_json::to_vec(vault).context("failed to serialize UserVault");
+                Some(vault_bytes)
             })
             .transpose()?
             .context("cannot update UserVault, not loaded")?;
 
         self.cx
             .vaults()
-            .update(vault_handle, |vault| {
+            .update(vault_handle, |mut vault| {
                 *vault.secret() = user_vault_content;
             })
             .await?;
@@ -399,12 +397,12 @@ impl<'a> UserContent<'a> {
         Self { vault }
     }
 
-    pub fn namespaces(&self) -> Vec<NamespaceId> {
-        self.vault.namespaces.iter().map(|ns| ns.id()).collect()
+    pub fn namespaces(&self) -> impl IntoIterator<Item = NamespaceId> {
+        self.vault.namespaces.iter().map(|ns| ns.namespace.id())
     }
 
-    pub fn subspaces(&self) -> Vec<SubspaceId> {
-        self.vault.subspaces.iter().map(|s| s.id()).collect()
+    pub fn subspaces(&self) -> impl IntoIterator<Item = SubspaceId> {
+        self.vault.subspaces.iter().map(|ss| ss.subspace.id())
     }
 }
 
@@ -429,8 +427,20 @@ impl UserMetadata {
 #[derive(derive_more::Debug, Serialize, Deserialize)]
 #[debug("UserVault")]
 pub struct UserVault {
-    namespaces: Vec<Namespace>,
-    subspaces: Vec<Subspace>,
+    namespaces: Vec<UserNamespace>,
+    subspaces: Vec<UserSubspace>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct UserNamespace {
+    name: SharedString,
+    namespace: Namespace,
+}
+
+#[derive(Serialize, Deserialize)]
+struct UserSubspace {
+    name: SharedString,
+    subspace: Subspace,
 }
 
 impl UserVault {
