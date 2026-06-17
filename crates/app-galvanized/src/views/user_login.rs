@@ -16,8 +16,8 @@ use zed::unstable::{
 
 use crate::{
     identicon,
+    panel::{LoginState, PanelRoot},
     users::{User, UserHandle as _, UsersExt as _},
-    views::panel_root::{LoginState, PanelRoot},
 };
 
 const UNLOCK_BG_ORANGE: u32 = 0xff6600ff;

@@ -4,8 +4,8 @@ use tracing::info;
 use uuid::Uuid;
 use zed::unstable::{
     gpui::{
-        self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, FontWeight,
-        actions, linear_color_stop, linear_gradient, rgba,
+        self, Action, AnyElement, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable,
+        FontWeight, actions, linear_color_stop, linear_gradient, rgba,
     },
     ui::{
         ActiveTheme, App, Color, Context, FluentBuilder as _, Icon, IconName,
@@ -14,16 +14,18 @@ use zed::unstable::{
     },
     ui_input::InputField,
     workspace::{
-        Panel, Workspace,
+        Panel,
         dock::{DockPosition, PanelEvent},
     },
 };
 
 use crate::{
-    identicon,
+    Galvanized, identicon,
+    panel::connections::ConnectionsUi,
     users::{User, UsersExt as _},
-    views::connections::ConnectionsUi,
 };
+
+pub mod connections;
 
 actions!(
     galvanized,
@@ -37,22 +39,24 @@ actions!(
 );
 
 pub fn init(cx: &mut App) {
-    cx.observe_new(|workspace: &mut Workspace, window, cx| {
-        let Some(window) = window else {
-            return;
-        };
-
-        let workspace_entity = cx.entity();
-        let connections_ui = cx.new(|cx| ConnectionsUi::new(window, cx));
-        let panel = cx.new(|cx| PanelRoot::new(workspace_entity, connections_ui, window, cx));
-        workspace.add_panel(panel.clone(), window, cx);
-        workspace.focus_panel::<PanelRoot>(window, cx);
-        workspace.register_action(|workspace, _: &TogglePanel, window, cx| {
-            workspace.toggle_panel_focus::<PanelRoot>(window, cx);
-        });
-    })
-    .detach();
+    connections::init(cx);
 }
+//     cx.observe_new(|workspace: &mut Workspace, window, cx| {
+//         let Some(window) = window else {
+//             return;
+//         };
+
+//         let workspace_entity = cx.entity();
+//         let connections_ui = cx.new(|cx| ConnectionsUi::new(window, cx));
+//         let panel = cx.new(|cx| PanelRoot::new(workspace_entity, connections_ui, window, cx));
+//         workspace.add_panel(panel.clone(), window, cx);
+//         workspace.focus_panel::<PanelRoot>(window, cx);
+//         workspace.register_action(|workspace, _: &TogglePanel, window, cx| {
+//             workspace.toggle_panel_focus::<PanelRoot>(window, cx);
+//         });
+//     })
+//     .detach();
+// }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum AppId {
@@ -143,7 +147,7 @@ pub struct PanelRoot {
     connections_ui: Entity<ConnectionsUi>,
     focus_handle: FocusHandle,
     width: Option<Pixels>,
-    _workspace: Entity<Workspace>,
+    galvanized: Entity<Galvanized>,
 
     pub(crate) login_state: LoginState,
     pub(crate) display_name_input: Entity<InputField>,
@@ -155,7 +159,7 @@ pub struct PanelRoot {
     pub(crate) active_profile: Option<Entity<User>>,
 
     // Sidebar UI state
-    active_app: Option<AppId>,
+    active_app: Option<SharedString>,
 }
 
 pub enum LoginState {
@@ -166,11 +170,12 @@ pub enum LoginState {
 
 impl PanelRoot {
     pub fn new(
-        workspace: Entity<Workspace>,
-        connections_ui: Entity<ConnectionsUi>,
+        galvanized: Entity<Galvanized>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let connections_ui = cx.new(|cx| ConnectionsUi::new(window, cx));
+
         let display_name_input = cx.new(|cx| InputField::new(window, cx, "Display name"));
         let create_password_input =
             cx.new(|cx| InputField::new(window, cx, "Create Password").masked(true));
@@ -196,7 +201,7 @@ impl PanelRoot {
             connections_ui,
             focus_handle: cx.focus_handle(),
             width: None,
-            _workspace: workspace,
+            galvanized,
 
             login_state: LoginState::Picker,
             display_name_input,
@@ -207,7 +212,7 @@ impl PanelRoot {
             profiles: Default::default(),
             active_profile: Default::default(),
 
-            active_app: Some(AppId::Photos),
+            active_app: None,
         }
     }
 }
@@ -320,7 +325,7 @@ impl PanelRoot {
                                 linear_color_stop(rgba(0x1d4ed8ff), 1.0),
                             );
 
-                            let icon_content: gpui::AnyElement =
+                            let icon_content: AnyElement =
                                 div().text_lg().child("🔒").into_any_element();
 
                             div()
@@ -433,11 +438,9 @@ impl PanelRoot {
             )
     }
 
-    // ─── App Sidebar ─────────────────────────────────────────────
-
     fn render_app_sidebar(
         &mut self,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let border_color = cx.theme().colors().border;
@@ -448,7 +451,6 @@ impl PanelRoot {
             .h_full()
             .w(px(240.))
             .child(
-                // ── Header ──
                 h_flex()
                     .id("app-sidebar-header")
                     .items_center()
@@ -478,9 +480,8 @@ impl PanelRoot {
                     .id("app-list")
                     .flex_1()
                     .overflow_y_scroll()
-                    .px_2()
-                    .py_3()
-                    .children(self.render_app_sections(cx))
+                    .p_1()
+                    .children(self.render_app_sections(window, cx))
                     .into_any_element(),
             )
             .child(
@@ -489,48 +490,26 @@ impl PanelRoot {
             )
     }
 
-    fn render_app_sections(&mut self, cx: &mut Context<Self>) -> Vec<gpui::AnyElement> {
-        let mut elements: Vec<gpui::AnyElement> = Vec::new();
+    fn render_app_sections(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
+        let apps = self
+            .galvanized
+            .read(cx)
+            .apps
+            .iter()
+            .map(|app| app.boxed_clone())
+            .collect::<Vec<_>>();
 
-        let categories = [
-            (AppCategory::Data, "Data Apps"),
-            (AppCategory::Communication, "Communication"),
-            (AppCategory::System, "System"),
-        ];
-
-        for (category, label) in &categories {
-            let items: Vec<&AppEntry> = APP_ENTRIES
-                .iter()
-                .filter(|e| e.category == *category)
-                .collect();
-
-            if items.is_empty() {
-                continue;
-            }
-
-            // Section header
-            elements.push(
-                div()
-                    .px_2()
-                    .mb_1()
-                    .mt_1()
-                    .child(
-                        div()
-                            .text_color(cx.theme().colors().text_muted)
-                            .text_xs()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(SharedString::from(*label)),
-                    )
-                    .into_any_element(),
-            );
-
-            for entry in &items {
-                let is_active = self.active_app == Some(entry.id);
-                let icon_str = SharedString::from(entry.icon);
-                let name_str = SharedString::from(entry.name);
+        let elements = apps
+            .into_iter()
+            .map(|app| {
+                let is_active = self.active_app.as_ref().map(|it| it.as_str()) == Some(app.id());
 
                 let item = div()
-                    .id(SharedString::from(format!("app-{:?}", entry.id)))
+                    .id(SharedString::from(format!("app-{:?}", app.id())))
                     .flex()
                     .items_center()
                     .gap_2()
@@ -551,18 +530,18 @@ impl PanelRoot {
                     })
                     .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                     .on_click(cx.listener({
-                        let app_id = entry.id;
+                        let app_id = app.id();
                         move |this, _e, _window, _cx| {
-                            this.active_app = Some(app_id);
+                            this.active_app = Some(app_id.into());
                             info!("Selected app {:?}", app_id);
                         }
                     }))
-                    .child(div().text_base().child(icon_str))
-                    .child(div().flex_1().text_sm().child(name_str));
+                    .child(app.nav(window, cx));
 
-                elements.push(item.into_any_element());
-            }
-        }
+                item.into_any_element()
+            })
+            .collect();
+        // }
 
         elements
     }

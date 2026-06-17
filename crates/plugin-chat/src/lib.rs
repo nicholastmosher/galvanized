@@ -1,4 +1,3 @@
-use automerge::AutoCommit;
 use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
 use iroh::EndpointId;
 use samod::DocHandle;
@@ -14,7 +13,7 @@ use zed::unstable::{
     },
     ui::{
         ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
-        RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window, div, v_flex,
+        RenderOnce, SharedString, Styled, Window, div, v_flex,
     },
     util::{ResultExt, TryFutureExt},
     workspace::Item,
@@ -28,7 +27,7 @@ actions!(
     ]
 );
 
-pub fn init(_cx: &mut App) {
+pub fn init(cx: &mut App) {
     // cx.observe_new::<Workspace>(|workspace, window, cx| {
     //     let Some(window) = window else { return };
     //     let chat = cx.new(|cx| ChatUi::new("MyChat", window, cx));
