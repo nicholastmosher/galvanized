@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galvanized — Onboarding in Side Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: #111;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .slide-up {
+      animation: slideUp 0.4s ease-out;
+    }
+
+    /* Step indicator dots */
+    .step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #333;
+      transition: all 0.3s ease;
+    }
+
+    .step-dot.active {
+      background: #ea580c;
+      box-shadow: 0 0 6px rgba(234, 88, 12, 0.5);
+    }
+
+    .step-dot.done {
+      background: #22c55e;
+    }
+
+    /* Panel transitions */
+    .panel-scene {
+      display: none;
+    }
+
+    .panel-scene.visible {
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ===== FULL SCREEN LAYOUT ===== -->
+  <div class="h-screen w-screen flex overflow-hidden">
+
+    <!-- ===== LEFT: ONBOARDING PANEL (~360px) ===== -->
+    <div class="w-[380px] flex-shrink-0 bg-[#1a1a1e] border-r border-gray-800 flex flex-col h-full">
+
+      <!-- Panel header -->
+      <div class="flex items-center gap-3 px-5 pt-5 pb-3 border-b border-gray-800">
+        <div
+          class="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 via-amber-600 to-gray-900 flex items-center justify-center shadow-lg flex-shrink-0">
+          <span class="text-sm font-bold text-white">G</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h1 class="text-white font-semibold text-sm truncate">Getting Started</h1>
+          <p class="text-gray-500 text-xs">Set up your decentralized data space</p>
+        </div>
+      </div>
+
+      <!-- Step progress -->
+      <div class="flex items-center justify-center gap-2 px-5 py-3 border-b border-gray-800/50">
+        <div class="step-dot active" id="step-1"></div>
+        <div class="w-8 h-px bg-gray-700"></div>
+        <div class="step-dot" id="step-2"></div>
+        <div class="w-8 h-px bg-gray-700"></div>
+        <div class="step-dot" id="step-3"></div>
+        <div class="w-8 h-px bg-gray-700"></div>
+        <div class="step-dot" id="step-4"></div>
+      </div>
+
+      <!-- Scrollable scene area -->
+      <div class="flex-1 overflow-y-auto px-5 py-5">
+
+        <!-- ===== SCENE 1: WELCOME ===== -->
+        <div id="scene-welcome" class="panel-scene visible fade-in">
+          <div class="text-center pt-4">
+            <div
+              class="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-600 to-gray-900 flex items-center justify-center shadow-2xl">
+              <span class="text-2xl font-bold text-white">G</span>
+            </div>
+            <h2 class="text-xl font-bold text-white mb-2">Welcome to Galvanized</h2>
+            <p class="text-gray-400 text-sm leading-relaxed mb-6">Your decentralized data space. Everything encrypted,
+              unlocked by one master password.</p>
+            <button onclick="showScene('scene-create-vault')"
+              class="w-full px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg hover:shadow-orange-600/30 text-sm">
+              Create Your First Vault
+            </button>
+            <p class="text-gray-600 text-xs mt-5">Already have a vault?
+              <a href="#" onclick="showScene('scene-picker')" class="text-orange-400 hover:text-orange-300">Sign in</a>
+            </p>
+          </div>
+        </div>
+
+        <!-- ===== SCENE 2: CREATE VAULT ===== -->
+        <div id="scene-create-vault" class="panel-scene fade-in">
+          <div class="pt-2">
+            <div
+              class="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center">
+              <svg class="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h2 class="text-lg font-bold text-white text-center mb-1">Create Your Vault</h2>
+            <p class="text-gray-400 text-center text-xs mb-5">One master password unlocks all your profiles, keys, and
+              data.</p>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Master Password</label>
+                <input type="password" value="········"
+                  class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 text-sm" />
+                <p class="text-gray-600 text-xs mt-1">There is no password recovery.</p>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Confirm</label>
+                <input type="password" value="········"
+                  class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 text-sm" />
+              </div>
+            </div>
+            <div class="flex gap-2 mt-6">
+              <button onclick="showScene('scene-welcome')"
+                class="flex-1 px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700 text-sm">Back</button>
+              <button onclick="createVaultAndProfile()"
+                class="flex-1 px-3 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg text-sm">Create
+                Vault</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== SCENE 3: CREATE PROFILE ===== -->
+        <div id="scene-create-profile" class="panel-scene fade-in">
+          <div class="pt-2">
+            <div class="mb-4 text-center">
+              <div
+                class="w-10 h-10 mx-auto mb-1 rounded-full bg-green-600/20 border border-green-500/30 flex items-center justify-center">
+                <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <p class="text-green-400 text-xs font-medium">Vault created and unlocked</p>
+            </div>
+            <div
+              class="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center">
+              <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <h2 class="text-lg font-bold text-white text-center mb-1">Create Your First Profile</h2>
+            <p class="text-gray-400 text-center text-xs mb-5">A profile is your identity within your vault. Add more
+              later.</p>
+            <div>
+              <label class="block text-xs text-gray-400 mb-1">Display Name</label>
+              <input type="text" value="Alex"
+                class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 text-sm" />
+            </div>
+            <div class="flex gap-2 mt-6">
+              <button onclick="showScene('scene-create-vault')"
+                class="flex-1 px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700 text-sm">Back</button>
+              <button onclick="showScene('scene-create-space-intro')"
+                class="flex-1 px-3 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg text-sm">Create
+                Profile</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== SCENE 4: SPACE INTRO (choose owned vs communal) ===== -->
+        <div id="scene-create-space-intro" class="panel-scene fade-in">
+          <div class="pt-2">
+            <div class="flex items-center gap-3 mb-4 p-3 rounded-lg bg-gray-800/40 border border-gray-700/50">
+              <div
+                class="w-9 h-9 rounded-full bg-orange-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+                Al</div>
+              <div class="min-w-0">
+                <div class="text-white text-sm font-semibold">Alex</div>
+                <div class="text-gray-500 text-xs">Profile created · Vault unlocked</div>
+              </div>
+            </div>
+            <h2 class="text-lg font-bold text-white mb-2">Set Up Your First Space</h2>
+            <p class="text-gray-400 text-xs mb-5 leading-relaxed">Spaces are shared data stores. Create one or join an
+              existing one.</p>
+
+            <div onclick="showScene('scene-create-space-owned')"
+              class="flex items-start gap-3 p-3 rounded-xl border-2 border-orange-500/70 bg-gray-800/50 mb-3 cursor-pointer hover:bg-gray-800 transition">
+              <div
+                class="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 flex-shrink-0 flex items-center justify-center border border-gray-600">
+                <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-white font-semibold text-sm">Personal Space (Owned)</h3>
+                <p class="text-gray-400 text-xs mt-0.5">Private by default. You control access and delegate
+                  capabilities.</p>
+              </div>
+            </div>
+
+            <div onclick="showScene('scene-create-space-communal')"
+              class="flex items-start gap-3 p-3 rounded-xl border-2 border-gray-700 bg-gray-800/50 mb-3 cursor-pointer hover:border-gray-600 hover:bg-gray-800 transition">
+              <div
+                class="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 flex-shrink-0 flex items-center justify-center border border-gray-600">
+                <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-white font-semibold text-sm">Community Space (Communal)</h3>
+                <p class="text-gray-400 text-xs mt-0.5">Open to anyone. Any subspace can write.</p>
+              </div>
+            </div>
+
+            <div class="text-center mt-4">
+              <a href="#" onclick="showScene('scene-main')" class="text-gray-500 hover:text-gray-300 text-xs">Skip for
+                now</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== SCENE 5: CREATE OWNED SPACE ===== -->
+        <div id="scene-create-space-owned" class="panel-scene fade-in">
+          <div class="pt-2">
+            <h2 class="text-lg font-bold text-white mb-4">Create Personal Space</h2>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Space Name</label>
+                <input type="text" placeholder="Personal, Family, Work..."
+                  class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 text-sm" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Profiles</label>
+                <div class="p-2.5 rounded-lg bg-gray-800/50 border border-dashed border-gray-700">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked
+                      class="w-3.5 h-3.5 rounded border-gray-600 bg-gray-700 text-orange-500" />
+                    <span class="text-gray-200 text-xs">Alex</span>
+                    <span class="text-gray-500 text-[10px] ml-auto">Root admin</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="flex gap-2 mt-6">
+              <button onclick="showScene('scene-create-space-intro')"
+                class="flex-1 px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700 text-sm">Back</button>
+              <button onclick="showScene('scene-main')"
+                class="flex-1 px-3 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg text-sm">Create
+                Space</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== SCENE 6: CREATE COMMUNAL SPACE ===== -->
+        <div id="scene-create-space-communal" class="panel-scene fade-in">
+          <div class="pt-2">
+            <h2 class="text-lg font-bold text-white mb-4">Create Community Space</h2>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Space Name</label>
+                <input type="text" placeholder="Hobby Club, Study Group..."
+                  class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 text-sm" />
+              </div>
+              <p class="text-xs text-gray-400 leading-relaxed">Communal spaces are public. Any profile can write with
+                just a subspace signature.</p>
+            </div>
+            <div class="flex gap-2 mt-6">
+              <button onclick="showScene('scene-create-space-intro')"
+                class="flex-1 px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700 text-sm">Back</button>
+              <button onclick="showScene('scene-main')"
+                class="flex-1 px-3 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg text-sm">Create
+                Space</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== SCENE 7: SIGN IN (picker placeholder) ===== -->
+        <div id="scene-picker" class="panel-scene fade-in">
+          <div class="pt-2 text-center">
+            <div
+              class="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center">
+              <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h2 class="text-lg font-bold text-white mb-1">Sign In</h2>
+            <p class="text-gray-400 text-xs mb-5">Enter your master password to unlock your vault.</p>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Master Password</label>
+                <input type="password" placeholder="Enter your password"
+                  class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 text-sm" />
+              </div>
+            </div>
+            <div class="flex gap-2 mt-6">
+              <button onclick="showScene('scene-welcome')"
+                class="flex-1 px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700 text-sm">Back</button>
+              <button onclick="showScene('scene-main')"
+                class="flex-1 px-3 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg text-sm">Unlock</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== SCENE 8: DONE (post-onboarding) ===== -->
+        <div id="scene-main" class="panel-scene fade-in">
+          <div class="pt-4 text-center">
+            <div
+              class="w-14 h-14 mx-auto mb-4 rounded-full bg-green-600/20 border-2 border-green-500/30 flex items-center justify-center">
+              <svg class="w-7 h-7 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 class="text-lg font-bold text-white mb-1">All Set!</h2>
+            <p class="text-gray-400 text-xs mb-5 leading-relaxed">Your vault, profile, and space are ready. You can now
+              browse your data, invite others, and manage capabilities.</p>
+            <div class="p-3 rounded-lg bg-gray-800/50 border border-gray-700 text-left mb-5">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-sm">🔒</span>
+                <span class="text-white text-sm font-medium">Personal</span>
+                <span class="text-gray-500 text-xs ml-auto">1 profile</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div
+                  class="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center text-[10px] font-bold text-white">
+                  Al</div>
+                <span class="text-gray-300 text-xs">Alex</span>
+                <span class="text-gray-600 text-xs ml-auto">Root admin</span>
+              </div>
+            </div>
+            <button onclick="alert('Onboarding complete! This would navigate to the main app.')"
+              class="w-full px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg text-sm">
+              Open Galvanized
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /scrollable area -->
+
+      <!-- Panel footer -->
+      <div class="px-5 py-3 border-t border-gray-800">
+        <p class="text-gray-600 text-[10px] text-center">🔐 Everything is end-to-end encrypted</p>
+      </div>
+    </div>
+
+    <!-- ===== RIGHT: MAIN APP MOCKUP (dimmed placeholder) ===== -->
+    <div class="flex-1 bg-[#18181b] flex flex-col relative overflow-hidden">
+
+      <!-- Mock left rail -->
+      <div
+        class="absolute left-0 top-0 bottom-0 w-[72px] bg-[#1e1e1e] border-r border-gray-800 flex flex-col items-center py-3 z-10">
+        <div
+          class="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-500 to-gray-800 flex items-center justify-center mb-2 opacity-30">
+          <span class="text-base font-bold text-white">G</span>
+        </div>
+        <div class="w-6 h-px bg-gray-700/50 rounded-full mb-2"></div>
+        <div
+          class="w-10 h-10 rounded-2xl bg-gray-800 border border-gray-700/50 flex items-center justify-center opacity-20 mb-2">
+          <span class="text-base">🔒</span>
+        </div>
+        <div
+          class="w-10 h-10 rounded-2xl bg-gray-800 border border-gray-700/50 flex items-center justify-center opacity-20 mb-2">
+          <span class="text-base">🎮</span>
+        </div>
+        <div
+          class="w-10 h-10 rounded-2xl bg-gray-800 border border-gray-700/50 flex items-center justify-center opacity-20 mb-2">
+          <span class="text-base">📸</span>
+        </div>
+        <div class="mt-auto">
+          <div
+            class="w-10 h-10 rounded-full bg-gray-800 border-2 border-gray-700/50 flex items-center justify-center opacity-20">
+            <span class="text-xs font-bold text-gray-400">??</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mock content area -->
+      <div class="flex-1 ml-[72px] flex items-center justify-center p-8">
+        <div class="text-center max-w-md">
+          <div
+            class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-800/50 border border-gray-700/30 flex items-center justify-center">
+            <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+          </div>
+          <h3 class="text-gray-500 font-semibold text-sm mb-1">No data yet</h3>
+          <p class="text-gray-600 text-xs">Complete the onboarding to set up your vault, profile, and first space.</p>
+        </div>
+      </div>
+
+      <!-- Dimmed overlay hint -->
+      <div class="absolute inset-0 bg-black/20 pointer-events-none"></div>
+    </div>
+
+  </div>
+
+  <script>
+    function showScene(sceneId) {
+      // Hide all panel scenes
+      document.querySelectorAll('.panel-scene').forEach(el => {
+        el.classList.remove('visible');
+      });
+      // Show target
+      const target = document.getElementById(sceneId);
+      if (target) {
+        target.classList.add('visible');
+        target.classList.remove('fade-in');
+        // Force reflow for animation
+        void target.offsetWidth;
+        target.classList.add('fade-in');
+      }
+
+      // Update step dots
+      const stepMap = {
+        'scene-welcome': 1,
+        'scene-create-vault': 2,
+        'scene-create-profile': 3,
+        'scene-create-space-intro': 4,
+        'scene-create-space-owned': 4,
+        'scene-create-space-communal': 4,
+        'scene-picker': 2,
+        'scene-main': 4,
+      };
+      const activeStep = stepMap[sceneId] || 1;
+      for (let i = 1; i <= 4; i++) {
+        const dot = document.getElementById('step-' + i);
+        dot.classList.remove('active', 'done');
+        if (i < activeStep) dot.classList.add('done');
+        else if (i === activeStep) dot.classList.add('active');
+      }
+    }
+
+    function createVaultAndProfile() {
+      // Simulate vault creation, then advance to profile scene
+      showScene('scene-create-profile');
+    }
+  </script>
+
+</body>
+
+</html>
