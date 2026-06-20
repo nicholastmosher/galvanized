@@ -118,7 +118,7 @@ impl Render for VaultLoginItem {
                                 self.items
                                     //
                                     .iter()
-                                    .map(|((id, name))| {
+                                    .map(|(id, name)| {
                                         let image =
                                             plot_icon::generate_png(id.as_bytes(), 32).unwrap();
 

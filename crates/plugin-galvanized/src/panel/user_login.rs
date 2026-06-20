@@ -1,21 +1,19 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use tracing::info;
-use uuid::Uuid;
 use zed::unstable::{
     gpui::{
-        Animation, AnimationExt as _, Entity, ImageSource, img, linear_color_stop, linear_gradient,
-        rgba, svg, white,
+        Animation, AnimationExt as _, Entity, img, linear_color_stop, linear_gradient, rgba, svg,
+        white,
     },
     ui::{
-        ActiveTheme as _, Color, Context, FluentBuilder as _, IconName, InteractiveElement as _,
-        IntoElement, ParentElement as _, StatefulInteractiveElement as _, Styled as _, Tooltip,
-        Window, div, h_flex, px, v_flex,
+        ActiveTheme as _, Color, Context, FluentBuilder as _, Icon, IconName, IconSize,
+        InteractiveElement as _, IntoElement, ParentElement as _, StatefulInteractiveElement as _,
+        Styled as _, Tooltip, Window, div, h_flex, px, v_flex,
     },
 };
 
 use crate::{
-    identicon,
     panel::{LoginState, PanelRoot},
     users::{User, UserHandle as _, UsersExt as _},
 };
@@ -96,9 +94,6 @@ impl PanelRoot {
         // let id = Uuid::new_v4();
         // warn!("TODO proper ID");
         let name = profile.read(cx).name();
-        // // TODO don't generate every render
-        // let image = plot_icon::generate_png(id.as_bytes(), 256).unwrap();
-        let image = self.profile_identicon.clone();
 
         v_flex()
             .size_full()
@@ -164,8 +159,7 @@ impl PanelRoot {
                                             //
                                             .child(
                                                 //
-                                                img(ImageSource::Image(image)).size(px(28.)),
-                                                // .size(px(32.)),
+                                                Icon::new(IconName::Person).size(IconSize::Medium),
                                             ),
                                     )
                                     .child(
@@ -271,8 +265,6 @@ impl PanelRoot {
                         // let id = Uuid::new_v4();
                         // warn!("TODO proper ID");
                         let name = profile.read(cx).name();
-                        let image = self.profile_identicon.clone();
-                        // let image = plot_icon::generate_png(id.as_bytes(), 256).unwrap();
 
                         h_flex()
                             .id(format!("login-profile-{}", name))
@@ -296,8 +288,7 @@ impl PanelRoot {
                                     //
                                     .child(
                                         //
-                                        img(ImageSource::Image(image)).size(px(28.)),
-                                        // .size(px(32.)),
+                                        Icon::new(IconName::Person).size(IconSize::Medium),
                                     ),
                             )
                             .child(
@@ -417,24 +408,17 @@ impl PanelRoot {
                                         div()
                                             //
                                             .pl_2()
+                                            .id("identicon-img")
+                                            .flex_shrink_0()
+                                            .tooltip(Tooltip::text(
+                                                "Reroll identicon (can't change later)",
+                                            ))
+                                            .on_click(cx.listener(|_this, _e, _window, _cx| {
+                                                info!("Clicked display name icon");
+                                            }))
                                             //
                                             .child(
-                                                img(ImageSource::Image(
-                                                    self.profile_identicon.clone(),
-                                                ))
-                                                .id("identicon-img")
-                                                .flex_shrink_0()
-                                                .tooltip(Tooltip::text(
-                                                    "Reroll identicon (can't change later)",
-                                                ))
-                                                .on_click(cx.listener(|this, _e, _window, _cx| {
-                                                    let id = Uuid::new_v4();
-                                                    let profile_identicon =
-                                                        identicon(id.as_bytes());
-                                                    this.profile_identicon =
-                                                        Arc::new(profile_identicon);
-                                                }))
-                                                .size(px(28.)),
+                                                Icon::new(IconName::Person).size(IconSize::Medium),
                                             ),
                                     )
                                     .child(self.display_name_input.clone()),

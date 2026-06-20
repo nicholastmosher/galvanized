@@ -7153,6 +7153,7 @@ dependencies = [
  "plot_icon",
  "plugin-calendar",
  "plugin-chat",
+ "plugin-galvanized",
  "plugin-p2p",
  "plugin-theme-palette",
  "plugin-vault",
@@ -15119,6 +15120,7 @@ dependencies = [
  "autosurgeon",
  "flume 0.12.0",
  "iroh",
+ "plugin-galvanized",
  "plugin-p2p",
  "samod",
  "tracing",
@@ -15127,9 +15129,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "plugin-connections"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "data-encoding",
+ "iroh",
+ "plugin-chat",
+ "plugin-p2p",
+ "serde",
+ "serde_json",
+ "tracing",
+ "zed",
+]
+
+[[package]]
 name = "plugin-contacts"
 version = "0.1.0"
 dependencies = [
+ "willow25",
+ "zed",
+]
+
+[[package]]
+name = "plugin-galvanized"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "derive_more 2.1.1",
+ "futures-concurrency",
+ "plugin-vault",
+ "plugin-willow",
+ "serde",
+ "serde_json",
+ "tracing",
+ "uuid",
  "willow25",
  "zed",
 ]

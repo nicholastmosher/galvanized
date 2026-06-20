@@ -1,9 +1,9 @@
 use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
 use iroh::EndpointId;
+use plugin_galvanized::{Galvanized, app_behavior::AppBehavior};
 use samod::DocHandle;
 use tracing::{debug, info, instrument};
 use uuid::Uuid;
-/// ChatUi is a `Workspace` item, rendering into the tab window
 use zed::unstable::{
     db::smol::stream::StreamExt as _,
     editor::Editor,
@@ -28,15 +28,35 @@ actions!(
 );
 
 pub fn init(cx: &mut App) {
-    // cx.observe_new::<Workspace>(|workspace, window, cx| {
-    //     let Some(window) = window else { return };
-    //     let chat = cx.new(|cx| ChatUi::new("MyChat", window, cx));
-    //     workspace.add_item_to_active_pane(Box::new(chat.clone()), Some(0), true, window, cx);
-    //     workspace.register_action(move |workspace, _: &OpenChat, window, cx| {
-    //         workspace.add_item_to_active_pane(Box::new(chat.clone()), Some(0), true, window, cx);
-    //     });
-    // })
-    // .detach();
+    cx.observe_new::<Galvanized>(|galvanized, _window, cx| {
+        let chat_app = cx.new(|cx| ChatApp::new(cx));
+        galvanized.add_app(chat_app);
+    })
+    .detach();
+}
+
+pub struct ChatApp {
+    //
+}
+
+impl ChatApp {
+    pub fn new(_cx: &mut Context<Self>) -> Self {
+        Self {}
+    }
+}
+
+impl AppBehavior for ChatApp {
+    fn id(&self) -> &'static str {
+        "chat"
+    }
+
+    fn icon(&self) -> SharedString {
+        "💬".into()
+    }
+
+    fn title(&self) -> SharedString {
+        "Chat".into()
+    }
 }
 
 #[derive(IntoElement)]

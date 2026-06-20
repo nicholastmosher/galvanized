@@ -1,7 +1,4 @@
-use std::sync::Arc;
-
 use tracing::info;
-use uuid::Uuid;
 use zed::unstable::{
     gpui::{
         self, Action, AnyElement, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable,
@@ -20,12 +17,11 @@ use zed::unstable::{
 };
 
 use crate::{
-    Galvanized, identicon,
-    panel::connections::ConnectionsUi,
+    Galvanized,
     users::{User, UsersExt as _},
 };
 
-pub mod connections;
+pub mod user_login;
 
 actions!(
     galvanized,
@@ -38,9 +34,7 @@ actions!(
     ]
 );
 
-pub fn init(cx: &mut App) {
-    connections::init(cx);
-}
+// pub fn init(cx: &mut App) {
 //     cx.observe_new(|workspace: &mut Workspace, window, cx| {
 //         let Some(window) = window else {
 //             return;
@@ -144,7 +138,6 @@ const APP_ENTRIES: &[AppEntry] = &[
 ];
 
 pub struct PanelRoot {
-    connections_ui: Entity<ConnectionsUi>,
     focus_handle: FocusHandle,
     width: Option<Pixels>,
     galvanized: Entity<Galvanized>,
@@ -154,7 +147,6 @@ pub struct PanelRoot {
     pub(crate) create_password_input: Entity<InputField>,
     pub(crate) create_password_confirmation_input: Entity<InputField>,
     pub(crate) login_password_input: Entity<InputField>,
-    pub(crate) profile_identicon: Arc<gpui::Image>,
     pub(crate) profiles: Vec<Entity<User>>,
     pub(crate) active_profile: Option<Entity<User>>,
 
@@ -174,8 +166,6 @@ impl PanelRoot {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let connections_ui = cx.new(|cx| ConnectionsUi::new(window, cx));
-
         let display_name_input = cx.new(|cx| InputField::new(window, cx, "Display name"));
         let create_password_input =
             cx.new(|cx| InputField::new(window, cx, "Create Password").masked(true));
@@ -183,9 +173,6 @@ impl PanelRoot {
             cx.new(|cx| InputField::new(window, cx, "Confirm Password").masked(true));
         let login_password_input =
             cx.new(|cx| InputField::new(window, cx, "Password").masked(true));
-
-        let id = Uuid::new_v4();
-        let profile_identicon = identicon(id.as_bytes());
 
         cx.spawn(async move |this, cx| {
             let profiles = cx.users().list().await?;
@@ -198,7 +185,6 @@ impl PanelRoot {
         .detach_and_log_err(cx);
 
         Self {
-            connections_ui,
             focus_handle: cx.focus_handle(),
             width: None,
             galvanized,
@@ -208,7 +194,6 @@ impl PanelRoot {
             create_password_input,
             create_password_confirmation_input,
             login_password_input,
-            profile_identicon: Arc::new(profile_identicon),
             profiles: Default::default(),
             active_profile: Default::default(),
 

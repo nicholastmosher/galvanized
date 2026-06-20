@@ -1,6 +1,5 @@
 use zed::unstable::ui::App;
 
-pub mod user_login;
 pub mod vault_login_item;
 
 pub fn init(cx: &mut App) {

@@ -1,17 +1,15 @@
 [package]
-name = "plugin-chat"
+name = "plugin-connections"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
-automerge.workspace = true
-autosurgeon.workspace = true
-flume.workspace = true
+data-encoding.workspace = true
 iroh.workspace = true
-plugin-galvanized.workspace = true
+plugin-chat.workspace = true
 plugin-p2p.workspace = true
-samod.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 tracing.workspace = true
-uuid.workspace = true
 zed.workspace = true

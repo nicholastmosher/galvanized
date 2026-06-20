@@ -1,0 +1,17 @@
+[package]
+name = "plugin-galvanized"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+derive_more = { workspace = true, features = ["display", "debug"] }
+futures-concurrency.workspace = true
+plugin-vault.workspace = true
+plugin-willow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+willow25.workspace = true
+zed.workspace = true
