@@ -29,19 +29,20 @@ actions!(
 
 pub fn init(cx: &mut App) {
     cx.observe_new::<Galvanized>(|galvanized, _window, cx| {
-        let chat_app = cx.new(|cx| ChatApp::new(cx));
+        let galvanized_entity = cx.entity();
+        let chat_app = cx.new(|cx| ChatApp::new(galvanized_entity, cx));
         galvanized.add_app(chat_app);
     })
     .detach();
 }
 
 pub struct ChatApp {
-    //
+    galvanized: Entity<Galvanized>,
 }
 
 impl ChatApp {
-    pub fn new(_cx: &mut Context<Self>) -> Self {
-        Self {}
+    pub fn new(galvanized: Entity<Galvanized>, cx: &mut Context<Self>) -> Self {
+        Self { galvanized }
     }
 }
 

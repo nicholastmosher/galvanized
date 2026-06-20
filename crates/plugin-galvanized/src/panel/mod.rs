@@ -16,10 +16,7 @@ use zed::unstable::{
     },
 };
 
-use crate::{
-    Galvanized,
-    users::{User, UsersExt as _},
-};
+use crate::{Galvanized, users::User};
 
 pub mod user_login;
 
@@ -147,8 +144,8 @@ pub struct PanelRoot {
     pub(crate) create_password_input: Entity<InputField>,
     pub(crate) create_password_confirmation_input: Entity<InputField>,
     pub(crate) login_password_input: Entity<InputField>,
-    pub(crate) profiles: Vec<Entity<User>>,
-    pub(crate) active_profile: Option<Entity<User>>,
+    pub(crate) users: Vec<Entity<User>>,
+    pub(crate) active_user: Option<Entity<User>>,
 
     // Sidebar UI state
     active_app: Option<SharedString>,
@@ -174,13 +171,18 @@ impl PanelRoot {
         let login_password_input =
             cx.new(|cx| InputField::new(window, cx, "Password").masked(true));
 
-        cx.spawn(async move |this, cx| {
-            let profiles = cx.users().list().await?;
-            this.update(cx, |this, _cx| {
-                this.profiles = profiles;
-            })?;
+        cx.spawn({
+            let galvanized = galvanized.clone();
+            async move |this, cx| {
+                let users = galvanized
+                    .update(cx, |galvanized, cx| galvanized.list_users(cx))
+                    .await?;
+                this.update(cx, |this, _cx| {
+                    this.users = users;
+                })?;
 
-            anyhow::Ok(())
+                anyhow::Ok(())
+            }
         })
         .detach_and_log_err(cx);
 
@@ -194,8 +196,8 @@ impl PanelRoot {
             create_password_input,
             create_password_confirmation_input,
             login_password_input,
-            profiles: Default::default(),
-            active_profile: Default::default(),
+            users: Default::default(),
+            active_user: Default::default(),
 
             active_app: None,
         }
@@ -204,7 +206,7 @@ impl PanelRoot {
 
 impl Render for PanelRoot {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        match &self.active_profile {
+        match &self.active_user {
             None => self.render_login_frame(window, cx).into_any_element(),
             Some(profile) => self
                 .render_profile_panel(profile.clone(), window, cx)
@@ -533,7 +535,7 @@ impl PanelRoot {
 
     fn render_status_bar(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
         let profile_name = self
-            .active_profile
+            .active_user
             .as_ref()
             .map(|p| p.read(cx).name())
             .unwrap_or_else(|| SharedString::from("Offline"));

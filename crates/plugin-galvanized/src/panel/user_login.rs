@@ -15,7 +15,7 @@ use zed::unstable::{
 
 use crate::{
     panel::{LoginState, PanelRoot},
-    users::{User, UserHandle as _, UsersExt as _},
+    users::{User, UserHandle as _},
 };
 
 const UNLOCK_BG_ORANGE: u32 = 0xff6600ff;
@@ -208,7 +208,7 @@ impl PanelRoot {
                                             profile.unlock(cx, password).await?;
                                             info!("Login succeeded?");
                                             this.update(cx, |this, _cx| {
-                                                this.active_profile = Some(profile);
+                                                this.active_user = Some(profile);
                                             })?;
                                             anyhow::Ok(())
                                         })
@@ -256,7 +256,7 @@ impl PanelRoot {
             //
             .children(
                 //
-                self.profiles
+                self.users
                     //
                     .iter()
                     .enumerate()
@@ -316,7 +316,7 @@ impl PanelRoot {
                     .p_2()
                     .gap_2()
                     .rounded_b_lg()
-                    .when(self.profiles.is_empty(), |el| el.rounded_t_lg())
+                    .when(self.users.is_empty(), |el| el.rounded_t_lg())
                     .child(
                         div()
                             //
@@ -468,10 +468,14 @@ impl PanelRoot {
                         }
 
                         cx.spawn(async move |this, cx| {
-                            let profile = cx.users().create(display_name, password).await?;
+                            let galvanized =
+                                this.read_with(cx, |this, _cx| this.galvanized.clone())?;
+                            let user = galvanized
+                                .update(cx, |g, cx| g.create_user(display_name, password, cx))
+                                .await?;
                             this.update(cx, |this, _cx| {
-                                this.profiles.push(profile.clone());
-                                this.active_profile = Some(profile);
+                                this.users.push(user.clone());
+                                this.active_user = Some(user);
                             })?;
                             anyhow::Ok(())
                         })
