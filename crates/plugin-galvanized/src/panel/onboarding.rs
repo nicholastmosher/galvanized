@@ -1,10 +1,12 @@
+use std::sync::LazyLock;
+
 use tracing::info;
 use zed::unstable::{
     gpui::{Entity, FontWeight, Hsla, SharedString, linear_color_stop, linear_gradient, rgba},
     ui::{
-        ActiveTheme, Color, Context, FluentBuilder as _, Icon, IconName, IconSize,
-        InteractiveElement as _, IntoElement, ParentElement as _, StatefulInteractiveElement as _,
-        Styled as _, Window, div, h_flex, px, v_flex,
+        ActiveTheme, Color, Context, Div, FluentBuilder as _, Icon, IconName, IconSize,
+        InteractiveElement, IntoElement, ParentElement as _, StatefulInteractiveElement as _,
+        Styled, Window, div, h_flex, px, v_flex,
     },
 };
 
@@ -13,7 +15,7 @@ use crate::{
     users::{User, UserHandle as _},
 };
 
-const GZED_ORANGE: u32 = 0xff6600ff;
+static GZED_ORANGE: LazyLock<Hsla> = LazyLock::new(|| Hsla::from(rgba(0xff6600ff)).opacity(0.8));
 
 impl PanelRoot {
     /// Main onboarding panel layout: header, step progress, scenes, footer.
@@ -62,7 +64,7 @@ impl PanelRoot {
                     .rounded_lg()
                     .bg(linear_gradient(
                         30. + 180.,
-                        linear_color_stop(rgba(GZED_ORANGE), 0.0),
+                        linear_color_stop(*GZED_ORANGE, 0.0),
                         linear_color_stop(colors.background, 1.0),
                     ))
                     .flex_shrink_0()
@@ -125,7 +127,7 @@ impl PanelRoot {
                 let color = if is_done {
                     status.success
                 } else if is_active {
-                    colors.text_accent
+                    *GZED_ORANGE
                 } else {
                     colors.element_disabled
                 };
@@ -269,7 +271,7 @@ impl PanelRoot {
                                             .id(format!("user-avatar-{}", name))
                                             .size(px(40.))
                                             .rounded_full()
-                                            .bg(Hsla::from(rgba(GZED_ORANGE)).opacity(0.5))
+                                            .bg(*GZED_ORANGE)
                                             .flex_shrink_0()
                                             .items_center()
                                             .justify_center()
@@ -343,9 +345,10 @@ impl PanelRoot {
                             .justify_center()
                             .child(
                                 div()
+                                    //
                                     .mx_auto()
                                     .text_lg()
-                                    .text_color(colors.text_placeholder)
+                                    .text_color(colors.text)
                                     .child("+"),
                             ),
                     )
@@ -355,7 +358,7 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::MEDIUM)
-                                    .text_color(colors.text_muted)
+                                    .text_color(colors.text)
                                     .child("Create new vault"),
                             )
                             .child(
@@ -383,13 +386,13 @@ impl PanelRoot {
             .pt_2()
             .text_center()
             .child(
-                div()
+                h_flex()
                     .id("sign-in-avatar")
                     .size(px(64.))
                     .mx_auto()
                     .mb_3()
                     .rounded_full()
-                    .bg(Hsla::from(rgba(GZED_ORANGE)).opacity(0.5))
+                    .bg(*GZED_ORANGE)
                     .flex_shrink_0()
                     .items_center()
                     .justify_center()
@@ -397,6 +400,7 @@ impl PanelRoot {
                     .border_color(colors.border)
                     .child(
                         div()
+                            .mx_auto()
                             .text_xl()
                             .font_weight(FontWeight::BOLD)
                             .text_color(colors.text)
@@ -421,7 +425,7 @@ impl PanelRoot {
             .child(
                 div()
                     .text_xs()
-                    .text_color(colors.border_variant)
+                    .text_color(colors.text_placeholder)
                     .mb_5()
                     .child("1 profile"),
             )
@@ -468,8 +472,7 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(colors.text_accent)
-                            .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
+                            .primary_button()
                             .shadow_lg()
                             .cursor_pointer()
                             .on_click(cx.listener({
@@ -528,7 +531,7 @@ impl PanelRoot {
                     .rounded_2xl()
                     .bg(linear_gradient(
                         30. + 180.,
-                        linear_color_stop(rgba(GZED_ORANGE), 0.0),
+                        linear_color_stop(*GZED_ORANGE, 0.0),
                         linear_color_stop(colors.background, 1.0),
                     ))
                     .shadow_2xl()
@@ -567,9 +570,7 @@ impl PanelRoot {
                     .px_4()
                     .py_2()
                     .rounded_lg()
-                    // .bg(colors.text_accent)
-                    .bg(Hsla::from(rgba(GZED_ORANGE)).opacity(0.5))
-                    .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
+                    .primary_button()
                     .shadow_lg()
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -598,8 +599,7 @@ impl PanelRoot {
                             }))
                             .child(
                                 div()
-                                    .text_color(colors.text_accent)
-                                    .hover(|style| style.text_color(colors.text_accent))
+                                    .text_color(*GZED_ORANGE)
                                     .child("← Back to user selection"),
                             ),
                     ),
@@ -617,7 +617,7 @@ impl PanelRoot {
             .id("scene-create-vault")
             .pt_2()
             .child(
-                div()
+                h_flex()
                     .id("vault-icon")
                     .size(px(48.))
                     .mx_auto()
@@ -629,9 +629,14 @@ impl PanelRoot {
                     .items_center()
                     .justify_center()
                     .child(
-                        Icon::new(IconName::LockOutlined)
-                            .size(IconSize::Medium)
-                            .color(Color::Custom(colors.text_accent)),
+                        div()
+                            //
+                            .mx_auto()
+                            .child(
+                                Icon::new(IconName::LockOutlined)
+                                    .size(IconSize::Medium)
+                                    .color(Color::Custom(*GZED_ORANGE)),
+                            ),
                     ),
             )
             .child(
@@ -713,9 +718,7 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            // .bg(colors.text_accent)
-                            .bg(Hsla::from(rgba(GZED_ORANGE)).opacity(0.5))
-                            .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
+                            .primary_button()
                             .shadow_lg()
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -750,7 +753,7 @@ impl PanelRoot {
                     .mb_4()
                     .text_center()
                     .child(
-                        div()
+                        h_flex()
                             .id("profile-check-icon")
                             .size(px(40.))
                             .mx_auto()
@@ -762,9 +765,14 @@ impl PanelRoot {
                             .items_center()
                             .justify_center()
                             .child(
-                                Icon::new(IconName::Check)
-                                    .size(IconSize::Small)
-                                    .color(Color::Custom(status.success)),
+                                div()
+                                    //
+                                    .mx_auto()
+                                    .child(
+                                        Icon::new(IconName::Check)
+                                            .size(IconSize::Small)
+                                            .color(Color::Custom(status.success)),
+                                    ),
                             ),
                     )
                     .child(
@@ -776,7 +784,7 @@ impl PanelRoot {
                     ),
             )
             .child(
-                div()
+                h_flex()
                     .id("profile-icon")
                     .size(px(48.))
                     .mx_auto()
@@ -788,9 +796,14 @@ impl PanelRoot {
                     .items_center()
                     .justify_center()
                     .child(
-                        Icon::new(IconName::Person)
-                            .size(IconSize::Medium)
-                            .color(Color::Custom(colors.text_muted)),
+                        div()
+                            //
+                            .mx_auto()
+                            .child(
+                                Icon::new(IconName::Person)
+                                    .size(IconSize::Medium)
+                                    .color(Color::Custom(colors.text_muted)),
+                            ),
                     ),
             )
             .child(
@@ -856,9 +869,7 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            // .bg(colors.text_accent)
-                            .bg(Hsla::from(rgba(GZED_ORANGE)))
-                            .hover(|style| style.bg(Hsla::from(rgba(GZED_ORANGE)).opacity(0.5)))
+                            .primary_button()
                             .shadow_lg()
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, cx| {
@@ -939,8 +950,7 @@ impl PanelRoot {
                             .id("space-intro-avatar")
                             .size(px(36.))
                             .rounded_full()
-                            // .bg(colors.text_accent)
-                            .bg(Hsla::from(rgba(GZED_ORANGE)))
+                            .bg(*GZED_ORANGE)
                             .flex_shrink_0()
                             .items_center()
                             .justify_center()
@@ -1182,8 +1192,7 @@ impl PanelRoot {
                                                     .id("owned-profile-avatar")
                                                     .size(px(24.))
                                                     .rounded_full()
-                                                    // .bg(colors.text_accent)
-                                                    .bg(Hsla::from(rgba(GZED_ORANGE)))
+                                                    .bg(*GZED_ORANGE)
                                                     .items_center()
                                                     .justify_center()
                                                     .child(
@@ -1260,8 +1269,7 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(colors.text_accent)
-                            .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
+                            .primary_button()
                             .shadow_lg()
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -1354,8 +1362,7 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(colors.text_accent)
-                            .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
+                            .primary_button()
                             .shadow_lg()
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -1470,7 +1477,7 @@ impl PanelRoot {
                                     .id("done-profile-avatar")
                                     .size(px(24.))
                                     .rounded_full()
-                                    .bg(colors.text_accent)
+                                    .bg(*GZED_ORANGE)
                                     .items_center()
                                     .justify_center()
                                     .child(
@@ -1503,8 +1510,7 @@ impl PanelRoot {
                     .px_4()
                     .py_2()
                     .rounded_lg()
-                    .bg(colors.text_accent)
-                    .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
+                    .primary_button()
                     .shadow_lg()
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -1596,7 +1602,7 @@ impl PanelRoot {
                                     .id("welcome-back-avatar")
                                     .size(px(32.))
                                     .rounded_full()
-                                    .bg(colors.text_accent)
+                                    .bg(*GZED_ORANGE)
                                     .items_center()
                                     .justify_center()
                                     .child(
@@ -1639,8 +1645,7 @@ impl PanelRoot {
                     .px_4()
                     .py_2()
                     .rounded_lg()
-                    .bg(colors.text_accent)
-                    .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
+                    .primary_button()
                     .shadow_lg()
                     .cursor_pointer()
                     .on_click(cx.listener(|_this, _e, _window, _cx| {
@@ -1690,5 +1695,17 @@ impl PanelRoot {
             | OnboardingState::CreateOwnedSpace
             | OnboardingState::CreateCommunalSpace => 4,
         }
+    }
+}
+
+trait PrimaryButton {
+    fn primary_button(self) -> Self;
+}
+
+impl<S: Styled + InteractiveElement> PrimaryButton for S {
+    fn primary_button(self) -> Self {
+        self.border_1()
+            .border_color(*GZED_ORANGE)
+            .hover(|style| style.bg(*GZED_ORANGE))
     }
 }
