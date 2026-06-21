@@ -363,156 +363,159 @@
   </div>
 
   <!-- ==================== MAIN APP ==================== -->
-  <div id="scene-main" class="hidden h-screen w-screen flex flex-col overflow-hidden">
+  <div id="scene-main" class="hidden h-screen w-screen flex overflow-hidden">
 
-    <!-- ===== TOP HEADER ===== -->
-    <div class="flex items-center h-[52px] bg-[#1e1e1e] border-b border-gray-800 flex-shrink-0 px-3 gap-3">
-      <!-- Start menu icon -->
-      <div class="relative">
-        <button onclick="toggleStartMenu()"
-          class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-gray-800 flex items-center justify-center hover:rounded-lg transition-all duration-150 shadow-lg flex-shrink-0"
-          title="Menu">
-          <span class="text-lg font-bold text-white">G</span>
-        </button>
-        <!-- Start menu dropdown -->
-        <div id="start-menu"
-          class="start-menu closed absolute top-full left-0 mt-1 w-56 rounded-xl bg-[#2b2d31] border border-gray-700 shadow-2xl overflow-hidden z-50">
-          <div class="p-2 space-y-0.5">
-            <button onclick="selectMenuItem('home')"
-              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
-              <span class="text-lg">🏠</span><span>Home</span>
-            </button>
-            <button onclick="selectMenuItem('photos')"
-              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
-              <span class="text-lg">📸</span><span>Photos</span>
-            </button>
-            <button onclick="selectMenuItem('notes')"
-              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
-              <span class="text-lg">📝</span><span>Notes</span>
-            </button>
-            <button onclick="selectMenuItem('chat')"
-              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
-              <span class="text-lg">💬</span><span>Chat</span>
-            </button>
-            <button onclick="selectMenuItem('whiteboard')"
-              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
-              <span class="text-lg">🗺️</span><span>Whiteboard</span>
-            </button>
-            <div class="h-px bg-gray-700 my-1"></div>
-            <button onclick="selectMenuItem('capabilities')"
-              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
-              <span>🛡️</span><span>Capabilities</span>
-            </button>
-            <button onclick="selectMenuItem('connections')"
-              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
-              <span>🔗</span><span>Connections</span>
-            </button>
-            <button onclick="selectMenuItem('settings')"
-              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
-              <span>⚙️</span><span>Settings</span>
-            </button>
+    <!-- ===== SIDEBAR (flex-col: header on top, rail+results below) ===== -->
+    <div class="flex flex-col flex-shrink-0 border-r border-gray-800" style="width: 340px;">
+
+      <!-- ===== SIDEBAR HEADER: search bar + G icon + profile ===== -->
+      <div class="flex items-center h-[52px] bg-[#1e1e1e] border-b border-gray-800 flex-shrink-0 px-3 gap-2">
+        <!-- Start menu icon -->
+        <div class="relative">
+          <button onclick="toggleStartMenu()"
+            class="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-gray-800 flex items-center justify-center hover:rounded-lg transition-all duration-150 shadow-lg flex-shrink-0"
+            title="Menu">
+            <span class="text-base font-bold text-white">G</span>
+          </button>
+          <!-- Start menu dropdown -->
+          <div id="start-menu"
+            class="start-menu closed absolute top-full left-0 mt-1 w-56 rounded-xl bg-[#2b2d31] border border-gray-700 shadow-2xl overflow-hidden z-50">
+            <div class="p-2 space-y-0.5">
+              <button onclick="selectMenuItem('home')"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+                <span class="text-lg">🏠</span><span>Home</span>
+              </button>
+              <button onclick="selectMenuItem('photos')"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+                <span class="text-lg">📸</span><span>Photos</span>
+              </button>
+              <button onclick="selectMenuItem('notes')"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+                <span class="text-lg">📝</span><span>Notes</span>
+              </button>
+              <button onclick="selectMenuItem('chat')"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+                <span class="text-lg">💬</span><span>Chat</span>
+              </button>
+              <button onclick="selectMenuItem('whiteboard')"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+                <span class="text-lg">🗺️</span><span>Whiteboard</span>
+              </button>
+              <div class="h-px bg-gray-700 my-1"></div>
+              <button onclick="selectMenuItem('capabilities')"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+                <span>🛡️</span><span>Capabilities</span>
+              </button>
+              <button onclick="selectMenuItem('connections')"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+                <span>🔗</span><span>Connections</span>
+              </button>
+              <button onclick="selectMenuItem('settings')"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+                <span>⚙️</span><span>Settings</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Search bar with badges -->
-      <div
-        class="flex-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2b2d31] border border-gray-700 focus-within:border-gray-500 text-sm max-w-2xl">
-        <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <div id="filter-badges" class="flex items-center gap-1 flex-wrap"></div>
-        <input type="text" id="search-input" placeholder="Search across all your data..."
-          class="flex-1 min-w-[100px] bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none text-sm" />
-      </div>
+        <!-- Search bar with badges -->
+        <div
+          class="flex-1 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#2b2d31] border border-gray-700 focus-within:border-gray-500 text-sm min-w-0">
+          <svg class="w-3.5 h-3.5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <div id="filter-badges" class="flex items-center gap-1 flex-wrap"></div>
+          <input type="text" id="search-input" placeholder="Search your data..."
+            class="flex-1 min-w-[60px] bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none text-sm" />
+        </div>
 
-      <!-- Right side: profile + actions -->
-      <div class="flex items-center gap-2 flex-shrink-0">
-        <span class="text-gray-500 text-xs" id="item-count">42 items</span>
-        <div class="relative">
+        <!-- Profile avatar -->
+        <div class="relative flex-shrink-0">
           <button
-            class="w-9 h-9 rounded-full bg-orange-600 flex items-center justify-center hover:rounded-lg transition-all duration-150 border-2 border-gray-700"
-            title="Alex"><span class="text-xs font-bold text-white">Al</span></button>
-          <div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1e1e1e]"></div>
+            class="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center hover:rounded-lg transition-all duration-150 border-2 border-gray-700"
+            title="Alex"><span class="text-[10px] font-bold text-white">Al</span></button>
+          <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#1e1e1e]"></div>
         </div>
       </div>
+
+      <!-- ===== SIDEBAR BODY: left rail + results ===== -->
+      <div class="flex flex-1 overflow-hidden">
+
+        <!-- ===== LEFT RAIL ===== -->
+        <div class="flex flex-col items-center w-[68px] bg-[#1e1e1e] py-3 flex-shrink-0 border-r border-gray-800">
+          <div class="flex-1 overflow-y-auto space-y-2 px-1 w-full flex flex-col items-center">
+            <div class="relative flex items-center" data-space="personal">
+              <div class="absolute -left-3 w-1 h-10 bg-white rounded-r-full"></div>
+              <button onclick="toggleSpaceFilter('personal')"
+                class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+                title="Personal Vault" id="space-btn-personal"><span class="text-lg">🔒</span></button>
+            </div>
+            <div class="relative flex items-center" data-space="gamedev">
+              <button onclick="toggleSpaceFilter('gamedev')"
+                class="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+                title="Game Dev Club" id="space-btn-gamedev"><span class="text-lg">🎮</span></button>
+              <div class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-[#1e1e1e]"></div>
+            </div>
+            <div class="relative flex items-center" data-space="photos">
+              <button onclick="toggleSpaceFilter('photos')"
+                class="w-11 h-11 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+                title="Photo Share" id="space-btn-photos"><span class="text-lg">📸</span></button>
+            </div>
+            <div class="relative flex items-center" data-space="books">
+              <button onclick="toggleSpaceFilter('books')"
+                class="w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+                title="Book Club" id="space-btn-books"><span class="text-lg">📚</span></button>
+            </div>
+          </div>
+          <div class="w-8 h-px bg-gray-700 my-2"></div>
+          <button
+            class="w-11 h-11 rounded-2xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center hover:rounded-xl hover:border-gray-400 transition-all duration-150 flex-shrink-0"
+            title="Add Space"><svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg></button>
+        </div>
+
+        <!-- ===== FILTER RESULTS SIDEBAR ===== -->
+        <div class="flex flex-col flex-1 bg-[#2b2d31] min-w-0">
+          <div class="flex items-center justify-between px-3 h-[40px] border-b border-gray-800 flex-shrink-0">
+            <div class="flex items-center gap-2">
+              <span class="text-white font-semibold text-xs">Results</span>
+              <span class="text-gray-500 text-[10px]" id="result-count">0</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button onclick="clearAllFilters()"
+                class="px-2 py-1 text-[10px] rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition">Clear</button>
+            </div>
+          </div>
+          <div class="flex-1 overflow-y-auto px-2 py-2 space-y-0.5" id="results-list">
+            <!-- Dynamically filled by JS -->
+          </div>
+        </div>
+
+      </div>
+
     </div>
 
-    <!-- ===== BODY: rail + sidebar + content ===== -->
-    <div class="flex flex-1 overflow-hidden">
+    <!-- ===== MAIN CONTENT ===== -->
+    <div class="flex-1 bg-[#313338] flex flex-col overflow-hidden">
 
-      <!-- ===== LEFT RAIL ===== -->
-      <div class="flex flex-col items-center w-[68px] bg-[#1e1e1e] py-3 flex-shrink-0 border-r border-gray-800">
-        <div class="flex-1 overflow-y-auto space-y-2 px-1 w-full flex flex-col items-center">
-          <div class="relative flex items-center" data-space="personal">
-            <div class="absolute -left-3 w-1 h-10 bg-white rounded-r-full"></div>
-            <button onclick="toggleSpaceFilter('personal')"
-              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-              title="Personal Vault" id="space-btn-personal"><span class="text-lg">🔒</span></button>
-          </div>
-          <div class="relative flex items-center" data-space="gamedev">
-            <button onclick="toggleSpaceFilter('gamedev')"
-              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-              title="Game Dev Club" id="space-btn-gamedev"><span class="text-lg">🎮</span></button>
-            <div class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-[#1e1e1e]"></div>
-          </div>
-          <div class="relative flex items-center" data-space="photos">
-            <button onclick="toggleSpaceFilter('photos')"
-              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-              title="Photo Share" id="space-btn-photos"><span class="text-lg">📸</span></button>
-          </div>
-          <div class="relative flex items-center" data-space="books">
-            <button onclick="toggleSpaceFilter('books')"
-              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-              title="Book Club" id="space-btn-books"><span class="text-lg">📚</span></button>
-          </div>
-        </div>
-        <div class="w-8 h-px bg-gray-700 my-2"></div>
-        <button
-          class="w-11 h-11 rounded-2xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center hover:rounded-xl hover:border-gray-400 transition-all duration-150 flex-shrink-0"
-          title="Add Space"><svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg></button>
+      <!-- Breadcrumb -->
+      <div class="flex items-center gap-1.5 px-4 pt-2 pb-1 text-xs text-gray-500 flex-shrink-0">
+        <span class="flex items-center gap-1 text-orange-400 font-medium"
+          id="breadcrumb-app"><span>📸</span><span>Photos</span></span>
+        <svg class="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+        <span class="flex items-center gap-1 text-gray-400" id="breadcrumb-filter-summary"><span>All
+            spaces</span></span>
+        <span class="ml-auto text-gray-600 text-[10px]" id="item-count">42 items</span>
       </div>
 
-      <!-- ===== FILTER RESULTS SIDEBAR ===== -->
-      <div class="flex flex-col w-72 bg-[#2b2d31] flex-shrink-0 border-r border-gray-800">
-        <div class="flex items-center justify-between px-4 h-[48px] border-b border-gray-800 flex-shrink-0">
-          <div class="flex items-center gap-2">
-            <span class="text-white font-semibold text-sm">Results</span>
-            <span class="text-gray-500 text-xs" id="result-count">0</span>
-          </div>
-          <div class="flex items-center gap-1">
-            <button onclick="clearAllFilters()"
-              class="px-2 py-1 text-[11px] rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition">Clear</button>
-          </div>
-        </div>
-        <div class="flex-1 overflow-y-auto px-2 py-2 space-y-0.5" id="results-list">
-          <!-- Dynamically filled by JS -->
-        </div>
+      <!-- ===== CONTENT AREA ===== -->
+      <div class="flex-1 overflow-y-auto p-4" id="content-area">
+        <!-- Dynamically filled by JS -->
       </div>
-
-      <!-- ===== MAIN CONTENT ===== -->
-      <div class="flex-1 bg-[#313338] flex flex-col overflow-hidden">
-
-        <!-- Breadcrumb -->
-        <div class="flex items-center gap-1.5 px-4 pt-2 pb-1 text-xs text-gray-500 flex-shrink-0">
-          <span class="flex items-center gap-1 text-orange-400 font-medium"
-            id="breadcrumb-app"><span>📸</span><span>Photos</span></span>
-          <svg class="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-          </svg>
-          <span class="flex items-center gap-1 text-gray-400" id="breadcrumb-filter-summary"><span>All
-              spaces</span></span>
-        </div>
-
-        <!-- ===== CONTENT AREA ===== -->
-        <div class="flex-1 overflow-y-auto p-4" id="content-area">
-          <!-- Dynamically filled by JS -->
-        </div>
-      </div>
-
     </div>
 
   </div>
