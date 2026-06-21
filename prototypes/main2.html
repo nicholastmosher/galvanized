@@ -369,7 +369,9 @@
     <div class="flex flex-col flex-shrink-0 border-r border-gray-800" style="width: 340px;">
 
       <!-- ===== SIDEBAR HEADER: search bar + G icon + profile ===== -->
-      <div class="flex items-center h-[52px] bg-[#1e1e1e] border-b border-gray-800 flex-shrink-0 px-3 gap-2">
+      <div id="sidebar-header"
+        class="flex items-start min-h-[52px] bg-[#1e1e1e] border-b border-gray-800 flex-shrink-0 px-3 gap-2 py-2 relative overflow-y-auto"
+        style="height: 52px;">
         <!-- Start menu icon -->
         <div class="relative">
           <button onclick="toggleStartMenu()"
@@ -437,6 +439,10 @@
             title="Alex"><span class="text-[10px] font-bold text-white">Al</span></button>
           <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#1e1e1e]"></div>
         </div>
+        <!-- Resize handle -->
+        <div id="header-resize-handle"
+          class="absolute bottom-0 left-0 right-0 h-1.5 cursor-s-resize hover:bg-orange-500/30 transition-colors flex-shrink-0"
+          style="z-index: 10;"></div>
       </div>
 
       <!-- ===== SIDEBAR BODY: left rail + results ===== -->
@@ -1484,6 +1490,50 @@
         }
       }
     });
+
+    // ==================== HEADER RESIZE ====================
+    let isResizing = false;
+    let resizeStartY = 0;
+    let resizeStartHeight = 0;
+
+    function initHeaderResize() {
+      const handle = document.getElementById('header-resize-handle');
+      const header = document.getElementById('sidebar-header');
+      if (!handle || !header) return;
+
+      handle.addEventListener('mousedown', function (e) {
+        isResizing = true;
+        resizeStartY = e.clientY;
+        resizeStartHeight = header.offsetHeight;
+        document.body.style.cursor = 's-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+    }
+
+    document.addEventListener('mousemove', function (e) {
+      if (!isResizing) return;
+      const header = document.getElementById('sidebar-header');
+      if (!header) return;
+      const delta = e.clientY - resizeStartY;
+      const newHeight = Math.max(52, resizeStartHeight + delta);
+      header.style.height = newHeight + 'px';
+    });
+
+    document.addEventListener('mouseup', function () {
+      if (isResizing) {
+        isResizing = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    });
+
+    // Initialize after DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initHeaderResize);
+    } else {
+      initHeaderResize();
+    }
 
     // ==================== SCENE MANAGEMENT ====================
     function showScene(id) {
