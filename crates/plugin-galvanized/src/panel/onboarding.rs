@@ -1,10 +1,10 @@
 use tracing::info;
 use zed::unstable::{
-    gpui::{Entity, FontWeight, SharedString, linear_color_stop, linear_gradient, rgba},
+    gpui::{Entity, FontWeight, Hsla, SharedString, linear_color_stop, linear_gradient, rgba},
     ui::{
-        Color, Context, FluentBuilder as _, Icon, IconName, IconSize, InteractiveElement as _,
-        IntoElement, ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div,
-        h_flex, px, v_flex,
+        ActiveTheme, Color, Context, FluentBuilder as _, Icon, IconName, IconSize,
+        InteractiveElement as _, IntoElement, ParentElement as _, StatefulInteractiveElement as _,
+        Styled as _, Window, div, h_flex, px, v_flex,
     },
 };
 
@@ -13,53 +13,10 @@ use crate::{
     users::{User, UserHandle as _},
 };
 
-// ==================== COLOR CONSTANTS ====================
-
-// Panel & surface colors
-const PANEL_BG: u32 = 0x1a1a1eff;
-const SURFACE_BORDER: u32 = 0x27272aff;
-const SURFACE_BG: u32 = 0x27272aff;
-const SURFACE_BG_TRANSLUCENT: u32 = 0x27272a80;
-const SURFACE_BG_MUTED: u32 = 0x27272a66;
-const SURFACE_HOVER: u32 = 0x2a2a2eff;
-const BORDER_DEFAULT: u32 = 0x404040ff;
-const BORDER_MUTED: u32 = 0x40404080;
-const BORDER_HOVER: u32 = 0x444444ff;
-const BORDER_DASHED: u32 = 0x525252ff;
-
-// Text colors
-const TEXT_PRIMARY: u32 = 0xffffffff;
-const TEXT_SECONDARY: u32 = 0xd4d4d4ff;
-const TEXT_MUTED: u32 = 0xa1a1aaff;
-const TEXT_SUBTLE: u32 = 0x737373ff;
-const TEXT_DISABLED: u32 = 0x525252ff;
-const TEXT_PROFILE_NAME: u32 = 0xe5e5e5ff;
-
-// Accent (orange)
-const ACCENT_PRIMARY: u32 = 0xea580cff;
-const ACCENT_BORDER: u32 = 0xea580cb3;
-const ACCENT_BORDER_HOVER: u32 = 0xea580c99;
-const ACCENT_HOVER: u32 = 0xdd4400ff;
-const ACCENT_LINK: u32 = 0xfb923cff;
-const ACCENT_LINK_HOVER: u32 = 0xfdba74ff;
-const ACCENT_ICON: u32 = 0xfb923cff;
-const GRADIENT_START: u32 = 0xff6600ff;
-const GRADIENT_END: u32 = 0x00002bff;
-
-// Success (green)
-const SUCCESS_DOT: u32 = 0x22c55eff;
-const SUCCESS_BG: u32 = 0x22c55e33;
-const SUCCESS_BORDER: u32 = 0x22c55e4d;
-const SUCCESS_ICON: u32 = 0x4ade80ff;
-
-// Neutral
-const STEP_INACTIVE: u32 = 0x333333ff;
-const SPACE_GRADIENT_START: u32 = 0x404040ff;
-const SPACE_GRADIENT_END: u32 = 0x1a1a1aff;
-const SPACE_ICON_COLOR: u32 = 0xd4d4d4ff;
+const GZED_ORANGE: u32 = 0xff6600ff;
 
 impl PanelRoot {
-    /// Main onboarding panel layout — header, step progress, scenes, footer.
+    /// Main onboarding panel layout: header, step progress, scenes, footer.
     pub fn render_onboarding_panel(
         &mut self,
         window: &mut Window,
@@ -71,7 +28,7 @@ impl PanelRoot {
             .id("onboarding-panel")
             .h_full()
             .w(panel_width)
-            .bg(rgba(PANEL_BG))
+            .bg(cx.theme().colors().panel_background)
             .child(self.render_onboarding_header(cx))
             .child(self.render_step_progress(cx))
             .child(
@@ -89,25 +46,24 @@ impl PanelRoot {
     /// Panel header with logo, title, and subtitle.
     fn render_onboarding_header(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
         let (title, subtitle) = self.header_for_state();
+        let colors = cx.theme().colors();
 
         h_flex()
             .id("onboarding-header")
             .items_center()
             .gap_3()
-            .px_5()
-            .pt_5()
-            .pb_3()
+            .p_4()
             .border_b_1()
-            .border_color(rgba(SURFACE_BORDER))
+            .border_color(colors.border_variant)
             .child(
-                div()
+                h_flex()
                     .id("onboarding-logo")
                     .size(px(32.))
                     .rounded_lg()
                     .bg(linear_gradient(
                         30. + 180.,
-                        linear_color_stop(rgba(GRADIENT_START), 0.0),
-                        linear_color_stop(rgba(GRADIENT_END), 1.0),
+                        linear_color_stop(rgba(GZED_ORANGE), 0.0),
+                        linear_color_stop(colors.background, 1.0),
                     ))
                     .flex_shrink_0()
                     .items_center()
@@ -115,9 +71,10 @@ impl PanelRoot {
                     .shadow_lg()
                     .child(
                         div()
+                            .mx_auto()
                             .text_sm()
                             .font_weight(FontWeight::BOLD)
-                            .text_color(rgba(TEXT_PRIMARY))
+                            .text_color(colors.text)
                             .child("G"),
                     ),
             )
@@ -130,7 +87,7 @@ impl PanelRoot {
                             .id("panel-title")
                             .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(rgba(TEXT_PRIMARY))
+                            .text_color(colors.text)
                             .truncate()
                             .child(title),
                     )
@@ -138,16 +95,18 @@ impl PanelRoot {
                         div()
                             .id("panel-subtitle")
                             .text_xs()
-                            .text_color(rgba(TEXT_SUBTLE))
+                            .text_color(colors.text_placeholder)
                             .child(subtitle),
                     ),
             )
     }
 
-    /// Step progress dots — hidden on picker, sign-in, and done scenes.
-    fn render_step_progress(&mut self, _cx: &mut Context<Self>) -> impl IntoElement {
+    /// Step progress dots: hidden on picker, sign-in, and done scenes.
+    fn render_step_progress(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
         let current_step = self.current_step();
         let show = current_step > 0;
+        let colors = cx.theme().colors();
+        let status = cx.theme().status();
 
         h_flex()
             .id("step-progress")
@@ -158,17 +117,17 @@ impl PanelRoot {
             .px_5()
             .py_3()
             .border_b_1()
-            .border_color(rgba(SURFACE_BORDER))
+            .border_color(colors.border_variant)
             .children((1..=4).map(|i| {
                 let is_active = i == current_step;
                 let is_done = i < current_step;
 
                 let color = if is_done {
-                    rgba(SUCCESS_DOT)
+                    status.success
                 } else if is_active {
-                    rgba(ACCENT_PRIMARY)
+                    colors.text_accent
                 } else {
-                    rgba(STEP_INACTIVE)
+                    colors.element_disabled
                 };
 
                 let mut dot = div()
@@ -187,18 +146,20 @@ impl PanelRoot {
     }
 
     /// Footer with encryption notice.
-    fn render_onboarding_footer(&mut self, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_onboarding_footer(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let colors = cx.theme().colors();
+
         h_flex()
             .id("onboarding-footer")
             .px_5()
             .py_3()
             .border_t_1()
-            .border_color(rgba(SURFACE_BORDER))
+            .border_color(colors.border_variant)
             .justify_center()
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgba(BORDER_DASHED))
+                    .text_color(colors.text_placeholder)
                     .child("🔐 Everything is end-to-end encrypted"),
             )
     }
@@ -242,6 +203,8 @@ impl PanelRoot {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let colors = cx.theme().colors();
+
         v_flex()
             .id("scene-picker")
             .pt_2()
@@ -249,85 +212,102 @@ impl PanelRoot {
                 div()
                     .text_lg()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(rgba(TEXT_PRIMARY))
+                    .text_color(colors.text)
                     .mb_1()
                     .child("Welcome Back"),
             )
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgba(TEXT_MUTED))
+                    .text_color(colors.text_muted)
                     .mb_4()
                     .child("Choose a vault to unlock, or create a new one."),
             )
-            .child(div().id("user-list").flex_col().gap_2().mb_5().children(
-                self.users.iter().enumerate().map(|(_ix, user)| {
-                    let name = user.read(cx).name();
-                    let initial = name.chars().next().unwrap_or('?').to_string();
+            .child(
+                //
+                div()
+                    //
+                    .id("user-list")
+                    .flex_col()
+                    .gap_2()
+                    .mb_5()
+                    .children(
+                        //
+                        self
+                            //
+                            .users
+                            .iter()
+                            .enumerate()
+                            .map(|(_ix, user)| {
+                                let name = user.read(cx).name();
+                                let initial = name.chars().next().unwrap_or('?').to_string();
 
-                    h_flex()
-                        .id(format!("user-card-{}", name))
-                        .items_center()
-                        .gap_3()
-                        .p_3()
-                        .rounded_xl()
-                        .bg(rgba(SURFACE_BG_TRANSLUCENT))
-                        .border_1()
-                        .border_color(rgba(BORDER_DEFAULT))
-                        .hover(|style| {
-                            style
-                                .bg(rgba(SURFACE_HOVER))
-                                .border_color(rgba(BORDER_HOVER))
-                        })
-                        .cursor_pointer()
-                        .on_click(cx.listener({
-                            let user = user.clone();
-                            move |this, _e, _window, _cx| {
-                                this.onboarding_state = OnboardingState::SignIn(user.clone());
-                            }
-                        }))
-                        .child(
-                            div()
-                                .id(format!("user-avatar-{}", name))
-                                .size(px(40.))
-                                .rounded_full()
-                                .bg(rgba(ACCENT_PRIMARY))
-                                .flex_shrink_0()
-                                .items_center()
-                                .justify_center()
-                                .child(
-                                    div()
-                                        .text_sm()
-                                        .font_weight(FontWeight::BOLD)
-                                        .text_color(rgba(TEXT_PRIMARY))
-                                        .child(initial),
-                                ),
-                        )
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .child(
-                                    div()
-                                        .text_sm()
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_color(rgba(TEXT_PRIMARY))
-                                        .child(name),
-                                )
-                                .child(
-                                    div()
-                                        .text_xs()
-                                        .text_color(rgba(TEXT_SUBTLE))
-                                        .child("Vault locked"),
-                                ),
-                        )
-                        .child(
-                            Icon::new(IconName::ChevronRight)
-                                .size(IconSize::Small)
-                                .color(Color::Custom(rgba(BORDER_DASHED).into())),
-                        )
-                }),
-            ))
+                                h_flex()
+                                    .id(format!("user-card-{}", name))
+                                    .items_center()
+                                    .gap_3()
+                                    .p_3()
+                                    .rounded_xl()
+                                    .bg(colors.element_background.opacity(0.5))
+                                    .border_1()
+                                    .border_color(colors.border)
+                                    .hover(|style| {
+                                        style
+                                            .bg(colors.element_hover)
+                                            .border_color(colors.border_focused)
+                                    })
+                                    .cursor_pointer()
+                                    .on_click(cx.listener({
+                                        let user = user.clone();
+                                        move |this, _e, _window, _cx| {
+                                            this.onboarding_state =
+                                                OnboardingState::SignIn(user.clone());
+                                        }
+                                    }))
+                                    .child(
+                                        h_flex()
+                                            .id(format!("user-avatar-{}", name))
+                                            .size(px(40.))
+                                            .rounded_full()
+                                            .bg(Hsla::from(rgba(GZED_ORANGE)).opacity(0.5))
+                                            .flex_shrink_0()
+                                            .items_center()
+                                            .justify_center()
+                                            .child(
+                                                div()
+                                                    .mx_auto()
+                                                    .text_sm()
+                                                    .font_weight(FontWeight::BOLD)
+                                                    .text_color(colors.text)
+                                                    .child(initial),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w_0()
+                                            .child(
+                                                div()
+                                                    .text_sm()
+                                                    .font_weight(FontWeight::SEMIBOLD)
+                                                    .text_color(colors.text)
+                                                    .child(name),
+                                            )
+                                            .child(
+                                                div()
+                                                    .text_xs()
+                                                    .text_color(colors.text_placeholder)
+                                                    .child("Vault locked"),
+                                            ),
+                                    )
+                                    .child(
+                                        Icon::new(IconName::ChevronRight)
+                                            .size(IconSize::Small)
+                                            .color(Color::Custom(colors.border_variant)),
+                                    )
+                            }),
+                    ),
+            )
             .child(
                 // Create new vault button
                 h_flex()
@@ -339,29 +319,35 @@ impl PanelRoot {
                     .rounded_xl()
                     .border_2()
                     .border_dashed()
-                    .border_color(rgba(BORDER_DEFAULT))
+                    .border_color(colors.border)
                     .hover(|style| {
                         style
-                            .border_color(rgba(ACCENT_BORDER_HOVER))
-                            .bg(rgba(SURFACE_BG_TRANSLUCENT))
+                            .border_color(colors.text_accent.opacity(0.6))
+                            .bg(colors.element_background.opacity(0.5))
                     })
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _e, _window, _cx| {
                         this.onboarding_state = OnboardingState::Welcome;
                     }))
                     .child(
-                        div()
+                        h_flex()
                             .id("create-vault-icon")
                             .size(px(40.))
                             .rounded_full()
-                            .bg(rgba(SURFACE_BORDER))
+                            .bg(colors.border_variant)
                             .border_2()
                             .border_dashed()
-                            .border_color(rgba(BORDER_DASHED))
+                            .border_color(colors.border_variant)
                             .flex_shrink_0()
                             .items_center()
                             .justify_center()
-                            .child(div().text_lg().text_color(rgba(TEXT_SUBTLE)).child("+")),
+                            .child(
+                                div()
+                                    .mx_auto()
+                                    .text_lg()
+                                    .text_color(colors.text_placeholder)
+                                    .child("+"),
+                            ),
                     )
                     .child(
                         div()
@@ -369,13 +355,13 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::MEDIUM)
-                                    .text_color(rgba(TEXT_SECONDARY))
+                                    .text_color(colors.text_muted)
                                     .child("Create new vault"),
                             )
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(BORDER_DASHED))
+                                    .text_color(colors.text_placeholder)
                                     .child("Set up a fresh decentralized data space"),
                             ),
                     ),
@@ -390,6 +376,7 @@ impl PanelRoot {
     ) -> impl IntoElement {
         let name = user.read(cx).name();
         let initial = name.chars().next().unwrap_or('?').to_string();
+        let colors = cx.theme().colors();
 
         v_flex()
             .id("scene-sign-in")
@@ -402,17 +389,17 @@ impl PanelRoot {
                     .mx_auto()
                     .mb_3()
                     .rounded_full()
-                    .bg(rgba(ACCENT_PRIMARY))
+                    .bg(Hsla::from(rgba(GZED_ORANGE)).opacity(0.5))
                     .flex_shrink_0()
                     .items_center()
                     .justify_center()
                     .border_2()
-                    .border_color(rgba(BORDER_DEFAULT))
+                    .border_color(colors.border)
                     .child(
                         div()
                             .text_xl()
                             .font_weight(FontWeight::BOLD)
-                            .text_color(rgba(TEXT_PRIMARY))
+                            .text_color(colors.text)
                             .child(initial),
                     ),
             )
@@ -420,21 +407,21 @@ impl PanelRoot {
                 div()
                     .text_lg()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(rgba(TEXT_PRIMARY))
+                    .text_color(colors.text)
                     .mb_1()
                     .child(name.clone()),
             )
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgba(TEXT_MUTED))
+                    .text_color(colors.text_muted)
                     .mb_1()
                     .child("Enter your vault password to unlock"),
             )
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgba(BORDER_DASHED))
+                    .text_color(colors.border_variant)
                     .mb_5()
                     .child("1 profile"),
             )
@@ -458,10 +445,10 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(rgba(SURFACE_BORDER))
-                            .hover(|style| style.bg(rgba(BORDER_DEFAULT)))
+                            .bg(colors.border_variant)
+                            .hover(|style| style.bg(colors.border))
                             .border_1()
-                            .border_color(rgba(BORDER_DEFAULT))
+                            .border_color(colors.border)
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
                                 this.onboarding_state = OnboardingState::Picker;
@@ -469,7 +456,7 @@ impl PanelRoot {
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(rgba(TEXT_SECONDARY))
+                                    .text_color(colors.text_muted)
                                     .text_center()
                                     .child("Back"),
                             ),
@@ -481,8 +468,8 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(rgba(ACCENT_PRIMARY))
-                            .hover(|style| style.bg(rgba(ACCENT_HOVER)))
+                            .bg(colors.text_accent)
+                            .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
                             .shadow_lg()
                             .cursor_pointer()
                             .on_click(cx.listener({
@@ -512,7 +499,7 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(rgba(TEXT_PRIMARY))
+                                    .text_color(colors.text)
                                     .text_center()
                                     .child("Unlock"),
                             ),
@@ -525,13 +512,15 @@ impl PanelRoot {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let colors = cx.theme().colors();
+
         v_flex()
             .id("scene-welcome")
             .w_full()
             .text_center()
             .pt_4()
             .child(
-                div()
+                h_flex()
                     .id("welcome-logo")
                     .size(px(64.))
                     .mx_auto()
@@ -539,17 +528,18 @@ impl PanelRoot {
                     .rounded_2xl()
                     .bg(linear_gradient(
                         30. + 180.,
-                        linear_color_stop(rgba(GRADIENT_START), 0.0),
-                        linear_color_stop(rgba(GRADIENT_END), 1.0),
+                        linear_color_stop(rgba(GZED_ORANGE), 0.0),
+                        linear_color_stop(colors.background, 1.0),
                     ))
                     .shadow_2xl()
                     .items_center()
                     .justify_center()
                     .child(
                         div()
+                            .mx_auto()
                             .text_2xl()
                             .font_weight(FontWeight::BOLD)
-                            .text_color(rgba(TEXT_PRIMARY))
+                            .text_color(colors.text)
                             .child("G"),
                     ),
             )
@@ -557,7 +547,7 @@ impl PanelRoot {
                 div()
                     .text_xl()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(rgba(TEXT_PRIMARY))
+                    .text_color(colors.text)
                     .mb_2()
                     .child("Welcome to Galvanized"),
             )
@@ -565,7 +555,7 @@ impl PanelRoot {
                 div()
                     .id("welcome-description")
                     .text_sm()
-                    .text_color(rgba(TEXT_MUTED))
+                    .text_color(colors.text_muted)
                     .mb_6()
                     .child("Your decentralized data space. Everything encrypted, unlocked by one master password."),
             )
@@ -577,8 +567,9 @@ impl PanelRoot {
                     .px_4()
                     .py_2()
                     .rounded_lg()
-                    .bg(rgba(ACCENT_PRIMARY))
-                    .hover(|style| style.bg(rgba(ACCENT_HOVER)))
+                    // .bg(colors.text_accent)
+                    .bg(Hsla::from(rgba(GZED_ORANGE)).opacity(0.5))
+                    .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
                     .shadow_lg()
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -588,7 +579,7 @@ impl PanelRoot {
                         div()
                             .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(rgba(TEXT_PRIMARY))
+                            .text_color(colors.text)
                             .text_center()
                             .child("Create Your First Vault"),
                     ),
@@ -596,7 +587,7 @@ impl PanelRoot {
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgba(BORDER_DASHED))
+                    .text_color(colors.border_variant)
                     .mt_5()
                     .child(
                         div()
@@ -607,8 +598,8 @@ impl PanelRoot {
                             }))
                             .child(
                                 div()
-                                    .text_color(rgba(ACCENT_LINK))
-                                    .hover(|style| style.text_color(rgba(ACCENT_LINK_HOVER)))
+                                    .text_color(colors.text_accent)
+                                    .hover(|style| style.text_color(colors.text_accent))
                                     .child("← Back to user selection"),
                             ),
                     ),
@@ -620,6 +611,8 @@ impl PanelRoot {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let colors = cx.theme().colors();
+
         v_flex()
             .id("scene-create-vault")
             .pt_2()
@@ -630,22 +623,22 @@ impl PanelRoot {
                     .mx_auto()
                     .mb_4()
                     .rounded_full()
-                    .bg(rgba(SURFACE_BORDER))
+                    .bg(colors.border_variant)
                     .border_2()
-                    .border_color(rgba(BORDER_DEFAULT))
+                    .border_color(colors.border)
                     .items_center()
                     .justify_center()
                     .child(
                         Icon::new(IconName::LockOutlined)
                             .size(IconSize::Medium)
-                            .color(Color::Custom(rgba(ACCENT_LINK).into())),
+                            .color(Color::Custom(colors.text_accent)),
                     ),
             )
             .child(
                 div()
                     .text_lg()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(rgba(TEXT_PRIMARY))
+                    .text_color(colors.text)
                     .text_center()
                     .mb_1()
                     .child("Create Your Vault"),
@@ -653,7 +646,7 @@ impl PanelRoot {
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgba(TEXT_MUTED))
+                    .text_color(colors.text_muted)
                     .text_center()
                     .mb_5()
                     .child("One master password unlocks all your profiles, keys, and data."),
@@ -667,7 +660,7 @@ impl PanelRoot {
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(TEXT_MUTED))
+                                    .text_color(colors.text_muted)
                                     .mb_1()
                                     .child("Master Password"),
                             )
@@ -678,7 +671,7 @@ impl PanelRoot {
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(TEXT_MUTED))
+                                    .text_color(colors.text_muted)
                                     .mb_1()
                                     .child("Confirm"),
                             )
@@ -697,10 +690,10 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(rgba(SURFACE_BORDER))
-                            .hover(|style| style.bg(rgba(BORDER_DEFAULT)))
+                            .bg(colors.border_variant)
+                            .hover(|style| style.bg(colors.border))
                             .border_1()
-                            .border_color(rgba(BORDER_DEFAULT))
+                            .border_color(colors.border)
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
                                 this.onboarding_state = OnboardingState::Welcome;
@@ -708,7 +701,7 @@ impl PanelRoot {
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(rgba(TEXT_SECONDARY))
+                                    .text_color(colors.text_muted)
                                     .text_center()
                                     .child("Back"),
                             ),
@@ -720,8 +713,9 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(rgba(ACCENT_PRIMARY))
-                            .hover(|style| style.bg(rgba(ACCENT_HOVER)))
+                            // .bg(colors.text_accent)
+                            .bg(Hsla::from(rgba(GZED_ORANGE)).opacity(0.5))
+                            .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
                             .shadow_lg()
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -731,7 +725,7 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(rgba(TEXT_PRIMARY))
+                                    .text_color(colors.text)
                                     .text_center()
                                     .child("Create Vault"),
                             ),
@@ -744,6 +738,9 @@ impl PanelRoot {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let colors = cx.theme().colors();
+        let status = cx.theme().status();
+
         v_flex()
             .id("scene-create-profile")
             .pt_2()
@@ -759,22 +756,22 @@ impl PanelRoot {
                             .mx_auto()
                             .mb_1()
                             .rounded_full()
-                            .bg(rgba(SUCCESS_BG))
+                            .bg(status.success_background.opacity(0.2))
                             .border_1()
-                            .border_color(rgba(SUCCESS_BORDER))
+                            .border_color(status.success_border.opacity(0.3))
                             .items_center()
                             .justify_center()
                             .child(
                                 Icon::new(IconName::Check)
                                     .size(IconSize::Small)
-                                    .color(Color::Custom(rgba(SUCCESS_ICON).into())),
+                                    .color(Color::Custom(status.success)),
                             ),
                     )
                     .child(
                         div()
                             .text_xs()
                             .font_weight(FontWeight::MEDIUM)
-                            .text_color(rgba(SUCCESS_ICON))
+                            .text_color(status.success)
                             .child("Vault created and unlocked"),
                     ),
             )
@@ -785,22 +782,22 @@ impl PanelRoot {
                     .mx_auto()
                     .mb_4()
                     .rounded_full()
-                    .bg(rgba(SURFACE_BORDER))
+                    .bg(colors.border_variant)
                     .border_2()
-                    .border_color(rgba(BORDER_DEFAULT))
+                    .border_color(colors.border)
                     .items_center()
                     .justify_center()
                     .child(
                         Icon::new(IconName::Person)
                             .size(IconSize::Medium)
-                            .color(Color::Custom(rgba(TEXT_MUTED).into())),
+                            .color(Color::Custom(colors.text_muted)),
                     ),
             )
             .child(
                 div()
                     .text_lg()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(rgba(TEXT_PRIMARY))
+                    .text_color(colors.text)
                     .text_center()
                     .mb_1()
                     .child("Create Your First Profile"),
@@ -808,7 +805,7 @@ impl PanelRoot {
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgba(TEXT_MUTED))
+                    .text_color(colors.text_muted)
                     .text_center()
                     .mb_5()
                     .child("A profile is your identity within your vault. Add more later."),
@@ -818,7 +815,7 @@ impl PanelRoot {
                     .child(
                         div()
                             .text_xs()
-                            .text_color(rgba(TEXT_MUTED))
+                            .text_color(colors.text_muted)
                             .mb_1()
                             .child("Display Name"),
                     )
@@ -836,10 +833,10 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(rgba(SURFACE_BORDER))
-                            .hover(|style| style.bg(rgba(BORDER_DEFAULT)))
+                            .bg(colors.border_variant)
+                            .hover(|style| style.bg(colors.border))
                             .border_1()
-                            .border_color(rgba(BORDER_DEFAULT))
+                            .border_color(colors.border)
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
                                 this.onboarding_state = OnboardingState::CreateVault;
@@ -847,7 +844,7 @@ impl PanelRoot {
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(rgba(TEXT_SECONDARY))
+                                    .text_color(colors.text_muted)
                                     .text_center()
                                     .child("Back"),
                             ),
@@ -859,8 +856,9 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(rgba(ACCENT_PRIMARY))
-                            .hover(|style| style.bg(rgba(ACCENT_HOVER)))
+                            // .bg(colors.text_accent)
+                            .bg(Hsla::from(rgba(GZED_ORANGE)))
+                            .hover(|style| style.bg(Hsla::from(rgba(GZED_ORANGE)).opacity(0.5)))
                             .shadow_lg()
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, cx| {
@@ -901,7 +899,7 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(rgba(TEXT_PRIMARY))
+                                    .text_color(colors.text)
                                     .text_center()
                                     .child("Create Profile"),
                             ),
@@ -920,6 +918,7 @@ impl PanelRoot {
             .map(|u| u.read(cx).name())
             .unwrap_or_else(|| SharedString::from("You"));
         let initial = user_name.chars().next().unwrap_or('?').to_string();
+        let colors = cx.theme().colors();
 
         v_flex()
             .id("scene-space-intro")
@@ -932,15 +931,16 @@ impl PanelRoot {
                     .mb_4()
                     .p_3()
                     .rounded_lg()
-                    .bg(rgba(SURFACE_BG_MUTED))
+                    .bg(colors.element_background.opacity(0.4))
                     .border_1()
-                    .border_color(rgba(BORDER_MUTED))
+                    .border_color(colors.border.opacity(0.5))
                     .child(
                         div()
                             .id("space-intro-avatar")
                             .size(px(36.))
                             .rounded_full()
-                            .bg(rgba(ACCENT_PRIMARY))
+                            // .bg(colors.text_accent)
+                            .bg(Hsla::from(rgba(GZED_ORANGE)))
                             .flex_shrink_0()
                             .items_center()
                             .justify_center()
@@ -948,7 +948,7 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::BOLD)
-                                    .text_color(rgba(TEXT_PRIMARY))
+                                    .text_color(colors.text)
                                     .child(initial),
                             ),
                     )
@@ -959,13 +959,13 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(rgba(TEXT_PRIMARY))
+                                    .text_color(colors.text)
                                     .child(user_name),
                             )
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(TEXT_SUBTLE))
+                                    .text_color(colors.text_placeholder)
                                     .child("Profile created · Vault unlocked"),
                             ),
                     ),
@@ -974,14 +974,14 @@ impl PanelRoot {
                 div()
                     .text_lg()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(rgba(TEXT_PRIMARY))
+                    .text_color(colors.text)
                     .mb_2()
                     .child("Set Up Your First Space"),
             )
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgba(TEXT_MUTED))
+                    .text_color(colors.text_muted)
                     .mb_5()
                     .child("Spaces are shared data stores. Create one or join an existing one."),
             )
@@ -995,11 +995,11 @@ impl PanelRoot {
                     .p_3()
                     .rounded_xl()
                     .border_2()
-                    .border_color(rgba(ACCENT_BORDER))
-                    .bg(rgba(SURFACE_BG_TRANSLUCENT))
+                    .border_color(colors.text_accent.opacity(0.7))
+                    .bg(colors.element_background.opacity(0.5))
                     .mb_3()
                     .cursor_pointer()
-                    .hover(|style| style.bg(rgba(SURFACE_BORDER)))
+                    .hover(|style| style.bg(colors.border_variant))
                     .on_click(cx.listener(|this, _e, _window, _cx| {
                         this.onboarding_state = OnboardingState::CreateOwnedSpace;
                     }))
@@ -1010,18 +1010,18 @@ impl PanelRoot {
                             .rounded_xl()
                             .bg(linear_gradient(
                                 135.,
-                                linear_color_stop(rgba(BORDER_DEFAULT), 0.0),
-                                linear_color_stop(rgba(0x1a1a1aff), 1.0),
+                                linear_color_stop(colors.border, 0.0),
+                                linear_color_stop(colors.panel_background, 1.0),
                             ))
                             .flex_shrink_0()
                             .border_1()
-                            .border_color(rgba(BORDER_DASHED))
+                            .border_color(colors.border_variant)
                             .items_center()
                             .justify_center()
                             .child(
                                 Icon::new(IconName::LockOutlined)
                                     .size(IconSize::Medium)
-                                    .color(Color::Custom(rgba(TEXT_SECONDARY).into())),
+                                    .color(Color::Custom(colors.text_muted)),
                             ),
                     )
                     .child(
@@ -1032,10 +1032,10 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(rgba(TEXT_PRIMARY))
+                                    .text_color(colors.text)
                                     .child("Personal Space (Owned)"),
                             )
-                            .child(div().text_xs().text_color(rgba(TEXT_MUTED)).child(
+                            .child(div().text_xs().text_color(colors.text_muted).child(
                                 "Private by default. You control access and delegate capabilities.",
                             )),
                     ),
@@ -1050,14 +1050,14 @@ impl PanelRoot {
                     .p_3()
                     .rounded_xl()
                     .border_2()
-                    .border_color(rgba(BORDER_DEFAULT))
-                    .bg(rgba(SURFACE_BG_TRANSLUCENT))
+                    .border_color(colors.border)
+                    .bg(colors.element_background.opacity(0.5))
                     .mb_3()
                     .cursor_pointer()
                     .hover(|style| {
                         style
-                            .border_color(rgba(BORDER_DASHED))
-                            .bg(rgba(SURFACE_BORDER))
+                            .border_color(colors.border_variant)
+                            .bg(colors.border_variant)
                     })
                     .on_click(cx.listener(|this, _e, _window, _cx| {
                         this.onboarding_state = OnboardingState::CreateCommunalSpace;
@@ -1069,18 +1069,18 @@ impl PanelRoot {
                             .rounded_xl()
                             .bg(linear_gradient(
                                 135.,
-                                linear_color_stop(rgba(BORDER_DEFAULT), 0.0),
-                                linear_color_stop(rgba(0x1a1a1aff), 1.0),
+                                linear_color_stop(colors.border, 0.0),
+                                linear_color_stop(colors.panel_background, 1.0),
                             ))
                             .flex_shrink_0()
                             .border_1()
-                            .border_color(rgba(BORDER_DASHED))
+                            .border_color(colors.border_variant)
                             .items_center()
                             .justify_center()
                             .child(
                                 Icon::new(IconName::Person)
                                     .size(IconSize::Medium)
-                                    .color(Color::Custom(rgba(TEXT_SECONDARY).into())),
+                                    .color(Color::Custom(colors.text_muted)),
                             ),
                     )
                     .child(
@@ -1091,13 +1091,13 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(rgba(TEXT_PRIMARY))
+                                    .text_color(colors.text)
                                     .child("Community Space (Communal)"),
                             )
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(TEXT_MUTED))
+                                    .text_color(colors.text_muted)
                                     .child("Open to anyone. Any subspace can write."),
                             ),
                     ),
@@ -1113,8 +1113,8 @@ impl PanelRoot {
                         .child(
                             div()
                                 .text_xs()
-                                .text_color(rgba(TEXT_SUBTLE))
-                                .hover(|style| style.text_color(rgba(TEXT_SECONDARY)))
+                                .text_color(colors.text_placeholder)
+                                .hover(|style| style.text_color(colors.text_muted))
                                 .child("Skip for now"),
                         ),
                 ),
@@ -1126,6 +1126,8 @@ impl PanelRoot {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let colors = cx.theme().colors();
+
         v_flex()
             .id("scene-create-owned")
             .pt_2()
@@ -1133,7 +1135,7 @@ impl PanelRoot {
                 div()
                     .text_lg()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(rgba(TEXT_PRIMARY))
+                    .text_color(colors.text)
                     .mb_4()
                     .child("Create Personal Space"),
             )
@@ -1146,7 +1148,7 @@ impl PanelRoot {
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(TEXT_MUTED))
+                                    .text_color(colors.text_muted)
                                     .mb_1()
                                     .child("Space Name"),
                             )
@@ -1157,7 +1159,7 @@ impl PanelRoot {
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(TEXT_MUTED))
+                                    .text_color(colors.text_muted)
                                     .mb_1()
                                     .child("Profiles"),
                             )
@@ -1166,10 +1168,10 @@ impl PanelRoot {
                                     .id("owned-profiles-list")
                                     .p_2()
                                     .rounded_lg()
-                                    .bg(rgba(SURFACE_BG_TRANSLUCENT))
+                                    .bg(colors.element_background.opacity(0.5))
                                     .border_1()
                                     .border_dashed()
-                                    .border_color(rgba(BORDER_DEFAULT))
+                                    .border_color(colors.border)
                                     .child(
                                         h_flex()
                                             .id("owned-profile-entry")
@@ -1180,14 +1182,15 @@ impl PanelRoot {
                                                     .id("owned-profile-avatar")
                                                     .size(px(24.))
                                                     .rounded_full()
-                                                    .bg(rgba(ACCENT_PRIMARY))
+                                                    // .bg(colors.text_accent)
+                                                    .bg(Hsla::from(rgba(GZED_ORANGE)))
                                                     .items_center()
                                                     .justify_center()
                                                     .child(
                                                         div()
                                                             .text_xs()
                                                             .font_weight(FontWeight::BOLD)
-                                                            .text_color(rgba(TEXT_PRIMARY))
+                                                            .text_color(colors.text)
                                                             .child(
                                                                 self.users
                                                                     .last()
@@ -1204,20 +1207,17 @@ impl PanelRoot {
                                                     ),
                                             )
                                             .child(
-                                                div()
-                                                    .text_xs()
-                                                    .text_color(rgba(TEXT_PROFILE_NAME))
-                                                    .child(
-                                                        self.users
-                                                            .last()
-                                                            .map(|u| u.read(cx).name())
-                                                            .unwrap_or_default(),
-                                                    ),
+                                                div().text_xs().text_color(colors.text).child(
+                                                    self.users
+                                                        .last()
+                                                        .map(|u| u.read(cx).name())
+                                                        .unwrap_or_default(),
+                                                ),
                                             )
                                             .child(
                                                 div()
                                                     .text_xs()
-                                                    .text_color(rgba(TEXT_SUBTLE))
+                                                    .text_color(colors.text_placeholder)
                                                     .ml_auto()
                                                     .child("Root admin"),
                                             ),
@@ -1237,10 +1237,10 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(rgba(SURFACE_BORDER))
-                            .hover(|style| style.bg(rgba(BORDER_DEFAULT)))
+                            .bg(colors.border_variant)
+                            .hover(|style| style.bg(colors.border))
                             .border_1()
-                            .border_color(rgba(BORDER_DEFAULT))
+                            .border_color(colors.border)
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
                                 this.onboarding_state = OnboardingState::SpaceIntro;
@@ -1248,7 +1248,7 @@ impl PanelRoot {
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(rgba(TEXT_SECONDARY))
+                                    .text_color(colors.text_muted)
                                     .text_center()
                                     .child("Back"),
                             ),
@@ -1260,8 +1260,8 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(rgba(ACCENT_PRIMARY))
-                            .hover(|style| style.bg(rgba(ACCENT_HOVER)))
+                            .bg(colors.text_accent)
+                            .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
                             .shadow_lg()
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -1271,7 +1271,7 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(rgba(TEXT_PRIMARY))
+                                    .text_color(colors.text)
                                     .text_center()
                                     .child("Create Space"),
                             ),
@@ -1284,6 +1284,8 @@ impl PanelRoot {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let colors = cx.theme().colors();
+
         v_flex()
             .id("scene-create-communal")
             .pt_2()
@@ -1291,7 +1293,7 @@ impl PanelRoot {
                 div()
                     .text_lg()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(rgba(TEXT_PRIMARY))
+                    .text_color(colors.text)
                     .mb_4()
                     .child("Create Community Space"),
             )
@@ -1304,7 +1306,7 @@ impl PanelRoot {
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(TEXT_MUTED))
+                                    .text_color(colors.text_muted)
                                     .mb_1()
                                     .child("Space Name"),
                             )
@@ -1313,7 +1315,7 @@ impl PanelRoot {
                     .child(
                         div()
                             .text_xs()
-                            .text_color(rgba(TEXT_MUTED))
+                            .text_color(colors.text_muted)
                             .child("Communal spaces are public. Any profile can write with just a subspace signature."),
                     ),
             )
@@ -1329,10 +1331,10 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(rgba(SURFACE_BORDER))
-                            .hover(|style| style.bg(rgba(BORDER_DEFAULT)))
+                            .bg(colors.border_variant)
+                            .hover(|style| style.bg(colors.border))
                             .border_1()
-                            .border_color(rgba(BORDER_DEFAULT))
+                            .border_color(colors.border)
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
                                 this.onboarding_state = OnboardingState::SpaceIntro;
@@ -1340,7 +1342,7 @@ impl PanelRoot {
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(rgba(TEXT_SECONDARY))
+                                    .text_color(colors.text_muted)
                                     .text_center()
                                     .child("Back"),
                             ),
@@ -1352,8 +1354,8 @@ impl PanelRoot {
                             .px_3()
                             .py_2()
                             .rounded_lg()
-                            .bg(rgba(ACCENT_PRIMARY))
-                            .hover(|style| style.bg(rgba(ACCENT_HOVER)))
+                            .bg(colors.text_accent)
+                            .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
                             .shadow_lg()
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -1363,7 +1365,7 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(rgba(TEXT_PRIMARY))
+                                    .text_color(colors.text)
                                     .text_center()
                                     .child("Create Space"),
                             ),
@@ -1382,6 +1384,8 @@ impl PanelRoot {
             .map(|u| u.read(cx).name())
             .unwrap_or_else(|| SharedString::from("User"));
         let initial = user_name.chars().next().unwrap_or('?').to_string();
+        let colors = cx.theme().colors();
+        let status = cx.theme().status();
 
         v_flex()
             .id("scene-done")
@@ -1394,29 +1398,29 @@ impl PanelRoot {
                     .mx_auto()
                     .mb_4()
                     .rounded_full()
-                    .bg(rgba(SUCCESS_BG))
+                    .bg(status.success_background.opacity(0.2))
                     .border_2()
-                    .border_color(rgba(SUCCESS_BORDER))
+                    .border_color(status.success_border.opacity(0.3))
                     .items_center()
                     .justify_center()
                     .child(
                         Icon::new(IconName::Check)
                             .size(IconSize::XLarge)
-                            .color(Color::Custom(rgba(SUCCESS_ICON).into())),
+                            .color(Color::Custom(status.success)),
                     ),
             )
             .child(
                 div()
                     .text_lg()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(rgba(TEXT_PRIMARY))
+                    .text_color(colors.text)
                     .mb_1()
                     .child("All Set!"),
             )
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgba(TEXT_MUTED))
+                    .text_color(colors.text_muted)
                     .mb_5()
                     .child("Your vault, profile, and space are ready. You can now browse your data, invite others, and manage capabilities."),
             )
@@ -1425,9 +1429,9 @@ impl PanelRoot {
                     .id("done-summary-card")
                     .p_3()
                     .rounded_lg()
-                    .bg(rgba(SURFACE_BG_TRANSLUCENT))
+                    .bg(colors.element_background.opacity(0.5))
                     .border_1()
-                    .border_color(rgba(BORDER_DEFAULT))
+                    .border_color(colors.border)
                     .text_left()
                     .mb_5()
                     .child(
@@ -1445,13 +1449,13 @@ impl PanelRoot {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::MEDIUM)
-                                    .text_color(rgba(TEXT_PRIMARY))
+                                    .text_color(colors.text)
                                     .child("Personal"),
                             )
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(TEXT_SUBTLE))
+                                    .text_color(colors.text_placeholder)
                                     .ml_auto()
                                     .child("1 profile"),
                             ),
@@ -1466,27 +1470,27 @@ impl PanelRoot {
                                     .id("done-profile-avatar")
                                     .size(px(24.))
                                     .rounded_full()
-                                    .bg(rgba(ACCENT_PRIMARY))
+                                    .bg(colors.text_accent)
                                     .items_center()
                                     .justify_center()
                                     .child(
                                         div()
                                             .text_xs()
                                             .font_weight(FontWeight::BOLD)
-                                            .text_color(rgba(TEXT_PRIMARY))
+                                            .text_color(colors.text)
                                             .child(initial),
                                     ),
                             )
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(TEXT_SECONDARY))
+                                    .text_color(colors.text_muted)
                                     .child(user_name),
                             )
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(BORDER_DASHED))
+                                    .text_color(colors.border_variant)
                                     .ml_auto()
                                     .child("Root admin"),
                             ),
@@ -1499,11 +1503,11 @@ impl PanelRoot {
                     .px_4()
                     .py_2()
                     .rounded_lg()
-                    .bg(rgba(ACCENT_PRIMARY))
-                    .hover(|style| style.bg(rgba(ACCENT_HOVER)))
+                    .bg(colors.text_accent)
+                    .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
                     .shadow_lg()
                     .cursor_pointer()
-                    .on_click(cx.listener(|this, _e, _window, cx| {
+                    .on_click(cx.listener(|this, _e, _window, _cx| {
                         // Set the last created user as active and enter main app
                         if let Some(user) = this.users.last().cloned() {
                             this.active_user = Some(user);
@@ -1513,7 +1517,7 @@ impl PanelRoot {
                         div()
                             .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(rgba(TEXT_PRIMARY))
+                            .text_color(colors.text)
                             .text_center()
                             .child("Open Galvanized"),
                     ),
@@ -1531,6 +1535,8 @@ impl PanelRoot {
             .map(|u| u.read(cx).name())
             .unwrap_or_else(|| SharedString::from("User"));
         let initial = user_name.chars().next().unwrap_or('?').to_string();
+        let colors = cx.theme().colors();
+        let status = cx.theme().status();
 
         v_flex()
             .id("scene-welcome-back")
@@ -1543,29 +1549,29 @@ impl PanelRoot {
                     .mx_auto()
                     .mb_4()
                     .rounded_full()
-                    .bg(rgba(SUCCESS_BG))
+                    .bg(status.success_background.opacity(0.2))
                     .border_2()
-                    .border_color(rgba(SUCCESS_BORDER))
+                    .border_color(status.success_border.opacity(0.3))
                     .items_center()
                     .justify_center()
                     .child(
                         Icon::new(IconName::Check)
                             .size(IconSize::XLarge)
-                            .color(Color::Custom(rgba(SUCCESS_ICON).into())),
+                            .color(Color::Custom(status.success)),
                     ),
             )
             .child(
                 div()
                     .text_lg()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(rgba(TEXT_PRIMARY))
+                    .text_color(colors.text)
                     .mb_1()
                     .child(format!("Welcome Back, {}", user_name)),
             )
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgba(TEXT_MUTED))
+                    .text_color(colors.text_muted)
                     .mb_5()
                     .child("Your vault is unlocked. You have access to your spaces, profiles, and capabilities."),
             )
@@ -1574,9 +1580,9 @@ impl PanelRoot {
                     .id("welcome-back-summary-card")
                     .p_3()
                     .rounded_lg()
-                    .bg(rgba(SURFACE_BG_TRANSLUCENT))
+                    .bg(colors.element_background.opacity(0.5))
                     .border_1()
-                    .border_color(rgba(BORDER_DEFAULT))
+                    .border_color(colors.border)
                     .text_left()
                     .mb_5()
                     .child(
@@ -1590,14 +1596,14 @@ impl PanelRoot {
                                     .id("welcome-back-avatar")
                                     .size(px(32.))
                                     .rounded_full()
-                                    .bg(rgba(ACCENT_PRIMARY))
+                                    .bg(colors.text_accent)
                                     .items_center()
                                     .justify_center()
                                     .child(
                                         div()
                                             .text_xs()
                                             .font_weight(FontWeight::BOLD)
-                                            .text_color(rgba(TEXT_PRIMARY))
+                                            .text_color(colors.text)
                                             .child(initial),
                                     ),
                             )
@@ -1607,20 +1613,20 @@ impl PanelRoot {
                                         div()
                                             .text_sm()
                                             .font_weight(FontWeight::SEMIBOLD)
-                                            .text_color(rgba(TEXT_PRIMARY))
+                                            .text_color(colors.text)
                                             .child(user_name),
                                     )
                                     .child(
                                         div()
                                             .text_xs()
-                                            .text_color(rgba(TEXT_SUBTLE))
+                                            .text_color(colors.text_placeholder)
                                             .child("Online"),
                                     ),
                             )
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(rgba(BORDER_DASHED))
+                                    .text_color(colors.border_variant)
                                     .ml_auto()
                                     .child("1 space"),
                             ),
@@ -1633,8 +1639,8 @@ impl PanelRoot {
                     .px_4()
                     .py_2()
                     .rounded_lg()
-                    .bg(rgba(ACCENT_PRIMARY))
-                    .hover(|style| style.bg(rgba(ACCENT_HOVER)))
+                    .bg(colors.text_accent)
+                    .hover(|style| style.bg(colors.text_accent.opacity(0.8)))
                     .shadow_lg()
                     .cursor_pointer()
                     .on_click(cx.listener(|_this, _e, _window, _cx| {
@@ -1644,7 +1650,7 @@ impl PanelRoot {
                         div()
                             .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(rgba(TEXT_PRIMARY))
+                            .text_color(colors.text)
                             .text_center()
                             .child("Open Galvanized"),
                     ),
