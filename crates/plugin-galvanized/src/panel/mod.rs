@@ -272,13 +272,17 @@ impl PanelRoot {
     ) -> impl IntoElement {
         let panel_width = self.width.unwrap_or(px(380.)) - px(1.);
 
-        h_flex()
+        v_flex()
+            //
             .h_full()
             .w(panel_width)
-            .bg(cx.theme().colors().editor_background)
-            .flex_grow()
-            .child(self.render_left_rail(profile.clone(), window, cx))
-            .child(self.render_app_sidebar(window, cx))
+            .child(
+                h_flex()
+                    .size_full()
+                    .child(self.render_left_rail(profile.clone(), window, cx))
+                    .child(self.render_app_sidebar(window, cx)),
+            )
+            .child(self.render_status_bar(cx))
     }
 
     fn render_left_rail(
@@ -297,25 +301,16 @@ impl PanelRoot {
             .h_full()
             .w(px(72.))
             .items_center()
-            .py_3()
+            .py_2()
             .border_r_1()
             .border_color(border_color)
             .child(gzed_icon(
-                "gzed-home-icon",
+                "header-icon",
                 cx,
                 cx.listener(|_this, _e, _window, _cx| {
-                    //
-                    info!("Clicked left rail home");
+                    info!("Clicked gzed header");
                 }),
             ))
-            .child(
-                div()
-                    .w(px(32.))
-                    .h(px(2.))
-                    .rounded_full()
-                    .bg(border_color)
-                    .my_2(),
-            )
             .child(
                 // Namespace icons
                 div()
@@ -376,6 +371,7 @@ impl PanelRoot {
             .child(
                 //
                 v_flex()
+                    //
                     .gap_2()
                     .child(
                         // Add Namespace button
@@ -403,49 +399,6 @@ impl PanelRoot {
                                     .text_3xl()
                                     .child("+"),
                             ),
-                    )
-                    .child(
-                        // Profile Avatar
-                        h_flex()
-                            .id("profile-avatar")
-                            .size(px(48.))
-                            .rounded_full()
-                            .bg(rgba(0xea580cff))
-                            .hover(|style| style.rounded_xl())
-                            .active(|style| style.bg(hover_color))
-                            .on_click(cx.listener(|_this, _e, _window, _cx| {
-                                info!("Clicked profile avatar");
-                            }))
-                            .items_center()
-                            .justify_center()
-                            .child(
-                                div()
-                                    .mx_auto()
-                                    .text_sm()
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_color(rgba(0xffffffff))
-                                    .child(
-                                        profile
-                                            .read(cx)
-                                            .name()
-                                            .chars()
-                                            .next()
-                                            .unwrap_or('?')
-                                            .to_string(),
-                                    ),
-                            )
-                            .child(
-                                // Online indicator
-                                div()
-                                    .absolute()
-                                    .bottom(px(0.))
-                                    .right(px(0.))
-                                    .size(px(14.))
-                                    .rounded_full()
-                                    .bg(rgba(0x22c55eff))
-                                    .border_2()
-                                    .border_color(bg_color),
-                            ),
                     ),
             )
     }
@@ -458,8 +411,7 @@ impl PanelRoot {
         v_flex()
             .id("app-sidebar")
             .bg(cx.theme().colors().panel_background)
-            .h_full()
-            .w(px(240.))
+            .size_full()
             .child(
                 // Search bar with filter badges
                 v_flex()
@@ -505,10 +457,10 @@ impl PanelRoot {
                     .children(self.render_app_sections(window, cx))
                     .into_any_element(),
             )
-            .child(
-                // Status bar
-                self.render_status_bar(cx),
-            )
+        // .child(
+        //     // Status bar
+        //     self.render_status_bar(cx),
+        // )
     }
 
     fn render_filter_badges(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -652,7 +604,6 @@ impl PanelRoot {
                 item.into_any_element()
             })
             .collect();
-        // }
 
         elements
     }
@@ -669,56 +620,78 @@ impl PanelRoot {
         h_flex()
             .id("status-bar")
             .items_center()
+            .p_1()
             .gap_2()
-            .px_3()
-            .py_2()
-            .bg(rgba(0x232428ff))
+            .bg(cx.theme().colors().editor_background)
             .flex_shrink_0()
             .border_t_1()
             .border_color(cx.theme().colors().border)
             .child(
                 h_flex()
-                    .size(px(32.))
-                    .rounded_full()
-                    .bg(rgba(0xea580cff))
-                    .flex_shrink_0()
-                    .items_center()
-                    .justify_center()
+                    .id("profile-token")
+                    .flex_grow()
+                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                    .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                    .p_2()
+                    .gap_2()
+                    .rounded_md()
+                    //
                     .child(
-                        div()
-                            .mx_auto()
-                            .text_xs()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(rgba(0xffffffff))
-                            .child(initial),
-                    ),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .child(
-                        div()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(cx.theme().colors().text)
-                            .child(profile_name),
+                        h_flex()
+                            .size_10()
+                            .rounded_full()
+                            .bg(rgba(0xea580cff))
+                            .flex_shrink_0()
+                            .items_center()
+                            .justify_center()
+                            .child(
+                                div()
+                                    .mx_auto()
+                                    .text_xs()
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(rgba(0xffffffff))
+                                    .child(initial),
+                            )
+                            .child(
+                                // Online indicator
+                                div()
+                                    .absolute()
+                                    .bottom(px(0.))
+                                    .right(px(0.))
+                                    .size(px(10.))
+                                    .rounded_full()
+                                    .bg(rgba(0x22c55eff))
+                                    .border_2()
+                                    .border_color(cx.theme().colors().editor_background),
+                            ),
                     )
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(cx.theme().colors().text_muted)
-                            .child("Online"),
+                            .flex_1()
+                            .min_w_0()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(cx.theme().colors().text)
+                                    .child(profile_name),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(cx.theme().colors().text_muted)
+                                    .child("Online"),
+                            ),
                     ),
             )
             .child(
                 // Lock button
                 div()
                     .id("lock-button")
-                    .p(px(6.))
+                    .p_4()
                     .rounded_md()
                     .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                    .on_click(cx.listener(|this, e, window, cx| {
+                    .on_click(cx.listener(|this, _e, _window, _cx| {
                         this.active_user = None;
                     }))
                     .child(
