@@ -210,7 +210,7 @@ impl PanelRoot {
             )
             .child(
                 //
-                div()
+                v_flex()
                     //
                     .id("user-list")
                     .flex_col()
@@ -906,7 +906,7 @@ impl PanelRoot {
                     .border_1()
                     .border_color(colors.border.opacity(0.5))
                     .child(
-                        div()
+                        h_flex()
                             .id("space-intro-avatar")
                             .size(px(36.))
                             .rounded_full()
@@ -916,6 +916,7 @@ impl PanelRoot {
                             .justify_center()
                             .child(
                                 div()
+                                    .mx_auto()
                                     .text_sm()
                                     .font_weight(FontWeight::BOLD)
                                     .text_color(colors.text)
@@ -974,7 +975,7 @@ impl PanelRoot {
                         this.onboarding_state = OnboardingState::CreateOwnedSpace;
                     }))
                     .child(
-                        div()
+                        h_flex()
                             .id("space-owned-icon")
                             .size(px(48.))
                             .rounded_xl()
@@ -989,9 +990,14 @@ impl PanelRoot {
                             .items_center()
                             .justify_center()
                             .child(
-                                Icon::new(IconName::LockOutlined)
-                                    .size(IconSize::Medium)
-                                    .color(Color::Custom(colors.text_muted)),
+                                div()
+                                    //
+                                    .mx_auto()
+                                    .child(
+                                        Icon::new(IconName::LockOutlined)
+                                            .size(IconSize::Medium)
+                                            .color(Color::Custom(colors.text_muted)),
+                                    ),
                             ),
                     )
                     .child(
@@ -1033,7 +1039,7 @@ impl PanelRoot {
                         this.onboarding_state = OnboardingState::CreateCommunalSpace;
                     }))
                     .child(
-                        div()
+                        h_flex()
                             .id("space-communal-icon")
                             .size(px(48.))
                             .rounded_xl()
@@ -1048,9 +1054,14 @@ impl PanelRoot {
                             .items_center()
                             .justify_center()
                             .child(
-                                Icon::new(IconName::Person)
-                                    .size(IconSize::Medium)
-                                    .color(Color::Custom(colors.text_muted)),
+                                div()
+                                    //
+                                    .mx_auto()
+                                    .child(
+                                        Icon::new(IconName::Person)
+                                            .size(IconSize::Medium)
+                                            .color(Color::Custom(colors.text_muted)),
+                                    ),
                             ),
                     )
                     .child(
