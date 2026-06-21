@@ -4,14 +4,14 @@ use tracing::info;
 use zed::unstable::{
     gpui::{Entity, FontWeight, Hsla, SharedString, linear_color_stop, linear_gradient, rgba},
     ui::{
-        ActiveTheme, Color, Context, Div, FluentBuilder as _, Icon, IconName, IconSize,
+        ActiveTheme, Color, Context, FluentBuilder as _, Icon, IconName, IconSize,
         InteractiveElement, IntoElement, ParentElement as _, StatefulInteractiveElement as _,
         Styled, Window, div, h_flex, px, v_flex,
     },
 };
 
 use crate::{
-    panel::{OnboardingState, PanelRoot},
+    panel::{OnboardingState, PanelRoot, gzed_icon},
     users::{User, UserHandle as _},
 };
 
@@ -48,7 +48,6 @@ impl PanelRoot {
     /// Panel header with logo, title, and subtitle.
     fn render_onboarding_header(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
         let (title, subtitle) = self.header_for_state();
-        let colors = cx.theme().colors();
 
         h_flex()
             .id("onboarding-header")
@@ -56,30 +55,14 @@ impl PanelRoot {
             .gap_3()
             .p_4()
             .border_b_1()
-            .border_color(colors.border_variant)
-            .child(
-                h_flex()
-                    .id("onboarding-logo")
-                    .size(px(32.))
-                    .rounded_lg()
-                    .bg(linear_gradient(
-                        30. + 180.,
-                        linear_color_stop(*GZED_ORANGE, 0.0),
-                        linear_color_stop(colors.background, 1.0),
-                    ))
-                    .flex_shrink_0()
-                    .items_center()
-                    .justify_center()
-                    .shadow_lg()
-                    .child(
-                        div()
-                            .mx_auto()
-                            .text_sm()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(colors.text)
-                            .child("G"),
-                    ),
-            )
+            .border_color(cx.theme().colors().border_variant)
+            .child(gzed_icon(
+                "gzed-onboarding-header",
+                cx,
+                cx.listener(|_this, _e, _window, _cx| {
+                    info!("Clicked gzed onboarding header");
+                }),
+            ))
             .child(
                 div()
                     .flex_1()
@@ -89,7 +72,7 @@ impl PanelRoot {
                             .id("panel-title")
                             .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(colors.text)
+                            .text_color(cx.theme().colors().text)
                             .truncate()
                             .child(title),
                     )
@@ -97,7 +80,7 @@ impl PanelRoot {
                         div()
                             .id("panel-subtitle")
                             .text_xs()
-                            .text_color(colors.text_placeholder)
+                            .text_color(cx.theme().colors().text_placeholder)
                             .child(subtitle),
                     ),
             )
@@ -515,42 +498,19 @@ impl PanelRoot {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let colors = cx.theme().colors();
-
         v_flex()
             .id("scene-welcome")
             .w_full()
             .text_center()
             .pt_4()
-            .child(
-                h_flex()
-                    .id("welcome-logo")
-                    .size(px(64.))
-                    .mx_auto()
-                    .mb_5()
-                    .rounded_2xl()
-                    .bg(linear_gradient(
-                        30. + 180.,
-                        linear_color_stop(*GZED_ORANGE, 0.0),
-                        linear_color_stop(colors.background, 1.0),
-                    ))
-                    .shadow_2xl()
-                    .items_center()
-                    .justify_center()
-                    .child(
-                        div()
-                            .mx_auto()
-                            .text_2xl()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(colors.text)
-                            .child("G"),
-                    ),
-            )
+            .child(gzed_icon("gzed-welcome", cx, cx.listener(|_this, _e, _window, _cx| {
+                info!("Clicked welcome");
+            })))
             .child(
                 div()
                     .text_xl()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(colors.text)
+                    .text_color(cx.theme().colors().text)
                     .mb_2()
                     .child("Welcome to Galvanized"),
             )
@@ -558,7 +518,7 @@ impl PanelRoot {
                 div()
                     .id("welcome-description")
                     .text_sm()
-                    .text_color(colors.text_muted)
+                    .text_color(cx.theme().colors().text_muted)
                     .mb_6()
                     .child("Your decentralized data space. Everything encrypted, unlocked by one master password."),
             )
@@ -580,7 +540,7 @@ impl PanelRoot {
                         div()
                             .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(colors.text)
+                            .text_color(cx.theme().colors().text)
                             .text_center()
                             .child("Create Your First Vault"),
                     ),
@@ -588,7 +548,7 @@ impl PanelRoot {
             .child(
                 div()
                     .text_xs()
-                    .text_color(colors.border_variant)
+                    .text_color(cx.theme().colors().border_variant)
                     .mt_5()
                     .child(
                         div()

@@ -1,11 +1,11 @@
 use tracing::info;
 use zed::unstable::{
     gpui::{
-        self, Action, AnyElement, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable,
-        FontWeight, actions, linear_color_stop, linear_gradient, rgba,
+        self, Action, AnyElement, AppContext as _, ClickEvent, Entity, EventEmitter, FocusHandle,
+        Focusable, FontWeight, Stateful, actions, linear_color_stop, linear_gradient, rgba,
     },
     ui::{
-        ActiveTheme, App, Color, Context, FluentBuilder as _, Icon, IconName,
+        ActiveTheme, App, Color, Context, Div, ElementId, FluentBuilder as _, Icon, IconName,
         InteractiveElement as _, IntoElement, ParentElement as _, Pixels, Render, SharedString,
         StatefulInteractiveElement as _, Styled as _, Tooltip, Window, div, h_flex, px, v_flex,
     },
@@ -222,6 +222,39 @@ impl Render for PanelRoot {
     }
 }
 
+fn gzed_icon<T>(
+    id: impl Into<ElementId>,
+    cx: &mut Context<T>,
+    on_click: impl 'static + Fn(&ClickEvent, &mut Window, &mut App),
+) -> Stateful<Div> {
+    div()
+        .id(id)
+        .size(px(48.))
+        .rounded_2xl()
+        .hover(|style| style.rounded_xl().opacity(0.6))
+        .active(|style| style.bg(cx.theme().colors().ghost_element_hover))
+        .on_click(on_click)
+        .child(
+            h_flex()
+                .mx_auto()
+                .size_full()
+                .rounded_2xl()
+                .bg(linear_gradient(
+                    30. + 180.,
+                    linear_color_stop(rgba(0xff6600ff), 0.0),
+                    linear_color_stop(rgba(0x00002bff), 1.0),
+                ))
+                .items_center()
+                .justify_center()
+                .child(
+                    div()
+                        //
+                        .mx_auto()
+                        .child("G"),
+                ),
+        )
+}
+
 impl PanelRoot {
     fn render_profile_panel(
         &mut self,
@@ -259,37 +292,14 @@ impl PanelRoot {
             .py_3()
             .border_r_1()
             .border_color(border_color)
-            .child(
-                // Home button
-                div()
-                    .id("home-button")
-                    .size(px(48.))
-                    .rounded_2xl()
-                    .hover(|style| style.rounded_xl().opacity(0.6))
-                    .active(|style| style.bg(hover_color))
-                    .on_click(cx.listener(|_this, _e, _window, _cx| {
-                        info!("Clicked home");
-                    }))
-                    .child(
-                        h_flex()
-                            .mx_auto()
-                            .size_full()
-                            .rounded_2xl()
-                            .bg(linear_gradient(
-                                30. + 180.,
-                                linear_color_stop(rgba(0xff6600ff), 0.0),
-                                linear_color_stop(rgba(0x00002bff), 1.0),
-                            ))
-                            .items_center()
-                            .justify_center()
-                            .child(
-                                div()
-                                    //
-                                    .mx_auto()
-                                    .child("G"),
-                            ),
-                    ),
-            )
+            .child(gzed_icon(
+                "gzed-home-icon",
+                cx,
+                cx.listener(|_this, _e, _window, _cx| {
+                    //
+                    info!("Clicked left rail home");
+                }),
+            ))
             .child(
                 div()
                     .w(px(32.))
