@@ -18,7 +18,7 @@ use zed::unstable::{
 
 use crate::{Galvanized, users::User};
 
-pub mod user_login;
+pub mod onboarding;
 
 actions!(
     galvanized,
@@ -30,24 +30,6 @@ actions!(
         FocusSettings,
     ]
 );
-
-// pub fn init(cx: &mut App) {
-//     cx.observe_new(|workspace: &mut Workspace, window, cx| {
-//         let Some(window) = window else {
-//             return;
-//         };
-
-//         let workspace_entity = cx.entity();
-//         let connections_ui = cx.new(|cx| ConnectionsUi::new(window, cx));
-//         let panel = cx.new(|cx| PanelRoot::new(workspace_entity, connections_ui, window, cx));
-//         workspace.add_panel(panel.clone(), window, cx);
-//         workspace.focus_panel::<PanelRoot>(window, cx);
-//         workspace.register_action(|workspace, _: &TogglePanel, window, cx| {
-//             workspace.toggle_panel_focus::<PanelRoot>(window, cx);
-//         });
-//     })
-//     .detach();
-// }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum AppId {
@@ -62,88 +44,89 @@ enum AppId {
     Settings,
 }
 
-#[derive(Clone, Copy)]
-struct AppEntry {
-    id: AppId,
-    icon: &'static str,
-    name: &'static str,
-    category: AppCategory,
-}
+// #[derive(Clone, Copy)]
+// struct AppEntry {
+//     id: AppId,
+//     icon: &'static str,
+//     name: &'static str,
+//     category: AppCategory,
+// }
 
-#[derive(Clone, Copy, PartialEq)]
-enum AppCategory {
-    Data,
-    Communication,
-    System,
-}
+// #[derive(Clone, Copy, PartialEq)]
+// enum AppCategory {
+//     Data,
+//     Communication,
+//     System,
+// }
 
-const APP_ENTRIES: &[AppEntry] = &[
-    AppEntry {
-        id: AppId::Photos,
-        icon: "📸",
-        name: "Photos",
-        category: AppCategory::Data,
-    },
-    AppEntry {
-        id: AppId::Notes,
-        icon: "📝",
-        name: "Notes",
-        category: AppCategory::Data,
-    },
-    AppEntry {
-        id: AppId::Checklist,
-        icon: "✅",
-        name: "Checklist",
-        category: AppCategory::Data,
-    },
-    AppEntry {
-        id: AppId::Calendar,
-        icon: "📅",
-        name: "Calendar",
-        category: AppCategory::Data,
-    },
-    AppEntry {
-        id: AppId::Chat,
-        icon: "💬",
-        name: "Chat",
-        category: AppCategory::Communication,
-    },
-    AppEntry {
-        id: AppId::Whiteboard,
-        icon: "🗺️",
-        name: "Whiteboard",
-        category: AppCategory::Communication,
-    },
-    AppEntry {
-        id: AppId::Capabilities,
-        icon: "🛡️",
-        name: "Capabilities",
-        category: AppCategory::System,
-    },
-    AppEntry {
-        id: AppId::Connections,
-        icon: "🔗",
-        name: "Connections",
-        category: AppCategory::System,
-    },
-    AppEntry {
-        id: AppId::Settings,
-        icon: "⚙️",
-        name: "Settings",
-        category: AppCategory::System,
-    },
-];
+// const APP_ENTRIES: &[AppEntry] = &[
+//     AppEntry {
+//         id: AppId::Photos,
+//         icon: "📸",
+//         name: "Photos",
+//         category: AppCategory::Data,
+//     },
+//     AppEntry {
+//         id: AppId::Notes,
+//         icon: "📝",
+//         name: "Notes",
+//         category: AppCategory::Data,
+//     },
+//     AppEntry {
+//         id: AppId::Checklist,
+//         icon: "✅",
+//         name: "Checklist",
+//         category: AppCategory::Data,
+//     },
+//     AppEntry {
+//         id: AppId::Calendar,
+//         icon: "📅",
+//         name: "Calendar",
+//         category: AppCategory::Data,
+//     },
+//     AppEntry {
+//         id: AppId::Chat,
+//         icon: "💬",
+//         name: "Chat",
+//         category: AppCategory::Communication,
+//     },
+//     AppEntry {
+//         id: AppId::Whiteboard,
+//         icon: "🗺️",
+//         name: "Whiteboard",
+//         category: AppCategory::Communication,
+//     },
+//     AppEntry {
+//         id: AppId::Capabilities,
+//         icon: "🛡️",
+//         name: "Capabilities",
+//         category: AppCategory::System,
+//     },
+//     AppEntry {
+//         id: AppId::Connections,
+//         icon: "🔗",
+//         name: "Connections",
+//         category: AppCategory::System,
+//     },
+//     AppEntry {
+//         id: AppId::Settings,
+//         icon: "⚙️",
+//         name: "Settings",
+//         category: AppCategory::System,
+//     },
+// ];
 
 pub struct PanelRoot {
     focus_handle: FocusHandle,
     width: Option<Pixels>,
     galvanized: Entity<Galvanized>,
 
-    pub(crate) login_state: LoginState,
+    pub(crate) onboarding_state: OnboardingState,
     pub(crate) display_name_input: Entity<InputField>,
     pub(crate) create_password_input: Entity<InputField>,
     pub(crate) create_password_confirmation_input: Entity<InputField>,
     pub(crate) login_password_input: Entity<InputField>,
+    pub(crate) space_name_input: Entity<InputField>,
     pub(crate) users: Vec<Entity<User>>,
     pub(crate) active_user: Option<Entity<User>>,
 
@@ -151,10 +134,32 @@ pub struct PanelRoot {
     active_app: Option<SharedString>,
 }
 
-pub enum LoginState {
+/// States for the onboarding flow.
+///
+/// Each variant corresponds to a scene in the onboarding panel.
+/// The flow progresses linearly for new users, or branches to
+/// sign-in for existing users.
+pub enum OnboardingState {
+    /// Initial user picker shows existing users and create-new
     Picker,
+    /// Sign-in prompt for an existing user
+    SignIn(Entity<User>),
+    /// Welcome screen for new users
+    Welcome,
+    /// Create vault (assign master password)
+    CreateVault,
+    /// Create profile (set display name)
     CreateProfile,
-    LoginPrompt(Entity<User>),
+    /// Space kind selection (owned vs communal)
+    SpaceIntro,
+    /// Create owned (personal) space
+    CreateOwnedSpace,
+    /// Create communal space
+    CreateCommunalSpace,
+    /// Onboarding complete, ready to enter main app
+    Done,
+    /// Existing user signed in
+    WelcomeBack,
 }
 
 impl PanelRoot {
@@ -170,6 +175,7 @@ impl PanelRoot {
             cx.new(|cx| InputField::new(window, cx, "Confirm Password").masked(true));
         let login_password_input =
             cx.new(|cx| InputField::new(window, cx, "Password").masked(true));
+        let space_name_input = cx.new(|cx| InputField::new(window, cx, "Space name"));
 
         cx.spawn({
             let galvanized = galvanized.clone();
@@ -191,11 +197,12 @@ impl PanelRoot {
             width: None,
             galvanized,
 
-            login_state: LoginState::Picker,
+            onboarding_state: OnboardingState::Picker,
             display_name_input,
             create_password_input,
             create_password_confirmation_input,
             login_password_input,
+            space_name_input,
             users: Default::default(),
             active_user: Default::default(),
 
@@ -207,7 +214,7 @@ impl PanelRoot {
 impl Render for PanelRoot {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         match &self.active_user {
-            None => self.render_login_frame(window, cx).into_any_element(),
+            None => self.render_onboarding_panel(window, cx).into_any_element(),
             Some(profile) => self
                 .render_profile_panel(profile.clone(), window, cx)
                 .into_any_element(),
@@ -222,7 +229,7 @@ impl PanelRoot {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let panel_width = self.width.unwrap_or(px(312.)) - px(1.);
+        let panel_width = self.width.unwrap_or(px(380.)) - px(1.);
 
         h_flex()
             .h_full()
@@ -594,6 +601,9 @@ impl PanelRoot {
                     .p(px(6.))
                     .rounded_md()
                     .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                    .on_click(cx.listener(|this, e, window, cx| {
+                        this.active_user = None;
+                    }))
                     .child(
                         Icon::new(IconName::LockOutlined)
                             .color(Color::Custom(cx.theme().colors().text_muted)),
@@ -635,7 +645,7 @@ impl Panel for PanelRoot {
     }
 
     fn size(&self, _window: &Window, _cx: &App) -> Pixels {
-        self.width.unwrap_or(px(312.))
+        self.width.unwrap_or(px(380.))
     }
 
     fn set_size(&mut self, size: Option<Pixels>, _window: &mut Window, _cx: &mut Context<Self>) {
