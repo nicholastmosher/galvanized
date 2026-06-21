@@ -365,15 +365,13 @@
   <!-- ==================== MAIN APP ==================== -->
   <div id="scene-main" class="hidden h-screen w-screen flex overflow-hidden">
 
-    <!-- ===== SIDEBAR (flex-col: header on top, rail+results below) ===== -->
-    <div class="flex flex-col flex-shrink-0 border-r border-gray-800" style="width: 340px;">
+    <!-- ===== SIDEBAR (flex-row: left rail + sidebar body) ===== -->
+    <div class="flex flex-shrink-0 border-r border-gray-800" style="width: 340px;">
 
-      <!-- ===== SIDEBAR HEADER: search bar + G icon + profile ===== -->
-      <div id="sidebar-header"
-        class="flex items-start min-h-[52px] bg-[#1e1e1e] border-b border-gray-800 flex-shrink-0 px-3 gap-2 py-2 relative overflow-y-auto"
-        style="height: 52px;">
-        <!-- Start menu icon -->
-        <div class="relative">
+      <!-- ===== LEFT RAIL ===== -->
+      <div class="flex flex-col items-center w-[68px] bg-[#1e1e1e] flex-shrink-0 border-r border-gray-800">
+        <!-- G icon at top -->
+        <div class="relative py-2">
           <button onclick="toggleStartMenu()"
             class="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-gray-800 flex items-center justify-center hover:rounded-lg transition-all duration-150 shadow-lg flex-shrink-0"
             title="Menu">
@@ -419,98 +417,92 @@
             </div>
           </div>
         </div>
-
-        <!-- Search bar with badges -->
-        <div
-          class="flex-1 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#2b2d31] border border-gray-700 focus-within:border-gray-500 text-sm min-w-0">
-          <svg class="w-3.5 h-3.5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <div id="filter-badges" class="flex items-center gap-1 flex-wrap"></div>
-          <input type="text" id="search-input" placeholder="Search your data..."
-            class="flex-1 min-w-[60px] bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none text-sm" />
-        </div>
-
-        <!-- Profile avatar -->
-        <div class="relative flex-shrink-0">
+        <div class="w-8 h-px bg-gray-700 mb-2"></div>
+        <!-- Namespaces -->
+        <div class="flex-1 overflow-y-auto space-y-2 px-1 w-full flex flex-col items-center">
+          <div class="relative flex items-center" data-space="personal">
+            <div class="absolute -left-3 w-1 h-10 bg-white rounded-r-full"></div>
+            <button onclick="toggleSpaceFilter('personal')"
+              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+              title="Personal Vault" id="space-btn-personal"><span class="text-lg">🔒</span></button>
+          </div>
+          <div class="relative flex items-center" data-space="gamedev">
+            <button onclick="toggleSpaceFilter('gamedev')"
+              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+              title="Game Dev Club" id="space-btn-gamedev"><span class="text-lg">🎮</span></button>
+            <div class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-[#1e1e1e]"></div>
+          </div>
+          <div class="relative flex items-center" data-space="photos">
+            <button onclick="toggleSpaceFilter('photos')"
+              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+              title="Photo Share" id="space-btn-photos"><span class="text-lg">📸</span></button>
+          </div>
+          <div class="relative flex items-center" data-space="books">
+            <button onclick="toggleSpaceFilter('books')"
+              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+              title="Book Club" id="space-btn-books"><span class="text-lg">📚</span></button>
+          </div>
           <button
-            class="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center hover:rounded-lg transition-all duration-150 border-2 border-gray-700"
-            title="Alex"><span class="text-[10px] font-bold text-white">Al</span></button>
-          <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#1e1e1e]"></div>
+            class="w-11 h-11 rounded-2xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center hover:rounded-xl hover:border-gray-400 transition-all duration-150 flex-shrink-0"
+            title="Add Space">
+            <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          <div class="w-8 h-px bg-gray-700 my-2"></div>
         </div>
-        <!-- Resize handle -->
-        <div id="header-resize-handle"
-          class="absolute bottom-0 left-0 right-0 h-1.5 cursor-s-resize hover:bg-orange-500/30 transition-colors flex-shrink-0"
-          style="z-index: 10;"></div>
+        <!-- Subspaces (Profiles) -->
+        <div class="w-8 h-px bg-gray-700 my-2"></div>
+        <div class="flex-shrink-0 pb-2 space-y-2 px-1 w-full flex flex-col items-center">
+          <button
+            class="w-11 h-11 rounded-2xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center hover:rounded-xl hover:border-gray-400 transition-all duration-150 flex-shrink-0"
+            title="Add Subspace">
+            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          <div class="relative flex items-center" data-profile="alex">
+            <button onclick="toggleProfileFilter('alex')"
+              class="w-11 h-11 rounded-2xl bg-orange-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+              title="Alex" id="profile-btn-alex"><span class="text-sm font-bold text-white">Al</span></button>
+          </div>
+          <div class="relative flex items-center" data-profile="jane">
+            <button onclick="toggleProfileFilter('jane')"
+              class="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+              title="Jane Doe" id="profile-btn-jane"><span class="text-sm font-bold text-white">JD</span></button>
+          </div>
+          <div class="relative flex items-center" data-profile="mike">
+            <button onclick="toggleProfileFilter('mike')"
+              class="w-11 h-11 rounded-2xl bg-purple-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+              title="Mike K." id="profile-btn-mike"><span class="text-sm font-bold text-white">MK</span></button>
+          </div>
+        </div>
       </div>
 
-      <!-- ===== SIDEBAR BODY: left rail + results ===== -->
-      <div class="flex flex-1 overflow-hidden">
+      <!-- ===== SIDEBAR BODY (flex-col: search header + results) ===== -->
+      <div class="flex flex-col flex-1 min-w-0">
 
-        <!-- ===== LEFT RAIL ===== -->
-        <div class="flex flex-col items-center w-[68px] bg-[#1e1e1e] py-3 flex-shrink-0 border-r border-gray-800">
-          <!-- Namespaces -->
-          <div class="flex-1 overflow-y-auto space-y-2 px-1 w-full flex flex-col items-center">
-            <div class="relative flex items-center" data-space="personal">
-              <div class="absolute -left-3 w-1 h-10 bg-white rounded-r-full"></div>
-              <button onclick="toggleSpaceFilter('personal')"
-                class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-                title="Personal Vault" id="space-btn-personal"><span class="text-lg">🔒</span></button>
-            </div>
-            <div class="relative flex items-center" data-space="gamedev">
-              <button onclick="toggleSpaceFilter('gamedev')"
-                class="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-                title="Game Dev Club" id="space-btn-gamedev"><span class="text-lg">🎮</span></button>
-              <div class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-[#1e1e1e]"></div>
-            </div>
-            <div class="relative flex items-center" data-space="photos">
-              <button onclick="toggleSpaceFilter('photos')"
-                class="w-11 h-11 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-                title="Photo Share" id="space-btn-photos"><span class="text-lg">📸</span></button>
-            </div>
-            <div class="relative flex items-center" data-space="books">
-              <button onclick="toggleSpaceFilter('books')"
-                class="w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-                title="Book Club" id="space-btn-books"><span class="text-lg">📚</span></button>
-            </div>
-            <button
-              class="w-11 h-11 rounded-2xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center hover:rounded-xl hover:border-gray-400 transition-all duration-150 flex-shrink-0"
-              title="Add Space">
-              <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-            <div class="w-8 h-px bg-gray-700 my-2"></div>
+        <!-- ===== SEARCH HEADER ===== -->
+        <div id="search-header"
+          class="flex items-start min-h-[40px] bg-[#1e1e1e] border-b border-gray-800 flex-shrink-0 px-2 py-1.5 relative overflow-y-auto"
+          style="height: 40px;">
+          <div
+            class="flex-1 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#2b2d31] border border-gray-700 focus-within:border-gray-500 text-sm min-w-0">
+            <svg class="w-3.5 h-3.5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <div id="filter-badges" class="flex items-center gap-1 flex-wrap"></div>
+            <input type="text" id="search-input" placeholder="Search your data..."
+              class="flex-1 min-w-[60px] bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none text-sm" />
           </div>
-          <div class="w-8 h-px bg-gray-700 my-2"></div>
-          <!-- Subspaces (Profiles) -->
-          <div class="flex-shrink-0 space-y-2 px-1 w-full flex flex-col items-center">
-            <div class="relative flex items-center" data-profile="alex">
-              <button onclick="toggleProfileFilter('alex')"
-                class="w-11 h-11 rounded-2xl bg-orange-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-                title="Alex" id="profile-btn-alex"><span class="text-sm font-bold text-white">Al</span></button>
-            </div>
-            <div class="relative flex items-center" data-profile="jane">
-              <button onclick="toggleProfileFilter('jane')"
-                class="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-                title="Jane Doe" id="profile-btn-jane"><span class="text-sm font-bold text-white">JD</span></button>
-            </div>
-            <div class="relative flex items-center" data-profile="mike">
-              <button onclick="toggleProfileFilter('mike')"
-                class="w-11 h-11 rounded-2xl bg-purple-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
-                title="Mike K." id="profile-btn-mike"><span class="text-sm font-bold text-white">MK</span></button>
-            </div>
-            <button
-              class="w-11 h-11 rounded-2xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center hover:rounded-xl hover:border-gray-400 transition-all duration-150 flex-shrink-0"
-              title="Add Subspace"><svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor"
-                viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg></button>
-          </div>
+          <!-- Resize handle -->
+          <div id="header-resize-handle"
+            class="absolute bottom-0 left-0 right-0 h-1.5 cursor-s-resize hover:bg-orange-500/30 transition-colors"
+            style="z-index: 10;"></div>
         </div>
 
-        <!-- ===== FILTER RESULTS SIDEBAR ===== -->
+        <!-- ===== RESULTS ===== -->
         <div class="flex flex-col flex-1 bg-[#2b2d31] min-w-0">
           <div class="flex items-center justify-between px-3 h-[40px] border-b border-gray-800 flex-shrink-0">
             <div class="flex items-center gap-2">
@@ -1498,7 +1490,7 @@
 
     function initHeaderResize() {
       const handle = document.getElementById('header-resize-handle');
-      const header = document.getElementById('sidebar-header');
+      const header = document.getElementById('search-header');
       if (!handle || !header) return;
 
       handle.addEventListener('mousedown', function (e) {
@@ -1513,10 +1505,10 @@
 
     document.addEventListener('mousemove', function (e) {
       if (!isResizing) return;
-      const header = document.getElementById('sidebar-header');
+      const header = document.getElementById('search-header');
       if (!header) return;
       const delta = e.clientY - resizeStartY;
-      const newHeight = Math.max(52, resizeStartHeight + delta);
+      const newHeight = Math.max(40, resizeStartHeight + delta);
       header.style.height = newHeight + 'px';
     });
 
