@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galvanized UI Prototype 2</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: #111;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    @keyframes pulse-glow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 5px rgba(234, 88, 12, 0.3);
+      }
+
+      50% {
+        box-shadow: 0 0 20px rgba(234, 88, 12, 0.6);
+      }
+    }
+
+    .lock-glow {
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .slide-up {
+      animation: slideUp 0.4s ease-out;
+    }
+
+    @keyframes badgePop {
+      0% {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .badge-pop {
+      animation: badgePop 0.2s ease-out;
+    }
+
+    .photo-hover {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .photo-hover:hover {
+      transform: scale(1.03);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .cap-card {
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .cap-card:hover {
+      border-color: #555;
+    }
+
+    .result-item {
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .result-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .result-item.selected {
+      background: rgba(234, 88, 12, 0.12);
+      border-color: rgba(234, 88, 12, 0.3);
+    }
+
+    /* Start menu dropdown animation */
+    .start-menu {
+      transform-origin: top left;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+
+    .start-menu.open {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    .start-menu.closed {
+      opacity: 0;
+      transform: scale(0.95);
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ==================== DEBUG BAR ==================== -->
+  <div class="fixed top-0 right-0 z-50 m-3 flex gap-2">
+    <button onclick="toggleLock()"
+      class="px-3 py-1.5 text-xs font-mono rounded bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 transition"
+      id="lock-toggle-btn">🔓 Unlocked</button>
+    <span class="px-3 py-1.5 text-xs font-mono rounded bg-gray-800 border border-gray-700 text-gray-500"
+      id="timer-display">Lock in: --:--</span>
+  </div>
+
+  <!-- ==================== LOCK SCREEN ==================== -->
+  <div id="lock-screen" class="hidden fixed inset-0 z-40 bg-[#1a1a1e] flex items-center justify-center">
+    <div class="max-w-sm w-full p-8 text-center slide-up">
+      <div
+        class="w-20 h-20 mx-auto mb-6 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center lock-glow">
+        <svg class="w-10 h-10 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-2">App Locked</h2>
+      <p class="text-gray-400 text-sm mb-8">Your session timed out. Re-enter your password to unlock.</p>
+      <div
+        class="flex items-center gap-3 p-3 mb-6 rounded-xl bg-gray-800/50 border border-gray-700 mx-auto max-w-[220px]">
+        <div
+          class="w-10 h-10 rounded-full bg-orange-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+          Al</div>
+        <div class="text-left">
+          <div class="text-white text-sm font-semibold">Alex</div>
+          <div class="text-gray-500 text-xs">Last profile</div>
+        </div>
+      </div>
+      <input type="password" placeholder="Enter password"
+        class="w-full px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 mb-4 text-center text-lg" />
+      <button onclick="unlockApp()"
+        class="w-full px-4 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg text-lg">Unlock</button>
+      <div class="mt-6 text-gray-600 text-xs space-y-1">
+        <p>⏱️ Auto-lock after inactivity</p>
+        <p class="text-gray-700">🔐 1 vault · 4 spaces · 1 profile</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== WELCOME ==================== -->
+  <div id="scene-welcome" class="flex items-center justify-center h-screen w-screen">
+    <div class="text-center max-w-md p-8 fade-in">
+      <div
+        class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-600 to-gray-900 flex items-center justify-center shadow-2xl">
+        <span class="text-3xl font-bold text-white">G</span>
+      </div>
+      <h1 class="text-3xl font-bold text-white mb-3">Welcome to Galvanized</h1>
+      <p class="text-gray-400 mb-8 leading-relaxed">Your decentralized data space. Everything encrypted, unlocked by one
+        master password.</p>
+      <button onclick="showScene('scene-create-vault')"
+        class="px-8 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg hover:shadow-orange-600/30">Create
+        Your First Vault</button>
+      <p class="text-gray-600 text-sm mt-6">Already have a vault? <a href="#" onclick="showScene('scene-picker')"
+          class="text-orange-400 hover:text-orange-300">Sign in</a></p>
+    </div>
+  </div>
+
+  <!-- ==================== CREATE VAULT ==================== -->
+  <div id="scene-create-vault" class="hidden flex items-center justify-center h-screen w-screen">
+    <div class="w-full max-w-md p-8 fade-in">
+      <div
+        class="w-16 h-16 mx-auto mb-6 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center">
+        <svg class="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+      <h2 class="text-2xl font-bold text-white text-center mb-2">Create Your Vault</h2>
+      <p class="text-gray-400 text-center mb-8 text-sm">One master password unlocks all your profiles, keys, and data.
+      </p>
+      <div class="space-y-4">
+        <div><label class="block text-sm text-gray-400 mb-1">Master Password</label><input type="password"
+            value="········"
+            class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
+          <p class="text-gray-600 text-xs mt-1">There is no password recovery.</p>
+        </div>
+        <div><label class="block text-sm text-gray-400 mb-1">Confirm</label><input type="password" value="········"
+            class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
+        </div>
+      </div>
+      <div class="flex gap-3 mt-8"><button onclick="showScene('scene-welcome')"
+          class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">Back</button><button
+          onclick="createVaultAndProfile()"
+          class="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg">Create
+          Vault</button></div>
+    </div>
+  </div>
+
+  <!-- ==================== CREATE PROFILE ==================== -->
+  <div id="scene-create-profile" class="hidden flex items-center justify-center h-screen w-screen">
+    <div class="w-full max-w-md p-8 fade-in">
+      <div class="mb-6 text-center">
+        <div
+          class="w-12 h-12 mx-auto mb-2 rounded-full bg-green-600/20 border border-green-500/30 flex items-center justify-center">
+          <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <p class="text-green-400 text-xs font-medium">Vault created and unlocked</p>
+      </div>
+      <div
+        class="w-16 h-16 mx-auto mb-6 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center">
+        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      </div>
+      <h2 class="text-2xl font-bold text-white text-center mb-2">Create Your First Profile</h2>
+      <p class="text-gray-400 text-center mb-8 text-sm">A profile is your identity within your vault. Add more later.
+      </p>
+      <div class="space-y-4">
+        <div><label class="block text-sm text-gray-400 mb-1">Display Name</label><input type="text" value="Alex"
+            class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
+        </div>
+      </div>
+      <div class="flex gap-3 mt-8"><button onclick="showScene('scene-create-vault')"
+          class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">Back</button><button
+          onclick="showScene('scene-create-space-intro')"
+          class="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg">Create
+          Profile</button></div>
+    </div>
+  </div>
+
+  <!-- ==================== CREATE SPACE INTRO ==================== -->
+  <div id="scene-create-space-intro" class="hidden flex items-center justify-center h-screen w-screen">
+    <div class="w-full max-w-lg p-8 fade-in">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-full bg-orange-600 flex items-center justify-center text-sm font-bold text-white">
+          Al</div>
+        <div>
+          <div class="text-white font-semibold">Alex</div>
+          <div class="text-gray-500 text-xs">Profile created · Vault unlocked</div>
+        </div>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-3">Set Up Your First Space</h2>
+      <p class="text-gray-400 mb-8 leading-relaxed">Spaces are shared data stores. Create one or join an existing one.
+      </p>
+      <div onclick="showScene('scene-create-space-owned')"
+        class="flex items-start gap-4 p-4 rounded-xl border-2 border-orange-500/70 bg-gray-800/50 mb-4 cursor-pointer hover:bg-gray-800 transition">
+        <div
+          class="w-16 h-16 rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 flex-shrink-0 flex items-center justify-center border border-gray-600">
+          <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-white font-semibold text-lg">Personal Space (Owned)</h3>
+          <p class="text-gray-400 text-sm mt-1">Private by default. You control access and delegate capabilities.</p>
+        </div>
+      </div>
+      <div onclick="showScene('scene-create-space-communal')"
+        class="flex items-start gap-4 p-4 rounded-xl border-2 border-gray-700 bg-gray-800/50 mb-4 cursor-pointer hover:border-gray-600 hover:bg-gray-800 transition">
+        <div
+          class="w-16 h-16 rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 flex-shrink-0 flex items-center justify-center border border-gray-600">
+          <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-white font-semibold text-lg">Community Space (Communal)</h3>
+          <p class="text-gray-400 text-sm mt-1">Open to anyone. Any subspace can write.</p>
+        </div>
+      </div>
+      <div class="text-center mt-6"><a href="#" onclick="showScene('scene-main')"
+          class="text-gray-500 hover:text-gray-300 text-sm">Skip for now</a></div>
+    </div>
+  </div>
+
+  <!-- ==================== CREATE SPACE ==================== -->
+  <div id="scene-create-space-owned" class="hidden flex items-center justify-center h-screen w-screen">
+    <div class="w-full max-w-lg p-8 fade-in">
+      <h2 class="text-2xl font-bold text-white mb-6">Create Personal Space</h2>
+      <div class="space-y-4">
+        <div><label class="block text-sm text-gray-400 mb-1">Space Name</label><input type="text"
+            placeholder="Personal, Family, Work..."
+            class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
+        </div>
+        <div><label class="block text-sm text-gray-400 mb-1">Profiles</label>
+          <div class="p-3 rounded-lg bg-gray-800/50 border border-dashed border-gray-700 space-y-2">
+            <label class="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked
+                class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-orange-500" /><span
+                class="text-gray-200 text-sm">Alex</span><span class="text-gray-500 text-xs ml-auto">Root admin
+                (namespace + subspace key)</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-8"><button onclick="showScene('scene-create-space-intro')"
+          class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">Back</button><button
+          onclick="showScene('scene-main')"
+          class="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition">Create
+          Space</button></div>
+    </div>
+  </div>
+  <div id="scene-create-space-communal" class="hidden flex items-center justify-center h-screen w-screen">
+    <div class="w-full max-w-lg p-8 fade-in">
+      <h2 class="text-2xl font-bold text-white mb-6">Create Community Space</h2>
+      <div class="space-y-4">
+        <div><label class="block text-sm text-gray-400 mb-1">Space Name</label><input type="text"
+            placeholder="Hobby Club, Study Group..."
+            class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500" />
+        </div>
+        <p class="text-sm text-gray-400">Communal spaces are public. Any profile can write with just a subspace
+          signature.</p>
+      </div>
+      <div class="flex gap-3 mt-8"><button onclick="showScene('scene-create-space-intro')"
+          class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700">Back</button><button
+          onclick="showScene('scene-main')"
+          class="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition">Create
+          Space</button></div>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN APP ==================== -->
+  <div id="scene-main" class="hidden h-screen w-screen flex flex-col overflow-hidden">
+
+    <!-- ===== TOP HEADER ===== -->
+    <div class="flex items-center h-[52px] bg-[#1e1e1e] border-b border-gray-800 flex-shrink-0 px-3 gap-3">
+      <!-- Start menu icon -->
+      <div class="relative">
+        <button onclick="toggleStartMenu()"
+          class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-gray-800 flex items-center justify-center hover:rounded-lg transition-all duration-150 shadow-lg flex-shrink-0"
+          title="Menu">
+          <span class="text-lg font-bold text-white">G</span>
+        </button>
+        <!-- Start menu dropdown -->
+        <div id="start-menu"
+          class="start-menu closed absolute top-full left-0 mt-1 w-56 rounded-xl bg-[#2b2d31] border border-gray-700 shadow-2xl overflow-hidden z-50">
+          <div class="p-2 space-y-0.5">
+            <button onclick="selectMenuItem('home')"
+              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+              <span class="text-lg">🏠</span><span>Home</span>
+            </button>
+            <button onclick="selectMenuItem('photos')"
+              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+              <span class="text-lg">📸</span><span>Photos</span>
+            </button>
+            <button onclick="selectMenuItem('notes')"
+              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+              <span class="text-lg">📝</span><span>Notes</span>
+            </button>
+            <button onclick="selectMenuItem('chat')"
+              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+              <span class="text-lg">💬</span><span>Chat</span>
+            </button>
+            <button onclick="selectMenuItem('whiteboard')"
+              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+              <span class="text-lg">🗺️</span><span>Whiteboard</span>
+            </button>
+            <div class="h-px bg-gray-700 my-1"></div>
+            <button onclick="selectMenuItem('capabilities')"
+              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+              <span>🛡️</span><span>Capabilities</span>
+            </button>
+            <button onclick="selectMenuItem('connections')"
+              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+              <span>🔗</span><span>Connections</span>
+            </button>
+            <button onclick="selectMenuItem('settings')"
+              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+              <span>⚙️</span><span>Settings</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search bar with badges -->
+      <div
+        class="flex-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2b2d31] border border-gray-700 focus-within:border-gray-500 text-sm max-w-2xl">
+        <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <div id="filter-badges" class="flex items-center gap-1 flex-wrap"></div>
+        <input type="text" id="search-input" placeholder="Search across all your data..."
+          class="flex-1 min-w-[100px] bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none text-sm" />
+      </div>
+
+      <!-- Right side: profile + actions -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span class="text-gray-500 text-xs" id="item-count">42 items</span>
+        <div class="relative">
+          <button
+            class="w-9 h-9 rounded-full bg-orange-600 flex items-center justify-center hover:rounded-lg transition-all duration-150 border-2 border-gray-700"
+            title="Alex"><span class="text-xs font-bold text-white">Al</span></button>
+          <div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1e1e1e]"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== BODY: rail + sidebar + content ===== -->
+    <div class="flex flex-1 overflow-hidden">
+
+      <!-- ===== LEFT RAIL ===== -->
+      <div class="flex flex-col items-center w-[68px] bg-[#1e1e1e] py-3 flex-shrink-0 border-r border-gray-800">
+        <div class="flex-1 overflow-y-auto space-y-2 px-1 w-full flex flex-col items-center">
+          <div class="relative flex items-center" data-space="personal">
+            <div class="absolute -left-3 w-1 h-10 bg-white rounded-r-full"></div>
+            <button onclick="toggleSpaceFilter('personal')"
+              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+              title="Personal Vault" id="space-btn-personal"><span class="text-lg">🔒</span></button>
+          </div>
+          <div class="relative flex items-center" data-space="gamedev">
+            <button onclick="toggleSpaceFilter('gamedev')"
+              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+              title="Game Dev Club" id="space-btn-gamedev"><span class="text-lg">🎮</span></button>
+            <div class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-[#1e1e1e]"></div>
+          </div>
+          <div class="relative flex items-center" data-space="photos">
+            <button onclick="toggleSpaceFilter('photos')"
+              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+              title="Photo Share" id="space-btn-photos"><span class="text-lg">📸</span></button>
+          </div>
+          <div class="relative flex items-center" data-space="books">
+            <button onclick="toggleSpaceFilter('books')"
+              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-700 flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0"
+              title="Book Club" id="space-btn-books"><span class="text-lg">📚</span></button>
+          </div>
+        </div>
+        <div class="w-8 h-px bg-gray-700 my-2"></div>
+        <button
+          class="w-11 h-11 rounded-2xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center hover:rounded-xl hover:border-gray-400 transition-all duration-150 flex-shrink-0"
+          title="Add Space"><svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg></button>
+      </div>
+
+      <!-- ===== FILTER RESULTS SIDEBAR ===== -->
+      <div class="flex flex-col w-72 bg-[#2b2d31] flex-shrink-0 border-r border-gray-800">
+        <div class="flex items-center justify-between px-4 h-[48px] border-b border-gray-800 flex-shrink-0">
+          <div class="flex items-center gap-2">
+            <span class="text-white font-semibold text-sm">Results</span>
+            <span class="text-gray-500 text-xs" id="result-count">0</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="clearAllFilters()"
+              class="px-2 py-1 text-[11px] rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition">Clear</button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto px-2 py-2 space-y-0.5" id="results-list">
+          <!-- Dynamically filled by JS -->
+        </div>
+      </div>
+
+      <!-- ===== MAIN CONTENT ===== -->
+      <div class="flex-1 bg-[#313338] flex flex-col overflow-hidden">
+
+        <!-- Breadcrumb -->
+        <div class="flex items-center gap-1.5 px-4 pt-2 pb-1 text-xs text-gray-500 flex-shrink-0">
+          <span class="flex items-center gap-1 text-orange-400 font-medium"
+            id="breadcrumb-app"><span>📸</span><span>Photos</span></span>
+          <svg class="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+          <span class="flex items-center gap-1 text-gray-400" id="breadcrumb-filter-summary"><span>All
+              spaces</span></span>
+        </div>
+
+        <!-- ===== CONTENT AREA ===== -->
+        <div class="flex-1 overflow-y-auto p-4" id="content-area">
+          <!-- Dynamically filled by JS -->
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ==================== PROFILE PICKER ==================== -->
+  <div id="scene-picker" class="hidden flex items-center justify-center h-screen w-screen">
+    <div class="w-full max-w-xs p-8 fade-in">
+      <h2 class="text-2xl font-bold text-white text-center mb-2">Welcome Back</h2>
+      <p class="text-gray-400 text-center mb-8 text-sm">Choose a vault to unlock</p>
+      <div class="space-y-3">
+        <div onclick="showScene('scene-login-prompt')"
+          class="flex items-center gap-4 p-3 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 cursor-pointer transition">
+          <div
+            class="w-12 h-12 rounded-full bg-orange-600 flex items-center justify-center text-lg font-bold text-white">
+            Al</div>
+          <div>
+            <div class="text-white font-semibold">Alex</div>
+            <div class="text-gray-500 text-xs">Last used 2 hours ago</div>
+          </div>
+        </div>
+        <div
+          class="flex items-center gap-4 p-3 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 cursor-pointer transition opacity-60">
+          <div
+            class="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-lg font-bold text-white">Sa
+          </div>
+          <div>
+            <div class="text-white font-semibold">Sam (work)</div>
+            <div class="text-gray-500 text-xs">Last used yesterday</div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-8 text-center"><button onclick="showScene('scene-welcome')"
+          class="text-gray-500 hover:text-gray-300 text-sm flex items-center gap-1 mx-auto"><svg class="w-4 h-4"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>Create new vault</button></div>
+    </div>
+  </div>
+  <div id="scene-login-prompt" class="hidden flex items-center justify-center h-screen w-screen">
+    <div class="w-full max-w-xs p-8 text-center fade-in">
+      <div
+        class="w-20 h-20 rounded-full bg-orange-600 flex items-center justify-center text-3xl font-bold text-white mx-auto mb-4">
+        Al</div>
+      <h2 class="text-2xl font-bold text-white mb-1">Alex</h2>
+      <p class="text-gray-400 text-sm mb-2">Enter your vault password to unlock</p>
+      <p class="text-gray-600 text-xs mb-8">4 spaces · 1 profile</p>
+      <input type="password" placeholder="Vault password"
+        class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 mb-4 text-center" />
+      <button onclick="unlockSuccess()"
+        class="w-full px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition shadow-lg">Unlock
+        Vault</button>
+      <div class="mt-6"><a href="#" onclick="showScene('scene-picker')"
+          class="text-gray-500 hover:text-gray-300 text-sm">← Back</a></div>
+    </div>
+  </div>
+
+  <!-- ==================== LOCK OVERLAY ==================== -->
+  <div id="lock-overlay"
+    class="hidden fixed inset-0 z-30 bg-[#1a1a1e]/95 backdrop-blur-sm flex flex-col items-center justify-center">
+    <div class="text-center slide-up">
+      <div
+        class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center">
+        <svg class="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+      <h3 class="text-xl font-bold text-white mb-1">Session Locked</h3>
+      <p class="text-gray-400 text-sm mb-6">Re-enter your password to continue.</p>
+      <div
+        class="flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 border border-gray-700 mx-auto max-w-[220px] mb-4">
+        <div
+          class="w-10 h-10 rounded-full bg-orange-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+          Al</div>
+        <div class="text-left">
+          <div class="text-white text-sm font-semibold">Alex</div>
+          <div class="text-gray-500 text-xs">Last unlocked 5min ago</div>
+        </div>
+      </div>
+      <input type="password" placeholder="Vault password"
+        class="w-64 px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-500 mb-3 text-center" />
+      <div class="flex gap-2 justify-center">
+        <button onclick="hideLockOverlay()"
+          class="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition text-sm">Unlock</button>
+        <button
+          class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition border border-gray-700 text-sm">Switch
+          Profile</button>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    // ==================== STATE ====================
+    let isLocked = false, lockTimer = 60, timerInterval = null;
+    let activeApp = 'photos';
+    let spaceFilters = [], profileFilters = [], currentFilter = 'all';
+    let selectedResultId = null;
+    let startMenuOpen = false;
+
+    const spaces = {
+      personal: {name: 'Personal Vault', kind: 'OWNED', emoji: '🔒', color: 'from-blue-500 to-blue-700', nsId: 'ns:abc123...'},
+      gamedev: {name: 'Game Dev Club', kind: 'COMMUNAL', emoji: '🎮', color: 'from-purple-500 to-pink-600', nsId: 'ns:def456...'},
+      photos: {name: 'Photo Share', kind: 'COMMUNAL', emoji: '📸', color: 'from-green-500 to-emerald-700', nsId: 'ns:ghi789...'},
+      books: {name: 'Book Club', kind: 'OWNED', emoji: '📚', color: 'from-yellow-500 to-amber-700', nsId: 'ns:jkl012...'},
+    };
+
+    const profiles = {
+      alex: {name: 'Alex', initial: 'Al', color: 'bg-orange-600', subId: 'ss:alex_key...'},
+      jane: {name: 'Jane Doe', initial: 'JD', color: 'bg-blue-600', subId: 'ss:jane_key...'},
+      mike: {name: 'Mike K.', initial: 'MK', color: 'bg-purple-600', subId: 'ss:mike_key...'},
+    };
+
+    // ==================== CAPABILITY DATA ====================
+    const capabilities = [
+      {
+        id: 'cap-1',
+        name: 'Full access to Photo Share',
+        namespaceId: 'ns:ghi789...',
+        subspaceId: 'ss:alex_key...',
+        pathPrefix: '/app/photos/',
+        access: 'ReadWrite',
+        delegatedBy: 'ns:ghi789...',
+        expiresAt: new Date(Date.now() + 30 * 86400000),
+        grantedAt: new Date(Date.now() - 7 * 86400000),
+        status: 'active',
+        origin: 'namespace_owner',
+      },
+      {
+        id: 'cap-2',
+        name: 'Read-only: Photos from Jane',
+        namespaceId: 'ns:ghi789...',
+        subspaceId: 'ss:jane_key...',
+        pathPrefix: '/app/photos/',
+        access: 'Read',
+        delegatedBy: 'ns:ghi789...',
+        expiresAt: new Date(Date.now() + 90 * 86400000),
+        grantedAt: new Date(Date.now() - 1 * 86400000),
+        status: 'active',
+        origin: 'delegated',
+      },
+      {
+        id: 'cap-3',
+        name: 'Write: Game Dev Whiteboard',
+        namespaceId: 'ns:def456...',
+        subspaceId: 'ss:alex_key...',
+        pathPrefix: '/app/whiteboard/',
+        access: 'Write',
+        delegatedBy: 'ns:def456...',
+        expiresAt: new Date(Date.now() + 7 * 86400000),
+        grantedAt: new Date(Date.now() - 3 * 86400000),
+        status: 'active',
+        origin: 'namespace_owner',
+      },
+      {
+        id: 'cap-4',
+        name: 'Full: Book Club Calendar',
+        namespaceId: 'ns:jkl012...',
+        subspaceId: 'ss:alex_key...',
+        pathPrefix: '/app/calendar/',
+        access: 'ReadWrite',
+        delegatedBy: 'ns:jkl012...',
+        expiresAt: new Date(Date.now() + 365 * 86400000),
+        grantedAt: new Date(Date.now() - 60 * 86400000),
+        status: 'active',
+        origin: 'namespace_owner',
+      },
+      {
+        id: 'cap-5',
+        name: 'Read: Game Dev general chat',
+        namespaceId: 'ns:def456...',
+        subspaceId: 'ss:mike_key...',
+        pathPrefix: '/app/chat/',
+        access: 'Read',
+        delegatedBy: 'ns:def456...',
+        expiresAt: new Date(Date.now() - 5 * 86400000),
+        grantedAt: new Date(Date.now() - 30 * 86400000),
+        status: 'expired',
+        origin: 'delegated',
+      },
+    ];
+
+    // ==================== APP SCHEMAS ====================
+    const appSchemas = {
+      photos: {
+        name: 'Photos',
+        icon: '📸',
+        description: 'A photo gallery aggregating images from all your spaces',
+        types: {
+          photo: {
+            description: 'An image file with metadata',
+            pathTemplate: '/app/photos/{photo_id}',
+            fields: {title: 'string', capturedAt: 'datetime', width: 'u32', height: 'u32', tags: '[string]', file: 'blob'},
+            requiredCapability: {pathPrefix: '/app/photos/', access: 'Read'},
+          },
+          album: {
+            description: 'A named collection of photos',
+            pathTemplate: '/app/photos/albums/{album_id}',
+            fields: {name: 'string', description: 'string', coverPhotoId: 'string', photoIds: '[string]', createdAt: 'datetime'},
+            requiredCapability: {pathPrefix: '/app/photos/', access: 'Read'},
+          },
+        },
+        willowPaths: [
+          {path: '/app/photos/{photo_id}', description: 'Individual photo entry', access_needed: 'Read'},
+          {path: '/app/photos/albums/{album_id}', description: 'Album definition', access_needed: 'Read'},
+          {path: '/app/photos/{photo_id}/file', description: 'Image blob data', access_needed: 'Read'},
+        ],
+      },
+      notes: {
+        name: 'Notes',
+        icon: '📝',
+        description: 'Rich-text notes aggregated across spaces',
+        types: {
+          note: {
+            pathTemplate: '/app/notes/{note_id}',
+            fields: {title: 'string', body: 'string', tags: '[string]', updatedAt: 'datetime'},
+            requiredCapability: {pathPrefix: '/app/notes/', access: 'Read'},
+          },
+        },
+        willowPaths: [
+          {path: '/app/notes/{note_id}', description: 'Note content entry', access_needed: 'Read'},
+        ],
+      },
+      chat: {
+        name: 'Chat',
+        icon: '💬',
+        description: 'Conversation channels across spaces',
+        types: {
+          message: {
+            pathTemplate: '/app/chat/{channel_id}/{message_id}',
+            fields: {author: 'string', body: 'string', timestamp: 'datetime', channelId: 'string'},
+            requiredCapability: {pathPrefix: '/app/chat/', access: 'Read'},
+          },
+          channel: {
+            pathTemplate: '/app/chat/{channel_id}',
+            fields: {name: 'string', description: 'string', createdAt: 'datetime'},
+            requiredCapability: {pathPrefix: '/app/chat/', access: 'Read'},
+          },
+        },
+        willowPaths: [
+          {path: '/app/chat/{channel_id}', description: 'Channel metadata', access_needed: 'Read'},
+          {path: '/app/chat/{channel_id}/{msg_id}', description: 'Individual message', access_needed: 'ReadWrite'},
+        ],
+      },
+      whiteboard: {
+        name: 'Whiteboard',
+        icon: '🗺️',
+        description: 'Collaborative drawing canvas',
+        types: {
+          canvas: {
+            pathTemplate: '/app/whiteboard/{canvas_id}',
+            fields: {name: 'string', elements: 'json', lastModified: 'datetime'},
+            requiredCapability: {pathPrefix: '/app/whiteboard/', access: 'ReadWrite'},
+          },
+        },
+        willowPaths: [
+          {path: '/app/whiteboard/{canvas_id}', description: 'Canvas data entry', access_needed: 'ReadWrite'},
+        ],
+      },
+    };
+
+    // ==================== MOCK DATA ====================
+    function generatePhotos() {
+      const photos = [];
+      const adjectives = ['Sunset', 'Mountain', 'Ocean', 'Forest', 'Urban', 'Aerial', 'Macro', 'Portrait', 'Abstract', 'Night', 'Golden', 'Misty'];
+      const nouns = ['Vista', 'Horizon', 'Waves', 'Canopy', 'Skyline', 'Drone', 'Details', 'Smile', 'Pattern', 'Sky', 'Hour', 'Morning'];
+      const spaceKeys = ['personal', 'gamedev', 'photos', 'books'], profileKeys = ['alex', 'jane', 'mike'];
+      for (let i = 0; i < 42; i++) {
+        const hue = (i * 47) % 360, hue2 = (hue + 30) % 360;
+        photos.push({
+          id: i,
+          title: `${adjectives[i % adjectives.length]} ${nouns[Math.floor(i / adjectives.length) % nouns.length]}`,
+          space: spaceKeys[i % 4], profile: profileKeys[i % 3],
+          date: new Date(Date.now() - i * 86400000 * (Math.random() * 7 + 0.5)),
+          width: 300 + (i * 37) % 200, height: 200 + (i * 53) % 250,
+          hue, hue2, pattern: i % 5, liked: i % 7 === 0,
+        });
+      }
+      return photos;
+    }
+    const photoData = generatePhotos();
+
+    // Generate unified search results from all data types
+    function generateAllItems() {
+      const items = [];
+      const noteTitles = ['Meeting Notes', 'Project Ideas', 'Shopping List', 'API Design', 'Book Summary', 'Workout Log', 'Recipe Collection', 'Travel Plans'];
+      const noteBodies = ['Discussed Q3 roadmap and milestones...', 'Brainstorming features for v2...', 'Milk, eggs, bread, butter...', 'REST endpoints for user service...', 'Chapter 3: Data Structures...', 'Monday: Chest & Triceps...', 'Pasta carbonara, Thai curry...', 'Packing list for Japan trip...'];
+      const chatMessages = ['Hey everyone!', 'Anyone seen the latest build?', 'Meeting in 10 min', 'Great work on the demo!', 'Can someone review my PR?', 'Updated the docs', 'Let\'s sync up later', 'New feature request incoming...'];
+      const chatAuthors = ['Alex', 'Jane', 'Mike', 'Alex', 'Jane', 'Mike', 'Alex', 'Jane'];
+      const canvasNames = ['Brainstorm Board', 'Sprint Planning', 'Architecture Diagram', 'User Flow Map', 'Retro Board', 'Roadmap Timeline'];
+      const spaceKeys = ['personal', 'gamedev', 'photos', 'books'];
+      const profileKeys = ['alex', 'jane', 'mike'];
+
+      // Add photos as items
+      photoData.forEach(p => {
+        items.push({
+          id: `photo-${p.id}`,
+          type: 'photo',
+          app: 'photos',
+          title: p.title,
+          subtitle: `${p.width}×${p.height}`,
+          space: p.space,
+          profile: p.profile,
+          date: p.date,
+          icon: '📸',
+          preview: p,
+        });
+      });
+
+      // Add notes
+      noteTitles.forEach((title, i) => {
+        items.push({
+          id: `note-${i}`,
+          type: 'note',
+          app: 'notes',
+          title: title,
+          subtitle: noteBodies[i].substring(0, 40) + '...',
+          space: spaceKeys[i % 4],
+          profile: profileKeys[i % 3],
+          date: new Date(Date.now() - (i + 3) * 86400000 * (Math.random() * 5 + 1)),
+          icon: '📝',
+        });
+      });
+
+      // Add chat messages
+      chatMessages.forEach((msg, i) => {
+        items.push({
+          id: `chat-${i}`,
+          type: 'message',
+          app: 'chat',
+          title: msg,
+          subtitle: chatAuthors[i],
+          space: spaceKeys[i % 4],
+          profile: profileKeys[i % 3],
+          date: new Date(Date.now() - (i + 1) * 3600000 * (Math.random() * 12 + 1)),
+          icon: '💬',
+        });
+      });
+
+      // Add whiteboard canvases
+      canvasNames.forEach((name, i) => {
+        items.push({
+          id: `canvas-${i}`,
+          type: 'canvas',
+          app: 'whiteboard',
+          title: name,
+          subtitle: `${5 + i * 3} elements`,
+          space: spaceKeys[i % 4],
+          profile: profileKeys[i % 3],
+          date: new Date(Date.now() - (i + 2) * 86400000 * (Math.random() * 10 + 1)),
+          icon: '🗺️',
+        });
+      });
+
+      return items;
+    }
+    const allItems = generateAllItems();
+
+    // ==================== RENDER PHOTO SVG ====================
+    function renderPhotoSvg(p) {
+      const {width: w, height: h, hue, hue2, pattern: id, id: pid} = p;
+      const scenes = [
+        `<defs><linearGradient id="g${pid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="hsl(${hue},60%,40%)"/><stop offset="60%" stop-color="hsl(${hue2},50%,25%)"/><stop offset="100%" stop-color="hsl(${hue2},40%,15%)"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#g${pid})"/><circle cx="${w * 0.2}" cy="${h * 0.3}" r="${Math.min(w, h) * 0.12}" fill="hsl(${hue},80%,60%)" opacity="0.3"/><polygon points="${w * 0.1},${h * 0.7} ${w * 0.35},${h * 0.35} ${w * 0.6},${h * 0.7}" fill="hsl(${hue2},30%,20%)" opacity="0.7"/><polygon points="${w * 0.4},${h * 0.7} ${w * 0.55},${h * 0.4} ${w * 0.85},${h * 0.65} ${w * 0.9},${h * 0.7}" fill="hsl(${hue2},25%,18%)" opacity="0.8"/><circle cx="${w * 0.75}" cy="${h * 0.25}" r="${Math.min(w, h) * 0.08}" fill="hsl(45,90%,70%)" opacity="0.6"/>`,
+        `<defs><linearGradient id="g${pid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="hsl(${hue},70%,35%)"/><stop offset="100%" stop-color="hsl(${hue2},60%,20%)"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#g${pid})"/><path d="M0 ${h * 0.6} Q${w * 0.25} ${h * 0.4} ${w * 0.5} ${h * 0.6} T${w} ${h * 0.5}" fill="none" stroke="hsl(${hue},60%,50%)" stroke-width="3" opacity="0.5"/><path d="M0 ${h * 0.7} Q${w * 0.25} ${h * 0.5} ${w * 0.5} ${h * 0.7} T${w} ${h * 0.6}" fill="none" stroke="hsl(${hue2},50%,45%)" stroke-width="2" opacity="0.4"/><circle cx="${w * 0.3}" cy="${h * 0.3}" r="15" fill="hsl(${hue},80%,70%)" opacity="0.3"/><circle cx="${w * 0.7}" cy="${h * 0.4}" r="10" fill="hsl(${hue2},80%,60%)" opacity="0.3"/>`,
+        `<defs><linearGradient id="g${pid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="hsl(${hue},50%,25%)"/><stop offset="100%" stop-color="hsl(${hue2},60%,15%)"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#g${pid})"/><ellipse cx="${w * 0.2}" cy="${h * 0.4}" rx="25" ry="35" fill="hsl(${hue},40%,20%)" opacity="0.7"/><ellipse cx="${w * 0.5}" cy="${h * 0.3}" rx="30" ry="40" fill="hsl(${hue2},35%,18%)" opacity="0.7"/><ellipse cx="${w * 0.75}" cy="${h * 0.45}" rx="20" ry="30" fill="hsl(${hue},30%,22%)" opacity="0.7"/><ellipse cx="${w * 0.35}" cy="${h * 0.65}" rx="35" ry="25" fill="hsl(${hue2},30%,15%)" opacity="0.5"/><circle cx="${w * 0.45}" cy="${h * 0.25}" r="4" fill="hsl(50,90%,60%)" opacity="0.6"/><circle cx="${w * 0.55}" cy="${h * 0.35}" r="3" fill="hsl(50,90%,60%)" opacity="0.4"/>`,
+        `<defs><linearGradient id="g${pid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="hsl(${hue},60%,30%)"/><stop offset="100%" stop-color="hsl(${hue2},50%,20%)"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#g${pid})"/><rect x="${w * 0.1}" y="${h * 0.1}" width="${w * 0.35}" height="${h * 0.35}" fill="none" stroke="hsl(${hue},70%,55%)" stroke-width="2" opacity="0.5"/><rect x="${w * 0.55}" y="${h * 0.45}" width="${w * 0.35}" height="${h * 0.35}" fill="hsl(${hue2},50%,35%)" opacity="0.3"/><rect x="${w * 0.3}" y="${h * 0.3}" width="${w * 0.4}" height="${h * 0.4}" fill="none" stroke="hsl(45,80%,60%)" stroke-width="1.5" opacity="0.4"/><line x1="${w * 0.1}" y1="${h * 0.9}" x2="${w * 0.9}" y2="${h * 0.1}" stroke="hsl(${hue},50%,50%)" stroke-width="1" opacity="0.3"/>`,
+        `<defs><radialGradient id="g${pid}" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="hsl(${hue},50%,20%)"/><stop offset="100%" stop-color="hsl(${hue2},60%,8%)"/></radialGradient></defs><rect width="${w}" height="${h}" fill="url(#g${pid})"/><circle cx="${w * 0.5}" cy="${h * 0.3}" r="${Math.min(w, h) * 0.2}" fill="hsl(45,90%,60%)" opacity="0.15"/>${Array.from({length: 40}, (_, i) => `<circle cx="${(i * 37 + 13) % w}" cy="${(i * 53 + 7) % h}" r="${(i % 3) + 1}" fill="white" opacity="${0.3 + (i % 5) * 0.1}"/>`).join('')}<ellipse cx="${w * 0.15}" cy="${h * 0.8}" rx="${w * 0.2}" ry="${h * 0.05}" fill="hsl(220,30%,15%)" opacity="0.8"/><ellipse cx="${w * 0.6}" cy="${h * 0.85}" rx="${w * 0.25}" ry="${h * 0.04}" fill="hsl(220,30%,12%)" opacity="0.7"/>`,
+      ];
+      return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${scenes[id]}</svg>`)}`;
+    }
+
+    // ==================== GET FILTERED ITEMS ====================
+    function getFilteredItems() {
+      let items = allItems;
+      if (spaceFilters.length > 0) items = items.filter(item => spaceFilters.includes(item.space));
+      if (profileFilters.length > 0) items = items.filter(item => profileFilters.includes(item.profile));
+      // Sort by date descending
+      items.sort((a, b) => b.date - a.date);
+      return items;
+    }
+
+    // ==================== RENDER RESULTS SIDEBAR ====================
+    function renderResultsSidebar() {
+      const list = document.getElementById('results-list');
+      const count = document.getElementById('result-count');
+      const filtered = getFilteredItems();
+
+      count.textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        list.innerHTML = `
+          <div class="flex flex-col items-center justify-center py-12 text-gray-500">
+            <svg class="w-12 h-12 mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <p class="text-sm text-gray-500">No results match your filters</p>
+            <button onclick="clearAllFilters()" class="mt-2 text-xs text-orange-400 hover:text-orange-300">Clear filters</button>
+          </div>`;
+        return;
+      }
+
+      // Group by date for visual clarity
+      let html = '';
+      filtered.forEach((item, idx) => {
+        const space = spaces[item.space];
+        const profile = profiles[item.profile];
+        const dateStr = item.date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+        const isSelected = selectedResultId === item.id;
+
+        html += `
+          <div onclick="selectResult('${item.id}')"
+            class="result-item flex items-start gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${isSelected ? 'selected border border-orange-500/30' : 'border border-transparent'}">
+            <span class="text-base mt-0.5 flex-shrink-0">${item.icon}</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm text-gray-200 truncate font-medium">${item.title}</div>
+              <div class="flex items-center gap-1.5 text-[11px] text-gray-500 mt-0.5">
+                <span>${space ? space.emoji : ''} ${space ? space.name : ''}</span>
+                <span>·</span>
+                <span>${profile ? profile.name : ''}</span>
+                <span>·</span>
+                <span>${dateStr}</span>
+              </div>
+            </div>
+          </div>`;
+      });
+
+      list.innerHTML = html;
+    }
+
+    // ==================== RENDER CONTENT ====================
+    function renderContent() {
+      const area = document.getElementById('content-area');
+
+      if (activeApp === 'capabilities') {
+        renderCapabilitiesView(area);
+        return;
+      }
+
+      if (activeApp === 'home') {
+        renderHomeView(area);
+        return;
+      }
+
+      const schema = appSchemas[activeApp];
+      if (!schema) {
+        area.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-gray-500"><span class="text-4xl mb-4">📱</span><p class="text-gray-400 font-medium">${activeApp}</p><p class="text-xs text-gray-600 mt-1">Select an app from the menu</p></div>`;
+        return;
+      }
+
+      if (activeApp === 'photos') {
+        renderPhotoGrid(area);
+      } else {
+        renderGenericAppView(area, schema);
+      }
+    }
+
+    function renderHomeView(area) {
+      const filtered = getFilteredItems();
+      const totalItems = allItems.length;
+      const filteredCount = filtered.length;
+
+      let html = `
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-white text-lg font-semibold">🏠 Home</h2>
+            <p class="text-gray-500 text-xs mt-0.5">Overview of all your data</p>
+          </div>
+        </div>
+
+        <!-- Stats cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div class="rounded-xl bg-gray-800/50 border border-gray-700 p-4">
+            <div class="text-2xl mb-1">📸</div>
+            <div class="text-white text-lg font-bold">${photoData.length}</div>
+            <div class="text-gray-500 text-xs">Photos</div>
+          </div>
+          <div class="rounded-xl bg-gray-800/50 border border-gray-700 p-4">
+            <div class="text-2xl mb-1">📝</div>
+            <div class="text-white text-lg font-bold">8</div>
+            <div class="text-gray-500 text-xs">Notes</div>
+          </div>
+          <div class="rounded-xl bg-gray-800/50 border border-gray-700 p-4">
+            <div class="text-2xl mb-1">💬</div>
+            <div class="text-white text-lg font-bold">8</div>
+            <div class="text-gray-500 text-xs">Messages</div>
+          </div>
+          <div class="rounded-xl bg-gray-800/50 border border-gray-700 p-4">
+            <div class="text-2xl mb-1">🗺️</div>
+            <div class="text-white text-lg font-bold">6</div>
+            <div class="text-gray-500 text-xs">Canvases</div>
+          </div>
+        </div>
+
+        <!-- Recent items -->
+        <h3 class="text-gray-400 text-sm font-semibold mb-3">Recent Items</h3>
+        <div class="space-y-1">`;
+
+      const recent = filtered.slice(0, 10);
+      recent.forEach(item => {
+        const space = spaces[item.space];
+        const profile = profiles[item.profile];
+        const dateStr = item.date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+        html += `
+          <div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-800/30 border border-gray-700/50">
+            <span class="text-base">${item.icon}</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm text-gray-200 truncate">${item.title}</div>
+              <div class="text-[11px] text-gray-500">${space ? space.name : ''} · ${profile ? profile.name : ''} · ${dateStr}</div>
+            </div>
+          </div>`;
+      });
+
+      html += `</div>`;
+      if (filteredCount > 10) {
+        html += `<p class="text-gray-600 text-xs mt-3">+ ${filteredCount - 10} more items</p>`;
+      }
+
+      html += `</div>`;
+      area.innerHTML = html;
+    }
+
+    function renderGenericAppView(area, schema) {
+      const typeNames = Object.keys(schema.types);
+
+      let html = `
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-white text-lg font-semibold">${schema.icon} ${schema.name}</h2>
+            <p class="text-gray-500 text-xs mt-0.5">${schema.description}</p>
+          </div>
+        </div>
+
+        <!-- Schema definition card -->
+        <div class="rounded-xl bg-gray-800/50 border border-gray-700 p-4 mb-6">
+          <div class="flex items-center gap-2 mb-3">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+            <span class="text-gray-300 text-sm font-medium">Data Schema</span>
+            <span class="text-gray-600 text-xs ml-auto">${typeNames.length} type${typeNames.length > 1 ? 's' : ''}</span>
+          </div>
+          <div class="space-y-3">
+            ${typeNames.map(tn => {
+        const t = schema.types[tn];
+        return `
+                <div class="rounded-lg bg-gray-900/50 border border-gray-700/50 p-3">
+                  <div class="flex items-center justify-between mb-1">
+                    <code class="text-orange-300 text-xs font-mono">${tn}</code>
+                    <span class="text-gray-600 text-[10px]">path: <code class="text-gray-400">${t.pathTemplate}</code></span>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5 mt-2">
+                    ${Object.entries(t.fields).map(([fn, ft]) => `<span class="px-1.5 py-0.5 bg-gray-800 rounded text-[10px] text-gray-400 font-mono">${fn}: ${ft}</span>`).join('')}
+                  </div>
+                </div>`;
+      }).join('')}
+          </div>
+        </div>
+
+        <!-- Willow paths -->
+        <div class="rounded-xl bg-gray-800/50 border border-gray-700 p-4 mb-6">
+          <div class="flex items-center gap-2 mb-3">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            <span class="text-gray-300 text-sm font-medium">Willow Storage Paths</span>
+            <span class="text-gray-600 text-xs ml-auto">Per namespace/{subspace}</span>
+          </div>
+          <div class="space-y-1">
+            ${schema.willowPaths.map(wp => `
+              <div class="flex items-center gap-2 text-xs py-1">
+                <code class="font-mono text-gray-300 flex-1">${wp.path}</code>
+                <span class="text-gray-500 flex-1">${wp.description}</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-medium ${wp.access_needed === 'ReadWrite' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}">${wp.access_needed}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Capability requirement -->
+        <div class="rounded-xl bg-gray-800/50 border border-gray-700/50 p-4">
+          <div class="flex items-center gap-2 text-xs text-gray-400">
+            <span>🔑 Requires capability: <code class="text-gray-300 font-mono">${Object.values(schema.types)[0].requiredCapability.pathPrefix}</code></span>
+            <span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-medium">${Object.values(schema.types)[0].requiredCapability.access}</span>
+          </div>
+        </div>`;
+
+      area.innerHTML = html;
+    }
+
+    function renderPhotoGrid(area) {
+      let filtered = photoData;
+      if (spaceFilters.length > 0) filtered = filtered.filter(p => spaceFilters.includes(p.space));
+      if (profileFilters.length > 0) filtered = filtered.filter(p => profileFilters.includes(p.profile));
+      if (currentFilter === 'recent') {const wa = Date.now() - 7 * 86400000; filtered = filtered.filter(p => p.date.getTime() > wa);}
+      else if (currentFilter === 'albums') filtered = filtered.filter(p => p.id % 2 === 0);
+
+      if (filtered.length === 0) {
+        area.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-gray-500"><svg class="w-16 h-16 mb-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><p class="text-sm">No photos match your filters</p><button onclick="clearAllFilters()" class="mt-2 text-xs text-orange-400 hover:text-orange-300">Clear filters</button></div>`;
+        return;
+      }
+
+      let html = `
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-white text-lg font-semibold">📸 Your Photos</h2>
+            <p class="text-gray-500 text-xs mt-0.5">Aggregated across all your spaces</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1" id="app-filter-buttons">
+              <button onclick="showPhotoFilter('all')"
+                class="px-2.5 py-1.5 text-xs rounded-md bg-orange-600/20 text-orange-300 font-medium"
+                id="filter-all">All</button>
+              <button onclick="showPhotoFilter('recent')"
+                class="px-2.5 py-1.5 text-xs rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 font-medium"
+                id="filter-recent">Recent</button>
+              <button onclick="showPhotoFilter('albums')"
+                class="px-2.5 py-1.5 text-xs rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 font-medium"
+                id="filter-albums">Albums</button>
+            </div>
+            <button class="px-3 py-1.5 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition"><span class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Upload</span></button>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">`;
+
+      filtered.forEach((photo, idx) => {
+        const space = spaces[photo.space], profile = profiles[photo.profile];
+        const dateStr = photo.date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+        html += `
+          <div class="photo-hover rounded-xl overflow-hidden bg-gray-800 border border-gray-700/50 cursor-pointer group" style="animation:fadeIn ${0.3 + (idx % 20) * 30 / 1000}s ease-out">
+            <div class="relative aspect-[4/3] bg-gray-900 overflow-hidden">
+              <img src="${renderPhotoSvg(photo)}" alt="${photo.title}" class="w-full h-full object-cover" loading="lazy"/>
+              <div class="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/60 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100"><span>${space.emoji}</span><span>${space.name}</span></div>
+              <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100"><div class="w-6 h-6 rounded-full ${profile.color} flex items-center justify-center text-[8px] font-bold text-white border border-black/30">${profile.initial}</div></div>
+              <button onclick="event.stopPropagation()" class="absolute bottom-2 right-2 p-1.5 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 hover:bg-black/70"><svg class="w-4 h-4 ${photo.liked ? 'text-red-400 fill-red-400' : 'text-gray-300'}" fill="${photo.liked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg></button>
+            </div>
+            <div class="p-2.5"><div class="flex items-center justify-between"><span class="text-white text-xs font-medium truncate">${photo.title}</span></div><div class="flex items-center justify-between mt-1"><span class="text-gray-600 text-[10px]">${dateStr}</span><span class="text-gray-600 text-[10px]">${photo.width}×${photo.height}</span></div></div>
+          </div>`;
+      });
+
+      html += '</div>';
+      area.innerHTML = html;
+      updateItemCount(filtered.length);
+    }
+
+    function renderCapabilitiesView(area) {
+      const active = capabilities.filter(c => c.status === 'active');
+      const expired = capabilities.filter(c => c.status === 'expired');
+
+      let html = `
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-white text-lg font-semibold">🛡️ Capabilities</h2>
+            <p class="text-gray-500 text-xs mt-0.5">Access grants that authorize reads and writes to Willow data</p>
+          </div>
+          <button class="px-3 py-1.5 text-xs rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition">+ Delegate Capability</button>
+        </div>
+
+        <!-- How capabilities work -->
+        <div class="rounded-xl bg-gray-800/30 border border-gray-700/50 p-4 mb-6">
+          <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <div>
+              <p class="text-gray-300 text-sm font-medium mb-1">How Capabilities Work</p>
+              <p class="text-gray-400 text-xs leading-relaxed">
+                Every read and write into Willow requires a <strong class="text-gray-300">Capability</strong> — a signed data object proving your authority.
+                Capabilities are delegated by namespace and subspace keys. Each capability specifies a <strong class="text-gray-300">path prefix</strong>,
+                <strong class="text-gray-300">access pattern</strong> (Read / Write / ReadWrite), and an <strong class="text-gray-300">expiration timestamp</strong>.
+              </p>
+              <div class="mt-3 flex gap-2 text-xs">
+                <span class="px-2 py-1 rounded bg-green-500/10 text-green-400 border border-green-500/20">✅ Owned namespace: auto-grants to own subspaces</span>
+                <span class="px-2 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">🔗 Delegated: signed by a namespace key holder</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active capabilities -->
+        <h3 class="text-gray-400 text-sm font-semibold mb-3">Active Capabilities <span class="text-gray-600 font-normal">(${active.length})</span></h3>
+        <div class="space-y-2 mb-8">`;
+
+      active.forEach(cap => {
+        const ns = Object.values(spaces).find(s => s.nsId === cap.namespaceId);
+        const ss = Object.values(profiles).find(p => p.subId === cap.subspaceId);
+        const nsName = ns ? ns.name : cap.namespaceId;
+        const ssName = ss ? ss.name : cap.subspaceId;
+        const expiresIn = Math.ceil((cap.expiresAt - Date.now()) / 86400000);
+        const accessColor = cap.access === 'ReadWrite' ? 'bg-green-500/20 text-green-400' : cap.access === 'Write' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400';
+
+        html += `
+          <div class="cap-card rounded-xl bg-gray-800/50 border border-gray-700 p-4">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-white text-sm font-medium">${cap.name}</span>
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-medium ${accessColor}">${cap.access}</span>
+                  <span class="text-gray-600 text-[10px]">expires in ${expiresIn}d</span>
+                </div>
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                  <span>Namespace: <code class="text-gray-400 font-mono">${cap.namespaceId}</code></span>
+                  <span>Subspace: <code class="text-gray-400 font-mono">${cap.subspaceId}</code></span>
+                  <span>Path: <code class="text-gray-400 font-mono">${cap.pathPrefix}</code></span>
+                </div>
+                <div class="flex items-center gap-2 mt-2 text-[10px]">
+                  <span class="text-gray-600">Signed by:</span>
+                  <code class="text-gray-500 font-mono">${cap.delegatedBy}</code>
+                  ${cap.origin === 'namespace_owner' ? '<span class="px-1.5 py-0.5 rounded bg-green-500/10 text-green-400/70 border border-green-500/10">auto-grant</span>' : '<span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400/70 border border-blue-500/10">delegated</span>'}
+                </div>
+              </div>
+              <div class="flex items-center gap-1 ml-2">
+                <button class="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200" title="Revoke"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                <button class="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200" title="Edit"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+              </div>
+            </div>
+          </div>`;
+      });
+
+      html += `</div><h3 class="text-gray-400 text-sm font-semibold mb-3">Expired <span class="text-gray-600 font-normal">(${expired.length})</span></h3><div class="space-y-2">`;
+
+      expired.forEach(cap => {
+        html += `
+          <div class="rounded-xl bg-gray-800/20 border border-gray-700/30 p-4 opacity-50">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="flex items-center gap-2 mb-1"><span class="text-gray-400 text-sm">${cap.name}</span><span class="px-1.5 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400">expired</span></div>
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600"><span>Path: <code class="text-gray-600 font-mono">${cap.pathPrefix}</code></span></div>
+              </div>
+              <button class="p-1.5 rounded hover:bg-gray-700 text-gray-500 hover:text-gray-300" title="Renew"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+            </div>
+          </div>`;
+      });
+
+      html += '</div>';
+      area.innerHTML = html;
+
+      const appBreadcrumb = document.getElementById('breadcrumb-app');
+      if (appBreadcrumb) appBreadcrumb.innerHTML = `<span>🛡️</span><span class="font-medium">Capabilities</span>`;
+    }
+
+    // ==================== FILTER BADGES ====================
+    function updateFilterBadges() {
+      const container = document.getElementById('filter-badges');
+      if (!container) return;
+      container.innerHTML = '';
+      spaceFilters.forEach(sf => {
+        const space = spaces[sf];
+        const b = document.createElement('span');
+        b.className = 'badge-pop inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-blue-500/20 text-blue-300 border border-blue-500/30';
+        b.innerHTML = `${space.emoji} ${space.name} <button onclick="removeSpaceFilter('${sf}')" class="ml-0.5 hover:text-white">&times;</button>`;
+        container.appendChild(b);
+      });
+      profileFilters.forEach(pf => {
+        const profile = profiles[pf];
+        const b = document.createElement('span');
+        b.className = 'badge-pop inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-orange-500/20 text-orange-300 border border-orange-500/30';
+        b.innerHTML = `${profile.name} <button onclick="removeProfileFilter('${pf}')" class="ml-0.5 hover:text-white">&times;</button>`;
+        container.appendChild(b);
+      });
+
+      const summary = document.getElementById('breadcrumb-filter-summary');
+      if (summary) {
+        if (spaceFilters.length === 0 && profileFilters.length === 0) summary.innerHTML = '<span class="text-gray-400">All spaces</span>';
+        else {
+          const parts = [];
+          if (spaceFilters.length > 0) parts.push(spaceFilters.map(sf => spaces[sf]?.name).join(', '));
+          if (profileFilters.length > 0) parts.push(profileFilters.map(pf => profiles[pf]?.name).join(', '));
+          summary.innerHTML = `<span class="text-gray-300">${parts.join(' · ')}</span>`;
+        }
+      }
+      renderResultsSidebar();
+      renderContent();
+    }
+
+    function toggleSpaceFilter(id) {
+      const idx = spaceFilters.indexOf(id);
+      if (idx >= 0) {spaceFilters.splice(idx, 1); document.getElementById(`space-btn-${id}`)?.classList.remove('ring-2', 'ring-white/30');}
+      else {spaceFilters.push(id); document.getElementById(`space-btn-${id}`)?.classList.add('ring-2', 'ring-white/30');}
+      updateFilterBadges();
+    }
+    function removeSpaceFilter(id) {const idx = spaceFilters.indexOf(id); if (idx >= 0) {spaceFilters.splice(idx, 1); document.getElementById(`space-btn-${id}`)?.classList.remove('ring-2', 'ring-white/30');} updateFilterBadges();}
+    function removeProfileFilter(id) {const idx = profileFilters.indexOf(id); if (idx >= 0) profileFilters.splice(idx, 1); updateFilterBadges();}
+    function clearAllFilters() {spaceFilters = []; profileFilters = []; document.querySelectorAll('[id^="space-btn-"]').forEach(e => e.classList.remove('ring-2', 'ring-white/30')); updateFilterBadges();}
+
+    function updateItemCount(shown) {
+      const el = document.getElementById('item-count');
+      if (el) el.textContent = `${shown} items`;
+    }
+
+    // ==================== NAVIGATION ====================
+    function selectResult(id) {
+      selectedResultId = id;
+      renderResultsSidebar();
+      // Show detail in content area
+      const item = allItems.find(i => i.id === id);
+      if (!item) return;
+
+      const area = document.getElementById('content-area');
+      const space = spaces[item.space];
+      const profile = profiles[item.profile];
+      const dateStr = item.date.toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'});
+
+      if (item.type === 'photo') {
+        const p = item.preview;
+        area.innerHTML = `
+          <div class="max-w-3xl mx-auto fade-in">
+            <div class="rounded-xl overflow-hidden bg-gray-800 border border-gray-700 mb-4">
+              <img src="${renderPhotoSvg(p)}" alt="${item.title}" class="w-full object-cover" style="max-height: 60vh"/>
+            </div>
+            <div class="space-y-3">
+              <h2 class="text-white text-xl font-bold">${item.title}</h2>
+              <div class="flex items-center gap-3 text-sm text-gray-400">
+                <span>${space.emoji} ${space.name}</span>
+                <span>·</span>
+                <span>${profile.initial} ${profile.name}</span>
+                <span>·</span>
+                <span>${dateStr}</span>
+              </div>
+              <div class="flex gap-2 text-xs text-gray-500">
+                <span class="px-2 py-1 rounded bg-gray-800 border border-gray-700">${p.width} × ${p.height}</span>
+                <span class="px-2 py-1 rounded bg-gray-800 border border-gray-700">Photo</span>
+              </div>
+            </div>
+          </div>`;
+      } else if (item.type === 'note') {
+        area.innerHTML = `
+          <div class="max-w-3xl mx-auto fade-in">
+            <div class="rounded-xl bg-gray-800 border border-gray-700 p-6">
+              <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl">📝</span>
+                <h2 class="text-white text-xl font-bold">${item.title}</h2>
+              </div>
+              <div class="flex items-center gap-3 text-sm text-gray-400 mb-6">
+                <span>${space.emoji} ${space.name}</span>
+                <span>·</span>
+                <span>${profile.initial} ${profile.name}</span>
+                <span>·</span>
+                <span>${dateStr}</span>
+              </div>
+              <div class="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">${item.subtitle}</div>
+            </div>
+          </div>`;
+      } else if (item.type === 'message') {
+        area.innerHTML = `
+          <div class="max-w-3xl mx-auto fade-in">
+            <div class="rounded-xl bg-gray-800 border border-gray-700 p-6">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full ${profile.color} flex items-center justify-center text-sm font-bold text-white flex-shrink-0">${profile.initial}</div>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-white font-semibold text-sm">${item.subtitle}</span>
+                    <span class="text-gray-600 text-xs">${dateStr}</span>
+                  </div>
+                  <p class="text-gray-300 text-sm">${item.title}</p>
+                  <div class="flex items-center gap-2 mt-3 text-xs text-gray-500">
+                    <span>${space.emoji} ${space.name}</span>
+                    <span>·</span>
+                    <span>Message</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      } else if (item.type === 'canvas') {
+        area.innerHTML = `
+          <div class="max-w-3xl mx-auto fade-in">
+            <div class="rounded-xl bg-gray-800 border border-gray-700 p-6">
+              <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl">🗺️</span>
+                <h2 class="text-white text-xl font-bold">${item.title}</h2>
+              </div>
+              <div class="flex items-center gap-3 text-sm text-gray-400 mb-6">
+                <span>${space.emoji} ${space.name}</span>
+                <span>·</span>
+                <span>${profile.initial} ${profile.name}</span>
+                <span>·</span>
+                <span>${dateStr}</span>
+              </div>
+              <div class="flex gap-2 text-xs text-gray-500">
+                <span class="px-2 py-1 rounded bg-gray-800 border border-gray-700">${item.subtitle}</span>
+                <span class="px-2 py-1 rounded bg-gray-800 border border-gray-700">Canvas</span>
+              </div>
+            </div>
+          </div>`;
+      }
+    }
+
+    function selectMenuItem(appId) {
+      activeApp = appId;
+      closeStartMenu();
+      const appNames = {
+        photos: {icon: '📸', name: 'Photos'}, notes: {icon: '📝', name: 'Notes'}, chat: {icon: '💬', name: 'Chat'},
+        whiteboard: {icon: '🗺️', name: 'Whiteboard'}, capabilities: {icon: '🛡️', name: 'Capabilities'},
+        connections: {icon: '🔗', name: 'Connections'}, settings: {icon: '⚙️', name: 'Settings'}, home: {icon: '🏠', name: 'Home'},
+      };
+      const info = appNames[appId] || {icon: '📱', name: appId};
+      const appBreadcrumb = document.getElementById('breadcrumb-app');
+      if (appBreadcrumb) appBreadcrumb.innerHTML = `<span>${info.icon}</span><span class="font-medium">${info.name}</span>`;
+      renderContent();
+    }
+
+    function showPhotoFilter(filter) {
+      currentFilter = filter;
+      ['all', 'recent', 'albums'].forEach(f => {
+        const btn = document.getElementById(`filter-${f}`);
+        if (btn) btn.className = f === filter ? 'px-2.5 py-1.5 text-xs rounded-md bg-orange-600/20 text-orange-300 font-medium' : 'px-2.5 py-1.5 text-xs rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 font-medium';
+      });
+      renderContent();
+    }
+
+    // ==================== START MENU ====================
+    function toggleStartMenu() {
+      startMenuOpen = !startMenuOpen;
+      const menu = document.getElementById('start-menu');
+      if (startMenuOpen) {
+        menu.classList.remove('closed');
+        menu.classList.add('open');
+      } else {
+        menu.classList.remove('open');
+        menu.classList.add('closed');
+      }
+    }
+
+    function closeStartMenu() {
+      startMenuOpen = false;
+      const menu = document.getElementById('start-menu');
+      menu.classList.remove('open');
+      menu.classList.add('closed');
+    }
+
+    // Close start menu when clicking outside
+    document.addEventListener('click', function (e) {
+      if (startMenuOpen) {
+        const menu = document.getElementById('start-menu');
+        const btn = menu.previousElementSibling;
+        if (!menu.contains(e.target) && !btn.contains(e.target)) {
+          closeStartMenu();
+        }
+      }
+    });
+
+    // ==================== SCENE MANAGEMENT ====================
+    function showScene(id) {
+      document.querySelectorAll('body > .flex, body > .hidden').forEach(el => {if (el.id && el.id.startsWith('scene-')) el.classList.add('hidden');});
+      document.getElementById(id).classList.remove('hidden');
+      document.getElementById('lock-overlay').classList.add('hidden');
+      if (id === 'scene-main') {renderResultsSidebar(); renderContent();}
+    }
+    function createVaultAndProfile() {showScene('scene-create-profile');}
+    function unlockSuccess() {showScene('scene-main');}
+
+    // ==================== LOCK TIMER ====================
+    function startLockTimer() { /* timer disabled for development */}
+    function stopLockTimer() { }
+    function updateTimerDisplay() {const m = Math.floor(lockTimer / 60), s = lockTimer % 60; const el = document.getElementById('timer-display'); if (el) el.textContent = `Lock in: ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;}
+    function showLockOverlay() {document.getElementById('lock-overlay').classList.remove('hidden');}
+    function hideLockOverlay() {document.getElementById('lock-overlay').classList.add('hidden');}
+    function toggleLock() {
+      isLocked = !isLocked; const btn = document.getElementById('lock-toggle-btn');
+      if (isLocked) {btn.textContent = '🔒 Locked'; btn.classList.add('text-red-400', 'border-red-400/30'); btn.classList.remove('text-gray-300'); showLockOverlay();}
+      else {btn.textContent = '🔓 Unlocked'; btn.classList.remove('text-red-400', 'border-red-400/30'); btn.classList.add('text-gray-300'); hideLockOverlay();}
+    }
+    function unlockApp() {document.getElementById('lock-screen').classList.add('hidden'); if (document.getElementById('scene-main').classList.contains('hidden')) showScene('scene-main'); isLocked = false; const btn = document.getElementById('lock-toggle-btn'); btn.textContent = '🔓 Unlocked'; btn.classList.remove('text-red-400', 'border-red-400/30'); btn.classList.add('text-gray-300');}
+  </script>
+
+</body>
+
+</html>
