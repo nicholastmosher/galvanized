@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Galvanized UI Prototype 2</title>
+  <title>Galvanized UI Prototype 3 - Contacts</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
@@ -401,6 +401,10 @@
                 class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
                 <span class="text-lg">🗺️</span><span>Whiteboard</span>
               </button>
+              <button onclick="selectMenuItem('contacts')"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
+                <span>👥</span><span>Contacts</span>
+              </button>
               <div class="h-px bg-gray-700 my-1"></div>
               <button onclick="selectMenuItem('capabilities')"
                 class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/60 text-gray-200 text-sm text-left">
@@ -458,7 +462,7 @@
             class="w-11 h-11 rounded-2xl bg-gray-800 border border-dashed border-gray-600 flex items-center justify-center hover:rounded-xl hover:border-gray-400 transition-all duration-150 flex-shrink-0"
             title="Add Subspace">
             <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" strok-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
           </button>
           <div class="relative flex items-center" data-profile="alex">
@@ -502,19 +506,19 @@
             style="z-index: 10;"></div>
         </div>
 
-        <!-- ===== RESULTS ===== -->
+        <!-- ===== SIDEBAR CONTENT (Results or Contacts) ===== -->
         <div class="flex flex-col flex-1 bg-[#2b2d31] min-w-0">
           <div class="flex items-center justify-between px-3 h-[40px] border-b border-gray-800 flex-shrink-0">
             <div class="flex items-center gap-2">
-              <span class="text-white font-semibold text-xs">Results</span>
-              <span class="text-gray-500 text-[10px]" id="result-count">0</span>
+              <span class="text-white font-semibold text-xs" id="sidebar-title">Results</span>
+              <span class="text-gray-500 text-[10px]" id="sidebar-count">0</span>
             </div>
-            <div class="flex items-center gap-1">
+            <div class="flex items-center gap-1" id="sidebar-actions">
               <button onclick="clearAllFilters()"
                 class="px-2 py-1 text-[10px] rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition">Clear</button>
             </div>
           </div>
-          <div class="flex-1 overflow-y-auto px-2 py-2 space-y-0.5" id="results-list">
+          <div class="flex-1 overflow-y-auto px-2 py-2 space-y-0.5" id="sidebar-list">
             <!-- Dynamically filled by JS -->
           </div>
         </div>
@@ -633,6 +637,100 @@
     </div>
   </div>
 
+  <!-- ==================== ADD CONTACT DIALOG ==================== -->
+  <div id="add-contact-dialog"
+    class="hidden fixed inset-0 z-30 bg-[#1a1a1e]/95 backdrop-blur-sm flex items-center justify-center">
+    <div class="w-full max-w-lg p-6 fade-in">
+      <div class="rounded-xl bg-[#2b2d31] border border-gray-700 overflow-hidden">
+        <div class="flex border-b border-gray-700">
+          <button onclick="showContactTab('paste')"
+            class="flex-1 px-4 py-3 text-sm font-medium text-orange-300 border-b-2 border-orange-500 bg-gray-800/30"
+            id="contact-tab-paste">Paste Ticket</button>
+          <button onclick="showContactTab('generate')"
+            class="flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-200 border-b-2 border-transparent"
+            id="contact-tab-generate">My Ticket</button>
+        </div>
+        <div id="contact-panel-paste" class="p-5">
+          <h3 class="text-white font-semibold mb-1">Add a Contact</h3>
+          <p class="text-gray-400 text-xs mb-4">Paste a contact ticket you received out-of-band (Signal, email, etc.)
+          </p>
+          <textarea id="contact-ticket-input" rows="3"
+            class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 text-xs font-mono focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-600"
+            placeholder="Paste contact ticket here..."></textarea>
+          <div class="flex gap-2 mt-4">
+            <button onclick="submitContactTicket()"
+              class="flex-1 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold text-sm transition">Add
+              Contact</button>
+            <button onclick="hideAddContactDialog()"
+              class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 text-sm transition">Cancel</button>
+          </div>
+          <div id="contact-ticket-error"
+            class="hidden mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs"></div>
+        </div>
+        <div id="contact-panel-generate" class="hidden p-5">
+          <h3 class="text-white font-semibold mb-1">Your Contact Ticket</h3>
+          <p class="text-gray-400 text-xs mb-4">Share this ticket with someone to establish a Contact connection.</p>
+          <div class="p-3 rounded-lg bg-gray-800 border border-gray-700">
+            <code class="text-xs text-gray-300 font-mono break-all select-all"
+              id="my-contact-ticket">gv1:contact:pk:alex_ed25519:AQIDBAUGBwgJCgsMDQ4PEA==:ss:alex_key...:v1</code>
+          </div>
+          <button onclick="copyContactTicket()"
+            class="mt-3 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 text-sm transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Copy Ticket
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== INVITE TO NAMESPACE DIALOG ==================== -->
+  <div id="invite-dialog"
+    class="hidden fixed inset-0 z-30 bg-[#1a1a1e]/95 backdrop-blur-sm flex items-center justify-center">
+    <div class="w-full max-w-md p-6 fade-in">
+      <div class="rounded-xl bg-[#2b2d31] border border-gray-700 p-5">
+        <h3 class="text-white font-semibold mb-1">Invite to Namespace</h3>
+        <p class="text-gray-400 text-xs mb-4">Grant a Contact access to one of your Namespaces by signing a Capability.
+        </p>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Contact</label>
+            <select id="invite-contact-select"
+              class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm focus:border-orange-500 focus:outline-none"></select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Namespace</label>
+            <select id="invite-namespace-select"
+              class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm focus:border-orange-500 focus:outline-none"></select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Access Level</label>
+            <select id="invite-access-select"
+              class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm focus:border-orange-500 focus:outline-none">
+              <option value="Read">Read</option>
+              <option value="Write">Write</option>
+              <option value="ReadWrite" selected>ReadWrite</option>
+            </select>
+          </div>
+          <div class="p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
+            <p class="text-xs text-gray-400"><span class="text-orange-400">🔑</span> This will sign a Capability with
+              your Namespace key, granting access to <code class="text-gray-300 font-mono"
+                id="invite-path-preview">/app/*</code></p>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-5">
+          <button onclick="submitInvite()"
+            class="flex-1 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold text-sm transition">Sign
+            &amp; Send Invite</button>
+          <button onclick="hideInviteDialog()"
+            class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 text-sm transition">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
     // ==================== STATE ====================
@@ -654,6 +752,48 @@
       jane: {name: 'Jane Doe', initial: 'JD', color: 'bg-blue-600', subId: 'ss:jane_key...'},
       mike: {name: 'Mike K.', initial: 'MK', color: 'bg-purple-600', subId: 'ss:mike_key...'},
     };
+
+    // ==================== CONTACTS DATA ====================
+    let selectedContact = null;
+
+    const contacts = [
+      {
+        id: 'contact-sam',
+        name: 'Sam Rivera',
+        initial: 'SR',
+        color: 'bg-teal-500',
+        status: 'online',
+        publicKey: 'pk:sam_ed25519...',
+        addedAt: new Date(Date.now() - 14 * 86400000),
+        sharedNamespaces: ['photos', 'gamedev'],
+        grantedCaps: ['cap-2'],
+        receivedCaps: [],
+      },
+      {
+        id: 'contact-priya',
+        name: 'Priya Chen',
+        initial: 'PC',
+        color: 'bg-rose-500',
+        status: 'away',
+        publicKey: 'pk:priya_ed25519...',
+        addedAt: new Date(Date.now() - 7 * 86400000),
+        sharedNamespaces: ['books'],
+        grantedCaps: [],
+        receivedCaps: ['cap-4'],
+      },
+      {
+        id: 'contact-jordan',
+        name: 'Jordan Kim',
+        initial: 'JK',
+        color: 'bg-cyan-500',
+        status: 'offline',
+        publicKey: 'pk:jordan_ed25519...',
+        addedAt: new Date(Date.now() - 30 * 86400000),
+        sharedNamespaces: ['gamedev'],
+        grantedCaps: ['cap-5'],
+        receivedCaps: ['cap-3'],
+      },
+    ];
 
     // ==================== CAPABILITY DATA ====================
     const capabilities = [
@@ -923,12 +1063,27 @@
       return items;
     }
 
-    // ==================== RENDER RESULTS SIDEBAR ====================
-    function renderResultsSidebar() {
-      const list = document.getElementById('results-list');
-      const count = document.getElementById('result-count');
-      const filtered = getFilteredItems();
+    // ==================== RENDER SIDEBAR ====================
+    function renderSidebar() {
+      if (activeApp === 'contacts') {
+        renderContactsSidebar();
+      } else {
+        renderResultsSidebar();
+      }
+    }
 
+    function renderResultsSidebar() {
+      const list = document.getElementById('sidebar-list');
+      const count = document.getElementById('sidebar-count');
+      const title = document.getElementById('sidebar-title');
+      const actions = document.getElementById('sidebar-actions');
+      if (!list || !count) return;
+      title.textContent = 'Results';
+      actions.innerHTML = `<button onclick="clearAllFilters()" class="px-2 py-1 text-[10px] rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition">Clear</button>`;
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) searchInput.placeholder = 'Search your data...';
+
+      const filtered = getFilteredItems();
       count.textContent = filtered.length;
 
       if (filtered.length === 0) {
@@ -943,14 +1098,12 @@
         return;
       }
 
-      // Group by date for visual clarity
       let html = '';
       filtered.forEach((item, idx) => {
         const space = spaces[item.space];
         const profile = profiles[item.profile];
         const dateStr = item.date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
         const isSelected = selectedResultId === item.id;
-
         html += `
           <div onclick="selectResult('${item.id}')"
             class="result-item flex items-start gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${isSelected ? 'selected border border-orange-500/30' : 'border border-transparent'}">
@@ -967,7 +1120,52 @@
             </div>
           </div>`;
       });
+      list.innerHTML = html;
+    }
 
+    function renderContactsSidebar() {
+      const list = document.getElementById('sidebar-list');
+      const count = document.getElementById('sidebar-count');
+      const title = document.getElementById('sidebar-title');
+      const actions = document.getElementById('sidebar-actions');
+      if (!list || !count) return;
+      title.textContent = 'Contacts';
+      count.textContent = contacts.length;
+      actions.innerHTML = `<button onclick="showAddContactDialog()" class="px-2 py-1 text-[10px] rounded-md bg-orange-600/20 text-orange-300 hover:bg-orange-600/30 transition">+ Add</button>`;
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) searchInput.placeholder = 'Search contacts...';
+
+      if (contacts.length === 0) {
+        list.innerHTML = `
+          <div class="flex flex-col items-center justify-center py-12 text-gray-500">
+            <svg class="w-12 h-12 mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            <p class="text-sm text-gray-500">No contacts yet</p>
+            <button onclick="showAddContactDialog()" class="mt-2 text-xs text-orange-400 hover:text-orange-300">Add a contact</button>
+          </div>`;
+        return;
+      }
+
+      const statusLabels = {online: 'Online', away: 'Away', offline: 'Offline'};
+      const statusDots = {online: 'bg-green-500', away: 'bg-yellow-500', offline: 'bg-gray-500'};
+
+      let html = '';
+      contacts.forEach(c => {
+        const isSelected = selectedContact === c.id;
+        html += `
+          <div onclick="selectContact('${c.id}')"
+            class="result-item flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${isSelected ? 'selected border border-orange-500/30' : 'border border-transparent'}">
+            <div class="relative flex-shrink-0">
+              <div class="w-9 h-9 rounded-full ${c.color} flex items-center justify-center text-xs font-bold text-white">${c.initial}</div>
+              <div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 ${statusDots[c.status]} rounded-full border-2 border-[#2b2d31]"></div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm text-gray-200 truncate font-medium">${c.name}</div>
+              <div class="text-[11px] text-gray-500">${statusLabels[c.status]}</div>
+            </div>
+          </div>`;
+      });
       list.innerHTML = html;
     }
 
@@ -982,6 +1180,11 @@
 
       if (activeApp === 'home') {
         renderHomeView(area);
+        return;
+      }
+
+      if (activeApp === 'contacts') {
+        renderContactsView(area);
         return;
       }
 
@@ -1276,6 +1479,192 @@
       if (appBreadcrumb) appBreadcrumb.innerHTML = `<span>🛡️</span><span class="font-medium">Capabilities</span>`;
     }
 
+    // ==================== CONTACTS ====================
+    function renderContactsList() {
+      const container = document.getElementById('contacts-list');
+      if (!container) return;
+      container.innerHTML = '';
+      contacts.forEach(c => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'relative flex items-center';
+        const btn = document.createElement('button');
+        btn.onclick = function () {selectContact(c.id);};
+        btn.className = 'w-11 h-11 rounded-2xl ' + c.color + ' flex items-center justify-center hover:rounded-xl transition-all duration-150 flex-shrink-0';
+        btn.title = c.name;
+        btn.id = 'contact-btn-' + c.id;
+        btn.innerHTML = `<span class="text-sm font-bold text-white">${c.initial}</span>`;
+        wrapper.appendChild(btn);
+        const statusColors = {online: 'bg-green-500', away: 'bg-yellow-500', offline: 'bg-gray-500'};
+        const dot = document.createElement('div');
+        dot.className = 'absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 ' + (statusColors[c.status] || 'bg-gray-500') + ' rounded-full border-2 border-[#1e1e1e]';
+        wrapper.appendChild(dot);
+        container.appendChild(wrapper);
+      });
+    }
+
+    function renderContactsView(area) {
+      let html = `
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-white text-lg font-semibold">👥 Contacts</h2>
+            <p class="text-gray-500 text-xs mt-0.5">Remote profiles you have connected with</p>
+          </div>
+          <button onclick="showAddContactDialog()" class="px-3 py-1.5 text-xs rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition">+ Add Contact</button>
+        </div>
+        <div class="space-y-2">`;
+      contacts.forEach(c => {
+        const nsNames = c.sharedNamespaces.map(nsId => spaces[nsId]?.name || nsId).join(', ');
+        const addedDate = c.addedAt.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
+        const statusLabels = {online: 'Online', away: 'Away', offline: 'Offline'};
+        const statusColors = {online: 'text-green-400', away: 'text-yellow-400', offline: 'text-gray-500'};
+        html += `
+          <div class="rounded-xl bg-gray-800/50 border border-gray-700 p-4 cursor-pointer hover:bg-gray-800 transition" onclick="selectContact('${c.id}')">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full ${c.color} flex items-center justify-center text-lg font-bold text-white flex-shrink-0">${c.initial}</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-white font-semibold">${c.name}</span>
+                  <span class="text-[10px] ${statusColors[c.status]}">${statusLabels[c.status]}</span>
+                </div>
+                <div class="text-xs text-gray-500 mt-0.5">
+                  <span>Added ${addedDate}</span>
+                  ${nsNames ? `<span> · Shared: ${nsNames}</span>` : ''}
+                </div>
+              </div>
+              <button onclick="event.stopPropagation(); showInviteDialog('${c.id}')" class="px-2.5 py-1 text-[10px] rounded-md bg-gray-700/50 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition">Invite</button>
+            </div>
+          </div>`;
+      });
+      html += '</div>';
+      area.innerHTML = html;
+    }
+
+    function selectContact(id) {
+      selectedContact = id;
+      const c = contacts.find(ct => ct.id === id);
+      if (!c) return;
+      const area = document.getElementById('content-area');
+      const nsNames = c.sharedNamespaces.map(nsId => spaces[nsId]?.name || nsId).join(', ');
+      const addedDate = c.addedAt.toLocaleDateString('en-US', {month: 'long', day: 'numeric', year: 'numeric'});
+      const statusLabels = {online: 'Online', away: 'Away', offline: 'Offline'};
+      const statusColors = {online: 'text-green-400', away: 'text-yellow-400', offline: 'text-gray-500'};
+      const grantedCaps = c.grantedCaps.map(capId => capabilities.find(cap => cap.id === capId)).filter(Boolean);
+      const receivedCaps = c.receivedCaps.map(capId => capabilities.find(cap => cap.id === capId)).filter(Boolean);
+      area.innerHTML = `
+        <div class="max-w-3xl mx-auto fade-in">
+          <div class="rounded-xl bg-gray-800 border border-gray-700 p-6 mb-6">
+            <div class="flex items-center gap-4">
+              <div class="w-16 h-16 rounded-full ${c.color} flex items-center justify-center text-2xl font-bold text-white flex-shrink-0">${c.initial}</div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <h2 class="text-white text-xl font-bold">${c.name}</h2>
+                  <span class="text-xs ${statusColors[c.status]}">${statusLabels[c.status]}</span>
+                </div>
+                <p class="text-gray-500 text-xs mt-1">Contact since ${addedDate}</p>
+                <p class="text-gray-600 text-xs font-mono mt-1">${c.publicKey}</p>
+              </div>
+              <button onclick="showInviteDialog('${c.id}')" class="px-3 py-1.5 text-xs rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold transition">Invite to Namespace</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="rounded-xl bg-gray-800/50 border border-gray-700 p-4">
+              <h3 class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">Shared Namespaces</h3>
+              ${nsNames ? `<p class="text-gray-200 text-sm">${nsNames}</p>` : `<p class="text-gray-600 text-xs">No shared namespaces</p>`}
+            </div>
+            <div class="rounded-xl bg-gray-800/50 border border-gray-700 p-4">
+              <h3 class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">Capabilities</h3>
+              <p class="text-gray-200 text-sm">${grantedCaps.length + receivedCaps.length} active</p>
+              <p class="text-gray-600 text-xs mt-1">${grantedCaps.length} granted · ${receivedCaps.length} received</p>
+            </div>
+          </div>
+          <div class="rounded-xl bg-gray-800/50 border border-gray-700 p-4 mb-6">
+            <h3 class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-3">Granted Capabilities (you → ${c.name})</h3>
+            ${grantedCaps.length ? grantedCaps.map(cap => `
+              <div class="flex items-center gap-2 text-xs py-1.5 border-b border-gray-700/50 last:border-0">
+                <span class="text-gray-300 flex-1">${cap.name}</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] ${cap.access === 'ReadWrite' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}">${cap.access}</span>
+              </div>
+            `).join('') : `<p class="text-gray-600 text-xs">No capabilities granted yet</p>`}
+          </div>
+          <div class="rounded-xl bg-gray-800/50 border border-gray-700 p-4">
+            <h3 class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-3">Received Capabilities (${c.name} → you)</h3>
+            ${receivedCaps.length ? receivedCaps.map(cap => `
+              <div class="flex items-center gap-2 text-xs py-1.5 border-b border-gray-700/50 last:border-0">
+                <span class="text-gray-300 flex-1">${cap.name}</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] ${cap.access === 'ReadWrite' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}">${cap.access}</span>
+              </div>
+            `).join('') : `<p class="text-gray-600 text-xs">No capabilities received yet</p>`}
+          </div>
+        </div>`;
+      const appBreadcrumb = document.getElementById('breadcrumb-app');
+      if (appBreadcrumb) appBreadcrumb.innerHTML = `<span>👥</span><span class="font-medium">${c.name}</span>`;
+    }
+
+    function showAddContactDialog() {
+      document.getElementById('add-contact-dialog').classList.remove('hidden');
+      document.getElementById('contact-ticket-error').classList.add('hidden');
+    }
+    function hideAddContactDialog() {
+      document.getElementById('add-contact-dialog').classList.add('hidden');
+    }
+    function showContactTab(tab) {
+      ['paste', 'generate'].forEach(t => {
+        document.getElementById('contact-panel-' + t).classList.toggle('hidden', t !== tab);
+        const tabBtn = document.getElementById('contact-tab-' + t);
+        if (t === tab) {
+          tabBtn.className = 'flex-1 px-4 py-3 text-sm font-medium text-orange-300 border-b-2 border-orange-500 bg-gray-800/30';
+        } else {
+          tabBtn.className = 'flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-200 border-b-2 border-transparent';
+        }
+      });
+    }
+    function submitContactTicket() {
+      const input = document.getElementById('contact-ticket-input');
+      const error = document.getElementById('contact-ticket-error');
+      if (!input.value.trim()) {
+        error.textContent = 'Please paste a contact ticket.';
+        error.classList.remove('hidden');
+        return;
+      }
+      if (!input.value.trim().startsWith('gv1:contact:')) {
+        error.textContent = 'Invalid ticket format. Expected format: gv1:contact:...';
+        error.classList.remove('hidden');
+        return;
+      }
+      error.classList.add('hidden');
+      alert('Contact added! (simulated)');
+      hideAddContactDialog();
+    }
+    function copyContactTicket() {
+      const el = document.getElementById('my-contact-ticket');
+      navigator.clipboard.writeText(el.textContent).then(() => {
+        alert('Ticket copied to clipboard!');
+      }).catch(() => {
+        alert('Copy: ' + el.textContent);
+      });
+    }
+    function showInviteDialog(contactId) {
+      const contactSelect = document.getElementById('invite-contact-select');
+      const namespaceSelect = document.getElementById('invite-namespace-select');
+      contactSelect.innerHTML = contacts.map(c => `<option value="${c.id}" ${c.id === contactId ? 'selected' : ''}>${c.name}</option>`).join('');
+      namespaceSelect.innerHTML = Object.entries(spaces).map(([id, s]) => `<option value="${id}">${s.emoji} ${s.name}</option>`).join('');
+      document.getElementById('invite-dialog').classList.remove('hidden');
+    }
+    function hideInviteDialog() {
+      document.getElementById('invite-dialog').classList.add('hidden');
+    }
+    function submitInvite() {
+      const contactId = document.getElementById('invite-contact-select').value;
+      const namespaceId = document.getElementById('invite-namespace-select').value;
+      const access = document.getElementById('invite-access-select').value;
+      const contact = contacts.find(c => c.id === contactId);
+      const namespace = spaces[namespaceId];
+      if (contact && namespace) {
+        alert(`Invited ${contact.name} to ${namespace.name} with ${access} access!\n\n(Signed capability with namespace key: ${namespace.nsId})`);
+      }
+      hideInviteDialog();
+    }
+
     // ==================== FILTER BADGES ====================
     function updateFilterBadges() {
       const container = document.getElementById('filter-badges');
@@ -1306,7 +1695,7 @@
           summary.innerHTML = `<span class="text-gray-300">${parts.join(' · ')}</span>`;
         }
       }
-      renderResultsSidebar();
+      renderSidebar();
       renderContent();
     }
 
@@ -1334,7 +1723,7 @@
     // ==================== NAVIGATION ====================
     function selectResult(id) {
       selectedResultId = id;
-      renderResultsSidebar();
+      renderSidebar();
       // Show detail in content area
       const item = allItems.find(i => i.id === id);
       if (!item) return;
@@ -1436,6 +1825,7 @@
         photos: {icon: '📸', name: 'Photos'}, notes: {icon: '📝', name: 'Notes'}, chat: {icon: '💬', name: 'Chat'},
         whiteboard: {icon: '🗺️', name: 'Whiteboard'}, capabilities: {icon: '🛡️', name: 'Capabilities'},
         connections: {icon: '🔗', name: 'Connections'}, settings: {icon: '⚙️', name: 'Settings'}, home: {icon: '🏠', name: 'Home'},
+        contacts: {icon: '👥', name: 'Contacts'},
       };
       const info = appNames[appId] || {icon: '📱', name: appId};
       const appBreadcrumb = document.getElementById('breadcrumb-app');
@@ -1532,7 +1922,7 @@
       document.querySelectorAll('body > .flex, body > .hidden').forEach(el => {if (el.id && el.id.startsWith('scene-')) el.classList.add('hidden');});
       document.getElementById(id).classList.remove('hidden');
       document.getElementById('lock-overlay').classList.add('hidden');
-      if (id === 'scene-main') {renderResultsSidebar(); renderContent();}
+      if (id === 'scene-main') {renderSidebar(); renderContent();}
     }
     function createVaultAndProfile() {showScene('scene-create-profile');}
     function unlockSuccess() {showScene('scene-main');}
