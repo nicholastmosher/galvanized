@@ -2,8 +2,8 @@ use tracing::info;
 use zed::unstable::{
     gpui::{
         self, Action, AnyElement, AppContext as _, ClickEvent, Entity, EventEmitter, FocusHandle,
-        Focusable, FontWeight, KeyDownEvent, Keystroke, Stateful, actions, linear_color_stop,
-        linear_gradient, rgba,
+        Focusable, FontWeight, KeyDownEvent, Stateful, actions, linear_color_stop, linear_gradient,
+        rgba,
     },
     ui::{
         ActiveTheme, App, Color, Context, Div, ElementId, FluentBuilder as _, Icon, IconName,
@@ -224,7 +224,7 @@ impl Render for PanelRoot {
         match &self.active_user {
             None => self.render_onboarding_panel(window, cx).into_any_element(),
             Some(profile) => self
-                .render_profile_panel(profile.clone(), window, cx)
+                .render_home_panel(profile.clone(), window, cx)
                 .into_any_element(),
         }
     }
@@ -264,9 +264,15 @@ fn gzed_icon<T>(
 }
 
 impl PanelRoot {
-    fn render_profile_panel(
+    /// Home panel includes:
+    ///
+    /// - Bottom status bar with Profile
+    /// - Left rail with Start button and Namespaces
+    /// - Right sidebar upper search header
+    /// - Right sidebar main navigation view
+    fn render_home_panel(
         &mut self,
-        profile: Entity<User>,
+        user: Entity<User>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -279,15 +285,14 @@ impl PanelRoot {
             .child(
                 h_flex()
                     .size_full()
-                    .child(self.render_left_rail(profile.clone(), window, cx))
+                    .child(self.render_left_rail(window, cx))
                     .child(self.render_app_sidebar(window, cx)),
             )
-            .child(self.render_status_bar(cx))
+            .child(self.render_profile_bar(user, cx))
     }
 
     fn render_left_rail(
         &mut self,
-        profile: Entity<User>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -608,14 +613,13 @@ impl PanelRoot {
         elements
     }
 
-    fn render_status_bar(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
-        let profile_name = self
-            .active_user
-            .as_ref()
-            .map(|p| p.read(cx).name())
-            .unwrap_or_else(|| SharedString::from("Offline"));
-
-        let initial = profile_name.chars().next().unwrap_or('?').to_string();
+    fn render_profile_bar(
+        &mut self,
+        user: Entity<User>,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let user_name = user.read(cx).name();
+        let initial = user_name.chars().next().unwrap_or('?').to_string();
 
         h_flex()
             .id("status-bar")
@@ -674,7 +678,7 @@ impl PanelRoot {
                                     .text_sm()
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .text_color(cx.theme().colors().text)
-                                    .child(profile_name),
+                                    .child(user_name),
                             )
                             .child(
                                 div()
