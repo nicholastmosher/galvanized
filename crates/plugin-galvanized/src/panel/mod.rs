@@ -1,14 +1,16 @@
 use tracing::info;
 use zed::unstable::{
     gpui::{
-        self, Action, AnyElement, AppContext as _, ClickEvent, Entity, EventEmitter, FocusHandle,
-        Focusable, FontWeight, KeyDownEvent, Stateful, actions, linear_color_stop, linear_gradient,
-        rgba,
+        self, Action, AnyElement, AppContext as _, ClickEvent, Corner, CursorStyle, Entity,
+        EventEmitter, FocusHandle, Focusable, FontWeight, KeyDownEvent, Stateful, actions,
+        linear_color_stop, linear_gradient, point, rgba,
     },
     ui::{
-        ActiveTheme, App, Color, Context, Div, ElementId, FluentBuilder as _, Icon, IconName,
-        InteractiveElement as _, IntoElement, ParentElement as _, Pixels, Render, SharedString,
-        StatefulInteractiveElement as _, Styled as _, Tooltip, Window, div, h_flex, px, v_flex,
+        ActiveTheme, App, ButtonLike, Clickable, Color, Context, ContextMenu, Div, ElementId,
+        FluentBuilder as _, Icon, IconName, InteractiveElement as _, IntoElement,
+        ParentElement as _, Pixels, PopoverMenu, Render, RenderOnce, SharedString,
+        StatefulInteractiveElement as _, Styled as _, Toggleable, Tooltip, Window, div, h_flex, px,
+        v_flex,
     },
     ui_input::InputField,
     workspace::{
@@ -20,6 +22,8 @@ use zed::unstable::{
 use crate::{Galvanized, users::User};
 
 pub mod onboarding;
+
+const DEFAULT_WIDTH: Pixels = px(380.);
 
 actions!(
     galvanized,
@@ -131,6 +135,8 @@ pub struct PanelRoot {
     pub(crate) users: Vec<Entity<User>>,
     pub(crate) active_user: Option<Entity<User>>,
 
+    profile_selector_open: bool,
+
     // Sidebar UI state
     active_app: Option<SharedString>,
     search_input: Entity<InputField>,
@@ -211,6 +217,8 @@ impl PanelRoot {
             users: Default::default(),
             active_user: Default::default(),
 
+            profile_selector_open: false,
+
             active_app: None,
             search_input,
             space_filters: Vec::new(),
@@ -276,7 +284,7 @@ impl PanelRoot {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let panel_width = self.width.unwrap_or(px(380.)) - px(1.);
+        let panel_width = self.width.unwrap_or(DEFAULT_WIDTH) - px(1.);
 
         v_flex()
             //
@@ -462,10 +470,6 @@ impl PanelRoot {
                     .children(self.render_app_sections(window, cx))
                     .into_any_element(),
             )
-        // .child(
-        //     // Status bar
-        //     self.render_status_bar(cx),
-        // )
     }
 
     fn render_filter_badges(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -627,66 +631,54 @@ impl PanelRoot {
             .p_1()
             .gap_2()
             .bg(cx.theme().colors().editor_background)
-            .flex_shrink_0()
             .border_t_1()
             .border_color(cx.theme().colors().border)
             .child(
-                h_flex()
-                    .id("profile-token")
-                    .flex_grow()
-                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                    .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                    .p_2()
-                    .gap_2()
-                    .rounded_md()
-                    //
-                    .child(
-                        h_flex()
-                            .size_10()
-                            .rounded_full()
-                            .bg(rgba(0xea580cff))
-                            .flex_shrink_0()
-                            .items_center()
-                            .justify_center()
-                            .child(
-                                div()
-                                    .mx_auto()
-                                    .text_xs()
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_color(rgba(0xffffffff))
-                                    .child(initial),
-                            )
-                            .child(
-                                // Online indicator
-                                div()
-                                    .absolute()
-                                    .bottom(px(0.))
-                                    .right(px(0.))
-                                    .size(px(10.))
-                                    .rounded_full()
-                                    .bg(rgba(0x22c55eff))
-                                    .border_2()
-                                    .border_color(cx.theme().colors().editor_background),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(cx.theme().colors().text)
-                                    .child(user_name),
-                            )
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(cx.theme().colors().text_muted)
-                                    .child("Online"),
-                            ),
-                    ),
+                PopoverMenu::new("popover")
+                    .full_width(true)
+                    .anchor(Corner::BottomLeft)
+                    .attach(Corner::TopLeft)
+                    .offset(point(px(0.), px(-4.)))
+                    .trigger(ProfileToken::new(
+                        "profile-token",
+                        initial.into(),
+                        user_name,
+                    ))
+                    .menu({
+                        move |window, cx| {
+                            Some(ContextMenu::build(window, cx, |menu, _window, _cx| {
+                                menu
+                                    //
+                                    .header("Profiles")
+                                    .custom_entry(
+                                        |window, cx| {
+                                            //
+                                            div()
+                                                //
+                                                .p_2()
+                                                .child("One")
+                                                .into_any_element()
+                                        },
+                                        |window, cx| {
+                                            //
+                                        },
+                                    )
+                                    .custom_entry(
+                                        |window, cx| {
+                                            //
+                                            div()
+                                                //
+                                                .p_2()
+                                                .child("Two")
+                                                .into_any_element()
+                                        },
+                                        |window, cx| {
+                                            //
+                                        },
+                                    )
+                            }))
+                        }
+                    }),
             )
             .child(
                 // Lock button
@@ -739,7 +731,7 @@ impl Panel for PanelRoot {
     }
 
     fn size(&self, _window: &Window, _cx: &App) -> Pixels {
-        self.width.unwrap_or(px(380.))
+        self.width.unwrap_or(DEFAULT_WIDTH)
     }
 
     fn set_size(&mut self, size: Option<Pixels>, _window: &mut Window, _cx: &mut Context<Self>) {
@@ -760,5 +752,101 @@ impl Panel for PanelRoot {
 
     fn activation_priority(&self) -> u32 {
         10
+    }
+}
+
+#[derive(IntoElement)]
+struct ProfileToken {
+    base: Stateful<Div>,
+    selected: bool,
+    initial: SharedString,
+    user_name: SharedString,
+}
+impl ProfileToken {
+    pub fn new(id: impl Into<ElementId>, initial: SharedString, user_name: SharedString) -> Self {
+        Self {
+            base: h_flex().id(id),
+            selected: false,
+            initial,
+            user_name,
+        }
+    }
+}
+
+impl Clickable for ProfileToken {
+    fn on_click(mut self, handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
+        self.base = self.base.on_click(handler);
+        self
+    }
+
+    fn cursor_style(mut self, cursor_style: CursorStyle) -> Self {
+        self.base = self.base.cursor(cursor_style);
+        self
+    }
+}
+impl Toggleable for ProfileToken {
+    fn toggle_state(mut self, selected: bool) -> Self {
+        self.selected = selected;
+        self
+    }
+}
+
+impl RenderOnce for ProfileToken {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        self.base
+            .flex_grow()
+            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+            .p_2()
+            .gap_2()
+            .rounded_md()
+            //
+            .child(
+                h_flex()
+                    .size_10()
+                    .rounded_full()
+                    .bg(rgba(0xea580cff))
+                    .flex_shrink_0()
+                    .items_center()
+                    .justify_center()
+                    .child(
+                        div()
+                            .mx_auto()
+                            .text_xs()
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(rgba(0xffffffff))
+                            .child(self.initial),
+                    )
+                    .child(
+                        // Online indicator
+                        div()
+                            .absolute()
+                            .bottom(px(0.))
+                            .right(px(0.))
+                            .size(px(10.))
+                            .rounded_full()
+                            .bg(rgba(0x22c55eff))
+                            .border_2()
+                            .border_color(cx.theme().colors().editor_background),
+                    ),
+            )
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(cx.theme().colors().text)
+                            .child(self.user_name),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().colors().text_muted)
+                            .child("Online"),
+                    ),
+            )
     }
 }
