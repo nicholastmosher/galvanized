@@ -11,7 +11,7 @@ use zed::unstable::{
 
 use crate::{
     app_behavior::AppHandle,
-    panel::PanelRoot,
+    panel::{PanelRoot, TogglePanel},
     users::{User, UserMetadata, UserVault},
 };
 
@@ -27,6 +27,9 @@ pub fn init(cx: &mut App) {
         let panel = galvanized.read(cx).panel();
         workspace.add_panel(panel, window, cx);
         workspace.focus_panel::<PanelRoot>(window, cx);
+        workspace.register_action(|workspace, _: &TogglePanel, window, cx| {
+            workspace.toggle_panel_focus::<PanelRoot>(window, cx);
+        });
     })
     .detach();
 }
