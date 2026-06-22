@@ -1,15 +1,17 @@
+use std::sync::LazyLock;
+
 use tracing::info;
 use zed::unstable::{
     gpui::{
         self, Action, AnyElement, AppContext as _, ClickEvent, Corner, CursorStyle, Entity,
-        EventEmitter, FocusHandle, Focusable, FontWeight, KeyDownEvent, Stateful, actions,
+        EventEmitter, FocusHandle, Focusable, FontWeight, Hsla, KeyDownEvent, Stateful, actions,
         linear_color_stop, linear_gradient, point, rgba,
     },
     ui::{
-        ActiveTheme, App, ButtonLike, Clickable, Color, Context, ContextMenu, Div, ElementId,
-        FluentBuilder as _, Icon, IconName, InteractiveElement as _, IntoElement,
+        ActiveTheme, App, Clickable, Color, Context, ContextMenu, Div, ElementId,
+        FluentBuilder as _, Icon, IconName, IconSize, InteractiveElement, IntoElement,
         ParentElement as _, Pixels, PopoverMenu, Render, RenderOnce, SharedString,
-        StatefulInteractiveElement as _, Styled as _, Toggleable, Tooltip, Window, div, h_flex, px,
+        StatefulInteractiveElement as _, Styled, Toggleable, Tooltip, Window, div, h_flex, px,
         v_flex,
     },
     ui_input::InputField,
@@ -20,6 +22,9 @@ use zed::unstable::{
 };
 
 use crate::{Galvanized, users::User};
+
+pub(crate) static GZED_ORANGE: LazyLock<Hsla> =
+    LazyLock::new(|| Hsla::from(rgba(0xff6600ff)).opacity(0.8));
 
 pub mod onboarding;
 
@@ -36,91 +41,6 @@ actions!(
     ]
 );
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum AppId {
-    Photos,
-    Notes,
-    Checklist,
-    Calendar,
-    Chat,
-    Whiteboard,
-    Capabilities,
-    Connections,
-    Settings,
-}
-
-// #[derive(Clone, Copy)]
-// struct AppEntry {
-//     id: AppId,
-//     icon: &'static str,
-//     name: &'static str,
-//     category: AppCategory,
-// }
-
-// #[derive(Clone, Copy, PartialEq)]
-// enum AppCategory {
-//     Data,
-//     Communication,
-//     System,
-// }
-
-// const APP_ENTRIES: &[AppEntry] = &[
-//     AppEntry {
-//         id: AppId::Photos,
-//         icon: "📸",
-//         name: "Photos",
-//         category: AppCategory::Data,
-//     },
-//     AppEntry {
-//         id: AppId::Notes,
-//         icon: "📝",
-//         name: "Notes",
-//         category: AppCategory::Data,
-//     },
-//     AppEntry {
-//         id: AppId::Checklist,
-//         icon: "✅",
-//         name: "Checklist",
-//         category: AppCategory::Data,
-//     },
-//     AppEntry {
-//         id: AppId::Calendar,
-//         icon: "📅",
-//         name: "Calendar",
-//         category: AppCategory::Data,
-//     },
-//     AppEntry {
-//         id: AppId::Chat,
-//         icon: "💬",
-//         name: "Chat",
-//         category: AppCategory::Communication,
-//     },
-//     AppEntry {
-//         id: AppId::Whiteboard,
-//         icon: "🗺️",
-//         name: "Whiteboard",
-//         category: AppCategory::Communication,
-//     },
-//     AppEntry {
-//         id: AppId::Capabilities,
-//         icon: "🛡️",
-//         name: "Capabilities",
-//         category: AppCategory::System,
-//     },
-//     AppEntry {
-//         id: AppId::Connections,
-//         icon: "🔗",
-//         name: "Connections",
-//         category: AppCategory::System,
-//     },
-//     AppEntry {
-//         id: AppId::Settings,
-//         icon: "⚙️",
-//         name: "Settings",
-//         category: AppCategory::System,
-//     },
-// ];
-
 pub struct PanelRoot {
     focus_handle: FocusHandle,
     width: Option<Pixels>,
@@ -133,15 +53,16 @@ pub struct PanelRoot {
     pub(crate) login_password_input: Entity<InputField>,
     pub(crate) space_name_input: Entity<InputField>,
     pub(crate) users: Vec<Entity<User>>,
-    pub(crate) active_user: Option<Entity<User>>,
-
-    profile_selector_open: bool,
 
     // Sidebar UI state
     active_app: Option<SharedString>,
     search_input: Entity<InputField>,
     space_filters: Vec<SharedString>,
     profile_filters: Vec<SharedString>,
+
+    // Panel scene
+    pub(crate) active_user: Option<Entity<User>>,
+    scene: PanelScene,
 }
 
 /// States for the onboarding flow.
@@ -150,26 +71,26 @@ pub struct PanelRoot {
 /// The flow progresses linearly for new users, or branches to
 /// sign-in for existing users.
 pub enum OnboardingState {
-    /// Initial user picker shows existing users and create-new
+    /// Initial vault picker shows existing vaults and create-new
     Picker,
-    /// Sign-in prompt for an existing user
+    /// Sign-in prompt for an existing vault
     SignIn(Entity<User>),
     /// Welcome screen for new users
     Welcome,
-    /// Create vault (assign master password)
+    /// Create vault (master password + display name)
     CreateVault,
-    /// Create profile (set display name)
-    CreateProfile,
-    /// Space kind selection (owned vs communal)
-    SpaceIntro,
-    /// Create owned (personal) space
-    CreateOwnedSpace,
-    /// Create communal space
-    CreateCommunalSpace,
     /// Onboarding complete, ready to enter main app
     Done,
-    /// Existing user signed in
-    WelcomeBack,
+}
+
+/// Post-onboarding flows that take over the panel.
+pub enum PanelScene {
+    /// Panel Home, where onboarding or the active user is displayed
+    Home,
+    /// Creating a new space (triggered by + in left rail)
+    CreatingSpace,
+    /// Creating a new profile (triggered by profile menu)
+    CreatingProfile,
 }
 
 impl PanelRoot {
@@ -217,23 +138,37 @@ impl PanelRoot {
             users: Default::default(),
             active_user: Default::default(),
 
-            profile_selector_open: false,
-
             active_app: None,
             search_input,
             space_filters: Vec::new(),
             profile_filters: Vec::new(),
+
+            scene: PanelScene::Home,
         }
     }
 }
 
 impl Render for PanelRoot {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        match &self.active_user {
-            None => self.render_onboarding_panel(window, cx).into_any_element(),
-            Some(profile) => self
-                .render_home_panel(profile.clone(), window, cx)
-                .into_any_element(),
+        match (&self.scene, &self.active_user) {
+            (PanelScene::Home, None) => {
+                //
+                self.render_onboarding_panel(window, cx).into_any_element()
+            }
+            (PanelScene::Home, Some(user)) => {
+                //
+                self.render_home_panel(user.clone(), window, cx)
+                    .into_any_element()
+            }
+            (PanelScene::CreatingSpace, _) => {
+                //
+                self.render_create_space_flow(window, cx).into_any_element()
+            }
+            (PanelScene::CreatingProfile, _) => {
+                //
+                self.render_create_profile_flow(window, cx)
+                    .into_any_element()
+            }
         }
     }
 }
@@ -297,6 +232,265 @@ impl PanelRoot {
                     .child(self.render_app_sidebar(window, cx)),
             )
             .child(self.render_profile_bar(user, cx))
+    }
+
+    fn render_create_space_flow(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let colors = cx.theme().colors();
+        let panel_width = self.width.unwrap_or(DEFAULT_WIDTH) - px(1.);
+
+        v_flex()
+            .id("create-space-flow")
+            .h_full()
+            .w(panel_width)
+            .bg(colors.panel_background)
+            .child(
+                h_flex()
+                    .id("flow-header")
+                    .items_center()
+                    .gap_3()
+                    .p_4()
+                    .border_b_1()
+                    .border_color(colors.border_variant)
+                    .child(
+                        div()
+                            .id("flow-back-btn")
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _e, _window, _cx| {
+                                this.scene = PanelScene::Home;
+                            }))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(*GZED_ORANGE)
+                                    .child("← Back"),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .text_sm()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(colors.text)
+                            .child("Create Space"),
+                    ),
+            )
+            .child(
+                div()
+                    .id("flow-content")
+                    .flex_1()
+                    .overflow_y_scroll()
+                    .px_5()
+                    .py_5()
+                    .child(
+                        v_flex()
+                            .gap_4()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(colors.text_muted)
+                                    .child("Choose the type of space to create:"),
+                            )
+                            .child(
+                                // Personal Space card
+                                div()
+                                    .id("flow-space-owned")
+                                    .flex()
+                                    .items_start()
+                                    .gap_3()
+                                    .p_3()
+                                    .rounded_xl()
+                                    .border_2()
+                                    .border_color(colors.text_accent.opacity(0.7))
+                                    .bg(colors.element_background.opacity(0.5))
+                                    .cursor_pointer()
+                                    .hover(|style| style.bg(colors.border_variant))
+                                    .on_click(cx.listener(|this, _e, _window, _cx| {
+                                        this.scene = PanelScene::Home;
+                                    }))
+                                    .child(
+                                        h_flex()
+                                            .size(px(48.))
+                                            .rounded_xl()
+                                            .bg(linear_gradient(
+                                                135.,
+                                                linear_color_stop(colors.border, 0.0),
+                                                linear_color_stop(colors.panel_background, 1.0),
+                                            ))
+                                            .flex_shrink_0()
+                                            .border_1()
+                                            .border_color(colors.border_variant)
+                                            .items_center()
+                                            .justify_center()
+                                            .child(Icon::new(IconName::LockOutlined).size(IconSize::Medium).color(Color::Custom(colors.text_muted))),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w_0()
+                                            .child(
+                                                div()
+                                                    .text_sm()
+                                                    .font_weight(FontWeight::SEMIBOLD)
+                                                    .text_color(colors.text)
+                                                    .child("Personal Space (Owned)"),
+                                            )
+                                            .child(div().text_xs().text_color(colors.text_muted).child(
+                                                "Private by default. You control access and delegate capabilities.",
+                                            )),
+                                    ),
+                            )
+                            .child(
+                                // Community Space card
+                                div()
+                                    .id("flow-space-communal")
+                                    .flex()
+                                    .items_start()
+                                    .gap_3()
+                                    .p_3()
+                                    .rounded_xl()
+                                    .border_2()
+                                    .border_color(colors.border)
+                                    .bg(colors.element_background.opacity(0.5))
+                                    .cursor_pointer()
+                                    .hover(|style| {
+                                        style.border_color(colors.border_variant).bg(colors.border_variant)
+                                    })
+                                    .on_click(cx.listener(|this, _e, _window, _cx| {
+                                        this.scene = PanelScene::Home;
+                                    }))
+                                    .child(
+                                        h_flex()
+                                            .size(px(48.))
+                                            .rounded_xl()
+                                            .bg(linear_gradient(
+                                                135.,
+                                                linear_color_stop(colors.border, 0.0),
+                                                linear_color_stop(colors.panel_background, 1.0),
+                                            ))
+                                            .flex_shrink_0()
+                                            .border_1()
+                                            .border_color(colors.border_variant)
+                                            .items_center()
+                                            .justify_center()
+                                            .child(Icon::new(IconName::Person).size(IconSize::Medium).color(Color::Custom(colors.text_muted))),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w_0()
+                                            .child(
+                                                div()
+                                                    .text_sm()
+                                                    .font_weight(FontWeight::SEMIBOLD)
+                                                    .text_color(colors.text)
+                                                    .child("Community Space (Communal)"),
+                                            )
+                                            .child(div().text_xs().text_color(colors.text_muted).child(
+                                                "Open to anyone. Any subspace can write.",
+                                            )),
+                                    ),
+                            ),
+                    ),
+            )
+    }
+
+    fn render_create_profile_flow(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let colors = cx.theme().colors();
+        let panel_width = self.width.unwrap_or(DEFAULT_WIDTH) - px(1.);
+
+        v_flex()
+            .id("create-profile-flow")
+            .h_full()
+            .w(panel_width)
+            .bg(colors.panel_background)
+            .child(
+                h_flex()
+                    .id("flow-header")
+                    .items_center()
+                    .gap_3()
+                    .p_4()
+                    .border_b_1()
+                    .border_color(colors.border_variant)
+                    .child(
+                        div()
+                            .id("flow-back-btn")
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _e, _window, _cx| {
+                                this.scene = PanelScene::Home;
+                            }))
+                            .child(div().text_sm().text_color(*GZED_ORANGE).child("← Back")),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .text_sm()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(colors.text)
+                            .child("Create Profile"),
+                    ),
+            )
+            .child(
+                div()
+                    .id("flow-content")
+                    .flex_1()
+                    .overflow_y_scroll()
+                    .px_5()
+                    .py_5()
+                    .child(
+                        v_flex()
+                            .gap_4()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(colors.text_muted)
+                                    .child("Create a new profile within your vault:"),
+                            )
+                            .child(
+                                div()
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(colors.text_muted)
+                                            .mb_1()
+                                            .child("Display Name"),
+                                    )
+                                    .child(self.display_name_input.clone()),
+                            )
+                            .child(
+                                div()
+                                    .id("flow-create-btn")
+                                    .w_full()
+                                    .px_4()
+                                    .py_2()
+                                    .rounded_lg()
+                                    .primary_button()
+                                    .shadow_lg()
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(|this, _e, _window, _cx| {
+                                        let name = this.display_name_input.read(_cx).text(_cx);
+                                        if !name.is_empty() {
+                                            this.scene = PanelScene::Home;
+                                        }
+                                    }))
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .text_color(colors.text)
+                                            .text_center()
+                                            .child("Create Profile"),
+                                    ),
+                            ),
+                    ),
+            )
     }
 
     fn render_left_rail(
@@ -399,8 +593,8 @@ impl PanelRoot {
                                 style.rounded_xl().border_color(cx.theme().colors().border)
                             })
                             .active(|style| style.bg(hover_color))
-                            .on_click(cx.listener(|_this, _e, _window, _cx| {
-                                info!("Clicked add namespace");
+                            .on_click(cx.listener(|this, _e, _window, _cx| {
+                                this.scene = PanelScene::CreatingSpace;
                             }))
                             .items_center()
                             .justify_center()
@@ -624,6 +818,7 @@ impl PanelRoot {
     ) -> impl IntoElement {
         let user_name = user.read(cx).name();
         let initial = user_name.chars().next().unwrap_or('?').to_string();
+        let weak_self = cx.weak_entity();
 
         h_flex()
             .id("status-bar")
@@ -646,12 +841,13 @@ impl PanelRoot {
                     ))
                     .menu({
                         move |window, cx| {
-                            Some(ContextMenu::build(window, cx, |menu, _window, _cx| {
+                            let weak_self = weak_self.clone();
+                            Some(ContextMenu::build(window, cx, move |menu, _window, _cx| {
                                 menu
                                     //
                                     .header("Profiles")
                                     .custom_entry(
-                                        |window, cx| {
+                                        |_window, _cx| {
                                             //
                                             div()
                                                 //
@@ -659,12 +855,12 @@ impl PanelRoot {
                                                 .child("One")
                                                 .into_any_element()
                                         },
-                                        |window, cx| {
+                                        |_window, _cx| {
                                             //
                                         },
                                     )
                                     .custom_entry(
-                                        |window, cx| {
+                                        |_window, _cx| {
                                             //
                                             div()
                                                 //
@@ -672,8 +868,26 @@ impl PanelRoot {
                                                 .child("Two")
                                                 .into_any_element()
                                         },
-                                        |window, cx| {
+                                        |_window, _cx| {
                                             //
+                                        },
+                                    )
+                                    .separator()
+                                    .custom_entry(
+                                        |_window, cx| {
+                                            div()
+                                                .p_2()
+                                                .text_sm()
+                                                .text_color(cx.theme().colors().text_accent)
+                                                .child("+ Create Profile")
+                                                .into_any_element()
+                                        },
+                                        move |_window, cx| {
+                                            weak_self
+                                                .update(cx, |this, _cx| {
+                                                    this.scene = PanelScene::CreatingProfile;
+                                                })
+                                                .ok();
                                         },
                                     )
                             }))
@@ -848,5 +1062,17 @@ impl RenderOnce for ProfileToken {
                             .child("Online"),
                     ),
             )
+    }
+}
+
+pub trait PrimaryButton {
+    fn primary_button(self) -> Self;
+}
+
+impl<S: Styled + InteractiveElement> PrimaryButton for S {
+    fn primary_button(self) -> Self {
+        self.border_1()
+            .border_color(*GZED_ORANGE)
+            .hover(|style| style.bg(*GZED_ORANGE))
     }
 }
