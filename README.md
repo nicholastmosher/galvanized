@@ -184,6 +184,33 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 June 21
+
+- Been awhile since an update, whoops
+- I'd taken a bit of a break, though been working the last few days just not writing updates
+- I've finally given in, I'm kinda using AI to help me develop the UI
+- Let this crazed devlog serve as a token of authenticity that not the whole app is vibecoded,
+  I've really been putting a lot of care and attention into how this thing is built
+
+---
+
+Project update
+
+- Been prototyping UI designs using plain html/tailwind in `prototypes/` using deepseekv4
+- Implemented onboarding / unlock flow in the side panel, reworked side panel design
+- Still figuring out just the right relationship between Vault / User / Profiles / Spaces
+- I'm leaning toward getting rid of the term "User" because I think having both User and
+  Profile will be confusing.
+- I'm now thinking that a Vault will be the very first Top Level item that a user creates,
+  the thing with the password, which _contains_ Profiles and Spaces. So Vault will replace
+  User as a domain term.
+- While prototyping UI, I've been leaning into a kind of "omni-search" interface, where the
+  sidebar is generally used for navigation over all data items available to the Vault.
+- The search bar applies various filter types, which then show up as badges in the search
+- Filters influence which data elements get displayed in the navigation view of the sidebar
+- I need to decide a proper Domain term for data items. Entity, Element, and Item are all
+  GPUI terms so I feel like that'd get confusing to distinguish in the code.
+
 # 2026 June 6
 
 Workflow for unlocking a profile:
