@@ -617,9 +617,9 @@ impl PanelRoot {
                     .child("One master password unlocks all your profiles, keys, and data."),
             )
             .child(
-                div()
+                v_flex()
                     .flex_col()
-                    .gap_3()
+                    .gap_2()
                     .child(
                         div()
                             .child(
@@ -1121,9 +1121,9 @@ impl PanelRoot {
                     .child("Create Personal Space"),
             )
             .child(
-                div()
+                v_flex()
                     .flex_col()
-                    .gap_3()
+                    .gap_2()
                     .child(
                         div()
                             .child(
@@ -1148,6 +1148,7 @@ impl PanelRoot {
                                 div()
                                     .id("owned-profiles-list")
                                     .p_2()
+                                    .gap_2()
                                     .rounded_lg()
                                     .bg(colors.element_background.opacity(0.5))
                                     .border_1()
@@ -1159,7 +1160,7 @@ impl PanelRoot {
                                             .items_center()
                                             .gap_2()
                                             .child(
-                                                div()
+                                                h_flex()
                                                     .id("owned-profile-avatar")
                                                     .size(px(24.))
                                                     .rounded_full()
@@ -1168,6 +1169,7 @@ impl PanelRoot {
                                                     .justify_center()
                                                     .child(
                                                         div()
+                                                            .mx_auto()
                                                             .text_xs()
                                                             .font_weight(FontWeight::BOLD)
                                                             .text_color(colors.text)
@@ -1187,12 +1189,17 @@ impl PanelRoot {
                                                     ),
                                             )
                                             .child(
-                                                div().text_xs().text_color(colors.text).child(
-                                                    self.users
-                                                        .last()
-                                                        .map(|u| u.read(cx).name())
-                                                        .unwrap_or_default(),
-                                                ),
+                                                div()
+                                                    //
+                                                    .px_2()
+                                                    .text_xs()
+                                                    .text_color(colors.text)
+                                                    .child(
+                                                        self.users
+                                                            .last()
+                                                            .map(|u| u.read(cx).name())
+                                                            .unwrap_or_default(),
+                                                    ),
                                             )
                                             .child(
                                                 div()
@@ -1444,7 +1451,7 @@ impl PanelRoot {
                             .items_center()
                             .gap_2()
                             .child(
-                                div()
+                                h_flex()
                                     .id("done-profile-avatar")
                                     .size(px(24.))
                                     .rounded_full()
@@ -1453,6 +1460,7 @@ impl PanelRoot {
                                     .justify_center()
                                     .child(
                                         div()
+                                            .mx_auto()
                                             .text_xs()
                                             .font_weight(FontWeight::BOLD)
                                             .text_color(colors.text)
@@ -1461,6 +1469,7 @@ impl PanelRoot {
                             )
                             .child(
                                 div()
+                                    .px_2()
                                     .text_xs()
                                     .text_color(colors.text_muted)
                                     .child(user_name),
@@ -1468,35 +1477,63 @@ impl PanelRoot {
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(colors.border_variant)
+                                    .text_color(colors.text_placeholder)
                                     .ml_auto()
                                     .child("Root admin"),
                             ),
                     ),
             )
             .child(
-                div()
-                    .id("done-open-btn")
-                    .w_full()
-                    .px_4()
-                    .py_2()
-                    .rounded_lg()
-                    .primary_button()
-                    .shadow_lg()
-                    .cursor_pointer()
-                    .on_click(cx.listener(|this, _e, _window, _cx| {
-                        // Set the last created user as active and enter main app
-                        if let Some(user) = this.users.last().cloned() {
-                            this.active_user = Some(user);
-                        }
-                    }))
+                h_flex()
+                    .id("done-actions")
+                    .gap_2()
                     .child(
                         div()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(colors.text)
-                            .text_center()
-                            .child("Open Galvanized"),
+                            .id("done-back")
+                            .flex_1()
+                            .px_3()
+                            .py_2()
+                            .rounded_lg()
+                            .bg(colors.border_variant)
+                            .hover(|style| style.bg(colors.border))
+                            .border_1()
+                            .border_color(colors.border)
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _e, _window, _cx| {
+                                this.onboarding_state = OnboardingState::SpaceIntro;
+                            }))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(colors.text_muted)
+                                    .text_center()
+                                    .child("Back"),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id("done-open-btn")
+                            .flex_1()
+                            .px_3()
+                            .py_2()
+                            .rounded_lg()
+                            .primary_button()
+                            .shadow_lg()
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _e, _window, _cx| {
+                                // Set the last created user as active and enter main app
+                                if let Some(user) = this.users.last().cloned() {
+                                    this.active_user = Some(user);
+                                }
+                            }))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(colors.text)
+                                    .text_center()
+                                    .child("Open Galvanized"),
+                            ),
                     ),
             )
     }
