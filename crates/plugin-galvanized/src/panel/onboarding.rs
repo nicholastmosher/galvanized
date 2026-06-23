@@ -4,9 +4,9 @@ use tracing::info;
 use zed::unstable::{
     gpui::{Entity, FontWeight, Hsla, rgba},
     ui::{
-        ActiveTheme, Color, Context, FluentBuilder as _, Icon, IconName, IconSize,
-        InteractiveElement, IntoElement, ParentElement as _, StatefulInteractiveElement as _,
-        Styled, Window, div, h_flex, px, v_flex,
+        ActiveTheme, Color, Context, Icon, IconName, IconSize, InteractiveElement, IntoElement,
+        ParentElement as _, StatefulInteractiveElement as _, Styled, Window, div, h_flex, px,
+        v_flex,
     },
 };
 
@@ -142,82 +142,73 @@ impl PanelRoot {
                     .flex_col()
                     .gap_2()
                     .mb_5()
-                    .children(
-                        //
-                        self
-                            //
-                            .users
-                            .iter()
-                            .enumerate()
-                            .map(|(_ix, user)| {
-                                let name = user.read(cx).name();
-                                let initial = name.chars().next().unwrap_or('?').to_string();
+                    .children(self.galvanized.read(cx).users.values().map(|user| {
+                        let name = user.read(cx).name();
+                        let initial = name.chars().next().unwrap_or('?').to_string();
 
+                        h_flex()
+                            .id(format!("user-card-{}", name))
+                            .items_center()
+                            .gap_3()
+                            .p_3()
+                            .rounded_xl()
+                            .bg(colors.element_background.opacity(0.5))
+                            .border_1()
+                            .border_color(colors.border)
+                            .hover(|style| {
+                                style
+                                    .bg(colors.element_hover)
+                                    .border_color(colors.border_focused)
+                            })
+                            .cursor_pointer()
+                            .on_click(cx.listener({
+                                let user = user.clone();
+                                move |this, _e, _window, _cx| {
+                                    this.vault_scene = VaultScene::UnlockPrompt(user.clone());
+                                }
+                            }))
+                            .child(
                                 h_flex()
-                                    .id(format!("user-card-{}", name))
+                                    .id(format!("user-avatar-{}", name))
+                                    .size(px(40.))
+                                    .rounded_full()
+                                    .bg(*GZED_ORANGE)
+                                    .flex_shrink_0()
                                     .items_center()
-                                    .gap_3()
-                                    .p_3()
-                                    .rounded_xl()
-                                    .bg(colors.element_background.opacity(0.5))
-                                    .border_1()
-                                    .border_color(colors.border)
-                                    .hover(|style| {
-                                        style
-                                            .bg(colors.element_hover)
-                                            .border_color(colors.border_focused)
-                                    })
-                                    .cursor_pointer()
-                                    .on_click(cx.listener({
-                                        let user = user.clone();
-                                        move |this, _e, _window, _cx| {
-                                            this.vault_scene =
-                                                VaultScene::UnlockPrompt(user.clone());
-                                        }
-                                    }))
+                                    .justify_center()
                                     .child(
-                                        h_flex()
-                                            .id(format!("user-avatar-{}", name))
-                                            .size(px(40.))
-                                            .rounded_full()
-                                            .bg(*GZED_ORANGE)
-                                            .flex_shrink_0()
-                                            .items_center()
-                                            .justify_center()
-                                            .child(
-                                                div()
-                                                    .mx_auto()
-                                                    .text_sm()
-                                                    .font_weight(FontWeight::BOLD)
-                                                    .text_color(colors.text)
-                                                    .child(initial),
-                                            ),
+                                        div()
+                                            .mx_auto()
+                                            .text_sm()
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_color(colors.text)
+                                            .child(initial),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .text_color(colors.text)
+                                            .child(name),
                                     )
                                     .child(
                                         div()
-                                            .flex_1()
-                                            .min_w_0()
-                                            .child(
-                                                div()
-                                                    .text_sm()
-                                                    .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_color(colors.text)
-                                                    .child(name),
-                                            )
-                                            .child(
-                                                div()
-                                                    .text_xs()
-                                                    .text_color(colors.text_placeholder)
-                                                    .child("Vault locked"),
-                                            ),
-                                    )
-                                    .child(
-                                        Icon::new(IconName::ChevronRight)
-                                            .size(IconSize::Small)
-                                            .color(Color::Custom(colors.border_variant)),
-                                    )
-                            }),
-                    ),
+                                            .text_xs()
+                                            .text_color(colors.text_placeholder)
+                                            .child("Vault locked"),
+                                    ),
+                            )
+                            .child(
+                                Icon::new(IconName::ChevronRight)
+                                    .size(IconSize::Small)
+                                    .color(Color::Custom(colors.border_variant)),
+                            )
+                    })),
             )
             .child(
                 // Create new vault button
@@ -589,7 +580,6 @@ impl PanelRoot {
                                                 })
                                                 .await?;
                                             this.update(cx, |this, _cx| {
-                                                this.users.push(user.clone());
                                                 this.active_user = Some(user);
                                                 this.vault_scene = VaultScene::VaultPicker;
                                             })?;

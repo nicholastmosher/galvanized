@@ -40,18 +40,25 @@ pub struct Galvanized {
     panel: Entity<PanelRoot>,
     users: BTreeMap<VaultId, Entity<User>>,
     workspace: Entity<Workspace>,
+
+    loading_users_task: Option<Task<Result<Vec<Entity<User>>>>>,
 }
 
 impl Galvanized {
     pub fn new(workspace: Entity<Workspace>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let galvanized = cx.entity();
         let panel = cx.new(|cx| PanelRoot::new(galvanized, window, cx));
-        Self {
+
+        let mut this = Self {
             apps: Default::default(),
             panel,
             users: Default::default(),
             workspace,
-        }
+
+            loading_users_task: None,
+        };
+        this.load_users(cx);
+        this
     }
 
     /// Add an app plugin to Galvanized by providing its entity handle
@@ -113,13 +120,12 @@ impl Galvanized {
     /// UI elements above this should spawn this only when they need a fresh view of
     /// users, such as after a new [`User`] is created. Otherwise, they should
     /// cache the entities to use while rendering.
-    // Implementation notes:
-    //
-    // - We want to only ever create one `Entity<User>` per vault, ever.
-    // - To do this, when listing users by vaults, we check and only create
-    //   a new `Entity<User>` for users that don't already exist in our list
-    pub fn list_users(&mut self, cx: &mut Context<Self>) -> Task<Result<Vec<Entity<User>>>> {
-        cx.spawn(async move |this, cx| {
+    pub fn load_users(&mut self, cx: &mut Context<Self>) {
+        if self.loading_users_task.is_some() {
+            return;
+        }
+
+        let task = cx.spawn(async move |this, cx| {
             let vaults = cx.vaults().list().await?;
             info!(?vaults, "vaults");
 
@@ -154,6 +160,12 @@ impl Galvanized {
                 .filter_map(|it| it)
                 .collect::<Vec<_>>();
 
+            // Implementation notes:
+            //
+            // - We want to only ever create one `Entity<User>` per vault, ever.
+            // - To do this, when listing users by vaults, we check and only create
+            //   a new `Entity<User>` for users that don't already exist in our list
+            //
             // Get the list of Entity<User>, creating new entities ONLY for users that exist in the vault but not yet in memory.
             let users = this.update(cx, |this, cx| {
                 for (vault_id, metadata) in submetas {
@@ -169,6 +181,8 @@ impl Galvanized {
 
             info!(?users, "list_users");
             anyhow::Ok(users)
-        })
+        });
+
+        self.loading_users_task = Some(task);
     }
 }

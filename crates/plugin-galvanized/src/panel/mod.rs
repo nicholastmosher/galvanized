@@ -3,15 +3,15 @@ use std::sync::LazyLock;
 use tracing::info;
 use zed::unstable::{
     gpui::{
-        self, Action, AnyElement, AppContext as _, ClickEvent, Corner, DismissEvent, Entity,
-        EventEmitter, FocusHandle, Focusable, FontWeight, Hsla, KeyDownEvent, Stateful, actions,
-        linear_color_stop, linear_gradient, point, rgba,
+        self, Action, AnyElement, AppContext as _, Corner, Entity, EventEmitter, FocusHandle,
+        Focusable, FontWeight, Hsla, KeyDownEvent, Stateful, actions, linear_color_stop,
+        linear_gradient, point, rgba,
     },
     ui::{
-        ActiveTheme, App, ButtonLike, Color, Context, ContextMenu, Div, ElementId,
-        FluentBuilder as _, Icon, IconName, IconSize, InteractiveElement, IntoElement,
-        ParentElement as _, Pixels, PopoverMenu, Render, SharedString,
-        StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex, px, v_flex,
+        ActiveTheme, App, Color, Context, ContextMenu, Div, ElementId, FluentBuilder as _, Icon,
+        IconName, IconSize, InteractiveElement, IntoElement, ParentElement as _, Pixels,
+        PopoverMenu, Render, SharedString, StatefulInteractiveElement as _, Styled, Tooltip,
+        Window, div, h_flex, px, v_flex,
     },
     ui_input::InputField,
     workspace::{
@@ -60,7 +60,6 @@ pub struct PanelRoot {
     pub(crate) create_password_confirmation_input: Entity<InputField>,
     pub(crate) login_password_input: Entity<InputField>,
     pub(crate) space_name_input: Entity<InputField>,
-    pub(crate) users: Vec<Entity<User>>,
 
     // Sidebar UI state
     active_app: Option<SharedString>,
@@ -113,21 +112,6 @@ impl PanelRoot {
         let space_name_input = cx.new(|cx| InputField::new(window, cx, "Space name"));
         let search_input = cx.new(|cx| InputField::new(window, cx, "Search your data..."));
 
-        cx.spawn({
-            let galvanized = galvanized.clone();
-            async move |this, cx| {
-                let users = galvanized
-                    .update(cx, |galvanized, cx| galvanized.list_users(cx))
-                    .await?;
-                this.update(cx, |this, _cx| {
-                    this.users = users;
-                })?;
-
-                anyhow::Ok(())
-            }
-        })
-        .detach_and_log_err(cx);
-
         Self {
             focus_handle: cx.focus_handle(),
             width: None,
@@ -139,7 +123,6 @@ impl PanelRoot {
             create_password_confirmation_input,
             login_password_input,
             space_name_input,
-            users: Default::default(),
             active_user: Default::default(),
 
             active_app: None,
