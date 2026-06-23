@@ -38,6 +38,7 @@ pub fn init(cx: &mut App) {
 pub struct Galvanized {
     apps: Vec<Box<dyn AppHandle>>,
     panel: Entity<PanelRoot>,
+    pub(crate) active_user: Option<Entity<User>>,
     users: BTreeMap<VaultId, Entity<User>>,
     workspace: Entity<Workspace>,
 
@@ -52,6 +53,7 @@ impl Galvanized {
         let mut this = Self {
             apps: Default::default(),
             panel,
+            active_user: Default::default(),
             users: Default::default(),
             workspace,
 
@@ -176,8 +178,22 @@ impl Galvanized {
                     }
                 }
 
-                this.users.values().cloned().collect()
+                this.users.values().cloned().collect::<Vec<_>>()
             })?;
+
+            // Load the content of each user into the app's state as entities
+            users
+                //
+                .iter()
+                .map(|user| {
+                    //
+                    user.update(cx, |user, cx| user.load_content(cx))
+                })
+                .collect::<Vec<_>>()
+                .join()
+                .await
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()?;
 
             info!(?users, "list_users");
             anyhow::Ok(users)

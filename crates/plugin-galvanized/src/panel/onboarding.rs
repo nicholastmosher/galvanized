@@ -352,8 +352,10 @@ impl PanelRoot {
                                             cx.spawn(async move |this, cx| {
                                                 user.unlock(cx, password).await?;
                                                 info!("Sign in succeeded");
-                                                this.update(cx, |this, _cx| {
-                                                    this.active_user = Some(user);
+                                                this.update(cx, |this, cx| {
+                                                    this.galvanized.update(cx, |it, _cx| {
+                                                        it.active_user = Some(user);
+                                                    });
                                                 })?;
                                                 anyhow::Ok(())
                                             })
@@ -535,8 +537,10 @@ impl PanelRoot {
                                                     g.create_user(display_name, password, cx)
                                                 })
                                                 .await?;
-                                            this.update(cx, |this, _cx| {
-                                                this.active_user = Some(user);
+                                            this.update(cx, |this, cx| {
+                                                this.galvanized.update(cx, |it, _cx| {
+                                                    it.active_user = Some(user);
+                                                });
                                                 this.vault_scene = VaultScene::VaultPicker;
                                             })?;
                                             anyhow::Ok(())

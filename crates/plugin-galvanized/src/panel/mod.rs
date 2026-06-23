@@ -26,7 +26,7 @@ use crate::{
         profile_nugget::ProfileNugget,
         vault_menu::{VaultButton, VaultMenu},
     },
-    users::User,
+    users::{Space, User},
 };
 
 pub(crate) static GZED_ORANGE: LazyLock<Hsla> =
@@ -68,8 +68,9 @@ pub struct PanelRoot {
     profile_filters: Vec<SharedString>,
 
     // Panel scene
-    pub(crate) active_user: Option<Entity<User>>,
+    // pub(crate) active_user: Option<Entity<User>>,
     scene: PanelScene,
+    create_space_kind: CreateSpaceKind,
 }
 
 /// States for the onboarding flow.
@@ -94,6 +95,23 @@ pub enum PanelScene {
     CreatingSpace,
     /// Creating a new profile (triggered by profile menu)
     CreatingProfile,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub enum CreateSpaceKind {
+    #[default]
+    Owned,
+    Communal,
+}
+
+impl CreateSpaceKind {
+    fn is_communal(&self) -> bool {
+        matches!(self, Self::Communal)
+    }
+
+    fn is_owned(&self) -> bool {
+        matches!(self, Self::Owned)
+    }
 }
 
 impl PanelRoot {
@@ -123,7 +141,6 @@ impl PanelRoot {
             create_password_confirmation_input,
             login_password_input,
             space_name_input,
-            active_user: Default::default(),
 
             active_app: None,
             search_input,
@@ -131,21 +148,22 @@ impl PanelRoot {
             profile_filters: Vec::new(),
 
             scene: PanelScene::Home,
+            create_space_kind: Default::default(),
         }
     }
 }
 
 impl Render for PanelRoot {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        match (&self.scene, &self.active_user) {
+        let active_user = self.galvanized.read(cx).active_user.clone();
+        match (&self.scene, active_user) {
             (PanelScene::Home, None) => {
                 //
                 self.render_onboarding_panel(window, cx).into_any_element()
             }
             (PanelScene::Home, Some(user)) => {
                 //
-                self.render_home_panel(user.clone(), window, cx)
-                    .into_any_element()
+                self.render_home_panel(user, window, cx).into_any_element()
             }
             (PanelScene::CreatingSpace, _) => {
                 //
@@ -228,12 +246,17 @@ impl PanelRoot {
                                     .p_3()
                                     .rounded_xl()
                                     .border_2()
-                                    .border_color(cx.theme().colors().text_accent.opacity(0.7))
+                                    .border_color(cx.theme().colors().border)
+                                    .when(self.create_space_kind.is_owned(), |el| {
+                                        el
+                                            .border_2()
+                                            .border_color(cx.theme().colors().text_accent.opacity(0.7))
+                                    })
                                     .bg(cx.theme().colors().element_background.opacity(0.5))
                                     .cursor_pointer()
-                                    .hover(|style| style.bg(cx.theme().colors().border_variant))
+                                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
                                     .on_click(cx.listener(|this, _e, _window, _cx| {
-                                        this.scene = PanelScene::Home;
+                                        this.create_space_kind = CreateSpaceKind::Owned;
                                     }))
                                     .child(
                                         h_flex()
@@ -278,13 +301,16 @@ impl PanelRoot {
                                     .rounded_xl()
                                     .border_2()
                                     .border_color(cx.theme().colors().border)
+                                    .when(self.create_space_kind.is_communal(), |el| {
+                                        el
+                                            .border_2()
+                                            .border_color(cx.theme().colors().text_accent.opacity(0.7))
+                                    })
                                     .bg(cx.theme().colors().element_background.opacity(0.5))
                                     .cursor_pointer()
-                                    .hover(|style| {
-                                        style.border_color(cx.theme().colors().border_variant).bg(cx.theme().colors().border_variant)
-                                    })
+                                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
                                     .on_click(cx.listener(|this, _e, _window, _cx| {
-                                        this.scene = PanelScene::Home;
+                                        this.create_space_kind = CreateSpaceKind::Communal;
                                     }))
                                     .child(
                                         h_flex()
@@ -365,11 +391,25 @@ impl PanelRoot {
                                             .py_2()
                                             .primary_button()
                                             .cursor_pointer()
-                                            .on_click(cx.listener(|this, _e, _window, _cx| {
-                                                let name = this.space_name_input.read(_cx).text(_cx);
+                                            .on_click(cx.listener(|this, _e, _window, cx| {
+                                                let name = this.space_name_input.read(cx).text(cx);
+                                                let kind = this.create_space_kind;
+                                                this.create_space_kind = Default::default();
                                                 if !name.is_empty() {
                                                     this.scene = PanelScene::Home;
                                                 }
+
+                                                let Some(user) = this.galvanized.read(cx).active_user.clone() else {
+                                                    return;
+                                                };
+
+                                                user.update(cx, |it, cx| {
+                                                    if kind.is_owned() {
+                                                        it.create_owned_space(name.into(), cx)
+                                                    } else {
+                                                        it.create_communal_space(name.into(), cx)
+                                                    }
+                                                }).detach_and_log_err(cx);
                                             }))
                                             .child(
                                                 div()
@@ -485,26 +525,18 @@ impl PanelRoot {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let bg_color = cx.theme().colors().editor_background;
-        let border_color = cx.theme().colors().border;
-        let hover_color = cx.theme().colors().ghost_element_hover;
+        let active_user = self.galvanized.read(cx).active_user.clone().unwrap();
+        let spaces = active_user.read(cx).spaces();
 
         v_flex()
             .id("left-rail")
-            .bg(bg_color)
+            .bg(cx.theme().colors().editor_background)
             .h_full()
             .w(px(72.))
             .items_center()
             .py_2()
             .border_r_1()
-            .border_color(border_color)
-            // .child(gzed_icon(
-            //     "header-icon",
-            //     cx,
-            //     cx.listener(|_this, _e, _window, _cx| {
-            //         info!("Clicked gzed header");
-            //     }),
-            // ))
+            .border_color(cx.theme().colors().border)
             .child(self.render_vault_menu(window, cx))
             .child(
                 // Namespace icons
@@ -517,9 +549,9 @@ impl PanelRoot {
                     .gap_2()
                     .px_1()
                     .w_full()
-                    .children([].into_iter().enumerate().map(
-                        |(i, space_entity): (usize, Entity<User>)| {
-                            let name = space_entity.read(cx).name();
+                    .children(spaces.into_iter().enumerate().map(
+                        |(i, space): (usize, Entity<Space>)| {
+                            let name = space.read(cx).name();
 
                             let gradient = linear_gradient(
                                 135.,
@@ -560,7 +592,7 @@ impl PanelRoot {
                     .w(px(32.))
                     .h(px(2.))
                     .rounded_full()
-                    .bg(border_color)
+                    .bg(cx.theme().colors().border)
                     .my_2(),
             )
             .child(
@@ -580,7 +612,7 @@ impl PanelRoot {
                             .hover(|style| {
                                 style.rounded_xl().border_color(cx.theme().colors().border)
                             })
-                            .active(|style| style.bg(hover_color))
+                            .active(|style| style.bg(cx.theme().colors().ghost_element_hover))
                             .on_click(cx.listener(|this, _e, _window, _cx| {
                                 this.scene = PanelScene::CreatingSpace;
                             }))
@@ -911,8 +943,8 @@ impl PanelRoot {
                     .p_4()
                     .rounded_md()
                     .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                    .on_click(cx.listener(|this, _e, _window, _cx| {
-                        this.active_user = None;
+                    .on_click(cx.listener(|this, _e, _window, cx| {
+                        this.galvanized.update(cx, |it, _cx| it.active_user = None);
                     }))
                     .child(
                         Icon::new(IconName::LockOutlined)

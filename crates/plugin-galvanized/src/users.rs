@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use anyhow::{Context as _, Result, bail};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
 use plugin_willow::{Namespace, Subspace, WillowExt};
@@ -33,9 +35,11 @@ pub struct User {
     /// over time or be revoked.
     vault_handle: Option<VaultHandle>,
 
-    // TODO: Create a capability-powered caching wrapper, with timeout and revoke
+    // TODO: Create a capability-powered caching wrapper, with timeout and revoke {
     unlocked_vault: Option<UserVault>,
-
+    unlocked_spaces: BTreeMap<NamespaceId, Entity<Space>>,
+    unlocked_profiles: BTreeMap<SubspaceId, Entity<Profile>>,
+    // } END TODO: capability-powered caching
     unlock_task: Option<Task<Result<()>>>,
 }
 
@@ -59,6 +63,8 @@ impl User {
             vault_id,
             vault_handle: None,
             unlocked_vault: None,
+            unlocked_spaces: Default::default(),
+            unlocked_profiles: Default::default(),
             unlock_task: None,
         }
     }
@@ -107,7 +113,19 @@ impl User {
                 })
                 .await??;
 
-            this.update(cx, |this, _cx| {
+            this.update(cx, |this, cx| {
+                for space in &user_vault.spaces {
+                    if !this.unlocked_spaces.contains_key(&space.id()) {
+                        let space_entity = cx.new(|_cx| space.clone());
+                        this.unlocked_spaces.insert(space.id(), space_entity);
+                    }
+                }
+                for profile in &user_vault.profiles {
+                    if !this.unlocked_profiles.contains_key(&profile.id()) {
+                        let profile_entity = cx.new(|_cx| profile.clone());
+                        this.unlocked_profiles.insert(profile.id(), profile_entity);
+                    }
+                }
                 this.unlocked_vault = Some(user_vault);
             })?;
 
@@ -183,30 +201,36 @@ impl User {
     }
 
     /// Create a new Communal Space, a Willow Communal Namespace with a display name
+    ///
+    /// This is side-effectful, after this the space will exist in the user's vault
     pub fn create_communal_space(
         &mut self,
         name: SharedString,
         cx: &mut Context<Self>,
-    ) -> Task<Result<Space>> {
+    ) -> Task<Result<()>> {
         self.create_space(name, false, cx)
     }
 
     /// Create a new Owned Space, a Willow Owned Namespace with a display name
+    ///
+    /// This is side-effectful, after this the space will exist in the user's vault
     pub fn create_owned_space(
         &mut self,
         name: SharedString,
         cx: &mut Context<Self>,
-    ) -> Task<Result<Space>> {
+    ) -> Task<Result<()>> {
         self.create_space(name, true, cx)
     }
 
     /// Create an owned or communal Space, a Willow namespace with a display name
+    ///
+    /// This is side-effectful, after this the space will exist in the user's vault
     fn create_space(
         &mut self,
         name: SharedString,
         owned: bool,
         cx: &mut Context<Self>,
-    ) -> Task<Result<Space>> {
+    ) -> Task<Result<()>> {
         cx.spawn(async move |this, cx| {
             let namespace = if owned {
                 cx.willow().create_owned_namespace().await?
@@ -216,8 +240,10 @@ impl User {
             let space = Space::new(name, namespace);
 
             this.update(cx, {
-                let space = space.clone();
                 move |this, cx| {
+                    let key = space.id();
+                    let space_entity = cx.new(|_cx| space.clone());
+                    this.unlocked_spaces.insert(key, space_entity);
                     this.update_content(cx, move |vault| {
                         vault.spaces.push(space);
                     })
@@ -225,22 +251,27 @@ impl User {
             })?
             .await?;
 
-            anyhow::Ok(space)
+            anyhow::Ok(())
         })
     }
 
+    pub fn spaces(&self) -> Vec<Entity<Space>> {
+        self.unlocked_spaces.values().cloned().collect()
+    }
+
     /// Create a Profile, a Willow subspace with a display name
+    ///
+    /// This is side-effectful, after this the Profile will exist in the user's vault
     pub fn create_profile(
         &mut self,
         name: SharedString,
         cx: &mut Context<Self>,
-    ) -> Task<Result<Profile>> {
+    ) -> Task<Result<()>> {
         cx.spawn(async move |this, cx| {
             let subspace = cx.willow().create_subspace().await?;
             let profile = Profile::new(name, subspace);
 
             this.update(cx, {
-                let profile = profile.clone();
                 move |this, cx| {
                     this.update_content(cx, move |vault| {
                         vault.profiles.push(profile);
@@ -249,7 +280,7 @@ impl User {
             })?
             .await?;
 
-            anyhow::Ok(profile)
+            anyhow::Ok(())
         })
     }
 }
@@ -367,6 +398,14 @@ impl Space {
         Self { name, namespace }
     }
 
+    pub fn id(&self) -> NamespaceId {
+        self.namespace.id()
+    }
+
+    pub fn name(&self) -> SharedString {
+        self.name.clone()
+    }
+
     pub fn is_communal(&self) -> bool {
         self.namespace.is_communal()
     }
@@ -385,6 +424,10 @@ pub struct Profile {
 impl Profile {
     pub fn new(name: SharedString, subspace: Subspace) -> Self {
         Self { name, subspace }
+    }
+
+    pub fn id(&self) -> SubspaceId {
+        self.subspace.id()
     }
 }
 
