@@ -2,16 +2,16 @@ use std::sync::LazyLock;
 
 use tracing::info;
 use zed::unstable::{
-    gpui::{Entity, FontWeight, Hsla, rgba},
+    gpui::{Entity, FontWeight, Hsla, Stateful, rgba},
     ui::{
-        ActiveTheme, Color, Context, Icon, IconName, IconSize, InteractiveElement, IntoElement,
-        ParentElement as _, StatefulInteractiveElement as _, Styled, Window, div, h_flex, px,
-        v_flex,
+        ActiveTheme, App, Color, Context, Div, Icon, IconName, IconSize, InteractiveElement,
+        IntoElement, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled,
+        Window, div, h_flex, px, v_flex,
     },
 };
 
 use crate::{
-    panel::{PanelRoot, PrimaryButton as _, VaultScene, gzed_icon},
+    panel::{PanelRoot, PrimaryButton as _, VaultScene, gzed_icon, render_scene_header},
     users::{User, UserHandle as _},
 };
 
@@ -25,63 +25,22 @@ impl PanelRoot {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let panel_width = self.width.unwrap_or(px(380.)) - px(1.);
+        let (title, subtitle) = self.header_for_state();
 
         v_flex()
             .id("onboarding-panel")
             .h_full()
             .w(panel_width)
             .bg(cx.theme().colors().panel_background)
-            .child(self.render_onboarding_header(cx))
+            .child(render_scene_header(title.into(), subtitle.into(), cx))
             .child(
                 div()
                     .id("onboarding-scenes")
                     .h_full()
                     .flex_1()
                     .overflow_y_scroll()
-                    .px_5()
-                    .py_5()
+                    .p_5()
                     .child(self.render_onboarding_scene(window, cx)),
-            )
-    }
-
-    /// Panel header with logo, title, and subtitle.
-    fn render_onboarding_header(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
-        let (title, subtitle) = self.header_for_state();
-
-        h_flex()
-            .id("onboarding-header")
-            .items_center()
-            .gap_3()
-            .p_4()
-            .border_b_1()
-            .border_color(cx.theme().colors().border_variant)
-            .child(
-                gzed_icon("gzed-onboarding-header", cx)
-                    //
-                    .on_click(cx.listener(|_this, _e, _window, _cx| {
-                        info!("Clicked gzed onboarding header");
-                    })),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .child(
-                        div()
-                            .id("panel-title")
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(cx.theme().colors().text)
-                            .truncate()
-                            .child(title),
-                    )
-                    .child(
-                        div()
-                            .id("panel-subtitle")
-                            .text_xs()
-                            .text_color(cx.theme().colors().text_placeholder)
-                            .child(subtitle),
-                    ),
             )
     }
 
@@ -279,7 +238,6 @@ impl PanelRoot {
     ) -> impl IntoElement {
         let name = user.read(cx).name();
         let initial = name.chars().next().unwrap_or('?').to_string();
-        let colors = cx.theme().colors();
 
         h_flex()
             .size_full()
@@ -302,13 +260,13 @@ impl PanelRoot {
                             .items_center()
                             .justify_center()
                             .border_2()
-                            .border_color(colors.border)
+                            .border_color(cx.theme().colors().border)
                             .child(
                                 div()
                                     .mx_auto()
                                     .text_xl()
                                     .font_weight(FontWeight::BOLD)
-                                    .text_color(colors.text)
+                                    .text_color(cx.theme().colors().text)
                                     .child(initial),
                             ),
                     )
@@ -316,21 +274,21 @@ impl PanelRoot {
                         div()
                             .text_lg()
                             .font_weight(FontWeight::BOLD)
-                            .text_color(colors.text)
+                            .text_color(cx.theme().colors().text)
                             .mb_1()
                             .child(name.clone()),
                     )
                     .child(
                         div()
                             .text_xs()
-                            .text_color(colors.text_muted)
+                            .text_color(cx.theme().colors().text_muted)
                             .mb_1()
                             .child("Enter your vault password to unlock"),
                     )
                     .child(
                         div()
                             .text_xs()
-                            .text_color(colors.text_placeholder)
+                            .text_color(cx.theme().colors().text_placeholder)
                             .mb_5()
                             .child("1 profile"),
                     )
@@ -354,10 +312,10 @@ impl PanelRoot {
                                     .px_3()
                                     .py_2()
                                     .rounded_lg()
-                                    .bg(colors.border_variant)
-                                    .hover(|style| style.bg(colors.border))
+                                    .bg(cx.theme().colors().border_variant)
+                                    .hover(|style| style.bg(cx.theme().colors().border))
                                     .border_1()
-                                    .border_color(colors.border)
+                                    .border_color(cx.theme().colors().border)
                                     .cursor_pointer()
                                     .on_click(cx.listener(|this, _e, _window, _cx| {
                                         this.vault_scene = VaultScene::VaultPicker;
@@ -365,7 +323,7 @@ impl PanelRoot {
                                     .child(
                                         div()
                                             .text_sm()
-                                            .text_color(colors.text_muted)
+                                            .text_color(cx.theme().colors().text_muted)
                                             .text_center()
                                             .child("Back"),
                                     ),
@@ -376,7 +334,6 @@ impl PanelRoot {
                                     .flex_1()
                                     .px_3()
                                     .py_2()
-                                    .rounded_lg()
                                     .primary_button()
                                     .shadow_lg()
                                     .cursor_pointer()
@@ -407,7 +364,7 @@ impl PanelRoot {
                                         div()
                                             .text_sm()
                                             .font_weight(FontWeight::SEMIBOLD)
-                                            .text_color(colors.text)
+                                            .text_color(cx.theme().colors().text)
                                             .text_center()
                                             .child("Unlock"),
                                     ),
@@ -545,7 +502,6 @@ impl PanelRoot {
                                     .flex_1()
                                     .px_3()
                                     .py_2()
-                                    .rounded_lg()
                                     .primary_button()
                                     .shadow_lg()
                                     .cursor_pointer()

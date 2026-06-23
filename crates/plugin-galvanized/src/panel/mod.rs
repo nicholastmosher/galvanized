@@ -193,59 +193,29 @@ impl PanelRoot {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let colors = cx.theme().colors();
         let panel_width = self.width.unwrap_or(DEFAULT_WIDTH) - px(1.);
 
         v_flex()
             .id("create-space-flow")
             .h_full()
             .w(panel_width)
-            .bg(colors.panel_background)
+            .bg(cx.theme().colors().panel_background)
             .child(
-                h_flex()
-                    .id("flow-header")
-                    .items_center()
-                    .gap_3()
-                    .p_4()
-                    .border_b_1()
-                    .border_color(colors.border_variant)
-                    .child(
-                        div()
-                            .id("flow-back-btn")
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _e, _window, _cx| {
-                                this.scene = PanelScene::Home;
-                            }))
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(*GZED_ORANGE)
-                                    .child("← Back"),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(colors.text)
-                            .child("Create Space"),
-                    ),
+                render_scene_header("Create Space".into(), "Spaces may be private or shared with others".into(), cx)
             )
             .child(
-                div()
-                    .id("flow-content")
-                    .flex_1()
-                    .overflow_y_scroll()
-                    .px_5()
-                    .py_5()
+                h_flex()
+                    .size_full()
+                    .p_5()
+                    .justify_center()
                     .child(
                         v_flex()
+                            .w_full()
                             .gap_4()
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(colors.text_muted)
+                                    .text_color(cx.theme().colors().text_muted)
                                     .child("Choose the type of space to create:"),
                             )
                             .child(
@@ -258,10 +228,10 @@ impl PanelRoot {
                                     .p_3()
                                     .rounded_xl()
                                     .border_2()
-                                    .border_color(colors.text_accent.opacity(0.7))
-                                    .bg(colors.element_background.opacity(0.5))
+                                    .border_color(cx.theme().colors().text_accent.opacity(0.7))
+                                    .bg(cx.theme().colors().element_background.opacity(0.5))
                                     .cursor_pointer()
-                                    .hover(|style| style.bg(colors.border_variant))
+                                    .hover(|style| style.bg(cx.theme().colors().border_variant))
                                     .on_click(cx.listener(|this, _e, _window, _cx| {
                                         this.scene = PanelScene::Home;
                                     }))
@@ -271,15 +241,15 @@ impl PanelRoot {
                                             .rounded_xl()
                                             .bg(linear_gradient(
                                                 135.,
-                                                linear_color_stop(colors.border, 0.0),
-                                                linear_color_stop(colors.panel_background, 1.0),
+                                                linear_color_stop(cx.theme().colors().border, 0.0),
+                                                linear_color_stop(cx.theme().colors().panel_background, 1.0),
                                             ))
                                             .flex_shrink_0()
                                             .border_1()
-                                            .border_color(colors.border_variant)
+                                            .border_color(cx.theme().colors().border_variant)
                                             .items_center()
                                             .justify_center()
-                                            .child(Icon::new(IconName::LockOutlined).size(IconSize::Medium).color(Color::Custom(colors.text_muted))),
+                                            .child(Icon::new(IconName::LockOutlined).size(IconSize::Medium).color(Color::Custom(cx.theme().colors().text_muted))),
                                     )
                                     .child(
                                         div()
@@ -289,10 +259,10 @@ impl PanelRoot {
                                                 div()
                                                     .text_sm()
                                                     .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_color(colors.text)
+                                                    .text_color(cx.theme().colors().text)
                                                     .child("Personal Space (Owned)"),
                                             )
-                                            .child(div().text_xs().text_color(colors.text_muted).child(
+                                            .child(div().text_xs().text_color(cx.theme().colors().text_muted).child(
                                                 "Private by default. You control access and delegate capabilities.",
                                             )),
                                     ),
@@ -307,11 +277,11 @@ impl PanelRoot {
                                     .p_3()
                                     .rounded_xl()
                                     .border_2()
-                                    .border_color(colors.border)
-                                    .bg(colors.element_background.opacity(0.5))
+                                    .border_color(cx.theme().colors().border)
+                                    .bg(cx.theme().colors().element_background.opacity(0.5))
                                     .cursor_pointer()
                                     .hover(|style| {
-                                        style.border_color(colors.border_variant).bg(colors.border_variant)
+                                        style.border_color(cx.theme().colors().border_variant).bg(cx.theme().colors().border_variant)
                                     })
                                     .on_click(cx.listener(|this, _e, _window, _cx| {
                                         this.scene = PanelScene::Home;
@@ -322,15 +292,15 @@ impl PanelRoot {
                                             .rounded_xl()
                                             .bg(linear_gradient(
                                                 135.,
-                                                linear_color_stop(colors.border, 0.0),
-                                                linear_color_stop(colors.panel_background, 1.0),
+                                                linear_color_stop(cx.theme().colors().border, 0.0),
+                                                linear_color_stop(cx.theme().colors().panel_background, 1.0),
                                             ))
                                             .flex_shrink_0()
                                             .border_1()
-                                            .border_color(colors.border_variant)
+                                            .border_color(cx.theme().colors().border_variant)
                                             .items_center()
                                             .justify_center()
-                                            .child(Icon::new(IconName::Person).size(IconSize::Medium).color(Color::Custom(colors.text_muted))),
+                                            .child(Icon::new(IconName::Person).size(IconSize::Medium).color(Color::Custom(cx.theme().colors().text_muted))),
                                     )
                                     .child(
                                         div()
@@ -340,14 +310,78 @@ impl PanelRoot {
                                                 div()
                                                     .text_sm()
                                                     .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_color(colors.text)
+                                                    .text_color(cx.theme().colors().text)
                                                     .child("Community Space (Communal)"),
                                             )
-                                            .child(div().text_xs().text_color(colors.text_muted).child(
+                                            .child(div().text_xs().text_color(cx.theme().colors().text_muted).child(
                                                 "Open to anyone. Any subspace can write.",
                                             )),
                                     ),
-                            ),
+                            )
+                            .child(
+                                // Space Name input
+                                div()
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(cx.theme().colors().text_muted)
+                                            .mb_1()
+                                            .child("Space Name"),
+                                    )
+                                    .child(self.space_name_input.clone()),
+                            )
+                            .child(
+                                h_flex()
+                                    .id("flow-create-btns")
+                                    .w_full()
+                                    .gap_2()
+                                    .child(
+                                        div()
+                                            .id("flow-back-btn")
+                                            .flex_1()
+                                            .px_4()
+                                            .py_2()
+                                            .rounded_lg()
+                                            .bg(cx.theme().colors().border_variant)
+                                            .cursor_pointer()
+                                            .hover(|style| style.bg(cx.theme().colors().border))
+                                            .on_click(cx.listener(|this, _e, _window, _cx| {
+                                                this.scene = PanelScene::Home;
+                                            }))
+                                            .child(
+                                                div()
+                                                    .text_sm()
+                                                    .font_weight(FontWeight::SEMIBOLD)
+                                                    .text_color(cx.theme().colors().text)
+                                                    .text_center()
+                                                    .child("Back"),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .id("flow-create-action-btn")
+                                            .flex_1()
+                                            .px_4()
+                                            .py_2()
+                                            .primary_button()
+                                            .cursor_pointer()
+                                            .on_click(cx.listener(|this, _e, _window, _cx| {
+                                                let name = this.space_name_input.read(_cx).text(_cx);
+                                                if !name.is_empty() {
+                                                    this.scene = PanelScene::Home;
+                                                }
+                                            }))
+                                            .child(
+                                                div()
+                                                    .text_sm()
+                                                    .font_weight(FontWeight::SEMIBOLD)
+                                                    .text_color(cx.theme().colors().text)
+                                                    .text_center()
+                                                    .child("Create Space"),
+                                            ),
+                                    ),
+                            )
+                        //
                     ),
             )
     }
@@ -424,7 +458,6 @@ impl PanelRoot {
                                     .w_full()
                                     .px_4()
                                     .py_2()
-                                    .rounded_lg()
                                     .primary_button()
                                     .shadow_lg()
                                     .cursor_pointer()
@@ -954,17 +987,17 @@ impl<S: Styled + InteractiveElement> PrimaryButton for S {
     fn primary_button(self) -> Self {
         self.border_1()
             .border_color(*GZED_ORANGE)
+            .rounded_lg()
             .hover(|style| style.bg(*GZED_ORANGE))
     }
 }
 
-pub fn gzed_icon<T>(id: impl Into<ElementId>, cx: &mut Context<T>) -> Stateful<Div> {
+pub fn gzed_icon(id: impl Into<ElementId>, cx: &mut App) -> Stateful<Div> {
     div()
+        //
         .id(id)
         .size(px(48.))
         .rounded_2xl()
-        .hover(|style| style.opacity(0.6))
-        .active(|style| style.bg(cx.theme().colors().ghost_element_hover))
         .child(
             h_flex()
                 .mx_auto()
@@ -982,6 +1015,49 @@ pub fn gzed_icon<T>(id: impl Into<ElementId>, cx: &mut Context<T>) -> Stateful<D
                         //
                         .mx_auto()
                         .child("G"),
+                ),
+        )
+}
+
+/// Panel header with logo, title, and subtitle.
+pub fn render_scene_header(
+    title: SharedString,
+    subtitle: SharedString,
+    cx: &mut App,
+) -> Stateful<Div> {
+    h_flex()
+        .id("onboarding-header")
+        .items_center()
+        .gap_3()
+        .p_4()
+        .border_b_1()
+        .border_color(cx.theme().colors().border_variant)
+        .child(
+            gzed_icon("gzed-onboarding-header", cx)
+                //
+                .on_click(|_e, _window, _cx| {
+                    info!("Clicked gzed onboarding header");
+                }),
+        )
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .child(
+                    div()
+                        .id("panel-title")
+                        .text_sm()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(cx.theme().colors().text)
+                        .truncate()
+                        .child(title),
+                )
+                .child(
+                    div()
+                        .id("panel-subtitle")
+                        .text_xs()
+                        .text_color(cx.theme().colors().text_placeholder)
+                        .child(subtitle),
                 ),
         )
 }
