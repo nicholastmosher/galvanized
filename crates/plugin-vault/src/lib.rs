@@ -9,7 +9,7 @@ use zed::unstable::{
 };
 
 use crate::{
-    error::{ReadVaultError, VaultError},
+    error::VaultError,
     unlock_ui::UnlockPrompt,
     vault_actor::{VaultActor, VaultActorHandle, VaultHandle},
     vault_db::{VaultAccess, VaultId, VaultMetadataRef, VaultMut, VaultRef},
@@ -55,15 +55,11 @@ pub struct VaultsCx<'a, C: AppContext> {
 
 pub struct VaultsCxState {
     actor: VaultActorHandle,
-    unlock_prompt: Option<Arc<dyn UnlockPrompt>>,
 }
 
 impl VaultsCxState {
     pub fn new(actor: VaultActorHandle) -> Self {
-        Self {
-            actor,
-            unlock_prompt: None,
-        }
+        Self { actor }
     }
 }
 
@@ -126,16 +122,9 @@ impl<C: AppContext> VaultsCx<'_, C> {
     {
         let actor = self.actor();
         self.cx.background_spawn(async move {
-            let result = actor.read_vault(&vault_handle, read_fn).await;
-
-            if let Err(VaultError::ReadVault(ReadVaultError::Locked(_))) = result {
-                //
-            }
-
-            anyhow::Ok(result)
-        });
-
-        todo!()
+            let value = actor.read_vault(&vault_handle, read_fn).await?;
+            Ok(value)
+        })
     }
 
     /// Read data from the vault with the given ID.
