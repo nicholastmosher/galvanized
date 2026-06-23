@@ -2,7 +2,6 @@ use image::imageops::FilterType;
 use zed::unstable::gpui::{App, AppContext as _, Entity, Image, ImageFormat};
 
 pub mod observability;
-mod views;
 
 pub fn init(cx: &mut App) {
     // observability::init(cx);
@@ -13,7 +12,6 @@ pub fn init(cx: &mut App) {
     plugin_calendar::init(cx);
     plugin_chat::init(cx);
     plugin_theme_palette::init(cx);
-    views::init(cx);
 
     plugin_galvanized::init(cx);
 }
