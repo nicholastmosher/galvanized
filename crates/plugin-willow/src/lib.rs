@@ -79,7 +79,7 @@ struct WillowState {
 
 /// Namespace data that gets seriazlied and stored in a user's vault
 #[serde_as]
-#[derive(derive_more::Debug, Serialize, Deserialize)]
+#[derive(derive_more::Debug, Clone, Serialize, Deserialize)]
 pub struct Namespace {
     #[debug("NamespaceSecret")]
     #[serde_as(as = "NamespaceSecretSerde")]
@@ -91,10 +91,18 @@ impl Namespace {
     pub fn id(&self) -> NamespaceId {
         self.secret.corresponding_namespace_id()
     }
+
+    pub fn is_communal(&self) -> bool {
+        self.id().is_communal()
+    }
+
+    pub fn is_owned(&self) -> bool {
+        self.id().is_owned()
+    }
 }
 
 #[serde_as]
-#[derive(derive_more::Debug, Serialize, Deserialize)]
+#[derive(derive_more::Debug, Clone, Serialize, Deserialize)]
 pub struct Subspace {
     #[debug("SubspaceSecret")]
     #[serde_as(as = "SubspaceSecretSerde")]
@@ -109,10 +117,32 @@ impl Subspace {
 }
 
 impl<'a, C: AppContext> WillowCx<'a, C> {
-    pub async fn create_namespace(&self) -> Result<Namespace> {
+    /// Create a new Communal Namespace
+    ///
+    /// Communal Namespaces may be written to by anybody with knowledge
+    /// of the Namespace's ID who has a subspace key to write with.
+    /// No signature is required from a Namespace key to write to it.
+    pub async fn create_communal_namespace(&self) -> Result<Namespace> {
         let (_id, secret) = Tokio::spawn(self.cx, async move {
             tokio::task::spawn_blocking(move || {
-                randomly_generate_namespace(&mut rand_core_0_6_4::OsRng)
+                randomly_generate_communal_namespace(&mut rand_core_0_6_4::OsRng)
+            })
+            .await
+        })
+        .await??;
+
+        let namespace = Namespace { secret };
+        Ok(namespace)
+    }
+
+    /// Create a new Owned Namespace
+    ///
+    /// Owned Namespaces may only be written to by actors with a signed
+    /// capability from the Namespace secret key, along with a subspace key.
+    pub async fn create_owned_namespace(&self) -> Result<Namespace> {
+        let (_id, secret) = Tokio::spawn(self.cx, async move {
+            tokio::task::spawn_blocking(move || {
+                randomly_generate_owned_namespace(&mut rand_core_0_6_4::OsRng)
             })
             .await
         })

@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result, bail};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
-use plugin_willow::{Namespace, Subspace};
+use plugin_willow::{Namespace, Subspace, WillowExt};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use willow25::entry::{NamespaceId, SubspaceId};
@@ -118,8 +118,8 @@ impl User {
     /// Write the user's vault-protected content back to the vault, if it's unlocked
     fn update_content(
         &mut self,
-        update_fn: impl 'static + FnOnce(&mut UserVault),
         cx: &mut Context<Self>,
+        update_fn: impl 'static + FnOnce(&mut UserVault),
     ) -> Task<Result<()>> {
         let load_content_task = self.load_content(cx);
         let vault_handle = self
@@ -180,6 +180,77 @@ impl User {
         self.unlock_task = Some(task);
 
         Ok(())
+    }
+
+    /// Create a new Communal Space, a Willow Communal Namespace with a display name
+    pub fn create_communal_space(
+        &mut self,
+        name: SharedString,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<Space>> {
+        self.create_space(name, false, cx)
+    }
+
+    /// Create a new Owned Space, a Willow Owned Namespace with a display name
+    pub fn create_owned_space(
+        &mut self,
+        name: SharedString,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<Space>> {
+        self.create_space(name, true, cx)
+    }
+
+    /// Create an owned or communal Space, a Willow namespace with a display name
+    fn create_space(
+        &mut self,
+        name: SharedString,
+        owned: bool,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<Space>> {
+        cx.spawn(async move |this, cx| {
+            let namespace = if owned {
+                cx.willow().create_owned_namespace().await?
+            } else {
+                cx.willow().create_communal_namespace().await?
+            };
+            let space = Space::new(name, namespace);
+
+            this.update(cx, {
+                let space = space.clone();
+                move |this, cx| {
+                    this.update_content(cx, move |vault| {
+                        vault.spaces.push(space);
+                    })
+                }
+            })?
+            .await?;
+
+            anyhow::Ok(space)
+        })
+    }
+
+    /// Create a Profile, a Willow subspace with a display name
+    pub fn create_profile(
+        &mut self,
+        name: SharedString,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<Profile>> {
+        cx.spawn(async move |this, cx| {
+            let subspace = cx.willow().create_subspace().await?;
+            let profile = Profile::new(name, subspace);
+
+            this.update(cx, {
+                let profile = profile.clone();
+                move |this, cx| {
+                    this.update_content(cx, move |vault| {
+                        vault.profiles.push(profile);
+                    })
+                }
+            })?
+            .await?;
+
+            anyhow::Ok(profile)
+        })
     }
 }
 
@@ -252,11 +323,11 @@ impl<'a> UserContent<'a> {
     }
 
     pub fn namespaces(&self) -> impl IntoIterator<Item = NamespaceId> {
-        self.vault.namespaces.iter().map(|ns| ns.namespace.id())
+        self.vault.spaces.iter().map(|ns| ns.namespace.id())
     }
 
     pub fn subspaces(&self) -> impl IntoIterator<Item = SubspaceId> {
-        self.vault.subspaces.iter().map(|ss| ss.subspace.id())
+        self.vault.profiles.iter().map(|ss| ss.subspace.id())
     }
 }
 
@@ -281,27 +352,47 @@ impl UserMetadata {
 #[derive(derive_more::Debug, Serialize, Deserialize)]
 #[debug("UserVault")]
 pub struct UserVault {
-    namespaces: Vec<UserNamespace>,
-    subspaces: Vec<UserSubspace>,
+    spaces: Vec<Space>,
+    profiles: Vec<Profile>,
 }
 
-#[derive(Serialize, Deserialize)]
-struct UserNamespace {
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Space {
     name: SharedString,
     namespace: Namespace,
 }
 
-#[derive(Serialize, Deserialize)]
-struct UserSubspace {
+impl Space {
+    pub fn new(name: SharedString, namespace: Namespace) -> Self {
+        Self { name, namespace }
+    }
+
+    pub fn is_communal(&self) -> bool {
+        self.namespace.is_communal()
+    }
+
+    pub fn is_owned(&self) -> bool {
+        self.namespace.is_owned()
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Profile {
     name: SharedString,
     subspace: Subspace,
+}
+
+impl Profile {
+    pub fn new(name: SharedString, subspace: Subspace) -> Self {
+        Self { name, subspace }
+    }
 }
 
 impl UserVault {
     pub fn new() -> Self {
         Self {
-            namespaces: Default::default(),
-            subspaces: Default::default(),
+            spaces: Default::default(),
+            profiles: Default::default(),
         }
     }
 }
