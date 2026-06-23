@@ -82,9 +82,11 @@ impl User {
         cx.spawn(async move |this, cx| {
             let vault_handle = cx.vaults().unlock(&vault_id, password).await?;
 
-            this.update(cx, |this, _cx| {
+            this.update(cx, |this, cx| {
                 this.vault_handle = Some(vault_handle);
-            })?;
+                this.load_content(cx)
+            })?
+            .await?;
 
             info!("Unlocked user");
             Ok(())
@@ -153,7 +155,9 @@ impl User {
             let user_vault_content = this
                 .update(cx, |this, _cx| {
                     let vault = this.unlocked_vault.as_mut()?;
+                    info!(?vault, "Vault before update");
                     update_fn(vault);
+                    info!(?vault, "Vault after update");
                     let vault_bytes =
                         serde_json::to_vec(vault).context("failed to serialize UserVault");
                     Some(vault_bytes)
@@ -163,6 +167,10 @@ impl User {
 
             cx.vaults()
                 .update(vault_handle, |mut vault| {
+                    info!(
+                        content = &*String::from_utf8_lossy(&user_vault_content),
+                        "Writing vault content"
+                    );
                     *vault.secret() = user_vault_content;
                 })
                 .await?;
@@ -383,7 +391,9 @@ impl UserMetadata {
 #[derive(derive_more::Debug, Serialize, Deserialize)]
 #[debug("UserVault")]
 pub struct UserVault {
+    #[serde(default)]
     spaces: Vec<Space>,
+    #[serde(default)]
     profiles: Vec<Profile>,
 }
 
