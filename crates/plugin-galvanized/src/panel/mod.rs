@@ -22,7 +22,10 @@ use zed::unstable::{
 
 use crate::{
     Galvanized,
-    panel::{profile_nugget::ProfileNugget, vault_menu::VaultMenu},
+    panel::{
+        profile_nugget::ProfileNugget,
+        vault_menu::{VaultButton, VaultMenu},
+    },
     users::User,
 };
 
@@ -172,39 +175,6 @@ impl Render for PanelRoot {
             }
         }
     }
-}
-
-fn gzed_icon<T>(
-    id: impl Into<ElementId>,
-    cx: &mut Context<T>,
-    on_click: impl 'static + Fn(&ClickEvent, &mut Window, &mut App),
-) -> Stateful<Div> {
-    div()
-        .id(id)
-        .size(px(48.))
-        .rounded_2xl()
-        .hover(|style| style.rounded_xl().opacity(0.6))
-        .active(|style| style.bg(cx.theme().colors().ghost_element_hover))
-        .on_click(on_click)
-        .child(
-            h_flex()
-                .mx_auto()
-                .size_full()
-                .rounded_2xl()
-                .bg(linear_gradient(
-                    30. + 180.,
-                    linear_color_stop(rgba(0xff6600ff), 0.0),
-                    linear_color_stop(rgba(0x00002bff), 1.0),
-                ))
-                .items_center()
-                .justify_center()
-                .child(
-                    div()
-                        //
-                        .mx_auto()
-                        .child("G"),
-                ),
-        )
 }
 
 impl PanelRoot {
@@ -519,7 +489,7 @@ impl PanelRoot {
             //         info!("Clicked gzed header");
             //     }),
             // ))
-            .child(self.render_start_menu(window, cx))
+            .child(self.render_vault_menu(window, cx))
             .child(
                 // Namespace icons
                 div()
@@ -612,7 +582,7 @@ impl PanelRoot {
             )
     }
 
-    fn render_start_menu(
+    fn render_vault_menu(
         &mut self,
         _window: &mut Window,
         cx: &mut Context<Self>,
@@ -620,18 +590,12 @@ impl PanelRoot {
         //
         div()
             //
-            .child(gzed_icon(
-                "header-icon",
-                cx,
-                cx.listener(|_this, _e, _window, _cx| {
-                    info!("Clicked gzed header");
-                }),
-            ))
             .child(
                 PopoverMenu::new("start-menu")
                     .anchor(Corner::TopLeft)
                     .attach(Corner::TopRight)
-                    .trigger(ButtonLike::new("start-button"))
+                    .offset(point(px(3.), px(0.)))
+                    .trigger(VaultButton::new("vault-button"))
                     .menu(move |_window, cx| {
                         //
                         let menu = cx.new(|cx| VaultMenu::new(cx));
@@ -1009,4 +973,32 @@ impl<S: Styled + InteractiveElement> PrimaryButton for S {
             .border_color(*GZED_ORANGE)
             .hover(|style| style.bg(*GZED_ORANGE))
     }
+}
+
+pub fn gzed_icon<T>(id: impl Into<ElementId>, cx: &mut Context<T>) -> Stateful<Div> {
+    div()
+        .id(id)
+        .size(px(48.))
+        .rounded_2xl()
+        .hover(|style| style.opacity(0.6))
+        .active(|style| style.bg(cx.theme().colors().ghost_element_hover))
+        .child(
+            h_flex()
+                .mx_auto()
+                .size_full()
+                .rounded_2xl()
+                .bg(linear_gradient(
+                    30. + 180.,
+                    linear_color_stop(rgba(0xff6600ff), 0.0),
+                    linear_color_stop(rgba(0x00002bff), 1.0),
+                ))
+                .items_center()
+                .justify_center()
+                .child(
+                    div()
+                        //
+                        .mx_auto()
+                        .child("G"),
+                ),
+        )
 }

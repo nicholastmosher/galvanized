@@ -55,13 +55,13 @@ impl PanelRoot {
             .p_4()
             .border_b_1()
             .border_color(cx.theme().colors().border_variant)
-            .child(gzed_icon(
-                "gzed-onboarding-header",
-                cx,
-                cx.listener(|_this, _e, _window, _cx| {
-                    info!("Clicked gzed onboarding header");
-                }),
-            ))
+            .child(
+                gzed_icon("gzed-onboarding-header", cx)
+                    //
+                    .on_click(cx.listener(|_this, _e, _window, _cx| {
+                        info!("Clicked gzed onboarding header");
+                    })),
+            )
             .child(
                 div()
                     .flex_1()
