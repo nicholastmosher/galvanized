@@ -290,130 +290,136 @@ impl PanelRoot {
         let initial = name.chars().next().unwrap_or('?').to_string();
         let colors = cx.theme().colors();
 
-        v_flex()
-            .id("scene-sign-in")
-            .pt_2()
-            .text_center()
+        h_flex()
+            .size_full()
+            //
+            .justify_center()
             .child(
-                h_flex()
-                    .id("sign-in-avatar")
-                    .size(px(64.))
-                    .mx_auto()
-                    .mb_3()
-                    .rounded_full()
-                    .bg(*GZED_ORANGE)
-                    .flex_shrink_0()
-                    .items_center()
-                    .justify_center()
-                    .border_2()
-                    .border_color(colors.border)
+                v_flex()
+                    .id("scene-sign-in")
+                    .w_full()
+                    .text_center()
                     .child(
-                        div()
+                        h_flex()
+                            .id("sign-in-avatar")
+                            .size(px(64.))
                             .mx_auto()
-                            .text_xl()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(colors.text)
-                            .child(initial),
-                    ),
-            )
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(FontWeight::BOLD)
-                    .text_color(colors.text)
-                    .mb_1()
-                    .child(name.clone()),
-            )
-            .child(
-                div()
-                    .text_xs()
-                    .text_color(colors.text_muted)
-                    .mb_1()
-                    .child("Enter your vault password to unlock"),
-            )
-            .child(
-                div()
-                    .text_xs()
-                    .text_color(colors.text_placeholder)
-                    .mb_5()
-                    .child("1 profile"),
-            )
-            .child(
-                div().flex_col().gap_3().child(
-                    div()
-                        .id("password-input-wrapper")
-                        .w_full()
-                        .child(self.login_password_input.clone()),
-                ),
-            )
-            .child(
-                h_flex()
-                    .id("sign-in-actions")
-                    .gap_2()
-                    .mt_6()
-                    .child(
-                        div()
-                            .id("sign-in-back")
-                            .flex_1()
-                            .px_3()
-                            .py_2()
-                            .rounded_lg()
-                            .bg(colors.border_variant)
-                            .hover(|style| style.bg(colors.border))
-                            .border_1()
+                            .mb_3()
+                            .rounded_full()
+                            .bg(*GZED_ORANGE)
+                            .flex_shrink_0()
+                            .items_center()
+                            .justify_center()
+                            .border_2()
                             .border_color(colors.border)
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _e, _window, _cx| {
-                                this.vault_scene = VaultScene::VaultPicker;
-                            }))
                             .child(
                                 div()
-                                    .text_sm()
-                                    .text_color(colors.text_muted)
-                                    .text_center()
-                                    .child("Back"),
+                                    .mx_auto()
+                                    .text_xl()
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(colors.text)
+                                    .child(initial),
                             ),
                     )
                     .child(
                         div()
-                            .id("sign-in-unlock")
-                            .flex_1()
-                            .px_3()
-                            .py_2()
-                            .rounded_lg()
-                            .primary_button()
-                            .shadow_lg()
-                            .cursor_pointer()
-                            .on_click(cx.listener({
-                                let user = user.clone();
-                                move |this, _e, window, cx| {
-                                    let input = this.login_password_input.clone();
-                                    let password = input.read(cx).text(cx);
-                                    input.update(cx, |input, cx| input.clear(window, cx));
-                                    if password.trim().is_empty() {
-                                        return;
-                                    }
-
-                                    info!("Sign in clicked");
-                                    let user = user.clone();
-                                    cx.spawn(async move |this, cx| {
-                                        user.unlock(cx, password).await?;
-                                        info!("Sign in succeeded");
-                                        this.update(cx, |this, _cx| {
-                                            this.active_user = Some(user);
-                                        })?;
-                                        anyhow::Ok(())
-                                    })
-                                    .detach_and_log_err(cx);
-                                }
-                            }))
+                            .text_lg()
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(colors.text)
+                            .mb_1()
+                            .child(name.clone()),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(colors.text_muted)
+                            .mb_1()
+                            .child("Enter your vault password to unlock"),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(colors.text_placeholder)
+                            .mb_5()
+                            .child("1 profile"),
+                    )
+                    .child(
+                        div().flex_col().gap_3().child(
+                            div()
+                                .id("password-input-wrapper")
+                                .w_full()
+                                .child(self.login_password_input.clone()),
+                        ),
+                    )
+                    .child(
+                        h_flex()
+                            .id("sign-in-actions")
+                            .gap_2()
+                            .mt_6()
                             .child(
                                 div()
-                                    .text_sm()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(colors.text)
-                                    .text_center()
-                                    .child("Unlock"),
+                                    .id("sign-in-back")
+                                    .flex_1()
+                                    .px_3()
+                                    .py_2()
+                                    .rounded_lg()
+                                    .bg(colors.border_variant)
+                                    .hover(|style| style.bg(colors.border))
+                                    .border_1()
+                                    .border_color(colors.border)
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(|this, _e, _window, _cx| {
+                                        this.vault_scene = VaultScene::VaultPicker;
+                                    }))
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .text_color(colors.text_muted)
+                                            .text_center()
+                                            .child("Back"),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .id("sign-in-unlock")
+                                    .flex_1()
+                                    .px_3()
+                                    .py_2()
+                                    .rounded_lg()
+                                    .primary_button()
+                                    .shadow_lg()
+                                    .cursor_pointer()
+                                    .on_click(cx.listener({
+                                        let user = user.clone();
+                                        move |this, _e, window, cx| {
+                                            let input = this.login_password_input.clone();
+                                            let password = input.read(cx).text(cx);
+                                            input.update(cx, |input, cx| input.clear(window, cx));
+                                            if password.trim().is_empty() {
+                                                return;
+                                            }
+
+                                            info!("Sign in clicked");
+                                            let user = user.clone();
+                                            cx.spawn(async move |this, cx| {
+                                                user.unlock(cx, password).await?;
+                                                info!("Sign in succeeded");
+                                                this.update(cx, |this, _cx| {
+                                                    this.active_user = Some(user);
+                                                })?;
+                                                anyhow::Ok(())
+                                            })
+                                            .detach_and_log_err(cx);
+                                        }
+                                    }))
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .text_color(colors.text)
+                                            .text_center()
+                                            .child("Unlock"),
+                                    ),
                             ),
                     ),
             )
@@ -426,167 +432,179 @@ impl PanelRoot {
     ) -> impl IntoElement {
         let colors = cx.theme().colors();
 
-        v_flex()
-            .id("scene-create-vault")
-            .pt_2()
-            .child(
-                h_flex()
-                    .id("vault-icon")
-                    .size(px(48.))
-                    .mx_auto()
-                    .mb_4()
-                    .rounded_full()
-                    .bg(colors.border_variant)
-                    .border_2()
-                    .border_color(colors.border)
-                    .items_center()
-                    .justify_center()
-                    .child(
-                        div()
-                            //
-                            .mx_auto()
-                            .child(
-                                Icon::new(IconName::LockOutlined)
-                                    .size(IconSize::Medium)
-                                    .color(Color::Custom(*GZED_ORANGE)),
-                            ),
-                    ),
-            )
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(FontWeight::BOLD)
-                    .text_color(colors.text)
-                    .text_center()
-                    .mb_1()
-                    .child("Create Your Vault"),
-            )
-            .child(
-                div()
-                    .text_xs()
-                    .text_color(colors.text_muted)
-                    .text_center()
-                    .mb_5()
-                    .child("One master password unlocks all your profiles, keys, and data."),
-            )
+        h_flex()
+            .size_full()
+            //
+            .justify_center()
             .child(
                 v_flex()
-                    .flex_col()
-                    .gap_2()
+                    .id("scene-create-vault")
+                    .w_full()
                     .child(
-                        div()
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(colors.text_muted)
-                                    .mb_1()
-                                    .child("Display Name"),
-                            )
-                            .child(self.display_name_input.clone()),
-                    )
-                    .child(
-                        div()
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(colors.text_muted)
-                                    .mb_1()
-                                    .child("Master Password"),
-                            )
-                            .child(self.create_password_input.clone()),
-                    )
-                    .child(
-                        div()
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(colors.text_muted)
-                                    .mb_1()
-                                    .child("Confirm Password"),
-                            )
-                            .child(self.create_password_confirmation_input.clone()),
-                    ),
-            )
-            .child(
-                h_flex()
-                    .id("vault-actions")
-                    .gap_2()
-                    .mt_6()
-                    .child(
-                        div()
-                            .id("vault-back")
-                            .flex_1()
-                            .px_3()
-                            .py_2()
-                            .rounded_lg()
+                        h_flex()
+                            .id("vault-icon")
+                            .size(px(48.))
+                            .mx_auto()
+                            .mb_4()
+                            .rounded_full()
                             .bg(colors.border_variant)
-                            .hover(|style| style.bg(colors.border))
-                            .border_1()
+                            .border_2()
                             .border_color(colors.border)
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _e, _window, _cx| {
-                                this.vault_scene = VaultScene::VaultPicker;
-                            }))
+                            .items_center()
+                            .justify_center()
                             .child(
                                 div()
-                                    .text_sm()
-                                    .text_color(colors.text_muted)
-                                    .text_center()
-                                    .child("Back"),
+                                    //
+                                    .mx_auto()
+                                    .child(
+                                        Icon::new(IconName::LockOutlined)
+                                            .size(IconSize::Medium)
+                                            .color(Color::Custom(*GZED_ORANGE)),
+                                    ),
                             ),
                     )
                     .child(
                         div()
-                            .id("vault-create")
-                            .flex_1()
-                            .px_3()
-                            .py_2()
-                            .rounded_lg()
-                            .primary_button()
-                            .shadow_lg()
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _e, _window, cx| {
-                                let display_name = this.display_name_input.read(cx).text(cx);
-                                if display_name.is_empty() {
-                                    return;
-                                }
-
-                                let password = this.create_password_input.read(cx).text(cx);
-                                let password_confirm =
-                                    this.create_password_confirmation_input.read(cx).text(cx);
-                                if password.is_empty() || password_confirm.is_empty() {
-                                    return;
-                                }
-
-                                if password != password_confirm {
-                                    return;
-                                }
-
-                                info!("Creating vault: {}", display_name);
-                                cx.spawn(async move |this, cx| {
-                                    let galvanized =
-                                        this.read_with(cx, |this, _cx| this.galvanized.clone())?;
-                                    let user = galvanized
-                                        .update(cx, |g, cx| {
-                                            g.create_user(display_name, password, cx)
-                                        })
-                                        .await?;
-                                    this.update(cx, |this, _cx| {
-                                        this.users.push(user.clone());
-                                        this.active_user = Some(user);
-                                        this.vault_scene = VaultScene::VaultPicker;
-                                    })?;
-                                    anyhow::Ok(())
-                                })
-                                .detach_and_log_err(cx);
-                            }))
+                            .text_lg()
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(colors.text)
+                            .text_center()
+                            .mb_1()
+                            .child("Create Your Vault"),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(colors.text_muted)
+                            .text_center()
+                            .mb_5()
+                            .child(
+                                "One master password unlocks all your profiles, keys, and data.",
+                            ),
+                    )
+                    .child(
+                        v_flex()
+                            .flex_col()
+                            .gap_2()
                             .child(
                                 div()
-                                    .text_sm()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(colors.text)
-                                    .text_center()
-                                    .child("Create Vault"),
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(colors.text_muted)
+                                            .mb_1()
+                                            .child("Display Name"),
+                                    )
+                                    .child(self.display_name_input.clone()),
+                            )
+                            .child(
+                                div()
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(colors.text_muted)
+                                            .mb_1()
+                                            .child("Master Password"),
+                                    )
+                                    .child(self.create_password_input.clone()),
+                            )
+                            .child(
+                                div()
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(colors.text_muted)
+                                            .mb_1()
+                                            .child("Confirm Password"),
+                                    )
+                                    .child(self.create_password_confirmation_input.clone()),
+                            ),
+                    )
+                    .child(
+                        h_flex()
+                            .id("vault-actions")
+                            .gap_2()
+                            .mt_6()
+                            .child(
+                                div()
+                                    .id("vault-back")
+                                    .flex_1()
+                                    .px_3()
+                                    .py_2()
+                                    .rounded_lg()
+                                    .bg(colors.border_variant)
+                                    .hover(|style| style.bg(colors.border))
+                                    .border_1()
+                                    .border_color(colors.border)
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(|this, _e, _window, _cx| {
+                                        this.vault_scene = VaultScene::VaultPicker;
+                                    }))
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .text_color(colors.text_muted)
+                                            .text_center()
+                                            .child("Back"),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .id("vault-create")
+                                    .flex_1()
+                                    .px_3()
+                                    .py_2()
+                                    .rounded_lg()
+                                    .primary_button()
+                                    .shadow_lg()
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(|this, _e, _window, cx| {
+                                        let display_name =
+                                            this.display_name_input.read(cx).text(cx);
+                                        if display_name.is_empty() {
+                                            return;
+                                        }
+
+                                        let password = this.create_password_input.read(cx).text(cx);
+                                        let password_confirm = this
+                                            .create_password_confirmation_input
+                                            .read(cx)
+                                            .text(cx);
+                                        if password.is_empty() || password_confirm.is_empty() {
+                                            return;
+                                        }
+
+                                        if password != password_confirm {
+                                            return;
+                                        }
+
+                                        info!("Creating vault: {}", display_name);
+                                        cx.spawn(async move |this, cx| {
+                                            let galvanized = this.read_with(cx, |this, _cx| {
+                                                this.galvanized.clone()
+                                            })?;
+                                            let user = galvanized
+                                                .update(cx, |g, cx| {
+                                                    g.create_user(display_name, password, cx)
+                                                })
+                                                .await?;
+                                            this.update(cx, |this, _cx| {
+                                                this.users.push(user.clone());
+                                                this.active_user = Some(user);
+                                                this.vault_scene = VaultScene::VaultPicker;
+                                            })?;
+                                            anyhow::Ok(())
+                                        })
+                                        .detach_and_log_err(cx);
+                                    }))
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .text_color(colors.text)
+                                            .text_center()
+                                            .child("Create Vault"),
+                                    ),
                             ),
                     ),
             )
