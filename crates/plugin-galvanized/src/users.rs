@@ -38,6 +38,7 @@ pub struct User {
     // TODO: Create a capability-powered caching wrapper, with timeout and revoke {
     unlocked_vault: Option<UserVault>,
     unlocked_spaces: BTreeMap<NamespaceId, Entity<Space>>,
+    unlocked_active_profile: Option<Entity<Profile>>,
     unlocked_profiles: BTreeMap<SubspaceId, Entity<Profile>>,
     // } END TODO: capability-powered caching
     unlock_task: Option<Task<Result<()>>>,
@@ -64,6 +65,7 @@ impl User {
             vault_handle: None,
             unlocked_vault: None,
             unlocked_spaces: Default::default(),
+            unlocked_active_profile: Default::default(),
             unlocked_profiles: Default::default(),
             unlock_task: None,
         }
@@ -267,6 +269,14 @@ impl User {
         self.unlocked_spaces.values().cloned().collect()
     }
 
+    pub fn active_profile(&self) -> Option<Entity<Profile>> {
+        self.unlocked_active_profile.clone()
+    }
+
+    pub fn profiles(&self) -> Vec<Entity<Profile>> {
+        self.unlocked_profiles.values().cloned().collect()
+    }
+
     /// Create a Profile, a Willow subspace with a display name
     ///
     /// This is side-effectful, after this the Profile will exist in the user's vault
@@ -438,6 +448,10 @@ impl Profile {
 
     pub fn id(&self) -> SubspaceId {
         self.subspace.id()
+    }
+
+    pub fn name(&self) -> SharedString {
+        self.name.clone()
     }
 }
 

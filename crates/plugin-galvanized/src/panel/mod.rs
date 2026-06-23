@@ -588,12 +588,12 @@ impl PanelRoot {
                         h_flex()
                             .id("add-namespace-button")
                             .size(px(48.))
-                            .rounded_2xl()
                             .border_2()
                             .border_dashed()
                             .border_color(cx.theme().colors().border.opacity(0.5))
+                            .rounded_xl()
                             .hover(|style| {
-                                style.rounded_xl().border_color(cx.theme().colors().border)
+                                style.rounded_lg().border_color(cx.theme().colors().border)
                             })
                             .active(|style| style.bg(cx.theme().colors().ghost_element_hover))
                             .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -618,6 +618,8 @@ impl PanelRoot {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let active_user = self.galvanized.read(cx).active_user.clone().unwrap();
+
         //
         div()
             //
@@ -629,7 +631,7 @@ impl PanelRoot {
                     .trigger(VaultButton::new("vault-button"))
                     .menu(move |_window, cx| {
                         //
-                        let menu = cx.new(|cx| VaultMenu::new(cx));
+                        let menu = cx.new(|cx| VaultMenu::new(active_user.clone(), cx));
                         Some(menu)
                     }),
             )
@@ -841,8 +843,6 @@ impl PanelRoot {
         user: Entity<User>,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let user_name = user.read(cx).name();
-        let initial = user_name.chars().next().unwrap_or('?').to_string();
         let weak_self = cx.weak_entity();
 
         h_flex()
@@ -861,8 +861,8 @@ impl PanelRoot {
                     .offset(point(px(0.), px(-4.)))
                     .trigger(ProfileNugget::new(
                         "profile-nugget",
-                        initial.into(),
-                        user_name,
+                        cx.entity(),
+                        user.read(cx).active_profile(),
                     ))
                     .menu({
                         move |window, cx| {

@@ -6,7 +6,7 @@
 
 use zed::unstable::{
     gpui::{
-        self, ClickEvent, CursorStyle, DismissEvent, EventEmitter, FocusHandle, Focusable,
+        self, ClickEvent, CursorStyle, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
         Stateful, linear_color_stop, linear_gradient, rgba,
     },
     ui::{
@@ -15,6 +15,8 @@ use zed::unstable::{
         Styled as _, Toggleable, Window, div, h_flex, px, v_flex,
     },
 };
+
+use crate::users::User;
 
 /// Vault menu button, like a start menu, to open the vault-scope context menu
 #[derive(IntoElement)]
@@ -83,12 +85,14 @@ impl RenderOnce for VaultButton {
 /// The menu that opens when the Vault menu button is clicked
 pub struct VaultMenu {
     focus_handle: FocusHandle,
+    user: Entity<User>,
 }
 
 impl VaultMenu {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(user: Entity<User>, cx: &mut Context<Self>) -> Self {
         Self {
             focus_handle: cx.focus_handle(),
+            user,
         }
     }
 }
@@ -101,7 +105,10 @@ impl Focusable for VaultMenu {
 
 impl EventEmitter<DismissEvent> for VaultMenu {}
 impl Render for VaultMenu {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let user_name = self.user.read(cx).name();
+        let initial = user_name.chars().next().unwrap_or('?').to_string();
+
         v_flex()
             .bg(cx.theme().colors().background)
             .min_w_40()
@@ -120,7 +127,41 @@ impl Render for VaultMenu {
                     .gap_2()
                     .border_b_1()
                     .border_color(cx.theme().colors().border)
-                    .child("Header"),
+                    .child(
+                        h_flex()
+                            .size_8()
+                            .rounded_full()
+                            .bg(rgba(0xea580cff))
+                            .flex_shrink_0()
+                            .items_center()
+                            .justify_center()
+                            .child(
+                                div()
+                                    .mx_auto()
+                                    .text_xs()
+                                    .font_weight(gpui::FontWeight::BOLD)
+                                    .text_color(rgba(0xffffffff))
+                                    .child(initial),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .text_color(cx.theme().colors().text)
+                                    .child(user_name),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(cx.theme().colors().text_muted)
+                                    .child("Vault unlocked"),
+                            ),
+                    ),
             )
             .child(
                 //
