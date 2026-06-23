@@ -533,68 +533,51 @@ impl PanelRoot {
             .bg(cx.theme().colors().editor_background)
             .h_full()
             .w(px(72.))
-            .items_center()
             .py_2()
+            .gap_2()
             .border_r_1()
             .border_color(cx.theme().colors().border)
+            .items_center()
             .child(self.render_vault_menu(window, cx))
-            .child(
-                // Namespace icons
-                div()
-                    .id("namespace-icons")
-                    .flex_1()
-                    .overflow_y_scroll()
-                    .flex_col()
-                    .items_center()
-                    .gap_2()
-                    .px_1()
-                    .w_full()
-                    .children(spaces.into_iter().enumerate().map(
-                        |(i, space): (usize, Entity<Space>)| {
-                            let name = space.read(cx).name();
+            .children(
+                spaces
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, space): (usize, Entity<Space>)| {
+                        let name = space.read(cx).name();
 
-                            let gradient = linear_gradient(
-                                135.,
-                                linear_color_stop(rgba(0x3b82f6ff), 0.0),
-                                linear_color_stop(rgba(0x1d4ed8ff), 1.0),
-                            );
+                        let gradient = linear_gradient(
+                            135.,
+                            linear_color_stop(rgba(0x3b82f6ff), 0.0),
+                            linear_color_stop(rgba(0x1d4ed8ff), 1.0),
+                        );
 
-                            let icon_content: AnyElement =
-                                div().text_lg().child("🔒").into_any_element();
-
-                            div()
-                                .id(SharedString::from(format!("namespace-icon-{i}")))
-                                .relative()
-                                .items_center()
-                                .child(
-                                    div()
-                                        .id(SharedString::from(format!("namespace-btn-{i}")))
-                                        .size(px(48.))
-                                        .rounded_2xl()
-                                        .bg(gradient)
-                                        .hover(|style| style.rounded_xl())
-                                        .active(|style| style.opacity(0.8))
-                                        .tooltip(Tooltip::text(name))
-                                        .on_click(cx.listener(move |_this, _e, _window, _cx| {
-                                            // TODO: toggle space filter
-                                            info!("Clicked namespace icon {i}");
-                                        }))
-                                        .items_center()
-                                        .justify_center()
-                                        .child(icon_content),
-                                )
-                        },
-                    )),
+                        h_flex()
+                            .id(SharedString::from(format!("namespace-btn-{i}")))
+                            .size(px(48.))
+                            .rounded_2xl()
+                            .bg(gradient)
+                            .hover(|style| style.rounded_xl())
+                            .active(|style| style.opacity(0.8))
+                            .tooltip(Tooltip::text(name))
+                            .on_click(cx.listener(move |_this, _e, _window, _cx| {
+                                // TODO: toggle space filter
+                                info!("Clicked namespace icon {i}");
+                            }))
+                            .items_center()
+                            .justify_center()
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .mx_auto()
+                                    .text_lg()
+                                    .child("🔒")
+                                    .into_any_element(),
+                            )
+                    }),
             )
-            .child(
-                // Separator before profile
-                div()
-                    .w(px(32.))
-                    .h(px(2.))
-                    .rounded_full()
-                    .bg(cx.theme().colors().border)
-                    .my_2(),
-            )
+            .child(div().flex_grow())
             .child(
                 //
                 v_flex()
