@@ -200,7 +200,7 @@ impl PanelRoot {
             .child(
                 h_flex()
                     .size_full()
-                    .child(self.render_left_rail(window, cx))
+                    .child(self.render_left_rail(user.clone(), window, cx))
                     .child(self.render_app_sidebar(window, cx)),
             )
             .child(self.render_profile_bar(user, cx))
@@ -522,11 +522,11 @@ impl PanelRoot {
 
     fn render_left_rail(
         &mut self,
+        user: Entity<User>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let active_user = self.galvanized.read(cx).active_user.clone().unwrap();
-        let spaces = active_user.read(cx).spaces();
+        let spaces = user.read(cx).spaces();
 
         v_flex()
             .id("left-rail")
@@ -538,7 +538,7 @@ impl PanelRoot {
             .border_r_1()
             .border_color(cx.theme().colors().border)
             .items_center()
-            .child(self.render_vault_menu(window, cx))
+            .child(self.render_vault_menu(user, window, cx))
             .children(
                 spaces
                     .into_iter()
@@ -615,10 +615,11 @@ impl PanelRoot {
 
     fn render_vault_menu(
         &mut self,
+        user: Entity<User>,
         _window: &mut Window,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let active_user = self.galvanized.read(cx).active_user.clone().unwrap();
+        let galvanized = self.galvanized.clone();
 
         //
         div()
@@ -631,7 +632,10 @@ impl PanelRoot {
                     .trigger(VaultButton::new("vault-button"))
                     .menu(move |_window, cx| {
                         //
-                        let menu = cx.new(|cx| VaultMenu::new(active_user.clone(), cx));
+                        let user = user.clone();
+                        let galvanized = galvanized.clone();
+                        let menu =
+                            cx.new(move |cx| VaultMenu::new(user.clone(), galvanized.clone(), cx));
                         Some(menu)
                     }),
             )
@@ -919,21 +923,6 @@ impl PanelRoot {
                         }
                     }),
             )
-            .child(
-                // Lock button
-                div()
-                    .id("lock-button")
-                    .p_4()
-                    .rounded_md()
-                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                    .on_click(cx.listener(|this, _e, _window, cx| {
-                        this.galvanized.update(cx, |it, _cx| it.active_user = None);
-                    }))
-                    .child(
-                        Icon::new(IconName::LockOutlined)
-                            .color(Color::Custom(cx.theme().colors().text_muted)),
-                    ),
-            )
     }
 }
 
@@ -1007,7 +996,7 @@ impl<S: Styled + InteractiveElement> PrimaryButton for S {
     }
 }
 
-pub fn gzed_icon(id: impl Into<ElementId>, cx: &mut App) -> Stateful<Div> {
+pub fn gzed_icon(id: impl Into<ElementId>, _cx: &mut App) -> Stateful<Div> {
     div()
         //
         .id(id)

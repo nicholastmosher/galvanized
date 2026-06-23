@@ -10,13 +10,14 @@ use zed::unstable::{
         Stateful, linear_color_stop, linear_gradient, rgba,
     },
     ui::{
-        ActiveTheme as _, App, Clickable, Context, Div, ElementId, InteractiveElement as _,
-        IntoElement, ParentElement as _, Render, RenderOnce, StatefulInteractiveElement as _,
-        Styled as _, Toggleable, Window, div, h_flex, px, v_flex,
+        ActiveTheme as _, App, Clickable, Context, Div, ElementId, Icon, IconName,
+        InteractiveElement as _, IntoElement, ParentElement as _, Render, RenderOnce,
+        StatefulInteractiveElement as _, Styled as _, Toggleable, Tooltip, Window, div, h_flex, px,
+        v_flex,
     },
 };
 
-use crate::users::User;
+use crate::{Galvanized, users::User};
 
 /// Vault menu button, like a start menu, to open the vault-scope context menu
 #[derive(IntoElement)]
@@ -85,13 +86,15 @@ impl RenderOnce for VaultButton {
 /// The menu that opens when the Vault menu button is clicked
 pub struct VaultMenu {
     focus_handle: FocusHandle,
+    galvanized: Entity<Galvanized>,
     user: Entity<User>,
 }
 
 impl VaultMenu {
-    pub fn new(user: Entity<User>, cx: &mut Context<Self>) -> Self {
+    pub fn new(user: Entity<User>, galvanized: Entity<Galvanized>, cx: &mut Context<Self>) -> Self {
         Self {
             focus_handle: cx.focus_handle(),
+            galvanized,
             user,
         }
     }
@@ -161,6 +164,24 @@ impl Render for VaultMenu {
                                     .text_color(cx.theme().colors().text_muted)
                                     .child("Vault unlocked"),
                             ),
+                    )
+                    .child(
+                        // Lock button
+                        h_flex()
+                            .id("lock-vault")
+                            .p_2()
+                            .gap_2()
+                            .border_1()
+                            .border_color(cx.theme().colors().border)
+                            .rounded_md()
+                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _e, _window, cx| {
+                                this.galvanized.update(cx, |it, _cx| it.active_user = None);
+                                cx.emit(DismissEvent);
+                            }))
+                            .tooltip(Tooltip::text("Lock Vault"))
+                            .child(Icon::new(IconName::LockOutlined)),
                     ),
             )
             .child(

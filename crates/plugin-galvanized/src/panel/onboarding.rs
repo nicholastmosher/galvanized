@@ -2,16 +2,16 @@ use std::sync::LazyLock;
 
 use tracing::info;
 use zed::unstable::{
-    gpui::{Entity, FontWeight, Hsla, Stateful, rgba},
+    gpui::{Entity, FontWeight, Hsla, rgba},
     ui::{
-        ActiveTheme, App, Color, Context, Div, Icon, IconName, IconSize, InteractiveElement,
-        IntoElement, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled,
-        Window, div, h_flex, px, v_flex,
+        ActiveTheme, Color, Context, Icon, IconName, IconSize, InteractiveElement, IntoElement,
+        ParentElement as _, StatefulInteractiveElement as _, Styled, Window, div, h_flex, px,
+        v_flex,
     },
 };
 
 use crate::{
-    panel::{PanelRoot, PrimaryButton as _, VaultScene, gzed_icon, render_scene_header},
+    panel::{PanelRoot, PrimaryButton as _, VaultScene, render_scene_header},
     users::{User, UserHandle as _},
 };
 
