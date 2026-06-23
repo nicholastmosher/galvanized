@@ -46,7 +46,7 @@ pub struct PanelRoot {
     width: Option<Pixels>,
     galvanized: Entity<Galvanized>,
 
-    pub(crate) onboarding_state: OnboardingState,
+    pub(crate) vault_scene: VaultScene,
     pub(crate) display_name_input: Entity<InputField>,
     pub(crate) create_password_input: Entity<InputField>,
     pub(crate) create_password_confirmation_input: Entity<InputField>,
@@ -70,17 +70,13 @@ pub struct PanelRoot {
 /// Each variant corresponds to a scene in the onboarding panel.
 /// The flow progresses linearly for new users, or branches to
 /// sign-in for existing users.
-pub enum OnboardingState {
+pub enum VaultScene {
     /// Initial vault picker shows existing vaults and create-new
-    Picker,
+    VaultPicker,
     /// Sign-in prompt for an existing vault
-    SignIn(Entity<User>),
-    /// Welcome screen for new users
-    Welcome,
+    UnlockPrompt(Entity<User>),
     /// Create vault (master password + display name)
     CreateVault,
-    /// Onboarding complete, ready to enter main app
-    Done,
 }
 
 /// Post-onboarding flows that take over the panel.
@@ -129,7 +125,7 @@ impl PanelRoot {
             width: None,
             galvanized,
 
-            onboarding_state: OnboardingState::Picker,
+            vault_scene: VaultScene::VaultPicker,
             display_name_input,
             create_password_input,
             create_password_confirmation_input,

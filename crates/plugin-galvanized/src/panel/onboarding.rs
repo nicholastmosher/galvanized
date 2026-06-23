@@ -11,7 +11,7 @@ use zed::unstable::{
 };
 
 use crate::{
-    panel::{OnboardingState, PanelRoot, PrimaryButton as _, gzed_icon},
+    panel::{PanelRoot, PrimaryButton as _, VaultScene, gzed_icon},
     users::{User, UserHandle as _},
 };
 
@@ -32,17 +32,16 @@ impl PanelRoot {
             .w(panel_width)
             .bg(cx.theme().colors().panel_background)
             .child(self.render_onboarding_header(cx))
-            .child(self.render_step_progress(cx))
             .child(
                 div()
                     .id("onboarding-scenes")
+                    .h_full()
                     .flex_1()
                     .overflow_y_scroll()
                     .px_5()
                     .py_5()
-                    .child(self.render_current_scene(window, cx)),
+                    .child(self.render_onboarding_scene(window, cx)),
             )
-            .child(self.render_onboarding_footer(cx))
     }
 
     /// Panel header with logo, title, and subtitle.
@@ -86,88 +85,26 @@ impl PanelRoot {
             )
     }
 
-    /// Step progress dots: hidden on picker, sign-in, and done scenes.
-    fn render_step_progress(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
-        let current_step = self.current_step();
-        let show = current_step > 0;
-        let colors = cx.theme().colors();
-        let status = cx.theme().status();
-
-        h_flex()
-            .id("step-progress")
-            .when(!show, |el| el.hidden())
-            .items_center()
-            .justify_center()
-            .gap_2()
-            .px_5()
-            .py_3()
-            .border_b_1()
-            .border_color(colors.border_variant)
-            .children((1..=2).map(|i| {
-                let is_active = i == current_step;
-                let is_done = i < current_step;
-
-                let color = if is_done {
-                    status.success
-                } else if is_active {
-                    *GZED_ORANGE
-                } else {
-                    colors.element_disabled
-                };
-
-                let mut dot = div()
-                    .id(format!("step-{}", i))
-                    .size(px(8.))
-                    .rounded_full()
-                    .bg(color);
-
-                if is_active {
-                    dot = dot.shadow_lg();
-                }
-
-                dot.into_any_element()
-            }))
-            .into_any_element()
-    }
-
-    /// Footer with encryption notice.
-    fn render_onboarding_footer(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
-        let colors = cx.theme().colors();
-
-        h_flex()
-            .id("onboarding-footer")
-            .px_5()
-            .py_3()
-            .border_t_1()
-            .border_color(colors.border_variant)
-            .justify_center()
-            .child(
-                div()
-                    .text_xs()
-                    .text_color(colors.text_placeholder)
-                    .child("🔐 Everything is end-to-end encrypted"),
-            )
-    }
-
     /// Route to the current scene renderer based on onboarding state.
-    fn render_current_scene(
+    fn render_onboarding_scene(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        match &self.onboarding_state {
-            OnboardingState::Picker => self.render_scene_picker(window, cx).into_any_element(),
-            OnboardingState::SignIn(user) => self
-                .render_scene_sign_in(user.clone(), window, cx)
-                .into_any_element(),
-            OnboardingState::Welcome => self.render_scene_welcome(window, cx).into_any_element(),
-            OnboardingState::CreateVault => self
-                .render_scene_create_vault(window, cx)
-                .into_any_element(),
-            OnboardingState::Done => {
+        match &self.vault_scene {
+            VaultScene::VaultPicker => {
                 //
-                // self.render_scene_done(window, cx).into_any_element()
-                div().into_any_element()
+                self.render_scene_picker(window, cx).into_any_element()
+            }
+            VaultScene::UnlockPrompt(user) => {
+                //
+                self.render_scene_sign_in(user.clone(), window, cx)
+                    .into_any_element()
+            }
+            VaultScene::CreateVault => {
+                //
+                self.render_scene_create_vault(window, cx)
+                    .into_any_element()
             }
         }
     }
@@ -234,8 +171,8 @@ impl PanelRoot {
                                     .on_click(cx.listener({
                                         let user = user.clone();
                                         move |this, _e, _window, _cx| {
-                                            this.onboarding_state =
-                                                OnboardingState::SignIn(user.clone());
+                                            this.vault_scene =
+                                                VaultScene::UnlockPrompt(user.clone());
                                         }
                                     }))
                                     .child(
@@ -301,7 +238,7 @@ impl PanelRoot {
                     })
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _e, _window, _cx| {
-                        this.onboarding_state = OnboardingState::Welcome;
+                        this.vault_scene = VaultScene::CreateVault;
                     }))
                     .child(
                         h_flex()
@@ -427,7 +364,7 @@ impl PanelRoot {
                             .border_color(colors.border)
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
-                                this.onboarding_state = OnboardingState::Picker;
+                                this.vault_scene = VaultScene::VaultPicker;
                             }))
                             .child(
                                 div()
@@ -477,79 +414,6 @@ impl PanelRoot {
                                     .text_color(colors.text)
                                     .text_center()
                                     .child("Unlock"),
-                            ),
-                    ),
-            )
-    }
-
-    fn render_scene_welcome(
-        &mut self,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        v_flex()
-            .id("scene-welcome")
-            .w_full()
-            .text_center()
-            .pt_4()
-            .child(gzed_icon("gzed-welcome", cx, cx.listener(|_this, _e, _window, _cx| {
-                info!("Clicked welcome");
-            })))
-            .child(
-                div()
-                    .text_xl()
-                    .font_weight(FontWeight::BOLD)
-                    .text_color(cx.theme().colors().text)
-                    .mb_2()
-                    .child("Welcome to Galvanized"),
-            )
-            .child(
-                div()
-                    .id("welcome-description")
-                    .text_sm()
-                    .text_color(cx.theme().colors().text_muted)
-                    .mb_6()
-                    .child("Your decentralized data space. Everything encrypted, unlocked by one master password."),
-            )
-            .child(
-                div()
-                    .id("welcome-create-btn")
-                    .w_full()
-                    .self_center()
-                    .px_4()
-                    .py_2()
-                    .rounded_lg()
-                    .primary_button()
-                    .shadow_lg()
-                    .cursor_pointer()
-                    .on_click(cx.listener(|this, _e, _window, _cx| {
-                        this.onboarding_state = OnboardingState::CreateVault;
-                    }))
-                    .child(
-                        div()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(cx.theme().colors().text)
-                            .text_center()
-                            .child("Create Your First Vault"),
-                    ),
-            )
-            .child(
-                div()
-                    .text_xs()
-                    .text_color(cx.theme().colors().border_variant)
-                    .mt_5()
-                    .child(
-                        div()
-                            .id("welcome-back-link")
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _e, _window, _cx| {
-                                this.onboarding_state = OnboardingState::Picker;
-                            }))
-                            .child(
-                                div()
-                                    .text_color(*GZED_ORANGE)
-                                    .child("← Back to user selection"),
                             ),
                     ),
             )
@@ -661,7 +525,7 @@ impl PanelRoot {
                             .border_color(colors.border)
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _e, _window, _cx| {
-                                this.onboarding_state = OnboardingState::Welcome;
+                                this.vault_scene = VaultScene::VaultPicker;
                             }))
                             .child(
                                 div()
@@ -710,7 +574,7 @@ impl PanelRoot {
                                     this.update(cx, |this, _cx| {
                                         this.users.push(user.clone());
                                         this.active_user = Some(user);
-                                        this.onboarding_state = OnboardingState::Done;
+                                        this.vault_scene = VaultScene::VaultPicker;
                                     })?;
                                     anyhow::Ok(())
                                 })
@@ -730,22 +594,10 @@ impl PanelRoot {
 
     /// Returns the (title, subtitle) for the current onboarding state.
     fn header_for_state(&self) -> (&'static str, &'static str) {
-        match self.onboarding_state {
-            OnboardingState::Picker => ("Galvanized", "Your decentralized data space"),
-            OnboardingState::SignIn(_) => ("Sign In", "Unlock your vault"),
-            OnboardingState::Welcome | OnboardingState::CreateVault => {
-                ("Getting Started", "Set up your decentralized data space")
-            }
-            OnboardingState::Done => ("Welcome!", "Your vault is ready"),
-        }
-    }
-
-    /// Returns the current step number (1-3) for onboarding scenes, or 0 for non-onboarding scenes.
-    fn current_step(&self) -> usize {
-        match self.onboarding_state {
-            OnboardingState::Picker | OnboardingState::SignIn(_) | OnboardingState::Done => 0,
-            OnboardingState::Welcome => 1,
-            OnboardingState::CreateVault => 2,
+        match self.vault_scene {
+            VaultScene::VaultPicker => ("Galvanized", "Your decentralized data space"),
+            VaultScene::UnlockPrompt(_) => ("Sign In", "Unlock your vault"),
+            VaultScene::CreateVault => ("Getting Started", "Set up your decentralized data space"),
         }
     }
 }
