@@ -3,16 +3,15 @@ use std::sync::LazyLock;
 use tracing::info;
 use zed::unstable::{
     gpui::{
-        self, Action, AnyElement, AppContext as _, ClickEvent, Corner, CursorStyle, Entity,
+        self, Action, AnyElement, AppContext as _, ClickEvent, Corner, DismissEvent, Entity,
         EventEmitter, FocusHandle, Focusable, FontWeight, Hsla, KeyDownEvent, Stateful, actions,
         linear_color_stop, linear_gradient, point, rgba,
     },
     ui::{
-        ActiveTheme, App, Clickable, Color, Context, ContextMenu, Div, ElementId,
+        ActiveTheme, App, ButtonLike, Color, Context, ContextMenu, Div, ElementId,
         FluentBuilder as _, Icon, IconName, IconSize, InteractiveElement, IntoElement,
-        ParentElement as _, Pixels, PopoverMenu, Render, RenderOnce, SharedString,
-        StatefulInteractiveElement as _, Styled, Toggleable, Tooltip, Window, div, h_flex, px,
-        v_flex,
+        ParentElement as _, Pixels, PopoverMenu, Render, SharedString,
+        StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex, px, v_flex,
     },
     ui_input::InputField,
     workspace::{
@@ -21,12 +20,18 @@ use zed::unstable::{
     },
 };
 
-use crate::{Galvanized, users::User};
+use crate::{
+    Galvanized,
+    panel::{profile_nugget::ProfileNugget, vault_menu::VaultMenu},
+    users::User,
+};
 
 pub(crate) static GZED_ORANGE: LazyLock<Hsla> =
     LazyLock::new(|| Hsla::from(rgba(0xff6600ff)).opacity(0.8));
 
 pub mod onboarding;
+pub mod profile_nugget;
+pub mod vault_menu;
 
 const DEFAULT_WIDTH: Pixels = px(380.);
 
@@ -491,7 +496,7 @@ impl PanelRoot {
 
     fn render_left_rail(
         &mut self,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let bg_color = cx.theme().colors().editor_background;
@@ -507,13 +512,14 @@ impl PanelRoot {
             .py_2()
             .border_r_1()
             .border_color(border_color)
-            .child(gzed_icon(
-                "header-icon",
-                cx,
-                cx.listener(|_this, _e, _window, _cx| {
-                    info!("Clicked gzed header");
-                }),
-            ))
+            // .child(gzed_icon(
+            //     "header-icon",
+            //     cx,
+            //     cx.listener(|_this, _e, _window, _cx| {
+            //         info!("Clicked gzed header");
+            //     }),
+            // ))
+            .child(self.render_start_menu(window, cx))
             .child(
                 // Namespace icons
                 div()
@@ -603,6 +609,34 @@ impl PanelRoot {
                                     .child("+"),
                             ),
                     ),
+            )
+    }
+
+    fn render_start_menu(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        //
+        div()
+            //
+            .child(gzed_icon(
+                "header-icon",
+                cx,
+                cx.listener(|_this, _e, _window, _cx| {
+                    info!("Clicked gzed header");
+                }),
+            ))
+            .child(
+                PopoverMenu::new("start-menu")
+                    .anchor(Corner::TopLeft)
+                    .attach(Corner::TopRight)
+                    .trigger(ButtonLike::new("start-button"))
+                    .menu(move |_window, cx| {
+                        //
+                        let menu = cx.new(|cx| VaultMenu::new(cx));
+                        Some(menu)
+                    }),
             )
     }
 
@@ -830,8 +864,8 @@ impl PanelRoot {
                     .anchor(Corner::BottomLeft)
                     .attach(Corner::TopLeft)
                     .offset(point(px(0.), px(-4.)))
-                    .trigger(ProfileToken::new(
-                        "profile-token",
+                    .trigger(ProfileNugget::new(
+                        "profile-nugget",
                         initial.into(),
                         user_name,
                     ))
@@ -962,102 +996,6 @@ impl Panel for PanelRoot {
 
     fn activation_priority(&self) -> u32 {
         10
-    }
-}
-
-#[derive(IntoElement)]
-struct ProfileToken {
-    base: Stateful<Div>,
-    selected: bool,
-    initial: SharedString,
-    user_name: SharedString,
-}
-impl ProfileToken {
-    pub fn new(id: impl Into<ElementId>, initial: SharedString, user_name: SharedString) -> Self {
-        Self {
-            base: h_flex().id(id),
-            selected: false,
-            initial,
-            user_name,
-        }
-    }
-}
-
-impl Clickable for ProfileToken {
-    fn on_click(mut self, handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
-        self.base = self.base.on_click(handler);
-        self
-    }
-
-    fn cursor_style(mut self, cursor_style: CursorStyle) -> Self {
-        self.base = self.base.cursor(cursor_style);
-        self
-    }
-}
-impl Toggleable for ProfileToken {
-    fn toggle_state(mut self, selected: bool) -> Self {
-        self.selected = selected;
-        self
-    }
-}
-
-impl RenderOnce for ProfileToken {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-        self.base
-            .flex_grow()
-            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-            .p_2()
-            .gap_2()
-            .rounded_md()
-            //
-            .child(
-                h_flex()
-                    .size_10()
-                    .rounded_full()
-                    .bg(rgba(0xea580cff))
-                    .flex_shrink_0()
-                    .items_center()
-                    .justify_center()
-                    .child(
-                        div()
-                            .mx_auto()
-                            .text_xs()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(rgba(0xffffffff))
-                            .child(self.initial),
-                    )
-                    .child(
-                        // Online indicator
-                        div()
-                            .absolute()
-                            .bottom(px(0.))
-                            .right(px(0.))
-                            .size(px(10.))
-                            .rounded_full()
-                            .bg(rgba(0x22c55eff))
-                            .border_2()
-                            .border_color(cx.theme().colors().editor_background),
-                    ),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .child(
-                        div()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(cx.theme().colors().text)
-                            .child(self.user_name),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(cx.theme().colors().text_muted)
-                            .child("Online"),
-                    ),
-            )
     }
 }
 
