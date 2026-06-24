@@ -130,6 +130,14 @@ impl User {
                         this.unlocked_profiles.insert(profile.id(), profile_entity);
                     }
                 }
+                if let Some(active_profile_id) = &user_vault.active_profile {
+                    let active_profile = this
+                        .unlocked_profiles
+                        .iter()
+                        .find(|&(id, _)| id == active_profile_id)
+                        .map(|(_, profile)| profile.clone());
+                    this.unlocked_active_profile = active_profile;
+                }
                 this.unlocked_vault = Some(user_vault);
             })?;
 
@@ -290,8 +298,14 @@ impl User {
             let profile = Profile::new(name, subspace);
 
             this.update(cx, {
+                let profile = profile.clone();
                 move |this, cx| {
+                    let key = profile.id();
+                    let profile_entity = cx.new(|_cx| profile.clone());
+                    this.unlocked_profiles.insert(key, profile_entity.clone());
+                    this.unlocked_active_profile = Some(profile_entity);
                     this.update_content(cx, move |vault| {
+                        vault.active_profile = Some(profile.id());
                         vault.profiles.push(profile);
                     })
                 }
@@ -397,14 +411,23 @@ impl UserMetadata {
     }
 }
 
+use plugin_willow::willow_serde::SubspaceIdSerde;
+use serde_with::serde_as;
+
 /// Data structure to serialize the secret content of a [`User`]
+#[serde_as]
 #[derive(derive_more::Debug, Serialize, Deserialize)]
 #[debug("UserVault")]
 pub struct UserVault {
     #[serde(default)]
     spaces: Vec<Space>,
+
     #[serde(default)]
     profiles: Vec<Profile>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde_as(as = "Option<SubspaceIdSerde>")]
+    active_profile: Option<SubspaceId>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -460,6 +483,7 @@ impl UserVault {
         Self {
             spaces: Default::default(),
             profiles: Default::default(),
+            active_profile: Default::default(),
         }
     }
 }

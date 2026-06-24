@@ -15162,6 +15162,7 @@ dependencies = [
  "plugin-willow",
  "serde",
  "serde_json",
+ "serde_with",
  "tracing",
  "uuid",
  "willow25",

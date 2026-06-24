@@ -156,22 +156,22 @@ impl PanelRoot {
 impl Render for PanelRoot {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let active_user = self.galvanized.read(cx).active_user.clone();
-        match (&self.scene, active_user) {
-            (PanelScene::Home, None) => {
-                //
-                self.render_onboarding_panel(window, cx).into_any_element()
-            }
-            (PanelScene::Home, Some(user)) => {
+        let Some(user) = active_user else {
+            return self.render_onboarding_panel(window, cx).into_any_element();
+        };
+
+        match &self.scene {
+            PanelScene::Home => {
                 //
                 self.render_home_panel(user, window, cx).into_any_element()
             }
-            (PanelScene::CreatingSpace, _) => {
+            PanelScene::CreatingSpace => {
                 //
                 self.render_create_space_flow(window, cx).into_any_element()
             }
-            (PanelScene::CreatingProfile, _) => {
+            PanelScene::CreatingProfile => {
                 //
-                self.render_create_profile_flow(window, cx)
+                self.render_create_profile_flow(user, window, cx)
                     .into_any_element()
             }
         }
@@ -428,6 +428,7 @@ impl PanelRoot {
 
     fn render_create_profile_flow(
         &mut self,
+        user: Entity<User>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -501,11 +502,18 @@ impl PanelRoot {
                                     .primary_button()
                                     .shadow_lg()
                                     .cursor_pointer()
-                                    .on_click(cx.listener(|this, _e, _window, _cx| {
-                                        let name = this.display_name_input.read(_cx).text(_cx);
-                                        if !name.is_empty() {
-                                            this.scene = PanelScene::Home;
+                                    .on_click(cx.listener(move |this, _e, _window, cx| {
+                                        let name = this.display_name_input.read(cx).text(cx);
+                                        if name.is_empty() {
+                                            return;
                                         }
+
+                                        user.update(cx, |it, cx| {
+                                            it.create_profile(name.into(), cx)
+                                        })
+                                        .detach_and_log_err(cx);
+
+                                        this.scene = PanelScene::Home;
                                     }))
                                     .child(
                                         div()
@@ -595,7 +603,7 @@ impl PanelRoot {
                             .hover(|style| {
                                 style.rounded_lg().border_color(cx.theme().colors().border)
                             })
-                            .active(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                             .on_click(cx.listener(|this, _e, _window, _cx| {
                                 this.scene = PanelScene::CreatingSpace;
                             }))
@@ -847,62 +855,89 @@ impl PanelRoot {
         user: Entity<User>,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let weak_self = cx.weak_entity();
+        let panel = cx.entity();
+        let active_profile = user.read(cx).active_profile();
 
         h_flex()
             .id("status-bar")
             .items_center()
-            .p_1()
+            .p_2()
             .gap_2()
             .bg(cx.theme().colors().editor_background)
             .border_t_1()
             .border_color(cx.theme().colors().border)
-            .child(
-                PopoverMenu::new("popover")
-                    .full_width(true)
-                    .anchor(Corner::BottomLeft)
-                    .attach(Corner::TopLeft)
-                    .offset(point(px(0.), px(-4.)))
-                    .trigger(ProfileNugget::new(
-                        "profile-nugget",
-                        cx.entity(),
-                        user.read(cx).active_profile(),
-                    ))
-                    .menu({
-                        move |window, cx| {
-                            let weak_self = weak_self.clone();
-                            Some(ContextMenu::build(window, cx, move |menu, _window, _cx| {
-                                menu
-                                    //
-                                    .header("Profiles")
-                                    .custom_entry(
-                                        |_window, _cx| {
-                                            //
-                                            div()
+            .when_none(&active_profile, {
+                let panel = panel.clone();
+                |el| {
+                    el
+                        //
+                        .child(
+                            div()
+                                .id("profile-nugget-empty")
+                                .w_full()
+                                .p_2()
+                                .border_2()
+                                .border_color(cx.theme().colors().border.opacity(0.5))
+                                .border_dashed()
+                                .rounded_xl()
+                                .hover(|style| {
+                                    style.rounded_lg().border_color(cx.theme().colors().border)
+                                })
+                                // .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                                .on_click(move |_e, _window, cx| {
+                                    panel.update(cx, |panel, _cx| {
+                                        panel.scene = PanelScene::CreatingProfile;
+                                    });
+                                })
+                                .child(
+                                    div()
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .text_color(cx.theme().colors().text)
+                                        .child("+ Create Profile"),
+                                ),
+                        )
+                }
+            })
+            .when_some(active_profile, |el, profile| {
+                //
+                el.child(
+                    PopoverMenu::new("popover")
+                        .full_width(true)
+                        .anchor(Corner::BottomLeft)
+                        .attach(Corner::TopLeft)
+                        .offset(point(px(0.), px(-4.)))
+                        .trigger(ProfileNugget::new("profile-nugget", profile))
+                        .menu({
+                            move |window, cx| {
+                                let panel = panel.clone();
+                                let user = user.clone();
+                                let profiles = user.read(cx).profiles();
+                                Some(ContextMenu::build(window, cx, move |menu, _window, _cx| {
+                                    let mut menu = menu.header("Profiles");
+                                    for profile in profiles {
+                                        menu = menu.custom_entry(
+                                            {
+                                                let profile = profile.clone();
+                                                move |_window, cx| {
+                                                    //
+                                                    div()
+                                                        //
+                                                        .p_2()
+                                                        .child(profile.read(cx).name())
+                                                        .into_any_element()
+                                                }
+                                            },
+                                            move |_window, cx| {
                                                 //
-                                                .p_2()
-                                                .child("One")
-                                                .into_any_element()
-                                        },
-                                        |_window, _cx| {
-                                            //
-                                        },
-                                    )
-                                    .custom_entry(
-                                        |_window, _cx| {
-                                            //
-                                            div()
-                                                //
-                                                .p_2()
-                                                .child("Two")
-                                                .into_any_element()
-                                        },
-                                        |_window, _cx| {
-                                            //
-                                        },
-                                    )
-                                    .separator()
-                                    .custom_entry(
+                                                info!(
+                                                    name = &**profile.read(cx).name(),
+                                                    "Clicked profile"
+                                                );
+                                            },
+                                        );
+                                    }
+
+                                    menu = menu.separator().custom_entry(
                                         |_window, cx| {
                                             div()
                                                 .p_2()
@@ -912,17 +947,18 @@ impl PanelRoot {
                                                 .into_any_element()
                                         },
                                         move |_window, cx| {
-                                            weak_self
-                                                .update(cx, |this, _cx| {
-                                                    this.scene = PanelScene::CreatingProfile;
-                                                })
-                                                .ok();
+                                            panel.update(cx, |this, _cx| {
+                                                this.scene = PanelScene::CreatingProfile;
+                                            });
                                         },
-                                    )
-                            }))
-                        }
-                    }),
-            )
+                                    );
+
+                                    menu
+                                }))
+                            }
+                        }),
+                )
+            })
     }
 }
 
