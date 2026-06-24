@@ -108,9 +108,14 @@ impl Focusable for VaultMenu {
 
 impl EventEmitter<DismissEvent> for VaultMenu {}
 impl Render for VaultMenu {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let user_name = self.user.read(cx).name();
-        let initial = user_name.chars().next().unwrap_or('?').to_string();
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let apps = self
+            .galvanized
+            .read(cx)
+            .apps
+            .iter()
+            .map(|it| it.boxed_clone())
+            .collect::<Vec<_>>();
 
         v_flex()
             .bg(cx.theme().colors().background)
@@ -122,83 +127,89 @@ impl Render for VaultMenu {
                 cx.emit(DismissEvent);
             }))
             //
-            .child(
+            .child(render_menu_header(
+                self.galvanized.clone(),
+                self.user.clone(),
+                cx,
+            ))
+            .children(apps.into_iter().map(|app| {
                 //
-                h_flex()
+                div()
+                    .id(format!("app-{}", app.id()))
                     //
                     .p_2()
                     .gap_2()
-                    .border_b_1()
-                    .border_color(cx.theme().colors().border)
-                    .child(
-                        h_flex()
-                            .size_8()
-                            .rounded_full()
-                            .bg(rgba(0xea580cff))
-                            .flex_shrink_0()
-                            .items_center()
-                            .justify_center()
-                            .child(
-                                div()
-                                    .mx_auto()
-                                    .text_xs()
-                                    .font_weight(gpui::FontWeight::BOLD)
-                                    .text_color(rgba(0xffffffff))
-                                    .child(initial),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                                    .text_color(cx.theme().colors().text)
-                                    .child(user_name),
-                            )
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(cx.theme().colors().text_muted)
-                                    .child("Vault unlocked"),
-                            ),
-                    )
-                    .child(
-                        // Lock button
-                        h_flex()
-                            .id("lock-vault")
-                            .p_2()
-                            .gap_2()
-                            .border_1()
-                            .border_color(cx.theme().colors().border)
-                            .rounded_md()
-                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                            .cursor_pointer()
-                            .on_click(cx.listener(move |this, _e, _window, cx| {
-                                this.galvanized.update(cx, |it, _cx| it.active_user = None);
-                                cx.emit(DismissEvent);
-                            }))
-                            .tooltip(Tooltip::text("Lock Vault"))
-                            .child(Icon::new(IconName::LockOutlined)),
-                    ),
-            )
-            .child(
-                //
-                h_flex()
-                    //
-                    .p_2()
-                    .gap_2()
-                    .child("Item1"),
-            )
-            .child(
-                //
-                h_flex()
-                    //
-                    .p_2()
-                    .gap_2()
-                    .child("Item2"),
-            )
+                    .hover(|style| style.bg(cx.theme().colors().element_hover))
+                    .child(app.nav(window, cx))
+            }))
     }
+}
+
+fn render_menu_header<T: EventEmitter<DismissEvent>>(
+    galvanized: Entity<Galvanized>,
+    user: Entity<User>,
+    cx: &mut Context<T>,
+) -> impl IntoElement {
+    let user_name = user.read(cx).name();
+    let initial = user_name.chars().next().unwrap_or('?').to_string();
+
+    h_flex()
+        //
+        .p_2()
+        .gap_2()
+        .border_b_1()
+        .border_color(cx.theme().colors().border)
+        .child(
+            h_flex()
+                .size_8()
+                .rounded_full()
+                .bg(rgba(0xea580cff))
+                .flex_shrink_0()
+                .items_center()
+                .justify_center()
+                .child(
+                    div()
+                        .mx_auto()
+                        .text_xs()
+                        .font_weight(gpui::FontWeight::BOLD)
+                        .text_color(rgba(0xffffffff))
+                        .child(initial),
+                ),
+        )
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_color(cx.theme().colors().text)
+                        .child(user_name),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(cx.theme().colors().text_muted)
+                        .child("Vault unlocked"),
+                ),
+        )
+        .child(
+            // Lock button
+            h_flex()
+                .id("lock-vault")
+                .p_2()
+                .gap_2()
+                .border_1()
+                .border_color(cx.theme().colors().border)
+                .rounded_md()
+                .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                .cursor_pointer()
+                .on_click(cx.listener(move |_this, _e, _window, cx| {
+                    galvanized.update(cx, |it, _cx| it.active_user = None);
+                    cx.emit(DismissEvent);
+                }))
+                .tooltip(Tooltip::text("Lock Vault"))
+                .child(Icon::new(IconName::LockOutlined)),
+        )
 }

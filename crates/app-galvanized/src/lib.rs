@@ -1,5 +1,5 @@
 use image::imageops::FilterType;
-use zed::unstable::gpui::{App, AppContext as _, Entity, Image, ImageFormat};
+use zed::unstable::gpui::{App, Image, ImageFormat};
 
 pub mod observability;
 
@@ -11,6 +11,7 @@ pub fn init(cx: &mut App) {
     plugin_p2p::init(cx);
     plugin_calendar::init(cx);
     plugin_chat::init(cx);
+    plugin_files::init(cx);
     plugin_theme_palette::init(cx);
 
     plugin_galvanized::init(cx);

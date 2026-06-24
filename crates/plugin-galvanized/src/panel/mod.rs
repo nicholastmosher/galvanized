@@ -199,11 +199,21 @@ impl PanelRoot {
             .w(panel_width)
             .child(
                 h_flex()
+                    //
+                    .w_full()
+                    .p_2()
+                    .gap_2()
+                    .border_b_1()
+                    .border_color(cx.theme().colors().border)
+                    .child(self.render_vault_menu(user.clone(), window, cx))
+                    .child(self.render_search_bar(user.clone(), cx)),
+            )
+            .child(
+                h_flex()
                     .size_full()
                     .child(self.render_left_rail(user.clone(), window, cx))
-                    .child(self.render_app_sidebar(window, cx)),
+                    .child(self.render_app_sidebar(user, window, cx)),
             )
-            .child(self.render_profile_bar(user, cx))
     }
 
     fn render_create_space_flow(
@@ -546,7 +556,7 @@ impl PanelRoot {
             .border_r_1()
             .border_color(cx.theme().colors().border)
             .items_center()
-            .child(self.render_vault_menu(user, window, cx))
+            // .child(self.render_vault_menu(user, window, cx))
             .children(
                 spaces
                     .into_iter()
@@ -585,7 +595,7 @@ impl PanelRoot {
                             )
                     }),
             )
-            .child(div().flex_grow())
+            // .child(div().flex_grow())
             .child(
                 //
                 v_flex()
@@ -629,28 +639,23 @@ impl PanelRoot {
     ) -> impl IntoElement {
         let galvanized = self.galvanized.clone();
 
-        //
-        div()
-            //
-            .child(
-                PopoverMenu::new("start-menu")
-                    .anchor(Corner::TopLeft)
-                    .attach(Corner::TopRight)
-                    .offset(point(px(3.), px(0.)))
-                    .trigger(VaultButton::new("vault-button"))
-                    .menu(move |_window, cx| {
-                        //
-                        let user = user.clone();
-                        let galvanized = galvanized.clone();
-                        let menu =
-                            cx.new(move |cx| VaultMenu::new(user.clone(), galvanized.clone(), cx));
-                        Some(menu)
-                    }),
-            )
+        PopoverMenu::new("start-menu")
+            .anchor(Corner::TopLeft)
+            .attach(Corner::TopRight)
+            .offset(point(px(6.), px(0.)))
+            .trigger(VaultButton::new("vault-button"))
+            .menu(move |_window, cx| {
+                //
+                let user = user.clone();
+                let galvanized = galvanized.clone();
+                let menu = cx.new(move |cx| VaultMenu::new(user.clone(), galvanized.clone(), cx));
+                Some(menu)
+            })
     }
 
     fn render_app_sidebar(
         &mut self,
+        user: Entity<User>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -659,49 +664,55 @@ impl PanelRoot {
             .bg(cx.theme().colors().panel_background)
             .size_full()
             .child(
-                // Search bar with filter badges
-                v_flex()
-                    .id("sidebar-search-header")
-                    .p_2()
-                    .gap_1()
-                    .border_b_1()
-                    .border_color(cx.theme().colors().border)
-                    .flex_shrink_0()
-                    .when(
-                        !self.space_filters.is_empty() || !self.profile_filters.is_empty(),
-                        |el| el.child(self.render_filter_badges(cx)),
-                    )
-                    .child(
-                        h_flex()
-                            .id("search-bar")
-                            .flex_1()
-                            .items_center()
-                            .rounded_lg()
-                            .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
-                                if e.keystroke.key != "enter" {
-                                    return;
-                                }
+                div()
+                    //
+                    .mt_auto()
+                    .child(self.render_profile_bar(user, cx)),
+            )
+    }
 
-                                let search_text = this.search_input.read(cx).text(cx);
-                                if search_text.is_empty() {
-                                    return;
-                                }
+    fn render_search_bar(
+        &mut self,
+        user: Entity<User>,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let user_name = user.read(cx).name();
 
-                                this.profile_filters.push(search_text.into());
-                                this.search_input.update(cx, |it, cx| it.clear(window, cx));
-                            }))
-                            .child(self.search_input.clone()),
-                    ),
+        // Search bar with filter badges
+        v_flex()
+            .id("sidebar-search-header")
+            .flex_grow()
+            .when(
+                !self.space_filters.is_empty() || !self.profile_filters.is_empty(),
+                |el| el.child(self.render_filter_badges(cx)),
             )
             .child(
-                // App list
                 div()
-                    .id("app-list")
+                    //
+                    .text_xs()
+                    .text_color(cx.theme().colors().text_muted)
+                    .child(format!("Search {user_name}")),
+            )
+            .child(
+                h_flex()
+                    .id("search-bar")
                     .flex_1()
-                    .overflow_y_scroll()
-                    .p_1()
-                    .children(self.render_app_sections(window, cx))
-                    .into_any_element(),
+                    .items_center()
+                    .rounded_lg()
+                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                        if e.keystroke.key != "enter" {
+                            return;
+                        }
+
+                        let search_text = this.search_input.read(cx).text(cx);
+                        if search_text.is_empty() {
+                            return;
+                        }
+
+                        this.profile_filters.push(search_text.into());
+                        this.search_input.update(cx, |it, cx| it.clear(window, cx));
+                    }))
+                    .child(self.search_input.clone()),
             )
     }
 
@@ -799,7 +810,7 @@ impl PanelRoot {
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Vec<AnyElement> {
+    ) -> impl IntoIterator<Item = AnyElement> {
         let apps = self
             .galvanized
             .read(cx)
@@ -808,46 +819,41 @@ impl PanelRoot {
             .map(|app| app.boxed_clone())
             .collect::<Vec<_>>();
 
-        let elements = apps
-            .into_iter()
-            .map(|app| {
-                let is_active = self.active_app.as_ref().map(|it| it.as_str()) == Some(app.id());
+        apps.into_iter().map(|app| {
+            let is_active = self.active_app.as_ref().map(|it| it.as_str()) == Some(app.id());
 
-                let item = div()
-                    .id(SharedString::from(format!("app-{:?}", app.id())))
-                    .flex()
-                    .items_center()
-                    .gap_2()
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
-                    .map(|el| {
-                        if is_active {
-                            el.bg(rgba(0xea580c20)).text_color(rgba(0xea580cff))
-                        } else {
-                            el.text_color(cx.theme().colors().text_muted)
-                                .hover(|style| {
-                                    style
-                                        .bg(cx.theme().colors().ghost_element_hover)
-                                        .text_color(cx.theme().colors().text)
-                                })
-                        }
-                    })
-                    .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                    .on_click(cx.listener({
-                        let app_id = app.id();
-                        move |this, _e, _window, _cx| {
-                            this.active_app = Some(app_id.into());
-                            info!("Selected app {:?}", app_id);
-                        }
-                    }))
-                    .child(app.nav(window, cx));
+            let item = div()
+                .id(SharedString::from(format!("app-{:?}", app.id())))
+                .flex()
+                .items_center()
+                .gap_2()
+                .px_2()
+                .py_1()
+                .rounded_md()
+                .map(|el| {
+                    if is_active {
+                        el.bg(rgba(0xea580c20)).text_color(rgba(0xea580cff))
+                    } else {
+                        el.text_color(cx.theme().colors().text_muted)
+                            .hover(|style| {
+                                style
+                                    .bg(cx.theme().colors().ghost_element_hover)
+                                    .text_color(cx.theme().colors().text)
+                            })
+                    }
+                })
+                .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                .on_click(cx.listener({
+                    let app_id = app.id();
+                    move |this, _e, _window, _cx| {
+                        this.active_app = Some(app_id.into());
+                        info!("Selected app {:?}", app_id);
+                    }
+                }))
+                .child(app.nav(window, cx));
 
-                item.into_any_element()
-            })
-            .collect();
-
-        elements
+            item.into_any_element()
+        })
     }
 
     fn render_profile_bar(

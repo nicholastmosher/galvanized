@@ -7153,6 +7153,7 @@ dependencies = [
  "plot_icon",
  "plugin-calendar",
  "plugin-chat",
+ "plugin-files",
  "plugin-galvanized",
  "plugin-p2p",
  "plugin-theme-palette",
@@ -15148,6 +15149,14 @@ name = "plugin-contacts"
 version = "0.1.0"
 dependencies = [
  "willow25",
+ "zed",
+]
+
+[[package]]
+name = "plugin-files"
+version = "0.1.0"
+dependencies = [
+ "plugin-galvanized",
  "zed",
 ]
 

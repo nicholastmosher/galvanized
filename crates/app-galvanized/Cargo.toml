@@ -43,6 +43,7 @@ opentelemetry_sdk.workspace = true
 plot_icon.workspace = true
 plugin-calendar.workspace = true
 plugin-chat.workspace = true
+plugin-files.workspace = true
 plugin-galvanized.workspace = true
 plugin-p2p.workspace = true
 plugin-theme-palette.workspace = true
