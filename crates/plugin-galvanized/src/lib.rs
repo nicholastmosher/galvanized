@@ -4,8 +4,9 @@ use anyhow::{Context as _, Result};
 use plugin_vault::{VaultsExt as _, vault_db::VaultId};
 use tracing::info;
 use zed::unstable::{
-    gpui::{AppContext as _, Entity, Task},
+    gpui::{Action, AppContext as _, Entity, Task},
     ui::{App, Context, Window},
+    util::ResultExt as _,
     workspace::Workspace,
 };
 
@@ -64,8 +65,24 @@ impl Galvanized {
     }
 
     /// Add an app plugin to Galvanized by providing its entity handle
-    pub fn add_app(&mut self, app: impl AppHandle) {
+    pub fn register_app(&mut self, app: impl AppHandle) {
         self.apps.push(Box::new(app));
+    }
+
+    /// Register an action handler with access to the Galvanized and Workspace states
+    pub fn register_action<A: Action>(
+        &mut self,
+        cx: &mut Context<Self>,
+        action: impl 'static + Fn(&mut Self, &mut Workspace, &A, &mut Window, &mut Context<Self>),
+    ) {
+        let weak_self = cx.weak_entity();
+        self.workspace.update(cx, |workspace, _cx| {
+            workspace.register_action(move |workspace, a, window, cx| {
+                weak_self
+                    .update(cx, |this, cx| (action)(this, workspace, a, window, cx))
+                    .log_err();
+            });
+        })
     }
 
     /// Returns the panel view displaying Galvanized navigation

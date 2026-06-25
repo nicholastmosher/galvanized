@@ -13,7 +13,10 @@ pub fn init(cx: &mut App) {
     //
     cx.observe_new::<Galvanized>(|galvanized, _window, cx| {
         let files_app = cx.new(|cx| FilesApp::new(cx));
-        galvanized.add_app(files_app);
+        galvanized.register_app(files_app);
+        // galvanized.register_action(cx, |this, _workspace, action: &CreateArea, _window, cx| {
+        //     let space_id = action.space_id.clone();
+        // });
     })
     .detach();
 }
@@ -41,11 +44,18 @@ impl AppBehavior for FilesApp {
         "Files".into()
     }
 
-    fn space_context_menu_actions(&self, _space_id: NamespaceId) -> Vec<SpaceContextMenuAction> {
+    fn space_context_menu_actions(&self, space_id: NamespaceId) -> Vec<SpaceContextMenuAction> {
+        let action_space_id = space_id.clone();
         vec![SpaceContextMenuAction {
             label: "Create Area".into(),
-            handler: Box::new(|_window, _cx| {
-                info!("Create Area action triggered");
+            handler: Box::new(move |window, cx| {
+                info!("Dispatching CreateArea action");
+                // window.dispatch_action(
+                //     // Box::new(CreateArea {
+                //     //     space_id: action_space_id.clone(),
+                //     // }),
+                //     cx,
+                // );
             }),
         }]
     }

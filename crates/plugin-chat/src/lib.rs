@@ -31,7 +31,7 @@ pub fn init(cx: &mut App) {
     cx.observe_new::<Galvanized>(|galvanized, _window, cx| {
         let galvanized_entity = cx.entity();
         let chat_app = cx.new(|cx| ChatApp::new(galvanized_entity, cx));
-        galvanized.add_app(chat_app);
+        galvanized.register_app(chat_app);
     })
     .detach();
 }
