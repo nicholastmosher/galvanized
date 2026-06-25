@@ -219,3 +219,25 @@ impl Galvanized {
         self.loading_users_task = Some(task);
     }
 }
+
+pub trait GalvanizedHandle {
+    fn register_action<A: Action>(
+        &self,
+        cx: &mut App,
+        action: impl 'static
+        + Fn(&mut Galvanized, &mut Workspace, &A, &mut Window, &mut Context<Galvanized>),
+    );
+}
+
+impl GalvanizedHandle for Entity<Galvanized> {
+    fn register_action<A: Action>(
+        &self,
+        cx: &mut App,
+        action: impl 'static
+        + Fn(&mut Galvanized, &mut Workspace, &A, &mut Window, &mut Context<Galvanized>),
+    ) {
+        self.update(cx, move |this, cx| {
+            this.register_action(cx, action);
+        })
+    }
+}

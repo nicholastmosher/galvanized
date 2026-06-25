@@ -14,6 +14,7 @@ use zed::unstable::{
         v_flex,
     },
     ui_input::InputField,
+    util::ResultExt,
     workspace::{
         Panel,
         dock::{DockPosition, PanelEvent},
@@ -21,7 +22,7 @@ use zed::unstable::{
 };
 
 use crate::{
-    Galvanized,
+    Galvanized, GalvanizedHandle as _,
     panel::{
         profile_nugget::ProfileNugget, scene_vault::VaultScene, vault_menu::render_vault_menu,
     },
@@ -45,9 +46,8 @@ actions!(
     [
         //
         TogglePanel,
-        FocusConnections,
-        FocusDirectMessages,
-        FocusSettings,
+        CreateProfile,
+        CreateSpace,
     ]
 );
 
@@ -120,6 +120,34 @@ impl GalvanizedPanel {
             cx.new(|cx| InputField::new(window, cx, "Password").masked(true));
         let space_name_input = cx.new(|cx| InputField::new(window, cx, "Space name"));
         let search_input = cx.new(|cx| InputField::new(window, cx, "Search your data..."));
+
+        // Galvanized entity has refcount 0 on init, so we defer until it's done initializing
+        let weak_panel = cx.weak_entity();
+        cx.defer({
+            let galvanized = galvanized.clone();
+            move |cx| {
+                galvanized.register_action(cx, {
+                    let weak_panel = weak_panel.clone();
+                    move |_galvanized, _workspace, _: &CreateProfile, _window, cx| {
+                        weak_panel
+                            .update(cx, |panel, _cx| {
+                                panel.scene = PanelScene::CreatingProfile;
+                            })
+                            .log_err();
+                    }
+                });
+                galvanized.register_action(
+                    cx,
+                    move |_galvanized, _workspace, _: &CreateSpace, _window, cx| {
+                        weak_panel
+                            .update(cx, |panel, _cx| {
+                                panel.scene = PanelScene::CreatingSpace;
+                            })
+                            .log_err();
+                    },
+                );
+            }
+        });
 
         Self {
             focus_handle: cx.focus_handle(),
@@ -307,8 +335,8 @@ impl GalvanizedPanel {
                                 style.rounded_lg().border_color(cx.theme().colors().border)
                             })
                             .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                            .on_click(cx.listener(|this, _e, _window, _cx| {
-                                this.scene = PanelScene::CreatingSpace;
+                            .on_click(cx.listener(|_this, _e, window, cx| {
+                                window.dispatch_action(Box::new(CreateSpace), cx);
                             }))
                             .items_center()
                             .justify_center()
@@ -413,7 +441,6 @@ impl GalvanizedPanel {
             .border_t_1()
             .border_color(cx.theme().colors().border)
             .when_none(&active_profile, {
-                let panel = panel.clone();
                 |el| {
                     el
                         //
@@ -429,12 +456,9 @@ impl GalvanizedPanel {
                                 .hover(|style| {
                                     style.rounded_lg().border_color(cx.theme().colors().border)
                                 })
-                                // .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                                .on_click(move |_e, _window, cx| {
-                                    panel.update(cx, |panel, _cx| {
-                                        panel.scene = PanelScene::CreatingProfile;
-                                    });
-                                })
+                                .on_click(cx.listener(|_this, _e, window, cx| {
+                                    window.dispatch_action(Box::new(CreateProfile), cx);
+                                }))
                                 .child(
                                     div()
                                         .font_weight(FontWeight::SEMIBOLD)
