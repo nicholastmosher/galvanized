@@ -80,6 +80,12 @@ impl AppBehavior for ChatApp {
     }
 }
 
+impl Render for ChatApp {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+    }
+}
+
 #[derive(IntoElement)]
 pub struct ChatBubble {
     //

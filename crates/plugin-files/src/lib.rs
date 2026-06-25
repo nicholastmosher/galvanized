@@ -6,7 +6,7 @@ use plugin_galvanized::{
 use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity},
-    ui::{App, Context, SharedString},
+    ui::{App, Context, IntoElement, Render, SharedString, Window, div},
 };
 
 pub fn init(cx: &mut App) {
@@ -55,5 +55,11 @@ impl AppBehavior for FilesApp {
                 info!("Dispatching CreateArea action");
             }),
         }]
+    }
+}
+
+impl Render for FilesApp {
+    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div()
     }
 }

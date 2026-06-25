@@ -1,7 +1,6 @@
 use std::sync::LazyLock;
 
 use tracing::info;
-use willow25::entry::NamespaceId;
 use zed::unstable::{
     gpui::{
         self, Action, AnyElement, AppContext as _, Corner, DismissEvent, Entity, EventEmitter,

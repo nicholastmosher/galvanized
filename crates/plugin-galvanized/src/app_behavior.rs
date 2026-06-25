@@ -1,13 +1,17 @@
-use willow25::entry::NamespaceId;
 use zed::unstable::{
     gpui::Entity,
-    ui::{AnyElement, App, IntoElement, ParentElement as _, SharedString, Styled, Window, h_flex},
+    ui::{
+        AnyElement, App, IntoElement, ParentElement as _, Render, SharedString, Styled, Window,
+        h_flex,
+    },
 };
 
 use crate::users::Space;
 
 /// Trait for static app plugins
-pub trait AppBehavior: 'static {
+///
+/// Requires [`Render`], which becomes the sidebar main view when the app is focused.
+pub trait AppBehavior: Render + 'static {
     /// Unique identifier for this app type
     fn id(&self) -> &'static str;
 
@@ -41,22 +45,6 @@ pub trait AppBehavior: 'static {
 pub struct SpaceContextMenuItem {
     pub label: SharedString,
     pub handler: Box<dyn Fn(&mut Window, &mut App)>,
-}
-
-pub struct FileAppBehavior;
-
-impl AppBehavior for FileAppBehavior {
-    fn id(&self) -> &'static str {
-        "files"
-    }
-
-    fn icon(&self) -> SharedString {
-        "📂".into()
-    }
-
-    fn title(&self) -> SharedString {
-        "Files".into()
-    }
 }
 
 pub trait AppHandle: 'static {
