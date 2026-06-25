@@ -4,6 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow.workspace = true
+hex.workspace = true
+plot_icon.workspace = true
 plugin-galvanized.workspace = true
+rand_core_0_6_4.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+uuid.workspace = true
 willow25.workspace = true
 zed.workspace = true

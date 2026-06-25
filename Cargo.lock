@@ -7153,6 +7153,7 @@ dependencies = [
  "plot_icon",
  "plugin-calendar",
  "plugin-chat",
+ "plugin-contacts",
  "plugin-files",
  "plugin-galvanized",
  "plugin-p2p",
@@ -15148,7 +15149,15 @@ dependencies = [
 name = "plugin-contacts"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "hex",
+ "plot_icon",
  "plugin-galvanized",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "tracing",
+ "uuid",
  "willow25",
  "zed",
 ]

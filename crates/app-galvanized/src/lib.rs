@@ -11,6 +11,7 @@ pub fn init(cx: &mut App) {
     plugin_p2p::init(cx);
     plugin_calendar::init(cx);
     plugin_chat::init(cx);
+    plugin_contacts::init(cx);
     plugin_files::init(cx);
     plugin_theme_palette::init(cx);
 
