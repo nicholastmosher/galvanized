@@ -1,3 +1,4 @@
+use willow25::entry::NamespaceId;
 use zed::unstable::{
     gpui::Entity,
     ui::{AnyElement, App, IntoElement, ParentElement as _, SharedString, Styled, Window, h_flex},
@@ -22,6 +23,18 @@ pub trait AppBehavior: 'static {
             .child(self.title())
             .into_any_element()
     }
+
+    /// Context menu actions to show when right-clicking a space icon.
+    /// Each action has a label and a handler to invoke when selected.
+    fn space_context_menu_actions(&self, _space_id: NamespaceId) -> Vec<SpaceContextMenuAction> {
+        Vec::new()
+    }
+}
+
+/// An action shown in the context menu when right-clicking a space icon.
+pub struct SpaceContextMenuAction {
+    pub label: SharedString,
+    pub handler: Box<dyn Fn(&mut Window, &mut App)>,
 }
 
 pub struct FileAppBehavior;
@@ -45,6 +58,11 @@ pub trait AppHandle: 'static {
     fn title(&self, cx: &mut App) -> SharedString;
     fn nav(&self, window: &mut Window, cx: &mut App) -> AnyElement;
     fn boxed_clone(&self) -> Box<dyn AppHandle>;
+    fn space_context_menu_actions(
+        &self,
+        space_id: NamespaceId,
+        cx: &App,
+    ) -> Vec<SpaceContextMenuAction>;
 }
 
 impl<T: AppBehavior> AppHandle for Entity<T> {
@@ -62,5 +80,13 @@ impl<T: AppBehavior> AppHandle for Entity<T> {
 
     fn boxed_clone(&self) -> Box<dyn AppHandle> {
         Box::new(self.clone())
+    }
+
+    fn space_context_menu_actions(
+        &self,
+        space_id: NamespaceId,
+        cx: &App,
+    ) -> Vec<SpaceContextMenuAction> {
+        self.read(cx).space_context_menu_actions(space_id)
     }
 }

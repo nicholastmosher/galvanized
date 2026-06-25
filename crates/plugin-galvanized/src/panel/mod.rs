@@ -1,11 +1,13 @@
 use std::sync::LazyLock;
 
 use tracing::info;
+use willow25::entry::NamespaceId;
 use zed::unstable::{
     gpui::{
-        self, Action, AnyElement, AppContext as _, Corner, Entity, EventEmitter, FocusHandle,
-        Focusable, FontWeight, Hsla, KeyDownEvent, Stateful, actions, linear_color_stop,
-        linear_gradient, point, rgba,
+        self, Action, AnyElement, AppContext as _, Corner, DismissEvent, Entity, EventEmitter,
+        FocusHandle, Focusable, FontWeight, Hsla, KeyDownEvent, MouseButton, MouseDownEvent, Point,
+        Stateful, Subscription, actions, anchored, deferred, linear_color_stop, linear_gradient,
+        point, rgba,
     },
     ui::{
         ActiveTheme, App, Color, Context, ContextMenu, Div, ElementId, FluentBuilder as _, Icon,
@@ -71,6 +73,9 @@ pub struct PanelRoot {
     // pub(crate) active_user: Option<Entity<User>>,
     scene: PanelScene,
     create_space_kind: CreateSpaceKind,
+
+    // Context menu state
+    context_menu: Option<(Entity<ContextMenu>, Point<Pixels>, Subscription)>,
 }
 
 /// States for the onboarding flow.
@@ -149,6 +154,8 @@ impl PanelRoot {
 
             scene: PanelScene::Home,
             create_space_kind: Default::default(),
+
+            context_menu: None,
         }
     }
 }
@@ -545,6 +552,7 @@ impl PanelRoot {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let spaces = user.read(cx).spaces();
+        let panel = cx.entity();
 
         v_flex()
             .id("left-rail")
@@ -563,6 +571,7 @@ impl PanelRoot {
                     .enumerate()
                     .map(|(i, space): (usize, Entity<Space>)| {
                         let name = space.read(cx).name();
+                        let space_id = space.read(cx).id();
 
                         let gradient = linear_gradient(
                             135.,
@@ -582,6 +591,21 @@ impl PanelRoot {
                                 // TODO: toggle space filter
                                 info!("Clicked namespace icon {i}");
                             }))
+                            .on_mouse_down(
+                                MouseButton::Right,
+                                cx.listener({
+                                    let panel = panel.clone();
+                                    let space_id = space_id;
+                                    move |this, event: &MouseDownEvent, window, cx| {
+                                        this.deploy_space_context_menu(
+                                            space_id.clone(),
+                                            event.position,
+                                            window,
+                                            cx,
+                                        );
+                                    }
+                                }),
+                            )
                             .items_center()
                             .justify_center()
                             .child(
@@ -629,6 +653,60 @@ impl PanelRoot {
                             ),
                     ),
             )
+            .children(self.context_menu.as_ref().map(|(menu, position, _)| {
+                deferred(
+                    anchored()
+                        .position(*position)
+                        .anchor(Corner::TopLeft)
+                        .child(menu.clone()),
+                )
+                .with_priority(3)
+            }))
+    }
+
+    fn deploy_space_context_menu(
+        &mut self,
+        space_id: NamespaceId,
+        position: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let apps = self
+            .galvanized
+            .read(cx)
+            .apps
+            .iter()
+            .map(|app| app.boxed_clone())
+            .collect::<Vec<_>>();
+
+        let context_menu = ContextMenu::build(window, cx, move |menu, _window, cx| {
+            let mut menu = menu.header("Space Actions");
+            for app in &apps {
+                let actions = app.space_context_menu_actions(space_id.clone(), cx);
+                for action in actions {
+                    menu = menu.custom_entry(
+                        move |_window, _cx| {
+                            div().p_2().child(action.label.clone()).into_any_element()
+                        },
+                        move |window, cx| {
+                            (action.handler)(window, cx);
+                        },
+                    );
+                }
+            }
+            menu
+        });
+
+        window.focus(&context_menu.focus_handle(cx), cx);
+        let subscription = cx.subscribe(
+            &context_menu,
+            |this: &mut PanelRoot, _, _: &DismissEvent, cx| {
+                this.context_menu.take();
+                cx.notify();
+            },
+        );
+        self.context_menu = Some((context_menu, position, subscription));
+        cx.notify();
     }
 
     fn render_vault_menu(

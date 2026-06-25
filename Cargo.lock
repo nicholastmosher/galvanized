@@ -15157,6 +15157,8 @@ name = "plugin-files"
 version = "0.1.0"
 dependencies = [
  "plugin-galvanized",
+ "tracing",
+ "willow25",
  "zed",
 ]
 
