@@ -12,8 +12,8 @@ use zed::unstable::{
     db::smol::stream::StreamExt as _,
     editor::Editor,
     gpui::{
-        self, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, actions,
-        rgb,
+        self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
+        actions, rgb,
     },
     ui::{
         ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
@@ -35,7 +35,7 @@ pub fn init(cx: &mut App) {
     cx.observe_new::<Galvanized>(|galvanized, _window, cx| {
         let galvanized_entity = cx.entity();
         let chat_app = cx.new(|cx| ChatApp::new(galvanized_entity, cx));
-        galvanized.register_app(chat_app);
+        galvanized.register_app(chat_app, cx);
     })
     .detach();
 }
@@ -77,6 +77,10 @@ impl AppBehavior for ChatApp {
                 }),
             },
         ]
+    }
+
+    fn open_action(&self) -> Box<dyn Action> {
+        Box::new(OpenChat)
     }
 }
 

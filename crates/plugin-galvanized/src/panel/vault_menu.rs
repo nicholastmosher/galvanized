@@ -133,7 +133,7 @@ impl Render for VaultMenu {
             .read(cx)
             .apps
             .iter()
-            .map(|it| it.boxed_clone())
+            .map(|(id, it)| (*id, it.boxed_clone()))
             .collect::<Vec<_>>();
 
         v_flex()
@@ -145,16 +145,15 @@ impl Render for VaultMenu {
             .on_mouse_down_out(cx.listener(|_this, _e, _window, cx| {
                 cx.emit(DismissEvent);
             }))
-            //
             .child(render_menu_header(
                 self.galvanized.clone(),
                 self.user.clone(),
                 cx,
             ))
-            .children(apps.into_iter().map(|app| {
+            .children(apps.into_iter().map(|(id, app)| {
                 //
                 div()
-                    .id(format!("app-{}", app.id()))
+                    .id(format!("app-{}", id))
                     //
                     .p_2()
                     .gap_2()

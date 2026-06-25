@@ -5,15 +5,23 @@ use plugin_galvanized::{
 };
 use tracing::info;
 use zed::unstable::{
-    gpui::{AppContext as _, Entity},
+    gpui::{self, Action, AppContext as _, Entity, actions},
     ui::{App, Context, IntoElement, Render, SharedString, Window, div},
 };
+
+actions!(
+    files,
+    [
+        //
+        OpenFiles,
+    ]
+);
 
 pub fn init(cx: &mut App) {
     //
     cx.observe_new::<Galvanized>(|galvanized, _window, cx| {
         let files_app = cx.new(|cx| FilesApp::new(cx));
-        galvanized.register_app(files_app);
+        galvanized.register_app(files_app, cx);
         // galvanized.register_action(cx, |this, _workspace, action: &CreateArea, _window, cx| {
         //     let space_id = action.space_id.clone();
         // });
@@ -44,17 +52,8 @@ impl AppBehavior for FilesApp {
         "Files".into()
     }
 
-    fn space_context_menu_items(
-        &self,
-        _space: Entity<Space>,
-        _cx: &App,
-    ) -> Vec<SpaceContextMenuItem> {
-        vec![SpaceContextMenuItem {
-            label: "Create Area".into(),
-            handler: Box::new(move |_window, _cx| {
-                info!("Dispatching CreateArea action");
-            }),
-        }]
+    fn open_action(&self) -> Box<dyn Action> {
+        Box::new(OpenFiles)
     }
 }
 

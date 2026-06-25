@@ -23,6 +23,7 @@ use zed::unstable::{
 
 use crate::{
     Galvanized, GalvanizedHandle as _,
+    app_behavior::AppHandle,
     panel::{
         profile_nugget::ProfileNugget, scene_vault::VaultScene, vault_menu::render_vault_menu,
     },
@@ -64,7 +65,7 @@ pub struct GalvanizedPanel {
     pub(crate) space_name_input: Entity<InputField>,
 
     // Sidebar UI state
-    _active_app: Option<SharedString>,
+    active_app: Option<Box<dyn AppHandle>>,
     search_input: Entity<InputField>,
     space_filters: Vec<SharedString>,
     profile_filters: Vec<SharedString>,
@@ -161,7 +162,7 @@ impl GalvanizedPanel {
             login_password_input,
             space_name_input,
 
-            _active_app: None,
+            active_app: None,
             search_input,
             space_filters: Vec::new(),
             profile_filters: Vec::new(),
@@ -171,6 +172,11 @@ impl GalvanizedPanel {
 
             context_menu: None,
         }
+    }
+
+    pub fn set_active_app(&mut self, app: Box<dyn AppHandle>, cx: &mut Context<Self>) {
+        self.active_app = Some(app);
+        cx.notify();
     }
 }
 
@@ -244,7 +250,7 @@ impl GalvanizedPanel {
                 h_flex()
                     .size_full()
                     .child(self.render_left_rail(user.clone(), window, cx))
-                    .child(self.render_app_sidebar(user, window, cx)),
+                    .child(self.render_app_content(user, window, cx)),
             )
     }
 
@@ -373,12 +379,12 @@ impl GalvanizedPanel {
             .read(cx)
             .apps
             .iter()
-            .map(|app| app.boxed_clone())
+            .map(|(id, app)| (*id, app.boxed_clone()))
             .collect::<Vec<_>>();
 
         let context_menu = ContextMenu::build(window, cx, move |menu, _window, cx| {
             let mut menu = menu.header("Space Actions");
-            for app in &apps {
+            for (_id, app) in &apps {
                 let actions = app.space_context_menu_items(space.clone(), cx);
                 for action in actions {
                     menu = menu.custom_entry(
@@ -406,7 +412,7 @@ impl GalvanizedPanel {
         cx.notify();
     }
 
-    fn render_app_sidebar(
+    fn render_app_content(
         &mut self,
         user: Entity<User>,
         _window: &mut Window,
@@ -416,6 +422,14 @@ impl GalvanizedPanel {
             .id("app-sidebar")
             .bg(cx.theme().colors().panel_background)
             .size_full()
+            .when_some(self.active_app.as_ref(), |el, app| {
+                //
+                el
+                    //
+                    .debug()
+                    .size_full()
+                    .child(app.to_any_view())
+            })
             .child(
                 div()
                     //

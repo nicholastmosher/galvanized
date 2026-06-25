@@ -37,7 +37,7 @@ pub fn init(cx: &mut App) {
 
 /// Top-level entity for shared Galvanized state and plugins
 pub struct Galvanized {
-    apps: Vec<Box<dyn AppHandle>>,
+    apps: BTreeMap<&'static str, Box<dyn AppHandle>>,
     panel: Entity<GalvanizedPanel>,
     pub(crate) active_user: Option<Entity<User>>,
     users: BTreeMap<VaultId, Entity<User>>,
@@ -65,8 +65,10 @@ impl Galvanized {
     }
 
     /// Add an app plugin to Galvanized by providing its entity handle
-    pub fn register_app(&mut self, app: impl AppHandle) {
-        self.apps.push(Box::new(app));
+    pub fn register_app(&mut self, app: impl AppHandle, cx: &App) {
+        let id = app.id(cx);
+        self.apps.insert(id, Box::new(app));
+        info!("Registered app: {}", id);
     }
 
     /// Register an action handler with access to the Galvanized and Workspace states

@@ -7,8 +7,8 @@ use willow25::entry::{SubspaceId, randomly_generate_subspace};
 use zed::unstable::{
     editor::Editor,
     gpui::{
-        AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, Image, ImageFormat,
-        KeyDownEvent, img, rgba,
+        self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, Image,
+        ImageFormat, KeyDownEvent, actions, img, rgba,
     },
     ui::{
         ActiveTheme, App, Context, Div, FluentBuilder as _, InteractiveElement as _, IntoElement,
@@ -17,11 +17,28 @@ use zed::unstable::{
     },
 };
 
+actions!(
+    contacts,
+    [
+        //
+        OpenContacts,
+    ]
+);
+
 pub fn init(cx: &mut App) {
     cx.observe_new::<Galvanized>(|galvanized, window, cx| {
         let Some(window) = window else { return };
         let contacts = cx.new(|cx| Contacts::new(window, cx));
-        galvanized.register_app(contacts);
+        galvanized.register_app(contacts.clone(), cx);
+        galvanized.register_action(
+            cx,
+            move |this, _workspace, _: &OpenContacts, _window, cx| {
+                let contacts = contacts.clone();
+                this.panel().update(cx, move |panel, cx| {
+                    panel.set_active_app(Box::new(contacts), cx)
+                });
+            },
+        );
     })
     .detach();
 }
@@ -122,6 +139,10 @@ impl AppBehavior for Contacts {
 
     fn title(&self) -> SharedString {
         "Contacts".into()
+    }
+
+    fn open_action(&self) -> Box<dyn Action> {
+        Box::new(OpenContacts)
     }
 }
 
