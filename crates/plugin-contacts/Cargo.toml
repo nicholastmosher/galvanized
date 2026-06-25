@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+plugin-galvanized.workspace = true
 willow25.workspace = true
 zed.workspace = true

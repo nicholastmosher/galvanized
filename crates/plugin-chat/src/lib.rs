@@ -1,6 +1,10 @@
 use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
 use iroh::EndpointId;
-use plugin_galvanized::{Galvanized, app_behavior::AppBehavior};
+use plugin_galvanized::{
+    Galvanized,
+    app_behavior::{AppBehavior, SpaceContextMenuItem},
+    users::Space,
+};
 use samod::DocHandle;
 use tracing::{debug, info, instrument};
 use uuid::Uuid;
@@ -57,6 +61,22 @@ impl AppBehavior for ChatApp {
 
     fn title(&self) -> SharedString {
         "Chat".into()
+    }
+
+    fn space_context_menu_items(
+        &self,
+        _space: Entity<Space>,
+        cx: &App,
+    ) -> Vec<SpaceContextMenuItem> {
+        vec![
+            //
+            SpaceContextMenuItem {
+                label: "New Chat".into(),
+                handler: Box::new(|_window, _cx| {
+                    //
+                }),
+            },
+        ]
     }
 }
 

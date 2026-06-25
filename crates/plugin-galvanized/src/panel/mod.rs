@@ -571,7 +571,6 @@ impl PanelRoot {
                     .enumerate()
                     .map(|(i, space): (usize, Entity<Space>)| {
                         let name = space.read(cx).name();
-                        let space_id = space.read(cx).id();
 
                         let gradient = linear_gradient(
                             135.,
@@ -594,11 +593,9 @@ impl PanelRoot {
                             .on_mouse_down(
                                 MouseButton::Right,
                                 cx.listener({
-                                    let panel = panel.clone();
-                                    let space_id = space_id;
                                     move |this, event: &MouseDownEvent, window, cx| {
                                         this.deploy_space_context_menu(
-                                            space_id.clone(),
+                                            space.clone(),
                                             event.position,
                                             window,
                                             cx,
@@ -666,7 +663,7 @@ impl PanelRoot {
 
     fn deploy_space_context_menu(
         &mut self,
-        space_id: NamespaceId,
+        space: Entity<Space>,
         position: Point<Pixels>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -682,7 +679,7 @@ impl PanelRoot {
         let context_menu = ContextMenu::build(window, cx, move |menu, _window, cx| {
             let mut menu = menu.header("Space Actions");
             for app in &apps {
-                let actions = app.space_context_menu_actions(space_id.clone(), cx);
+                let actions = app.space_context_menu_items(space.clone(), cx);
                 for action in actions {
                     menu = menu.custom_entry(
                         move |_window, _cx| {

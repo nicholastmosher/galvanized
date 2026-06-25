@@ -15148,6 +15148,7 @@ dependencies = [
 name = "plugin-contacts"
 version = "0.1.0"
 dependencies = [
+ "plugin-galvanized",
  "willow25",
  "zed",
 ]

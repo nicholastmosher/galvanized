@@ -1,11 +1,11 @@
 use plugin_galvanized::{
     Galvanized,
-    app_behavior::{AppBehavior, SpaceContextMenuAction},
+    app_behavior::{AppBehavior, SpaceContextMenuItem},
+    users::Space,
 };
 use tracing::info;
-use willow25::entry::NamespaceId;
 use zed::unstable::{
-    gpui::AppContext as _,
+    gpui::{AppContext as _, Entity},
     ui::{App, Context, SharedString},
 };
 
@@ -44,18 +44,15 @@ impl AppBehavior for FilesApp {
         "Files".into()
     }
 
-    fn space_context_menu_actions(&self, space_id: NamespaceId) -> Vec<SpaceContextMenuAction> {
-        let action_space_id = space_id.clone();
-        vec![SpaceContextMenuAction {
+    fn space_context_menu_items(
+        &self,
+        _space: Entity<Space>,
+        _cx: &App,
+    ) -> Vec<SpaceContextMenuItem> {
+        vec![SpaceContextMenuItem {
             label: "Create Area".into(),
-            handler: Box::new(move |window, cx| {
+            handler: Box::new(move |_window, _cx| {
                 info!("Dispatching CreateArea action");
-                // window.dispatch_action(
-                //     // Box::new(CreateArea {
-                //     //     space_id: action_space_id.clone(),
-                //     // }),
-                //     cx,
-                // );
             }),
         }]
     }

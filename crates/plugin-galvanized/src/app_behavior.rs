@@ -4,6 +4,8 @@ use zed::unstable::{
     ui::{AnyElement, App, IntoElement, ParentElement as _, SharedString, Styled, Window, h_flex},
 };
 
+use crate::users::Space;
+
 /// Trait for static app plugins
 pub trait AppBehavior: 'static {
     /// Unique identifier for this app type
@@ -26,13 +28,17 @@ pub trait AppBehavior: 'static {
 
     /// Context menu actions to show when right-clicking a space icon.
     /// Each action has a label and a handler to invoke when selected.
-    fn space_context_menu_actions(&self, _space_id: NamespaceId) -> Vec<SpaceContextMenuAction> {
+    fn space_context_menu_items(
+        &self,
+        _space: Entity<Space>,
+        _cx: &App,
+    ) -> Vec<SpaceContextMenuItem> {
         Vec::new()
     }
 }
 
 /// An action shown in the context menu when right-clicking a space icon.
-pub struct SpaceContextMenuAction {
+pub struct SpaceContextMenuItem {
     pub label: SharedString,
     pub handler: Box<dyn Fn(&mut Window, &mut App)>,
 }
@@ -58,11 +64,8 @@ pub trait AppHandle: 'static {
     fn title(&self, cx: &mut App) -> SharedString;
     fn nav(&self, window: &mut Window, cx: &mut App) -> AnyElement;
     fn boxed_clone(&self) -> Box<dyn AppHandle>;
-    fn space_context_menu_actions(
-        &self,
-        space_id: NamespaceId,
-        cx: &App,
-    ) -> Vec<SpaceContextMenuAction>;
+    fn space_context_menu_items(&self, space: Entity<Space>, cx: &App)
+    -> Vec<SpaceContextMenuItem>;
 }
 
 impl<T: AppBehavior> AppHandle for Entity<T> {
@@ -82,11 +85,11 @@ impl<T: AppBehavior> AppHandle for Entity<T> {
         Box::new(self.clone())
     }
 
-    fn space_context_menu_actions(
+    fn space_context_menu_items(
         &self,
-        space_id: NamespaceId,
+        space: Entity<Space>,
         cx: &App,
-    ) -> Vec<SpaceContextMenuAction> {
-        self.read(cx).space_context_menu_actions(space_id)
+    ) -> Vec<SpaceContextMenuItem> {
+        self.read(cx).space_context_menu_items(space, cx)
     }
 }

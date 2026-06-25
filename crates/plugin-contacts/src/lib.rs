@@ -1,13 +1,18 @@
 use std::collections::BTreeSet;
 
+use plugin_galvanized::{Galvanized, app_behavior::AppBehavior};
 use willow25::entry::{SubspaceId, SubspaceSecret};
 use zed::unstable::{
-    gpui::{AppContext, Entity, rgb},
-    ui::{App, Context, IntoElement, Render, Styled, Window, div},
+    gpui::{AppContext, rgb},
+    ui::{App, Context, IntoElement, Render, SharedString, Styled, Window, div},
 };
 
 pub fn init(cx: &mut App) {
-    //
+    cx.observe_new::<Galvanized>(|galvanized, _window, cx| {
+        let contacts = cx.new(|cx| Contacts::new(cx));
+        galvanized.register_app(contacts);
+    })
+    .detach();
 }
 
 pub struct Contacts {
@@ -17,6 +22,20 @@ pub struct Contacts {
 impl Contacts {
     pub fn new(_cx: &mut Context<Self>) -> Self {
         Self {}
+    }
+}
+
+impl AppBehavior for Contacts {
+    fn id(&self) -> &'static str {
+        "contacts"
+    }
+
+    fn icon(&self) -> SharedString {
+        "📒".into()
+    }
+
+    fn title(&self) -> SharedString {
+        "Contacts".into()
     }
 }
 
