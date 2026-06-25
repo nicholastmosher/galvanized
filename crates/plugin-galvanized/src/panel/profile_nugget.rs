@@ -1,15 +1,13 @@
 use zed::unstable::{
     gpui::{self, ClickEvent, CursorStyle, Entity, FontWeight, Stateful, rgba},
     ui::{
-        ActiveTheme as _, App, Clickable, Div, ElementId, FluentBuilder, InteractiveElement as _,
-        IntoElement, ParentElement as _, RenderOnce, StatefulInteractiveElement as _, Styled as _,
-        Toggleable, Window, div, h_flex, px,
+        ActiveTheme as _, App, Clickable, Div, ElementId, InteractiveElement as _, IntoElement,
+        ParentElement as _, RenderOnce, StatefulInteractiveElement as _, Styled as _, Toggleable,
+        Window, div, h_flex, px,
     },
 };
 
-use crate::{panel::PanelRoot, users::Profile};
-
-use super::PanelScene;
+use crate::users::Profile;
 
 /// Clickable profile element that opens the profile selector
 #[derive(IntoElement)]

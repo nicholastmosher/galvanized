@@ -11,26 +11,38 @@ use zed::unstable::{
 };
 
 use crate::{
-    panel::{PanelRoot, PrimaryButton as _, VaultScene, render_scene_header},
+    panel::{GalvanizedPanel, PrimaryButton as _, render_scene_header},
     users::{User, UserHandle as _},
 };
 
 static GZED_ORANGE: LazyLock<Hsla> = LazyLock::new(|| Hsla::from(rgba(0xff6600ff)).opacity(0.8));
 
-impl PanelRoot {
+/// States for the onboarding flow.
+///
+/// Each variant corresponds to a scene in the onboarding panel.
+/// The flow progresses linearly for new users, or branches to
+/// sign-in for existing users.
+pub enum VaultScene {
+    /// Initial vault picker shows existing vaults and create-new
+    VaultPicker,
+    /// Sign-in prompt for an existing vault
+    UnlockPrompt(Entity<User>),
+    /// Create vault (master password + display name)
+    CreateVault,
+}
+
+impl GalvanizedPanel {
     /// Main onboarding panel layout: header, step progress, scenes, footer.
-    pub fn render_onboarding_panel(
+    pub fn render_scene_vault(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let panel_width = self.width.unwrap_or(px(380.)) - px(1.);
         let (title, subtitle) = self.header_for_state();
 
         v_flex()
             .id("onboarding-panel")
-            .h_full()
-            .w(panel_width)
+            .size_full()
             .bg(cx.theme().colors().panel_background)
             .child(render_scene_header(title.into(), subtitle.into(), cx))
             .child(

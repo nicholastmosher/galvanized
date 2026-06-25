@@ -3,16 +3,15 @@ use std::sync::LazyLock;
 use tracing::info;
 use zed::unstable::{
     gpui::{
-        self, Action, AnyElement, AppContext as _, Corner, DismissEvent, Entity, EventEmitter,
-        FocusHandle, Focusable, FontWeight, Hsla, KeyDownEvent, MouseButton, MouseDownEvent, Point,
-        Stateful, Subscription, actions, anchored, deferred, linear_color_stop, linear_gradient,
-        point, rgba,
+        self, Action, AppContext as _, Corner, DismissEvent, Entity, EventEmitter, FocusHandle,
+        Focusable, FontWeight, Hsla, MouseButton, MouseDownEvent, Point, Stateful, Subscription,
+        actions, anchored, deferred, linear_color_stop, linear_gradient, point, rgba,
     },
     ui::{
-        ActiveTheme, App, Color, Context, ContextMenu, Div, ElementId, FluentBuilder as _, Icon,
-        IconName, IconSize, InteractiveElement, IntoElement, ParentElement as _, Pixels,
-        PopoverMenu, Render, SharedString, StatefulInteractiveElement as _, Styled, Tooltip,
-        Window, div, h_flex, px, v_flex,
+        ActiveTheme, App, Context, ContextMenu, Div, ElementId, FluentBuilder as _, IconName,
+        InteractiveElement, IntoElement, ParentElement as _, Pixels, PopoverMenu, Render,
+        SharedString, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex, px,
+        v_flex,
     },
     ui_input::InputField,
     workspace::{
@@ -24,8 +23,7 @@ use zed::unstable::{
 use crate::{
     Galvanized,
     panel::{
-        profile_nugget::ProfileNugget,
-        vault_menu::{VaultButton, VaultMenu},
+        profile_nugget::ProfileNugget, scene_vault::VaultScene, vault_menu::render_vault_menu,
     },
     users::{Space, User},
 };
@@ -33,8 +31,11 @@ use crate::{
 pub(crate) static GZED_ORANGE: LazyLock<Hsla> =
     LazyLock::new(|| Hsla::from(rgba(0xff6600ff)).opacity(0.8));
 
-pub mod onboarding;
+pub mod omnibar;
 pub mod profile_nugget;
+pub mod scene_create_profile;
+pub mod scene_create_space;
+pub mod scene_vault;
 pub mod vault_menu;
 
 const DEFAULT_WIDTH: Pixels = px(380.);
@@ -50,7 +51,7 @@ actions!(
     ]
 );
 
-pub struct PanelRoot {
+pub struct GalvanizedPanel {
     focus_handle: FocusHandle,
     width: Option<Pixels>,
     galvanized: Entity<Galvanized>,
@@ -63,7 +64,7 @@ pub struct PanelRoot {
     pub(crate) space_name_input: Entity<InputField>,
 
     // Sidebar UI state
-    active_app: Option<SharedString>,
+    _active_app: Option<SharedString>,
     search_input: Entity<InputField>,
     space_filters: Vec<SharedString>,
     profile_filters: Vec<SharedString>,
@@ -75,20 +76,6 @@ pub struct PanelRoot {
 
     // Context menu state
     context_menu: Option<(Entity<ContextMenu>, Point<Pixels>, Subscription)>,
-}
-
-/// States for the onboarding flow.
-///
-/// Each variant corresponds to a scene in the onboarding panel.
-/// The flow progresses linearly for new users, or branches to
-/// sign-in for existing users.
-pub enum VaultScene {
-    /// Initial vault picker shows existing vaults and create-new
-    VaultPicker,
-    /// Sign-in prompt for an existing vault
-    UnlockPrompt(Entity<User>),
-    /// Create vault (master password + display name)
-    CreateVault,
 }
 
 /// Post-onboarding flows that take over the panel.
@@ -118,7 +105,7 @@ impl CreateSpaceKind {
     }
 }
 
-impl PanelRoot {
+impl GalvanizedPanel {
     pub fn new(
         galvanized: Entity<Galvanized>,
         window: &mut Window,
@@ -146,7 +133,7 @@ impl PanelRoot {
             login_password_input,
             space_name_input,
 
-            active_app: None,
+            _active_app: None,
             search_input,
             space_filters: Vec::new(),
             profile_filters: Vec::new(),
@@ -159,11 +146,21 @@ impl PanelRoot {
     }
 }
 
-impl Render for PanelRoot {
+impl Render for GalvanizedPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let panel_width = self.width.unwrap_or(DEFAULT_WIDTH) - px(1.);
+        div()
+            .h_full()
+            .w(panel_width)
+            .child(self.render_root(window, cx))
+    }
+}
+
+impl GalvanizedPanel {
+    fn render_root(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let active_user = self.galvanized.read(cx).active_user.clone();
         let Some(user) = active_user else {
-            return self.render_onboarding_panel(window, cx).into_any_element();
+            return self.render_scene_vault(window, cx).into_any_element();
         };
 
         match &self.scene {
@@ -173,18 +170,17 @@ impl Render for PanelRoot {
             }
             PanelScene::CreatingSpace => {
                 //
-                self.render_create_space_flow(window, cx).into_any_element()
+                self.render_scene_create_space(window, cx)
+                    .into_any_element()
             }
             PanelScene::CreatingProfile => {
                 //
-                self.render_create_profile_flow(user, window, cx)
+                self.render_scene_create_profile(user, window, cx)
                     .into_any_element()
             }
         }
     }
-}
 
-impl PanelRoot {
     /// Home panel includes:
     ///
     /// - Bottom status bar with Profile
@@ -197,12 +193,9 @@ impl PanelRoot {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let panel_width = self.width.unwrap_or(DEFAULT_WIDTH) - px(1.);
-
         v_flex()
             //
-            .h_full()
-            .w(panel_width)
+            .size_full()
             .child(
                 h_flex()
                     //
@@ -211,8 +204,13 @@ impl PanelRoot {
                     .gap_2()
                     .border_b_1()
                     .border_color(cx.theme().colors().border)
-                    .child(self.render_vault_menu(user.clone(), window, cx))
-                    .child(self.render_search_bar(user.clone(), cx)),
+                    .child(render_vault_menu(
+                        self.galvanized.clone(),
+                        user.clone(),
+                        window,
+                        cx,
+                    ))
+                    .child(self.render_omnibar(user.clone(), cx)),
             )
             .child(
                 h_flex()
@@ -222,336 +220,13 @@ impl PanelRoot {
             )
     }
 
-    fn render_create_space_flow(
-        &mut self,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let panel_width = self.width.unwrap_or(DEFAULT_WIDTH) - px(1.);
-
-        v_flex()
-            .id("create-space-flow")
-            .h_full()
-            .w(panel_width)
-            .bg(cx.theme().colors().panel_background)
-            .child(
-                render_scene_header("Create Space".into(), "Spaces may be private or shared with others".into(), cx)
-            )
-            .child(
-                h_flex()
-                    .size_full()
-                    .p_5()
-                    .justify_center()
-                    .child(
-                        v_flex()
-                            .w_full()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(cx.theme().colors().text_muted)
-                                    .child("Choose the type of space to create:"),
-                            )
-                            .child(
-                                // Personal Space card
-                                div()
-                                    .id("flow-space-owned")
-                                    .flex()
-                                    .items_start()
-                                    .gap_3()
-                                    .p_3()
-                                    .rounded_xl()
-                                    .border_2()
-                                    .border_color(cx.theme().colors().border)
-                                    .when(self.create_space_kind.is_owned(), |el| {
-                                        el
-                                            .border_2()
-                                            .border_color(cx.theme().colors().text_accent.opacity(0.7))
-                                    })
-                                    .bg(cx.theme().colors().element_background.opacity(0.5))
-                                    .cursor_pointer()
-                                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                                    .on_click(cx.listener(|this, _e, _window, _cx| {
-                                        this.create_space_kind = CreateSpaceKind::Owned;
-                                    }))
-                                    .child(
-                                        h_flex()
-                                            .size(px(48.))
-                                            .rounded_xl()
-                                            .bg(linear_gradient(
-                                                135.,
-                                                linear_color_stop(cx.theme().colors().border, 0.0),
-                                                linear_color_stop(cx.theme().colors().panel_background, 1.0),
-                                            ))
-                                            .flex_shrink_0()
-                                            .border_1()
-                                            .border_color(cx.theme().colors().border_variant)
-                                            .items_center()
-                                            .justify_center()
-                                            .child(Icon::new(IconName::LockOutlined).size(IconSize::Medium).color(Color::Custom(cx.theme().colors().text_muted))),
-                                    )
-                                    .child(
-                                        div()
-                                            .flex_1()
-                                            .min_w_0()
-                                            .child(
-                                                div()
-                                                    .text_sm()
-                                                    .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_color(cx.theme().colors().text)
-                                                    .child("Personal Space (Owned)"),
-                                            )
-                                            .child(div().text_xs().text_color(cx.theme().colors().text_muted).child(
-                                                "Private by default. You control access and delegate capabilities.",
-                                            )),
-                                    ),
-                            )
-                            .child(
-                                // Community Space card
-                                div()
-                                    .id("flow-space-communal")
-                                    .flex()
-                                    .items_start()
-                                    .gap_3()
-                                    .p_3()
-                                    .rounded_xl()
-                                    .border_2()
-                                    .border_color(cx.theme().colors().border)
-                                    .when(self.create_space_kind.is_communal(), |el| {
-                                        el
-                                            .border_2()
-                                            .border_color(cx.theme().colors().text_accent.opacity(0.7))
-                                    })
-                                    .bg(cx.theme().colors().element_background.opacity(0.5))
-                                    .cursor_pointer()
-                                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                                    .on_click(cx.listener(|this, _e, _window, _cx| {
-                                        this.create_space_kind = CreateSpaceKind::Communal;
-                                    }))
-                                    .child(
-                                        h_flex()
-                                            .size(px(48.))
-                                            .rounded_xl()
-                                            .bg(linear_gradient(
-                                                135.,
-                                                linear_color_stop(cx.theme().colors().border, 0.0),
-                                                linear_color_stop(cx.theme().colors().panel_background, 1.0),
-                                            ))
-                                            .flex_shrink_0()
-                                            .border_1()
-                                            .border_color(cx.theme().colors().border_variant)
-                                            .items_center()
-                                            .justify_center()
-                                            .child(Icon::new(IconName::Person).size(IconSize::Medium).color(Color::Custom(cx.theme().colors().text_muted))),
-                                    )
-                                    .child(
-                                        div()
-                                            .flex_1()
-                                            .min_w_0()
-                                            .child(
-                                                div()
-                                                    .text_sm()
-                                                    .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_color(cx.theme().colors().text)
-                                                    .child("Community Space (Communal)"),
-                                            )
-                                            .child(div().text_xs().text_color(cx.theme().colors().text_muted).child(
-                                                "Open to anyone. Any subspace can write.",
-                                            )),
-                                    ),
-                            )
-                            .child(
-                                // Space Name input
-                                div()
-                                    .child(
-                                        div()
-                                            .text_xs()
-                                            .text_color(cx.theme().colors().text_muted)
-                                            .mb_1()
-                                            .child("Space Name"),
-                                    )
-                                    .child(self.space_name_input.clone()),
-                            )
-                            .child(
-                                h_flex()
-                                    .id("flow-create-btns")
-                                    .w_full()
-                                    .gap_2()
-                                    .child(
-                                        div()
-                                            .id("flow-back-btn")
-                                            .flex_1()
-                                            .px_4()
-                                            .py_2()
-                                            .rounded_lg()
-                                            .bg(cx.theme().colors().border_variant)
-                                            .cursor_pointer()
-                                            .hover(|style| style.bg(cx.theme().colors().border))
-                                            .on_click(cx.listener(|this, _e, _window, _cx| {
-                                                this.scene = PanelScene::Home;
-                                            }))
-                                            .child(
-                                                div()
-                                                    .text_sm()
-                                                    .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_color(cx.theme().colors().text)
-                                                    .text_center()
-                                                    .child("Back"),
-                                            ),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("flow-create-action-btn")
-                                            .flex_1()
-                                            .px_4()
-                                            .py_2()
-                                            .primary_button()
-                                            .cursor_pointer()
-                                            .on_click(cx.listener(|this, _e, _window, cx| {
-                                                let name = this.space_name_input.read(cx).text(cx);
-                                                let kind = this.create_space_kind;
-                                                this.create_space_kind = Default::default();
-                                                if !name.is_empty() {
-                                                    this.scene = PanelScene::Home;
-                                                }
-
-                                                let Some(user) = this.galvanized.read(cx).active_user.clone() else {
-                                                    return;
-                                                };
-
-                                                user.update(cx, |it, cx| {
-                                                    if kind.is_owned() {
-                                                        it.create_owned_space(name.into(), cx)
-                                                    } else {
-                                                        it.create_communal_space(name.into(), cx)
-                                                    }
-                                                }).detach_and_log_err(cx);
-                                            }))
-                                            .child(
-                                                div()
-                                                    .text_sm()
-                                                    .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_color(cx.theme().colors().text)
-                                                    .text_center()
-                                                    .child("Create Space"),
-                                            ),
-                                    ),
-                            )
-                        //
-                    ),
-            )
-    }
-
-    fn render_create_profile_flow(
-        &mut self,
-        user: Entity<User>,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let colors = cx.theme().colors();
-        let panel_width = self.width.unwrap_or(DEFAULT_WIDTH) - px(1.);
-
-        v_flex()
-            .id("create-profile-flow")
-            .h_full()
-            .w(panel_width)
-            .bg(colors.panel_background)
-            .child(
-                h_flex()
-                    .id("flow-header")
-                    .items_center()
-                    .gap_3()
-                    .p_4()
-                    .border_b_1()
-                    .border_color(colors.border_variant)
-                    .child(
-                        div()
-                            .id("flow-back-btn")
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _e, _window, _cx| {
-                                this.scene = PanelScene::Home;
-                            }))
-                            .child(div().text_sm().text_color(*GZED_ORANGE).child("← Back")),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(colors.text)
-                            .child("Create Profile"),
-                    ),
-            )
-            .child(
-                div()
-                    .id("flow-content")
-                    .flex_1()
-                    .overflow_y_scroll()
-                    .px_5()
-                    .py_5()
-                    .child(
-                        v_flex()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(colors.text_muted)
-                                    .child("Create a new profile within your vault:"),
-                            )
-                            .child(
-                                div()
-                                    .child(
-                                        div()
-                                            .text_xs()
-                                            .text_color(colors.text_muted)
-                                            .mb_1()
-                                            .child("Display Name"),
-                                    )
-                                    .child(self.display_name_input.clone()),
-                            )
-                            .child(
-                                div()
-                                    .id("flow-create-btn")
-                                    .w_full()
-                                    .px_4()
-                                    .py_2()
-                                    .primary_button()
-                                    .shadow_lg()
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(move |this, _e, _window, cx| {
-                                        let name = this.display_name_input.read(cx).text(cx);
-                                        if name.is_empty() {
-                                            return;
-                                        }
-
-                                        user.update(cx, |it, cx| {
-                                            it.create_profile(name.into(), cx)
-                                        })
-                                        .detach_and_log_err(cx);
-
-                                        this.scene = PanelScene::Home;
-                                    }))
-                                    .child(
-                                        div()
-                                            .text_sm()
-                                            .font_weight(FontWeight::SEMIBOLD)
-                                            .text_color(colors.text)
-                                            .text_center()
-                                            .child("Create Profile"),
-                                    ),
-                            ),
-                    ),
-            )
-    }
-
     fn render_left_rail(
         &mut self,
         user: Entity<User>,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let spaces = user.read(cx).spaces();
-        let panel = cx.entity();
 
         v_flex()
             .id("left-rail")
@@ -563,7 +238,6 @@ impl PanelRoot {
             .border_r_1()
             .border_color(cx.theme().colors().border)
             .items_center()
-            // .child(self.render_vault_menu(user, window, cx))
             .children(
                 spaces
                     .into_iter()
@@ -615,7 +289,6 @@ impl PanelRoot {
                             )
                     }),
             )
-            // .child(div().flex_grow())
             .child(
                 //
                 v_flex()
@@ -696,7 +369,7 @@ impl PanelRoot {
         window.focus(&context_menu.focus_handle(cx), cx);
         let subscription = cx.subscribe(
             &context_menu,
-            |this: &mut PanelRoot, _, _: &DismissEvent, cx| {
+            |this: &mut GalvanizedPanel, _, _: &DismissEvent, cx| {
                 this.context_menu.take();
                 cx.notify();
             },
@@ -705,32 +378,10 @@ impl PanelRoot {
         cx.notify();
     }
 
-    fn render_vault_menu(
-        &mut self,
-        user: Entity<User>,
-        _window: &mut Window,
-        _cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let galvanized = self.galvanized.clone();
-
-        PopoverMenu::new("start-menu")
-            .anchor(Corner::TopLeft)
-            .attach(Corner::TopRight)
-            .offset(point(px(6.), px(0.)))
-            .trigger(VaultButton::new("vault-button"))
-            .menu(move |_window, cx| {
-                //
-                let user = user.clone();
-                let galvanized = galvanized.clone();
-                let menu = cx.new(move |cx| VaultMenu::new(user.clone(), galvanized.clone(), cx));
-                Some(menu)
-            })
-    }
-
     fn render_app_sidebar(
         &mut self,
         user: Entity<User>,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         v_flex()
@@ -743,191 +394,6 @@ impl PanelRoot {
                     .mt_auto()
                     .child(self.render_profile_bar(user, cx)),
             )
-    }
-
-    fn render_search_bar(
-        &mut self,
-        user: Entity<User>,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let user_name = user.read(cx).name();
-
-        // Search bar with filter badges
-        v_flex()
-            .id("sidebar-search-header")
-            .flex_grow()
-            .when(
-                !self.space_filters.is_empty() || !self.profile_filters.is_empty(),
-                |el| el.child(self.render_filter_badges(cx)),
-            )
-            .child(
-                div()
-                    //
-                    .text_xs()
-                    .text_color(cx.theme().colors().text_muted)
-                    .child(format!("Search {user_name}")),
-            )
-            .child(
-                h_flex()
-                    .id("search-bar")
-                    .flex_1()
-                    .items_center()
-                    .rounded_lg()
-                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
-                        if e.keystroke.key != "enter" {
-                            return;
-                        }
-
-                        let search_text = this.search_input.read(cx).text(cx);
-                        if search_text.is_empty() {
-                            return;
-                        }
-
-                        this.profile_filters.push(search_text.into());
-                        this.search_input.update(cx, |it, cx| it.clear(window, cx));
-                    }))
-                    .child(self.search_input.clone()),
-            )
-    }
-
-    fn render_filter_badges(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
-        let mut space_filters = Vec::new();
-        for filter_id in self.space_filters.clone() {
-            space_filters.push(self.render_space_badge(filter_id, cx));
-        }
-
-        let mut profile_filters = Vec::new();
-        for filter_id in self.profile_filters.clone() {
-            profile_filters.push(self.render_profile_badge(filter_id, cx));
-        }
-
-        h_flex()
-            .id("filter-badges")
-            .gap_1()
-            .flex_wrap()
-            .children(space_filters)
-            .children(profile_filters)
-            .into_any_element()
-    }
-
-    fn render_space_badge(
-        &mut self,
-        filter_id: SharedString,
-        cx: &mut Context<Self>,
-    ) -> impl 'static + IntoElement {
-        let badge_id = SharedString::from(format!("badge-space-{filter_id}"));
-        h_flex()
-            .id(badge_id)
-            .items_center()
-            .p_1()
-            .gap_1()
-            .rounded_sm()
-            .text_xs()
-            .bg(rgba(0x3b82f620))
-            .text_color(rgba(0x93c5fdff))
-            .border_1()
-            .border_color(rgba(0x3b82f640))
-            .child(SharedString::from(format!("Space: {filter_id}")))
-            .child(
-                div()
-                    .id(SharedString::from(format!(
-                        "badge-space-{filter_id}-remove"
-                    )))
-                    .ml_1()
-                    .cursor_pointer()
-                    .hover(|style| style.opacity(0.7))
-                    .on_click(cx.listener(move |this, _e, _window, _cx| {
-                        let id = filter_id.clone();
-                        this.space_filters.retain(|f| f != &id);
-                        _cx.notify();
-                    }))
-                    .child("×"),
-            )
-    }
-
-    fn render_profile_badge(
-        &mut self,
-        filter_id: SharedString,
-        cx: &mut Context<Self>,
-    ) -> impl 'static + IntoElement {
-        let badge_id = SharedString::from(format!("badge-profile-{filter_id}"));
-        h_flex()
-            .id(badge_id)
-            .items_center()
-            .p_1()
-            .gap_1()
-            .rounded_sm()
-            .text_xs()
-            .bg(rgba(0xea580c20))
-            .text_color(rgba(0xfdba74ff))
-            .border_1()
-            .border_color(rgba(0xea580c40))
-            .child(SharedString::from(format!("Profile: {filter_id}")))
-            .child(
-                div()
-                    .id(SharedString::from(format!(
-                        "badge-profile-{filter_id}-remove"
-                    )))
-                    .ml_1()
-                    .cursor_pointer()
-                    .hover(|style| style.opacity(0.7))
-                    .on_click(cx.listener(move |this, _e, _window, _cx| {
-                        let id = filter_id.clone();
-                        this.profile_filters.retain(|f| f != &id);
-                        _cx.notify();
-                    }))
-                    .child("×"),
-            )
-    }
-
-    fn render_app_sections(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoIterator<Item = AnyElement> {
-        let apps = self
-            .galvanized
-            .read(cx)
-            .apps
-            .iter()
-            .map(|app| app.boxed_clone())
-            .collect::<Vec<_>>();
-
-        apps.into_iter().map(|app| {
-            let is_active = self.active_app.as_ref().map(|it| it.as_str()) == Some(app.id());
-
-            let item = div()
-                .id(SharedString::from(format!("app-{:?}", app.id())))
-                .flex()
-                .items_center()
-                .gap_2()
-                .px_2()
-                .py_1()
-                .rounded_md()
-                .map(|el| {
-                    if is_active {
-                        el.bg(rgba(0xea580c20)).text_color(rgba(0xea580cff))
-                    } else {
-                        el.text_color(cx.theme().colors().text_muted)
-                            .hover(|style| {
-                                style
-                                    .bg(cx.theme().colors().ghost_element_hover)
-                                    .text_color(cx.theme().colors().text)
-                            })
-                    }
-                })
-                .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                .on_click(cx.listener({
-                    let app_id = app.id();
-                    move |this, _e, _window, _cx| {
-                        this.active_app = Some(app_id.into());
-                        info!("Selected app {:?}", app_id);
-                    }
-                }))
-                .child(app.nav(window, cx));
-
-            item.into_any_element()
-        })
     }
 
     fn render_profile_bar(
@@ -1042,14 +508,14 @@ impl PanelRoot {
     }
 }
 
-impl EventEmitter<PanelEvent> for PanelRoot {}
-impl Focusable for PanelRoot {
+impl EventEmitter<PanelEvent> for GalvanizedPanel {}
+impl Focusable for GalvanizedPanel {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
 
-impl Panel for PanelRoot {
+impl Panel for GalvanizedPanel {
     fn persistent_name() -> &'static str {
         "Galvanized"
     }

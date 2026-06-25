@@ -6,18 +6,37 @@
 
 use zed::unstable::{
     gpui::{
-        self, ClickEvent, CursorStyle, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
-        Stateful, linear_color_stop, linear_gradient, rgba,
+        self, AppContext as _, ClickEvent, Corner, CursorStyle, DismissEvent, Entity, EventEmitter,
+        FocusHandle, Focusable, Stateful, linear_color_stop, linear_gradient, point, rgba,
     },
     ui::{
         ActiveTheme as _, App, Clickable, Context, Div, ElementId, Icon, IconName,
-        InteractiveElement as _, IntoElement, ParentElement as _, Render, RenderOnce,
+        InteractiveElement as _, IntoElement, ParentElement as _, PopoverMenu, Render, RenderOnce,
         StatefulInteractiveElement as _, Styled as _, Toggleable, Tooltip, Window, div, h_flex, px,
         v_flex,
     },
 };
 
 use crate::{Galvanized, users::User};
+
+pub fn render_vault_menu<T>(
+    galvanized: Entity<Galvanized>,
+    user: Entity<User>,
+    _window: &mut Window,
+    _cx: &mut Context<T>,
+) -> impl IntoElement {
+    PopoverMenu::new("start-menu")
+        .anchor(Corner::TopLeft)
+        .attach(Corner::TopRight)
+        .offset(point(px(6.), px(0.)))
+        .trigger(VaultButton::new("vault-button"))
+        .menu(move |_window, cx| {
+            let user = user.clone();
+            let galvanized = galvanized.clone();
+            let menu = cx.new(move |cx| VaultMenu::new(user.clone(), galvanized.clone(), cx));
+            Some(menu)
+        })
+}
 
 /// Vault menu button, like a start menu, to open the vault-scope context menu
 #[derive(IntoElement)]

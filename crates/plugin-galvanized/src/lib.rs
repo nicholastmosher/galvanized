@@ -12,7 +12,7 @@ use zed::unstable::{
 
 use crate::{
     app_behavior::AppHandle,
-    panel::{PanelRoot, TogglePanel},
+    panel::{GalvanizedPanel, TogglePanel},
     users::{User, UserMetadata, UserVault},
 };
 
@@ -27,9 +27,9 @@ pub fn init(cx: &mut App) {
         let galvanized = cx.new(|cx| Galvanized::new(workspace_entity.clone(), window, cx));
         let panel = galvanized.read(cx).panel();
         workspace.add_panel(panel, window, cx);
-        workspace.focus_panel::<PanelRoot>(window, cx);
+        workspace.focus_panel::<GalvanizedPanel>(window, cx);
         workspace.register_action(|workspace, _: &TogglePanel, window, cx| {
-            workspace.toggle_panel_focus::<PanelRoot>(window, cx);
+            workspace.toggle_panel_focus::<GalvanizedPanel>(window, cx);
         });
     })
     .detach();
@@ -38,7 +38,7 @@ pub fn init(cx: &mut App) {
 /// Top-level entity for shared Galvanized state and plugins
 pub struct Galvanized {
     apps: Vec<Box<dyn AppHandle>>,
-    panel: Entity<PanelRoot>,
+    panel: Entity<GalvanizedPanel>,
     pub(crate) active_user: Option<Entity<User>>,
     users: BTreeMap<VaultId, Entity<User>>,
     workspace: Entity<Workspace>,
@@ -49,7 +49,7 @@ pub struct Galvanized {
 impl Galvanized {
     pub fn new(workspace: Entity<Workspace>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let galvanized = cx.entity();
-        let panel = cx.new(|cx| PanelRoot::new(galvanized, window, cx));
+        let panel = cx.new(|cx| GalvanizedPanel::new(galvanized, window, cx));
 
         let mut this = Self {
             apps: Default::default(),
@@ -86,7 +86,7 @@ impl Galvanized {
     }
 
     /// Returns the panel view displaying Galvanized navigation
-    pub fn panel(&self) -> Entity<PanelRoot> {
+    pub fn panel(&self) -> Entity<GalvanizedPanel> {
         self.panel.clone()
     }
 
