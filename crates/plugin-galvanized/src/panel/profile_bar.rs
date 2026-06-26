@@ -170,16 +170,10 @@ impl RenderOnce for ProfileNugget {
             .flex_grow()
             .p_2()
             .gap_2()
-            .border_2()
-            .border_dashed()
-            .border_color(cx.theme().colors().border.opacity(0.5))
             .rounded_xl()
             .hover(|style| {
                 //
-                style
-                    //
-                    .rounded_lg()
-                    .border_color(cx.theme().colors().border)
+                style.bg(cx.theme().colors().ghost_element_hover)
             })
             .active(|style| style.bg(cx.theme().colors().ghost_element_active))
             //
