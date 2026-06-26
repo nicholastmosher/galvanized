@@ -584,7 +584,7 @@ impl Panel for GalvanizedPanel {
     }
 
     fn set_size(&mut self, size: Option<Pixels>, _window: &mut Window, _cx: &mut Context<Self>) {
-        self.width = size;
+        self.width = size.map(|size| size.max(px(360.)));
     }
 
     fn icon(&self, _window: &Window, _cx: &App) -> Option<IconName> {
