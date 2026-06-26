@@ -5,13 +5,12 @@ use zed::unstable::{
     gpui::{
         self, Action, AppContext as _, Corner, DismissEvent, Entity, EventEmitter, FocusHandle,
         Focusable, FontWeight, Hsla, MouseButton, MouseDownEvent, Point, Stateful, Subscription,
-        actions, anchored, deferred, linear_color_stop, linear_gradient, point, rgba,
+        actions, anchored, deferred, linear_color_stop, linear_gradient, rgba,
     },
     ui::{
         ActiveTheme, App, Context, ContextMenu, Div, ElementId, FluentBuilder as _, IconName,
-        InteractiveElement, IntoElement, ParentElement as _, Pixels, PopoverMenu, Render,
-        SharedString, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex, px,
-        v_flex,
+        InteractiveElement, IntoElement, ParentElement as _, Pixels, Render, SharedString,
+        StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex, px, v_flex,
     },
     ui_input::InputField,
     util::ResultExt,
@@ -24,9 +23,7 @@ use zed::unstable::{
 use crate::{
     Galvanized, GalvanizedHandle as _,
     app_behavior::AppHandle,
-    panel::{
-        profile_nugget::ProfileNugget, scene_vault::VaultScene, vault_menu::render_vault_menu,
-    },
+    panel::{scene_vault::VaultScene, vault_menu::render_vault_menu},
     users::{Space, User},
 };
 
@@ -34,7 +31,7 @@ pub(crate) static GZED_ORANGE: LazyLock<Hsla> =
     LazyLock::new(|| Hsla::from(rgba(0xff6600ff)).opacity(0.8));
 
 pub mod omnibar;
-pub mod profile_nugget;
+pub mod profile_bar;
 pub mod scene_create_profile;
 pub mod scene_create_space;
 pub mod scene_vault;
@@ -437,113 +434,6 @@ impl GalvanizedPanel {
                     .mt_auto()
                     .child(self.render_profile_bar(user, cx)),
             )
-    }
-
-    fn render_profile_bar(
-        &mut self,
-        user: Entity<User>,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let panel = cx.entity();
-        let active_profile = user.read(cx).active_profile();
-
-        h_flex()
-            .id("status-bar")
-            .items_center()
-            .p_2()
-            .gap_2()
-            .bg(cx.theme().colors().editor_background)
-            .border_t_1()
-            .border_color(cx.theme().colors().border)
-            .when_none(&active_profile, {
-                |el| {
-                    el
-                        //
-                        .child(
-                            div()
-                                .id("profile-nugget-empty")
-                                .w_full()
-                                .p_2()
-                                .border_2()
-                                .border_color(cx.theme().colors().border.opacity(0.5))
-                                .border_dashed()
-                                .rounded_xl()
-                                .hover(|style| {
-                                    style.rounded_lg().border_color(cx.theme().colors().border)
-                                })
-                                .on_click(cx.listener(|_this, _e, window, cx| {
-                                    window.dispatch_action(Box::new(CreateProfile), cx);
-                                }))
-                                .child(
-                                    div()
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_color(cx.theme().colors().text)
-                                        .child("+ Create Profile"),
-                                ),
-                        )
-                }
-            })
-            .when_some(active_profile, |el, profile| {
-                //
-                el.child(
-                    PopoverMenu::new("popover")
-                        .full_width(true)
-                        .anchor(Corner::BottomLeft)
-                        .attach(Corner::TopLeft)
-                        .offset(point(px(0.), px(-4.)))
-                        .trigger(ProfileNugget::new("profile-nugget", profile))
-                        .menu({
-                            move |window, cx| {
-                                let panel = panel.clone();
-                                let user = user.clone();
-                                let profiles = user.read(cx).profiles();
-                                Some(ContextMenu::build(window, cx, move |menu, _window, _cx| {
-                                    let mut menu = menu.header("Profiles");
-                                    for profile in profiles {
-                                        menu = menu.custom_entry(
-                                            {
-                                                let profile = profile.clone();
-                                                move |_window, cx| {
-                                                    //
-                                                    div()
-                                                        //
-                                                        .p_2()
-                                                        .child(profile.read(cx).name())
-                                                        .into_any_element()
-                                                }
-                                            },
-                                            move |_window, cx| {
-                                                //
-                                                info!(
-                                                    name = &**profile.read(cx).name(),
-                                                    "Clicked profile"
-                                                );
-                                            },
-                                        );
-                                    }
-
-                                    menu = menu.separator().custom_entry(
-                                        |_window, cx| {
-                                            div()
-                                                .p_2()
-                                                .text_sm()
-                                                .text_color(cx.theme().colors().text_accent)
-                                                .child("+ Create Profile")
-                                                .into_any_element()
-                                        },
-                                        move |_window, cx| {
-                                            panel.update(cx, |this, _cx| {
-                                                this.scene = PanelScene::CreatingProfile;
-                                            });
-                                        },
-                                    );
-
-                                    menu
-                                }))
-                            }
-                        }),
-                )
-            })
     }
 }
 
