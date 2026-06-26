@@ -267,6 +267,7 @@ impl GalvanizedPanel {
             .bg(cx.theme().colors().editor_background)
             .h_full()
             .w(px(72.))
+            .flex_shrink_0()
             .py_2()
             .gap_2()
             .border_r_1()
