@@ -34,8 +34,13 @@ actions!(
 pub fn init(cx: &mut App) {
     cx.observe_new::<Galvanized>(|galvanized, _window, cx| {
         let galvanized_entity = cx.entity();
-        let chat_app = cx.new(|cx| ChatApp::new(galvanized_entity, cx));
-        galvanized.register_app(chat_app, cx);
+        let chat = cx.new(|cx| ChatApp::new(galvanized_entity, cx));
+        galvanized.register_app(chat.clone(), cx);
+        galvanized.register_action(cx, move |this, _workspace, _: &OpenChat, _window, cx| {
+            let chat = chat.clone();
+            this.panel()
+                .update(cx, |panel, cx| panel.set_active_app(chat, cx));
+        });
     })
     .detach();
 }
@@ -85,14 +90,17 @@ impl AppBehavior for ChatApp {
 }
 
 impl Render for ChatApp {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
+            //
+            .debug()
+            .size_full()
+            .child("Chat App")
     }
 }
 
 #[derive(IntoElement)]
 pub struct ChatBubble {
-    //
     from: SharedString,
     message: SharedString,
 }

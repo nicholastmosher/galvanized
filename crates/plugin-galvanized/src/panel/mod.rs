@@ -174,8 +174,8 @@ impl GalvanizedPanel {
         }
     }
 
-    pub fn set_active_app(&mut self, app: Box<dyn AppHandle>, cx: &mut Context<Self>) {
-        self.active_app = Some(app);
+    pub fn set_active_app(&mut self, app: impl AppHandle, cx: &mut Context<Self>) {
+        self.active_app = Some(Box::new(app));
         cx.notify();
     }
 }

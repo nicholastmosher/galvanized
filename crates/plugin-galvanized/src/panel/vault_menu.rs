@@ -127,7 +127,7 @@ impl Focusable for VaultMenu {
 
 impl EventEmitter<DismissEvent> for VaultMenu {}
 impl Render for VaultMenu {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let apps = self
             .galvanized
             .read(cx)
@@ -138,10 +138,10 @@ impl Render for VaultMenu {
 
         v_flex()
             .bg(cx.theme().colors().background)
-            .min_w_40()
-            .rounded_md()
+            .size_full()
             .border_1()
             .border_color(cx.theme().colors().border)
+            .rounded_md()
             .on_mouse_down_out(cx.listener(|_this, _e, _window, cx| {
                 cx.emit(DismissEvent);
             }))
@@ -151,14 +151,21 @@ impl Render for VaultMenu {
                 cx,
             ))
             .children(apps.into_iter().map(|(id, app)| {
-                //
-                div()
-                    .id(format!("app-{}", id))
-                    //
+                h_flex()
+                    .id(format!("nav-{}", id))
+                    .size_full()
                     .p_2()
                     .gap_2()
                     .hover(|style| style.bg(cx.theme().colors().element_hover))
-                    .child(app.nav(window, cx))
+                    .on_click(cx.listener({
+                        let app = app.boxed_clone();
+                        move |_this, _e, window, cx| {
+                            window.dispatch_action(app.open_action(cx), cx);
+                            cx.emit(DismissEvent);
+                        }
+                    }))
+                    .child(app.icon(cx))
+                    .child(app.title(cx))
             }))
     }
 }

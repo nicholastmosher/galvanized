@@ -11,9 +11,10 @@ use zed::unstable::{
         ImageFormat, KeyDownEvent, actions, img, rgba,
     },
     ui::{
-        ActiveTheme, App, Context, Div, FluentBuilder as _, InteractiveElement as _, IntoElement,
-        ListSeparator, ParentElement as _, Render, SharedString, StatefulInteractiveElement as _,
-        Styled, Window, div, h_flex, px, v_flex,
+        ActiveTheme, App, Context, Div, FluentBuilder as _, Icon, IconName, IconSize,
+        InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Render,
+        SharedString, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex, px,
+        v_flex,
     },
 };
 
@@ -30,13 +31,15 @@ pub fn init(cx: &mut App) {
         let Some(window) = window else { return };
         let contacts = cx.new(|cx| Contacts::new(window, cx));
         galvanized.register_app(contacts.clone(), cx);
+        galvanized
+            .panel()
+            .update(cx, |panel, cx| panel.set_active_app(contacts.clone(), cx));
         galvanized.register_action(
             cx,
             move |this, _workspace, _: &OpenContacts, _window, cx| {
                 let contacts = contacts.clone();
-                this.panel().update(cx, move |panel, cx| {
-                    panel.set_active_app(Box::new(contacts), cx)
-                });
+                this.panel()
+                    .update(cx, move |panel, cx| panel.set_active_app(contacts, cx));
             },
         );
     })
@@ -134,7 +137,7 @@ impl AppBehavior for Contacts {
     }
 
     fn icon(&self) -> SharedString {
-        "📒".into()
+        "🧑‍🧑‍🧒‍🧒".into()
     }
 
     fn title(&self) -> SharedString {
@@ -161,20 +164,53 @@ impl Render for Contacts {
 impl Contacts {
     fn render_header(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
+            //
+            .px_2()
             .gap_2()
-            .child(h_flex().pl_2().gap_2().text_lg().child("Contacts"))
             .child(
                 h_flex()
-                    .border_1()
-                    .border_color(cx.theme().colors().border)
-                    .rounded_md()
-                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
-                        if e.keystroke.key != "enter" {
-                            return;
-                        }
-                        this.add_contact_from_input(window, cx);
-                    }))
-                    .child(div().flex_grow().p_2().child(self.input_editor.clone())),
+                    .gap_2()
+                    .child(
+                        //
+                        v_flex()
+                            //
+                            .text_lg()
+                            .child("Contacts"),
+                    )
+                    .child(
+                        h_flex()
+                            .flex_grow()
+                            .border_1()
+                            .border_color(cx.theme().colors().border)
+                            .rounded_md()
+                            .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                                if e.keystroke.key != "enter" {
+                                    return;
+                                }
+                                this.add_contact_from_input(window, cx);
+                            }))
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .flex_grow()
+                                    .bg(cx.theme().colors().editor_background)
+                                    .px_2()
+                                    .child(self.input_editor.clone()),
+                            ),
+                    ),
+            )
+            .child(
+                //
+                h_flex()
+                    .id("copy-profile-id")
+                    .gap_2()
+                    .text_xs()
+                    .text_color(cx.theme().colors().text_muted)
+                    .hover(|style| style.text_color(cx.theme().colors().text_placeholder))
+                    .tooltip(Tooltip::text("Send this to a friend to paste in their app"))
+                    .child(Icon::new(IconName::Copy).size(IconSize::Small))
+                    .child("Copy My ID: 0xdeadbeefdeadbeefdeadbeef"),
             )
     }
 

@@ -1,11 +1,6 @@
-use plugin_galvanized::{
-    Galvanized,
-    app_behavior::{AppBehavior, SpaceContextMenuItem},
-    users::Space,
-};
-use tracing::info;
+use plugin_galvanized::{Galvanized, app_behavior::AppBehavior};
 use zed::unstable::{
-    gpui::{self, Action, AppContext as _, Entity, actions},
+    gpui::{self, Action, AppContext as _, actions},
     ui::{App, Context, IntoElement, Render, SharedString, Window, div},
 };
 
@@ -18,13 +13,14 @@ actions!(
 );
 
 pub fn init(cx: &mut App) {
-    //
     cx.observe_new::<Galvanized>(|galvanized, _window, cx| {
-        let files_app = cx.new(|cx| FilesApp::new(cx));
-        galvanized.register_app(files_app, cx);
-        // galvanized.register_action(cx, |this, _workspace, action: &CreateArea, _window, cx| {
-        //     let space_id = action.space_id.clone();
-        // });
+        let files = cx.new(|cx| FilesApp::new(cx));
+        galvanized.register_app(files.clone(), cx);
+        galvanized.register_action(cx, move |this, _workspace, _: &OpenFiles, _window, cx| {
+            let files = files.clone();
+            this.panel()
+                .update(cx, |panel, cx| panel.set_active_app(files.clone(), cx));
+        });
     })
     .detach();
 }
@@ -58,7 +54,7 @@ impl AppBehavior for FilesApp {
 }
 
 impl Render for FilesApp {
-    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
     }
 }
