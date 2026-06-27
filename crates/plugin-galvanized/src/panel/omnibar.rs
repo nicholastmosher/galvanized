@@ -7,12 +7,12 @@ use zed::unstable::{
     },
 };
 
-use crate::{panel::GalvanizedPanel, users::User};
+use crate::{panel::GalvanizedPanel, vaults::Vault};
 
 impl GalvanizedPanel {
     pub fn render_omnibar(
         &mut self,
-        user: Entity<User>,
+        user: Entity<Vault>,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let user_name = user.read(cx).name();

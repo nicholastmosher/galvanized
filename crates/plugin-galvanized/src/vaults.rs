@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use anyhow::{Context as _, Result, bail};
-use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
+use plugin_vault::{VaultsExt as _, vault_actor::VaultToken, vault_db::VaultId};
 use plugin_willow::{Namespace, Subspace, WillowExt};
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -11,32 +11,30 @@ use zed::unstable::{
     ui::{Context, IntoElement, SharedString},
 };
 
-/// A User is conceptually the representation of a user that owns a Vault.
+/// A Vault stores a user's Profiles and Spaces encrypted with a password.
 ///
-/// A User represents a user and their access to Willow data.
+/// One Vault may contain multiple Spaces and Profiles, which correspond
+/// to Willow Namespaces and Subspaces, respectively.
 ///
-/// A User is backed by a vault which stores Willow namespace and subspace
-/// keys. One User may control any number of namespace and/or subspace keys.
-///
-/// A User also provides protected access to the Willow data it owns.
+/// A Vault also provides protected access to the Willow data it owns.
 /// Willow data access is gated behind the User's vault being unlocked.
 #[derive(derive_more::Debug)]
-pub struct User {
+pub struct Vault {
     /// Public metadata about the user, visible while the vault is locked.
-    metadata: UserMetadata,
+    metadata: VaultMetadata,
 
     /// The ID of the vault underlying this User.
     vault_id: VaultId,
 
-    /// If unlocked, the handle to the Vault that stores this User's data.
+    /// If unlocked, a token granting access to the underlying Vault.
     ///
-    /// The handle carries the capability to read and write to the vault, and
-    /// is obtained by unlocking the vault. A handle's capabilities may expire
+    /// The token carries the capability to read and write to the vault, and
+    /// is obtained by unlocking the vault. A token's capabilities may expire
     /// over time or be revoked.
-    vault_handle: Option<VaultHandle>,
+    vault_token: Option<VaultToken>,
 
     // TODO: Create a capability-powered caching wrapper, with timeout and revoke {
-    unlocked_vault: Option<UserVault>,
+    unlocked_vault: Option<VaultContent>,
     unlocked_spaces: BTreeMap<NamespaceId, Entity<Space>>,
     unlocked_active_profile: Option<Entity<Profile>>,
     unlocked_profiles: BTreeMap<SubspaceId, Entity<Profile>>,
@@ -44,10 +42,10 @@ pub struct User {
     unlock_task: Option<Task<Result<()>>>,
 }
 
-impl User {
+impl Vault {
     /// Create a new User from the given [`VaultId`] and user name.
     pub fn new(vault_id: VaultId, user_name: String, cx: &mut Context<Self>) -> Self {
-        let metadata = UserMetadata::new(user_name);
+        let metadata = VaultMetadata::new(user_name);
         Self::from_metadata(vault_id, metadata, cx)
     }
 
@@ -56,13 +54,13 @@ impl User {
     /// User metadata is public, and visible when the user's vault is locked.
     pub fn from_metadata(
         vault_id: VaultId,
-        metadata: UserMetadata,
+        metadata: VaultMetadata,
         _cx: &mut Context<Self>,
     ) -> Self {
         Self {
             metadata,
             vault_id,
-            vault_handle: None,
+            vault_token: None,
             unlocked_vault: None,
             unlocked_spaces: Default::default(),
             unlocked_active_profile: Default::default(),
@@ -85,7 +83,7 @@ impl User {
             let vault_handle = cx.vaults().unlock(&vault_id, password).await?;
 
             this.update(cx, |this, cx| {
-                this.vault_handle = Some(vault_handle);
+                this.vault_token = Some(vault_handle);
                 this.load_content(cx)
             })?
             .await?;
@@ -104,7 +102,7 @@ impl User {
     // TODO: Create capability-powered caching mechanism that automatically invalidates
     // fetched cached data on lock.
     pub fn load_content(&mut self, cx: &mut Context<Self>) -> Task<Result<()>> {
-        let vault_handle = self.vault_handle.clone().context("user is not unlocked");
+        let vault_handle = self.vault_token.clone().context("user is not unlocked");
 
         cx.spawn(async move |this, cx| {
             let vault_handle = vault_handle?;
@@ -112,7 +110,7 @@ impl User {
             let user_vault = cx
                 .vaults()
                 .read(vault_handle, |vault| {
-                    serde_json::from_slice::<UserVault>(vault.secret())
+                    serde_json::from_slice::<VaultContent>(vault.secret())
                         .context("failed to deserialize UserVault")
                 })
                 .await??;
@@ -149,11 +147,11 @@ impl User {
     fn update_content(
         &mut self,
         cx: &mut Context<Self>,
-        update_fn: impl 'static + FnOnce(&mut UserVault),
+        update_fn: impl 'static + FnOnce(&mut VaultContent),
     ) -> Task<Result<()>> {
         let load_content_task = self.load_content(cx);
         let vault_handle = self
-            .vault_handle
+            .vault_token
             .clone()
             .context("user's vault is not unlocked");
 
@@ -196,10 +194,10 @@ impl User {
     pub fn with_content(
         &mut self,
         cx: &mut Context<Self>,
-        f: impl FnOnce(&mut UserContent),
+        f: impl FnOnce(&mut VaultAccess),
     ) -> Result<()> {
         if let Some(mut vault) = self.unlocked_vault.take() {
-            let mut content = UserContent::new(&mut vault);
+            let mut content = VaultAccess::new(&mut vault);
             f(&mut content);
             self.unlocked_vault = Some(vault);
             return Ok(());
@@ -317,7 +315,7 @@ impl User {
     }
 }
 
-pub trait UserHandle {
+pub trait VaultHandle {
     /// Attempts to unlock this [`User`] by unlocking the underlying Vault
     /// with the given password.
     fn unlock<C: AppContext>(&self, cx: &mut C, password: String) -> Task<Result<()>>;
@@ -330,11 +328,11 @@ pub trait UserHandle {
         &self,
         it: T,
         cx: &mut C,
-        f: impl for<'a> FnOnce(T, &mut User, &mut UserContent, &'a mut Context<User>) -> T,
+        f: impl for<'a> FnOnce(T, &mut Vault, &mut VaultAccess, &'a mut Context<Vault>) -> T,
     ) -> T;
 }
 
-impl UserHandle for Entity<User> {
+impl VaultHandle for Entity<Vault> {
     fn unlock<C: AppContext>(&self, cx: &mut C, password: String) -> Task<Result<()>> {
         cx.update_entity(self, |this, cx| this.unlock(password, cx))
     }
@@ -347,14 +345,14 @@ impl UserHandle for Entity<User> {
         &self,
         item: T,
         cx: &mut C,
-        f: impl for<'a> FnOnce(T, &mut User, &mut UserContent, &'a mut Context<User>) -> T,
+        f: impl for<'a> FnOnce(T, &mut Vault, &mut VaultAccess, &'a mut Context<Vault>) -> T,
     ) -> T {
         cx.update_entity(self, |user, cx| {
             // If the user is unlocked and the content is cached, pass it to the caller's function
             //
             // We take the vault and replace it when we're done to avoid double borrowing
             if let Some(mut user_vault) = user.unlocked_vault.take() {
-                let mut user_content = UserContent::new(&mut user_vault);
+                let mut user_content = VaultAccess::new(&mut user_vault);
                 let item = f(item, user, &mut user_content, cx);
                 user.unlocked_vault = Some(user_vault);
                 return item;
@@ -375,13 +373,13 @@ impl UserHandle for Entity<User> {
     }
 }
 
-/// API object providing User behavior that is gated behind vault unlock.
-pub struct UserContent<'a> {
-    vault: &'a mut UserVault,
+/// API object providing Vault behavior that is gated behind vault unlock.
+pub struct VaultAccess<'a> {
+    vault: &'a mut VaultContent,
 }
 
-impl<'a> UserContent<'a> {
-    fn new(vault: &'a mut UserVault) -> Self {
+impl<'a> VaultAccess<'a> {
+    fn new(vault: &'a mut VaultContent) -> Self {
         Self { vault }
     }
 
@@ -397,12 +395,12 @@ impl<'a> UserContent<'a> {
 /// Metadata about a user that is visible even when the underlying vault
 /// holding the subspace is locked.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UserMetadata {
+pub struct VaultMetadata {
     /// The name of the user, visible on the user login picker
     user_name: SharedString,
 }
 
-impl UserMetadata {
+impl VaultMetadata {
     /// Create a new [`UserMetadata`] from the given public user name
     pub fn new(user_name: impl Into<SharedString>) -> Self {
         Self {
@@ -414,11 +412,11 @@ impl UserMetadata {
 use plugin_willow::willow_serde::SubspaceIdSerde;
 use serde_with::serde_as;
 
-/// Data structure to serialize the secret content of a [`User`]
+/// Data structure to serialize the secret content of a [`Vault`]
 #[serde_as]
 #[derive(derive_more::Debug, Serialize, Deserialize)]
-#[debug("UserVault")]
-pub struct UserVault {
+#[debug("VaultContent")]
+pub struct VaultContent {
     #[serde(default)]
     spaces: Vec<Space>,
 
@@ -478,7 +476,7 @@ impl Profile {
     }
 }
 
-impl UserVault {
+impl VaultContent {
     pub fn new() -> Self {
         Self {
             spaces: Default::default(),
@@ -488,13 +486,13 @@ impl UserVault {
     }
 }
 
-impl<T> UnlockedUserView for T where T: IntoElement {}
-pub trait UnlockedUserView {
+impl<T> UnlockedVaultView for T where T: IntoElement {}
+pub trait UnlockedVaultView {
     fn when_unlocked<C: AppContext>(
         self,
-        user: &Entity<User>,
+        user: &Entity<Vault>,
         cx: &mut C,
-        f: impl FnOnce(Self, &mut User, &mut UserContent, &mut Context<User>) -> Self,
+        f: impl FnOnce(Self, &mut Vault, &mut VaultAccess, &mut Context<Vault>) -> Self,
     ) -> Self
     where
         Self: Sized,
@@ -505,7 +503,7 @@ pub trait UnlockedUserView {
     }
 }
 
-fn thing(user: &Entity<User>, cx: &mut Context<User>) -> impl IntoElement {
+fn thing(user: &Entity<Vault>, cx: &mut Context<Vault>) -> impl IntoElement {
     use zed::unstable::ui::div;
 
     div()

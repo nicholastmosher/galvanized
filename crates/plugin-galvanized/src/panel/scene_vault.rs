@@ -2,17 +2,17 @@ use std::sync::LazyLock;
 
 use tracing::info;
 use zed::unstable::{
-    gpui::{Entity, FontWeight, Hsla, rgba},
+    gpui::{ClickEvent, Entity, FontWeight, Hsla, rgba},
     ui::{
         ActiveTheme, Color, Context, Icon, IconName, IconSize, InteractiveElement, IntoElement,
-        ParentElement as _, StatefulInteractiveElement as _, Styled, Window, div, h_flex, px,
-        v_flex,
+        ParentElement as _, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex,
+        px, v_flex,
     },
 };
 
 use crate::{
     panel::{GalvanizedPanel, PrimaryButton as _, render_scene_header},
-    users::{User, UserHandle as _},
+    vaults::{Vault, VaultHandle as _},
 };
 
 static GZED_ORANGE: LazyLock<Hsla> = LazyLock::new(|| Hsla::from(rgba(0xff6600ff)).opacity(0.8));
@@ -26,7 +26,7 @@ pub enum VaultScene {
     /// Initial vault picker shows existing vaults and create-new
     VaultPicker,
     /// Sign-in prompt for an existing vault
-    UnlockPrompt(Entity<User>),
+    UnlockPrompt(Entity<Vault>),
     /// Create vault (master password + display name)
     CreateVault,
 }
@@ -244,7 +244,7 @@ impl GalvanizedPanel {
 
     fn render_scene_sign_in(
         &mut self,
-        user: Entity<User>,
+        user: Entity<Vault>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -451,13 +451,38 @@ impl GalvanizedPanel {
                             .child(
                                 div()
                                     .child(
-                                        div()
+                                        h_flex()
+                                            .id("vault-name-title")
+                                            .gap_1()
                                             .text_xs()
                                             .text_color(colors.text_muted)
-                                            .mb_1()
-                                            .child("Display Name"),
+                                            .tooltip(Tooltip::text(
+                                                "Visible before unlock, only visible to you",
+                                            ))
+                                            .child("Vault Name")
+                                            .child(
+                                                Icon::new(IconName::Info).size(IconSize::XSmall),
+                                            ),
                                     )
-                                    .child(self.display_name_input.clone()),
+                                    .child(self.vault_name_input.clone()),
+                            )
+                            .child(
+                                div()
+                                    .child(
+                                        h_flex()
+                                            .id("profile-name-title")
+                                            .gap_1()
+                                            .text_xs()
+                                            .text_color(colors.text_muted)
+                                            .tooltip(Tooltip::text(
+                                                "Visible only after unlock, visible to contacts",
+                                            ))
+                                            .child("Profile Name")
+                                            .child(
+                                                Icon::new(IconName::Info).size(IconSize::XSmall),
+                                            ),
+                                    )
+                                    .child(self.profile_name_input.clone()),
                             )
                             .child(
                                 div()
@@ -519,46 +544,7 @@ impl GalvanizedPanel {
                                     .primary_button()
                                     .shadow_lg()
                                     .cursor_pointer()
-                                    .on_click(cx.listener(|this, _e, _window, cx| {
-                                        let display_name =
-                                            this.display_name_input.read(cx).text(cx);
-                                        if display_name.is_empty() {
-                                            return;
-                                        }
-
-                                        let password = this.create_password_input.read(cx).text(cx);
-                                        let password_confirm = this
-                                            .create_password_confirmation_input
-                                            .read(cx)
-                                            .text(cx);
-                                        if password.is_empty() || password_confirm.is_empty() {
-                                            return;
-                                        }
-
-                                        if password != password_confirm {
-                                            return;
-                                        }
-
-                                        info!("Creating vault: {}", display_name);
-                                        cx.spawn(async move |this, cx| {
-                                            let galvanized = this.read_with(cx, |this, _cx| {
-                                                this.galvanized.clone()
-                                            })?;
-                                            let user = galvanized
-                                                .update(cx, |g, cx| {
-                                                    g.create_user(display_name, password, cx)
-                                                })
-                                                .await?;
-                                            this.update(cx, |this, cx| {
-                                                this.galvanized.update(cx, |it, _cx| {
-                                                    it.active_user = Some(user);
-                                                });
-                                                this.vault_scene = VaultScene::VaultPicker;
-                                            })?;
-                                            anyhow::Ok(())
-                                        })
-                                        .detach_and_log_err(cx);
-                                    }))
+                                    .on_click(cx.listener(Self::submit_create_vault))
                                     .child(
                                         div()
                                             .text_sm()
@@ -579,5 +565,48 @@ impl GalvanizedPanel {
             VaultScene::UnlockPrompt(_) => ("Sign In", "Unlock your vault"),
             VaultScene::CreateVault => ("Getting Started", "Set up your decentralized data space"),
         }
+    }
+
+    fn submit_create_vault(
+        &mut self,
+        _e: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let vault_name = self.vault_name_input.read(cx).text(cx);
+        if vault_name.is_empty() {
+            return;
+        }
+
+        let profile_name = self.profile_name_input.read(cx).text(cx);
+        if profile_name.is_empty() {
+            return;
+        }
+
+        let password = self.create_password_input.read(cx).text(cx);
+        let password_confirm = self.create_password_confirmation_input.read(cx).text(cx);
+        if password.is_empty() || password_confirm.is_empty() {
+            return;
+        }
+
+        if password != password_confirm {
+            return;
+        }
+
+        info!("Creating vault: {}", vault_name);
+        cx.spawn(async move |this, cx| {
+            let galvanized = this.read_with(cx, |this, _cx| this.galvanized.clone())?;
+            let user = galvanized
+                .update(cx, |g, cx| g.create_vault(vault_name, password, cx))
+                .await?;
+            this.update(cx, |this, cx| {
+                this.galvanized.update(cx, |it, _cx| {
+                    it.active_user = Some(user);
+                });
+                this.vault_scene = VaultScene::VaultPicker;
+            })?;
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
     }
 }

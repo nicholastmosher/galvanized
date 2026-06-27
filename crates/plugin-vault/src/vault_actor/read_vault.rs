@@ -5,14 +5,14 @@ use tokio::sync::oneshot;
 
 use crate::{
     error::{ReadVaultError, VaultError},
-    vault_actor::{VaultActor, VaultActorHandle, VaultHandle},
+    vault_actor::{VaultActor, VaultActorHandle, VaultToken},
     vault_db::VaultRef,
 };
 
 /// Request to read from a vault using a provided read function.
 pub struct ReadVaultRequest {
     client_tx: oneshot::Sender<ReadVaultResponse>,
-    vault_handle: VaultHandle,
+    vault_handle: VaultToken,
     read_fn: ReadVaultFn,
 }
 
@@ -27,7 +27,7 @@ impl VaultActorHandle {
     /// Reads a vault using the provided read function and returns the result.
     pub async fn read_vault<R>(
         &self,
-        vault_handle: &VaultHandle,
+        vault_handle: &VaultToken,
         f: impl 'static + Send + for<'a> FnOnce(VaultRef<'a>) -> R,
     ) -> Result<R, VaultError>
     where

@@ -13,12 +13,12 @@ use zed::unstable::{
 use crate::{
     app_behavior::AppHandle,
     panel::{GalvanizedPanel, TogglePanel},
-    users::{User, UserMetadata, UserVault},
+    vaults::{Vault, VaultContent, VaultMetadata},
 };
 
 pub mod app_behavior;
 pub mod panel;
-pub mod users;
+pub mod vaults;
 
 pub fn init(cx: &mut App) {
     cx.observe_new::<Workspace>(|workspace, window, cx| {
@@ -39,11 +39,11 @@ pub fn init(cx: &mut App) {
 pub struct Galvanized {
     apps: BTreeMap<&'static str, Box<dyn AppHandle>>,
     panel: Entity<GalvanizedPanel>,
-    pub(crate) active_user: Option<Entity<User>>,
-    users: BTreeMap<VaultId, Entity<User>>,
+    pub(crate) active_user: Option<Entity<Vault>>,
+    users: BTreeMap<VaultId, Entity<Vault>>,
     workspace: Entity<Workspace>,
 
-    loading_users_task: Option<Task<Result<Vec<Entity<User>>>>>,
+    loading_users_task: Option<Task<Result<Vec<Entity<Vault>>>>>,
 }
 
 impl Galvanized {
@@ -97,21 +97,21 @@ impl Galvanized {
     /// This creates a new backing Vault with the display name used as
     /// metadata to identify the vault, and the password used to encrypt
     /// the future content of the vault, which begins empty.
-    pub fn create_user(
+    pub fn create_vault(
         &mut self,
-        display_name: String,
+        vault_name: String,
         password: String,
         cx: &mut Context<'_, Self>,
-    ) -> Task<Result<Entity<User>>> {
+    ) -> Task<Result<Entity<Vault>>> {
         cx.spawn(async move |this, cx| {
             let vault_id = cx.vaults().create(password.to_string()).await?;
             let vault_handle = cx.vaults().unlock(&vault_id, password).await?;
 
-            let user_metadata = UserMetadata::new(display_name.clone());
+            let user_metadata = VaultMetadata::new(vault_name.clone());
             let user_metadata_bytes =
                 serde_json::to_vec(&user_metadata).context("failed to serialize user metadata")?;
 
-            let user_vault = UserVault::new();
+            let user_vault = VaultContent::new();
             let user_vault_bytes = serde_json::to_vec(&user_vault)
                 .context("failed to serialize user vault content")?;
 
@@ -123,9 +123,9 @@ impl Galvanized {
                 })
                 .await
                 .context("failed to write new subspace to vault")?;
-            info!(?vault_id, ?display_name, "Wrote user to vault");
+            info!(?vault_id, ?vault_name, "Wrote user to vault");
 
-            let user = cx.new(|cx| User::new(vault_id.clone(), display_name, cx));
+            let user = cx.new(|cx| Vault::new(vault_id.clone(), vault_name, cx));
             this.update(cx, |this, _cx| {
                 this.users.insert(vault_id, user.clone());
             })?;
@@ -160,7 +160,7 @@ impl Galvanized {
 
                             // We'll filter out anything that doesn't deeserialize as a SubspaceMetadata
                             let meta =
-                                serde_json::from_slice::<UserMetadata>(vault.metadata());
+                                serde_json::from_slice::<VaultMetadata>(vault.metadata());
 
                             info!(?meta, "Deserialized vault metadata");
                             meta.map(|it| (vault_id.clone(), it)).ok()
@@ -191,7 +191,7 @@ impl Galvanized {
             let users = this.update(cx, |this, cx| {
                 for (vault_id, metadata) in submetas {
                     if !this.users.contains_key(&vault_id) {
-                        let user = cx.new(|cx| User::from_metadata(vault_id.clone(), metadata, cx));
+                        let user = cx.new(|cx| Vault::from_metadata(vault_id.clone(), metadata, cx));
 
                         this.users.insert(vault_id, user);
                     }

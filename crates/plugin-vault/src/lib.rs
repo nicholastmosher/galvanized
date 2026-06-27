@@ -11,7 +11,7 @@ use zed::unstable::{
 use crate::{
     error::VaultError,
     unlock_ui::UnlockPrompt,
-    vault_actor::{VaultActor, VaultActorHandle, VaultHandle},
+    vault_actor::{VaultActor, VaultActorHandle, VaultToken},
     vault_db::{VaultAccess, VaultId, VaultMetadataRef, VaultMut, VaultRef},
 };
 
@@ -114,7 +114,7 @@ impl<C: AppContext> VaultsCx<'_, C> {
     /// [`unlock_vault`]: Self::unlock_vault
     pub fn read<R>(
         &self,
-        vault_handle: VaultHandle,
+        vault_handle: VaultToken,
         read_fn: impl 'static + Send + for<'a> FnOnce(VaultRef<'a>) -> R,
     ) -> Task<Result<R, VaultError>>
     where
@@ -151,7 +151,7 @@ impl<C: AppContext> VaultsCx<'_, C> {
         &self,
         vault_id: &VaultId,
         password: String,
-    ) -> Task<Result<VaultHandle, VaultError>> {
+    ) -> Task<Result<VaultToken, VaultError>> {
         let actor = self.actor();
         let vault_id = vault_id.clone();
         self.cx.background_spawn(async move {
@@ -167,7 +167,7 @@ impl<C: AppContext> VaultsCx<'_, C> {
     /// [`unlock_vault`]: Self::unlock_vault
     pub fn update<R>(
         &self,
-        vault_handle: VaultHandle,
+        vault_handle: VaultToken,
         update_fn: impl 'static + Send + for<'a> FnOnce(VaultMut<'a>) -> R,
     ) -> Task<Result<R, VaultError>>
     where

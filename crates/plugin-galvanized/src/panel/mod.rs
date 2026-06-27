@@ -24,7 +24,7 @@ use crate::{
     Galvanized, GalvanizedHandle as _,
     app_behavior::AppHandle,
     panel::{scene_vault::VaultScene, vault_menu::render_vault_menu},
-    users::{Space, User},
+    vaults::{Space, Vault},
 };
 
 pub(crate) static GZED_ORANGE: LazyLock<Hsla> =
@@ -55,7 +55,8 @@ pub struct GalvanizedPanel {
     galvanized: Entity<Galvanized>,
 
     pub(crate) vault_scene: VaultScene,
-    pub(crate) display_name_input: Entity<InputField>,
+    pub(crate) vault_name_input: Entity<InputField>,
+    pub(crate) profile_name_input: Entity<InputField>,
     pub(crate) create_password_input: Entity<InputField>,
     pub(crate) create_password_confirmation_input: Entity<InputField>,
     pub(crate) login_password_input: Entity<InputField>,
@@ -109,7 +110,8 @@ impl GalvanizedPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let display_name_input = cx.new(|cx| InputField::new(window, cx, "Display name"));
+        let vault_name_input = cx.new(|cx| InputField::new(window, cx, "Vault name"));
+        let profile_name_input = cx.new(|cx| InputField::new(window, cx, "Profile name"));
         let create_password_input =
             cx.new(|cx| InputField::new(window, cx, "Create Password").masked(true));
         let create_password_confirmation_input =
@@ -153,7 +155,8 @@ impl GalvanizedPanel {
             galvanized,
 
             vault_scene: VaultScene::VaultPicker,
-            display_name_input,
+            vault_name_input,
+            profile_name_input,
             create_password_input,
             create_password_confirmation_input,
             login_password_input,
@@ -220,7 +223,7 @@ impl GalvanizedPanel {
     /// - Right sidebar main navigation view
     fn render_home_panel(
         &mut self,
-        user: Entity<User>,
+        user: Entity<Vault>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -253,7 +256,7 @@ impl GalvanizedPanel {
 
     fn render_left_rail(
         &mut self,
-        user: Entity<User>,
+        user: Entity<Vault>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -412,7 +415,7 @@ impl GalvanizedPanel {
 
     fn render_app_content(
         &mut self,
-        user: Entity<User>,
+        user: Entity<Vault>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {

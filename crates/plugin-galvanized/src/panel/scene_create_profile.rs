@@ -8,13 +8,13 @@ use zed::unstable::{
 
 use crate::{
     panel::{GZED_ORANGE, GalvanizedPanel, PanelScene, PrimaryButton as _},
-    users::User,
+    vaults::Vault,
 };
 
 impl GalvanizedPanel {
     pub fn render_scene_create_profile(
         &mut self,
-        user: Entity<User>,
+        user: Entity<Vault>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -73,7 +73,7 @@ impl GalvanizedPanel {
                                             .mb_1()
                                             .child("Display Name"),
                                     )
-                                    .child(self.display_name_input.clone()),
+                                    .child(self.vault_name_input.clone()),
                             )
                             .child(
                                 div()
@@ -85,7 +85,7 @@ impl GalvanizedPanel {
                                     .shadow_lg()
                                     .cursor_pointer()
                                     .on_click(cx.listener(move |this, _e, _window, cx| {
-                                        let name = this.display_name_input.read(cx).text(cx);
+                                        let name = this.vault_name_input.read(cx).text(cx);
                                         if name.is_empty() {
                                             return;
                                         }

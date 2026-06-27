@@ -17,11 +17,11 @@ use zed::unstable::{
     },
 };
 
-use crate::{Galvanized, users::User};
+use crate::{Galvanized, vaults::Vault};
 
 pub fn render_vault_menu<T>(
     galvanized: Entity<Galvanized>,
-    user: Entity<User>,
+    user: Entity<Vault>,
     _window: &mut Window,
     _cx: &mut Context<T>,
 ) -> impl IntoElement {
@@ -106,11 +106,15 @@ impl RenderOnce for VaultButton {
 pub struct VaultMenu {
     focus_handle: FocusHandle,
     galvanized: Entity<Galvanized>,
-    user: Entity<User>,
+    user: Entity<Vault>,
 }
 
 impl VaultMenu {
-    pub fn new(user: Entity<User>, galvanized: Entity<Galvanized>, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        user: Entity<Vault>,
+        galvanized: Entity<Galvanized>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         Self {
             focus_handle: cx.focus_handle(),
             galvanized,
@@ -172,7 +176,7 @@ impl Render for VaultMenu {
 
 fn render_menu_header<T: EventEmitter<DismissEvent>>(
     galvanized: Entity<Galvanized>,
-    user: Entity<User>,
+    user: Entity<Vault>,
     cx: &mut Context<T>,
 ) -> impl IntoElement {
     let user_name = user.read(cx).name();

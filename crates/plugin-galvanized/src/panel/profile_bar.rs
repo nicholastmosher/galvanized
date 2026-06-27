@@ -10,13 +10,13 @@ use zed::unstable::{
 
 use crate::{
     panel::{CreateProfile, GalvanizedPanel, PanelScene},
-    users::{Profile, User},
+    vaults::{Profile, Vault},
 };
 
 impl GalvanizedPanel {
     pub fn render_profile_bar(
         &mut self,
-        user: Entity<User>,
+        user: Entity<Vault>,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let active_profile = user.read(cx).active_profile();
@@ -64,7 +64,7 @@ fn render_empty_profile_bar<T: 'static>(cx: &mut Context<T>) -> impl IntoElement
 
 /// Element for bar when there's an active profile, including popup menu
 fn render_profile_popover_bar(
-    user: Entity<User>,
+    user: Entity<Vault>,
     profile: Entity<Profile>,
     cx: &mut Context<GalvanizedPanel>,
 ) -> impl IntoElement {

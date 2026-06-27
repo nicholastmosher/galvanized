@@ -34,7 +34,7 @@ const ACTOR_CHANNEL_CAPACITY: usize = 50;
 
 /// A handle granting access to a particular [`Vault`]
 #[derive(Debug, Clone)]
-pub struct VaultHandle {
+pub struct VaultToken {
     vault_id: VaultId,
     #[debug(skip)]
     cap: StrictSendCap<VaultAccess, VaultId>,
@@ -42,7 +42,7 @@ pub struct VaultHandle {
     revoker: StrictRevoker,
 }
 
-impl VaultHandle {
+impl VaultToken {
     /// Creates a new [`VaultHandle`] with the given ID, capability, and revoker.
     pub fn new(
         vault_id: VaultId,

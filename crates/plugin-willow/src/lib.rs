@@ -2,7 +2,7 @@ use crate::willow_serde::{NamespaceSecretSerde, SubspaceSecretSerde};
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::{Context as _, Result};
-use plugin_vault::{VaultsExt as _, vault_actor::VaultHandle, vault_db::VaultId};
+use plugin_vault::{VaultsExt as _, vault_actor::VaultToken, vault_db::VaultId};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::info;

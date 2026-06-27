@@ -5,13 +5,13 @@ use tokio::sync::oneshot;
 
 use crate::{
     error::{UpdateVaultError, VaultError},
-    vault_actor::{VaultActor, VaultActorHandle, VaultHandle},
+    vault_actor::{VaultActor, VaultActorHandle, VaultToken},
     vault_db::VaultMut,
 };
 
 pub struct UpdateVaultRequest {
     client_tx: oneshot::Sender<UpdateVaultResponse>,
-    vault_handle: VaultHandle,
+    vault_handle: VaultToken,
     update_fn: UpdateVaultFn,
 }
 
@@ -24,7 +24,7 @@ struct UpdateVaultFn(
 impl VaultActorHandle {
     pub async fn update_vault<R>(
         &self,
-        vault_handle: &VaultHandle,
+        vault_handle: &VaultToken,
         f: impl 'static + Send + for<'a> FnOnce(VaultMut<'a>) -> R,
     ) -> Result<R, VaultError>
     where

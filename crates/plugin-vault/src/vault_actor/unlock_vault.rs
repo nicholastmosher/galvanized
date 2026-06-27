@@ -4,7 +4,7 @@ use tokio::sync::oneshot;
 
 use crate::{
     error::VaultError,
-    vault_actor::{DEFAULT_VAULT_TIMEOUT, VaultActor, VaultActorHandle, VaultHandle},
+    vault_actor::{DEFAULT_VAULT_TIMEOUT, VaultActor, VaultActorHandle, VaultToken},
     vault_db::VaultId,
 };
 
@@ -22,7 +22,7 @@ pub struct UnlockVaultRequest {
 }
 
 #[derive(Debug)]
-struct UnlockVaultResponse(Result<VaultHandle, VaultError>);
+struct UnlockVaultResponse(Result<VaultToken, VaultError>);
 
 impl VaultActorHandle {
     /// Unlock the vault with the given vault ID using the given password
@@ -30,7 +30,7 @@ impl VaultActorHandle {
         &self,
         vault_id: VaultId,
         password: String,
-    ) -> Result<VaultHandle, VaultError> {
+    ) -> Result<VaultToken, VaultError> {
         let (client_tx, rx) = oneshot::channel();
         self.tx
             .send_async(
@@ -79,7 +79,7 @@ impl VaultActor {
         let cap = self.cap.clone();
         let ttl = DEFAULT_VAULT_TIMEOUT;
         let (cap, revoker) = StrictSendCap::new(cap, ttl, vault_id.clone());
-        let handle = VaultHandle::new(vault_id, cap, revoker);
+        let handle = VaultToken::new(vault_id, cap, revoker);
 
         client_tx
             .send(UnlockVaultResponse(Ok(handle)))
