@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use tracing::info;
 use zed::unstable::{
-    gpui::{ClickEvent, Entity, FontWeight, Hsla, rgba},
+    gpui::{Entity, FontWeight, Hsla, KeyDownEvent, rgba},
     ui::{
         ActiveTheme, Color, Context, Icon, IconName, IconSize, InteractiveElement, IntoElement,
         ParentElement as _, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex,
@@ -26,10 +26,10 @@ static GZED_ORANGE: LazyLock<Hsla> = LazyLock::new(|| Hsla::from(rgba(0xff6600ff
 pub enum VaultScene {
     /// Initial vault picker shows existing vaults and create-new
     VaultPicker,
-    /// Sign-in prompt for an existing vault
-    UnlockPrompt(Entity<Vault>),
     /// Create vault (master password + display name)
     CreateVault,
+    /// Sign-in prompt for an existing vault
+    UnlockPrompt(Entity<Vault>),
 }
 
 impl GalvanizedPanel {
@@ -75,14 +75,14 @@ impl GalvanizedPanel {
                 self.render_vault_scene_picker(window, cx)
                     .into_any_element()
             }
-            VaultScene::UnlockPrompt(user) => {
-                //
-                self.render_vault_scene_login(user.clone(), window, cx)
-                    .into_any_element()
-            }
             VaultScene::CreateVault => {
                 //
                 self.render_vault_scene_create(window, cx)
+                    .into_any_element()
+            }
+            VaultScene::UnlockPrompt(user) => {
+                //
+                self.render_vault_scene_unlock(user.clone(), window, cx)
                     .into_any_element()
             }
         }
@@ -253,149 +253,6 @@ impl GalvanizedPanel {
             )
     }
 
-    fn render_vault_scene_login(
-        &mut self,
-        vault: Entity<Vault>,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let name = vault.read(cx).name();
-        let initial = name.chars().next().unwrap_or('?').to_string();
-
-        h_flex()
-            .size_full()
-            //
-            .justify_center()
-            .child(
-                v_flex()
-                    .id("scene-sign-in")
-                    .w_full()
-                    .text_center()
-                    .child(
-                        h_flex()
-                            .id("sign-in-avatar")
-                            .size(px(64.))
-                            .mx_auto()
-                            .mb_3()
-                            .rounded_full()
-                            .bg(*GZED_ORANGE)
-                            .flex_shrink_0()
-                            .items_center()
-                            .justify_center()
-                            .border_2()
-                            .border_color(cx.theme().colors().border)
-                            .child(
-                                div()
-                                    .mx_auto()
-                                    .text_xl()
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_color(cx.theme().colors().text)
-                                    .child(initial),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .text_lg()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(cx.theme().colors().text)
-                            .mb_1()
-                            .child(name.clone()),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(cx.theme().colors().text_muted)
-                            .mb_1()
-                            .child("Enter your vault password to unlock"),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(cx.theme().colors().text_placeholder)
-                            .mb_5()
-                            .child("1 profile"),
-                    )
-                    .child(
-                        div().flex_col().gap_3().child(
-                            div()
-                                .id("password-input-wrapper")
-                                .w_full()
-                                .child(self.login_password_input.clone()),
-                        ),
-                    )
-                    .child(
-                        h_flex()
-                            .id("sign-in-actions")
-                            .gap_2()
-                            .mt_6()
-                            .child(
-                                div()
-                                    .id("sign-in-back")
-                                    .flex_1()
-                                    .px_3()
-                                    .py_2()
-                                    .rounded_lg()
-                                    .bg(cx.theme().colors().border_variant)
-                                    .hover(|style| style.bg(cx.theme().colors().border))
-                                    .border_1()
-                                    .border_color(cx.theme().colors().border)
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _e, _window, _cx| {
-                                        this.vault_scene = VaultScene::VaultPicker;
-                                    }))
-                                    .child(
-                                        div()
-                                            .text_sm()
-                                            .text_color(cx.theme().colors().text_muted)
-                                            .text_center()
-                                            .child("Back"),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .id("sign-in-unlock")
-                                    .flex_1()
-                                    .px_3()
-                                    .py_2()
-                                    .primary_button()
-                                    .shadow_lg()
-                                    .cursor_pointer()
-                                    .on_click(cx.listener({
-                                        let vault = vault.clone();
-                                        move |this, _e, window, cx| {
-                                            let input = this.login_password_input.clone();
-                                            let password = input.read(cx).text(cx);
-                                            input.update(cx, |input, cx| input.clear(window, cx));
-                                            if password.trim().is_empty() {
-                                                return;
-                                            }
-
-                                            info!("Sign in clicked");
-                                            let vault = vault.clone();
-                                            cx.spawn(async move |this, cx| {
-                                                vault.unlock(cx, password).await?;
-                                                info!("Sign in succeeded");
-                                                this.update(cx, |this, cx| {
-                                                    this.galvanized.set_active_vault(vault, cx);
-                                                })?;
-                                                anyhow::Ok(())
-                                            })
-                                            .detach_and_log_err(cx);
-                                        }
-                                    }))
-                                    .child(
-                                        div()
-                                            .text_sm()
-                                            .font_weight(FontWeight::SEMIBOLD)
-                                            .text_color(cx.theme().colors().text)
-                                            .text_center()
-                                            .child("Unlock"),
-                                    ),
-                            ),
-                    ),
-            )
-    }
-
     fn render_vault_scene_create(
         &mut self,
         _window: &mut Window,
@@ -506,6 +363,14 @@ impl GalvanizedPanel {
                             )
                             .child(
                                 div()
+                                    .id("vault-create-confirm-password")
+                                    .on_key_down(cx.listener(
+                                        |this, e: &KeyDownEvent, window, cx| {
+                                            if e.keystroke.key == "enter" {
+                                                this.submit_create_vault(window, cx);
+                                            }
+                                        },
+                                    ))
                                     .child(
                                         div()
                                             .text_xs()
@@ -553,7 +418,9 @@ impl GalvanizedPanel {
                                     .primary_button()
                                     .shadow_lg()
                                     .cursor_pointer()
-                                    .on_click(cx.listener(Self::submit_create_vault))
+                                    .on_click(cx.listener(|this, _e, window, cx| {
+                                        this.submit_create_vault(window, cx);
+                                    }))
                                     .child(
                                         div()
                                             .text_sm()
@@ -561,6 +428,138 @@ impl GalvanizedPanel {
                                             .text_color(colors.text)
                                             .text_center()
                                             .child("Create Vault"),
+                                    ),
+                            ),
+                    ),
+            )
+    }
+
+    fn render_vault_scene_unlock(
+        &mut self,
+        vault: Entity<Vault>,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let name = vault.read(cx).name();
+        let initial = name.chars().next().unwrap_or('?').to_string();
+
+        h_flex()
+            .size_full()
+            //
+            .justify_center()
+            .child(
+                v_flex()
+                    .id("scene-unlock")
+                    .w_full()
+                    .text_center()
+                    .child(
+                        h_flex()
+                            .id("sign-in-avatar")
+                            .size(px(64.))
+                            .mx_auto()
+                            .mb_3()
+                            .rounded_full()
+                            .bg(*GZED_ORANGE)
+                            .flex_shrink_0()
+                            .items_center()
+                            .justify_center()
+                            .border_2()
+                            .border_color(cx.theme().colors().border)
+                            .child(
+                                div()
+                                    .mx_auto()
+                                    .text_xl()
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(cx.theme().colors().text)
+                                    .child(initial),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .text_lg()
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(cx.theme().colors().text)
+                            .mb_1()
+                            .child(name.clone()),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().colors().text_muted)
+                            .mb_1()
+                            .child("Enter your vault password to unlock"),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().colors().text_placeholder)
+                            .mb_5()
+                            .child("1 profile"),
+                    )
+                    .child(
+                        div().flex_col().gap_3().child(
+                            div()
+                                .id("unlock-password-input")
+                                .w_full()
+                                .on_key_down(cx.listener({
+                                    let vault = vault.clone();
+                                    move |this, e: &KeyDownEvent, window, cx| {
+                                        if e.keystroke.key == "enter" {
+                                            this.submit_unlock_vault(vault.clone(), window, cx);
+                                        }
+                                    }
+                                }))
+                                .child(self.unlock_password_input.clone()),
+                        ),
+                    )
+                    .child(
+                        h_flex()
+                            .id("sign-in-actions")
+                            .gap_2()
+                            .mt_6()
+                            .child(
+                                div()
+                                    .id("sign-in-back")
+                                    .flex_1()
+                                    .px_3()
+                                    .py_2()
+                                    .rounded_lg()
+                                    .bg(cx.theme().colors().border_variant)
+                                    .hover(|style| style.bg(cx.theme().colors().border))
+                                    .border_1()
+                                    .border_color(cx.theme().colors().border)
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(|this, _e, _window, _cx| {
+                                        this.vault_scene = VaultScene::VaultPicker;
+                                    }))
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .text_color(cx.theme().colors().text_muted)
+                                            .text_center()
+                                            .child("Back"),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .id("sign-in-unlock")
+                                    .flex_1()
+                                    .px_3()
+                                    .py_2()
+                                    .primary_button()
+                                    .shadow_lg()
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(move |this, _e, window, cx| {
+                                        //
+                                        this.submit_unlock_vault(vault.clone(), window, cx);
+                                    }))
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .text_color(cx.theme().colors().text)
+                                            .text_center()
+                                            .child("Unlock"),
                                     ),
                             ),
                     ),
@@ -576,12 +575,7 @@ impl GalvanizedPanel {
         }
     }
 
-    fn submit_create_vault(
-        &mut self,
-        _e: &ClickEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn submit_create_vault(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         let vault_name = self.vault_name_input.read(cx).text(cx);
         if vault_name.is_empty() {
             return;
@@ -610,6 +604,32 @@ impl GalvanizedPanel {
             this.update(cx, |this, _cx| {
                 this.vault_scene = VaultScene::VaultPicker;
             })?;
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
+    }
+
+    fn submit_unlock_vault(
+        &mut self,
+        vault: Entity<Vault>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let input = self.unlock_password_input.clone();
+        let password = input.read(cx).text(cx);
+        input.update(cx, |input, cx| input.clear(window, cx));
+        if password.trim().is_empty() {
+            return;
+        }
+
+        info!("Unlock clicked");
+        let vault = vault.clone();
+        cx.spawn(async move |this, cx| {
+            vault.unlock(cx, password).await?;
+            this.update(cx, |this, cx| {
+                this.galvanized.set_active_vault(vault, cx);
+            })?;
+            info!("Unlock succeeded");
             anyhow::Ok(())
         })
         .detach_and_log_err(cx);

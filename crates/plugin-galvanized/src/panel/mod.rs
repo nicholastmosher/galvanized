@@ -59,7 +59,7 @@ pub struct GalvanizedPanel {
     pub(crate) profile_name_input: Entity<InputField>,
     pub(crate) create_password_input: Entity<InputField>,
     pub(crate) create_password_confirmation_input: Entity<InputField>,
-    pub(crate) login_password_input: Entity<InputField>,
+    pub(crate) unlock_password_input: Entity<InputField>,
     pub(crate) space_name_input: Entity<InputField>,
 
     // Sidebar UI state
@@ -115,7 +115,7 @@ impl GalvanizedPanel {
             cx.new(|cx| InputField::new(window, cx, "Create Password").masked(true));
         let create_password_confirmation_input =
             cx.new(|cx| InputField::new(window, cx, "Confirm Password").masked(true));
-        let login_password_input =
+        let unlock_password_input =
             cx.new(|cx| InputField::new(window, cx, "Password").masked(true));
         let space_name_input = cx.new(|cx| InputField::new(window, cx, "Space name"));
         let search_input = cx.new(|cx| InputField::new(window, cx, "Search your data..."));
@@ -158,7 +158,7 @@ impl GalvanizedPanel {
             profile_name_input,
             create_password_input,
             create_password_confirmation_input,
-            login_password_input,
+            unlock_password_input,
             space_name_input,
 
             active_app: None,
