@@ -12,13 +12,13 @@ use zed::unstable::{
 
 use crate::{
     app_behavior::AppHandle,
+    domain::vaults::{Vault, VaultContent, VaultMetadata},
     panel::{GalvanizedPanel, TogglePanel},
-    vaults::{Vault, VaultContent, VaultMetadata},
 };
 
 pub mod app_behavior;
+pub mod domain;
 pub mod panel;
-pub mod vaults;
 
 pub fn init(cx: &mut App) {
     cx.observe_new::<Workspace>(|workspace, window, cx| {

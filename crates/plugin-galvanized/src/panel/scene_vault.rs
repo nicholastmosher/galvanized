@@ -11,8 +11,8 @@ use zed::unstable::{
 };
 
 use crate::{
+    domain::vaults::{Vault, VaultHandle as _},
     panel::{GalvanizedPanel, PrimaryButton as _, render_scene_header},
-    vaults::{Vault, VaultHandle as _},
 };
 
 static GZED_ORANGE: LazyLock<Hsla> = LazyLock::new(|| Hsla::from(rgba(0xff6600ff)).opacity(0.8));

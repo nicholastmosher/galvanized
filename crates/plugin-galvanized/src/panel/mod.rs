@@ -23,8 +23,8 @@ use zed::unstable::{
 use crate::{
     Galvanized, GalvanizedHandle as _,
     app_behavior::AppHandle,
+    domain::vaults::{Space, Vault},
     panel::{scene_vault::VaultScene, vault_menu::render_vault_menu},
-    vaults::{Space, Vault},
 };
 
 pub(crate) static GZED_ORANGE: LazyLock<Hsla> =

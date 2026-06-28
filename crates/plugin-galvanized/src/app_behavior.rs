@@ -3,7 +3,7 @@ use zed::unstable::{
     ui::{App, Render, SharedString, Window},
 };
 
-use crate::vaults::Space;
+use crate::domain::vaults::Space;
 
 /// Trait for static app plugins
 ///

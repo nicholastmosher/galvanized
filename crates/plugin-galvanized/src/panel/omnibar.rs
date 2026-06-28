@@ -7,7 +7,7 @@ use zed::unstable::{
     },
 };
 
-use crate::{panel::GalvanizedPanel, vaults::Vault};
+use crate::{domain::vaults::Vault, panel::GalvanizedPanel};
 
 impl GalvanizedPanel {
     pub fn render_omnibar(

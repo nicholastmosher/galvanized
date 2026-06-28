@@ -9,8 +9,8 @@ use zed::unstable::{
 };
 
 use crate::{
+    domain::vaults::{Profile, Vault},
     panel::{CreateProfile, GalvanizedPanel, PanelScene},
-    vaults::{Profile, Vault},
 };
 
 impl GalvanizedPanel {
