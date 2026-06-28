@@ -204,7 +204,7 @@ impl GalvanizedPanel {
                                                     this.scene = PanelScene::Home;
                                                 }
 
-                                                let Some(user) = this.galvanized.read(cx).active_user.clone() else {
+                                                let Some(user) = this.galvanized.read(cx).active_vault.clone() else {
                                                     return;
                                                 };
 

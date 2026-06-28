@@ -4,7 +4,7 @@ use anyhow::{Context as _, Result};
 use plugin_vault::{VaultsExt as _, vault_db::VaultId};
 use tracing::info;
 use zed::unstable::{
-    gpui::{Action, AppContext as _, Entity, Task},
+    gpui::{Action, AppContext, Entity, Task},
     ui::{App, Context, Window},
     util::ResultExt as _,
     workspace::Workspace,
@@ -39,11 +39,11 @@ pub fn init(cx: &mut App) {
 pub struct Galvanized {
     apps: BTreeMap<&'static str, Box<dyn AppHandle>>,
     panel: Entity<GalvanizedPanel>,
-    pub(crate) active_user: Option<Entity<Vault>>,
-    users: BTreeMap<VaultId, Entity<Vault>>,
+    pub(crate) active_vault: Option<Entity<Vault>>,
+    vaults: BTreeMap<VaultId, Entity<Vault>>,
     workspace: Entity<Workspace>,
 
-    loading_users_task: Option<Task<Result<Vec<Entity<Vault>>>>>,
+    loading_vaults_task: Option<Task<Result<Vec<Entity<Vault>>>>>,
 }
 
 impl Galvanized {
@@ -54,13 +54,13 @@ impl Galvanized {
         let mut this = Self {
             apps: Default::default(),
             panel,
-            active_user: Default::default(),
-            users: Default::default(),
+            active_vault: Default::default(),
+            vaults: Default::default(),
             workspace,
 
-            loading_users_task: None,
+            loading_vaults_task: None,
         };
-        this.load_users(cx);
+        this.load_vaults(cx);
         this
     }
 
@@ -107,42 +107,49 @@ impl Galvanized {
             let vault_id = cx.vaults().create(password.to_string()).await?;
             let vault_handle = cx.vaults().unlock(&vault_id, password).await?;
 
-            let user_metadata = VaultMetadata::new(vault_name.clone());
-            let user_metadata_bytes =
-                serde_json::to_vec(&user_metadata).context("failed to serialize user metadata")?;
+            let vault_metadta = VaultMetadata::new(vault_name.clone());
+            let vault_metadata_bytes =
+                serde_json::to_vec(&vault_metadta).context("failed to serialize user metadata")?;
 
-            let user_vault = VaultContent::new();
-            let user_vault_bytes = serde_json::to_vec(&user_vault)
+            let vault_content = VaultContent::new();
+            let vault_content_bytes = serde_json::to_vec(&vault_content)
                 .context("failed to serialize user vault content")?;
 
             // Initial vault should be empty, so we just write to the vault buffers
             cx.vaults()
                 .update(vault_handle, |mut vault| {
-                    *vault.metadata() = user_metadata_bytes;
-                    *vault.secret() = user_vault_bytes;
+                    *vault.metadata() = vault_metadata_bytes;
+                    *vault.secret() = vault_content_bytes;
                 })
                 .await
                 .context("failed to write new subspace to vault")?;
             info!(?vault_id, ?vault_name, "Wrote user to vault");
 
-            let user = cx.new(|cx| Vault::new(vault_id.clone(), vault_name, cx));
+            let vault = cx.new(|cx| Vault::new(vault_id.clone(), vault_name, cx));
             this.update(cx, |this, _cx| {
-                this.users.insert(vault_id, user.clone());
+                this.vaults.insert(vault_id, vault.clone());
             })?;
 
-            anyhow::Ok(user)
+            anyhow::Ok(vault)
         })
     }
 
-    /// Return a list of Users stored in the underlying vault
+    /// Sets the active Vault for this Galvanized instance
+    ///
+    /// This is the vault used to display Spaces and Profiles in the UI.
+    pub fn set_active_vault(&mut self, vault: Entity<Vault>, _cx: &mut Context<Self>) {
+        self.active_vault = Some(vault.clone());
+    }
+
+    /// Return a list of Vaults stored in the underlying vault database
     ///
     /// This is async as it drives IO to query the vaults from the underlying database.
     ///
     /// UI elements above this should spawn this only when they need a fresh view of
-    /// users, such as after a new [`User`] is created. Otherwise, they should
+    /// vaults, such as after a new [`Vault`] is created. Otherwise, they should
     /// cache the entities to use while rendering.
-    pub fn load_users(&mut self, cx: &mut Context<Self>) {
-        if self.loading_users_task.is_some() {
+    pub fn load_vaults(&mut self, cx: &mut Context<Self>) {
+        if self.loading_vaults_task.is_some() {
             return;
         }
 
@@ -188,25 +195,24 @@ impl Galvanized {
             //   a new `Entity<User>` for users that don't already exist in our list
             //
             // Get the list of Entity<User>, creating new entities ONLY for users that exist in the vault but not yet in memory.
-            let users = this.update(cx, |this, cx| {
+            let vaults = this.update(cx, |this, cx| {
                 for (vault_id, metadata) in submetas {
-                    if !this.users.contains_key(&vault_id) {
+                    if !this.vaults.contains_key(&vault_id) {
                         let user = cx.new(|cx| Vault::from_metadata(vault_id.clone(), metadata, cx));
-
-                        this.users.insert(vault_id, user);
+                        this.vaults.insert(vault_id, user);
                     }
                 }
 
-                this.users.values().cloned().collect::<Vec<_>>()
+                this.vaults.values().cloned().collect::<Vec<_>>()
             })?;
 
             // Load the content of each user into the app's state as entities
-            users
+            vaults
                 //
                 .iter()
-                .map(|user| {
+                .map(|vault| {
                     //
-                    user.update(cx, |user, cx| user.load_content(cx))
+                    vault.update(cx, |vault, cx| vault.load_content(cx))
                 })
                 .collect::<Vec<_>>()
                 .join()
@@ -214,11 +220,11 @@ impl Galvanized {
                 .into_iter()
                 .collect::<Result<Vec<_>, _>>()?;
 
-            info!(?users, "list_users");
-            anyhow::Ok(users)
+            info!(?vaults, "list_users");
+            anyhow::Ok(vaults)
         });
 
-        self.loading_users_task = Some(task);
+        self.loading_vaults_task = Some(task);
     }
 }
 
@@ -229,6 +235,15 @@ pub trait GalvanizedHandle {
         action: impl 'static
         + Fn(&mut Galvanized, &mut Workspace, &A, &mut Window, &mut Context<Galvanized>),
     );
+
+    fn create_vault<C: AppContext>(
+        &self,
+        vault_name: String,
+        password: String,
+        cx: &mut C,
+    ) -> Task<Result<Entity<Vault>>>;
+
+    fn set_active_vault<C: AppContext>(&self, vault: Entity<Vault>, cx: &mut C);
 }
 
 impl GalvanizedHandle for Entity<Galvanized> {
@@ -241,5 +256,18 @@ impl GalvanizedHandle for Entity<Galvanized> {
         self.update(cx, move |this, cx| {
             this.register_action(cx, action);
         })
+    }
+
+    fn create_vault<C: AppContext>(
+        &self,
+        vault_name: String,
+        password: String,
+        cx: &mut C,
+    ) -> Task<Result<Entity<Vault>>> {
+        cx.update_entity(self, |this, cx| this.create_vault(vault_name, password, cx))
+    }
+
+    fn set_active_vault<C: AppContext>(&self, vault: Entity<Vault>, cx: &mut C) {
+        self.update(cx, move |this, cx| this.set_active_vault(vault, cx))
     }
 }

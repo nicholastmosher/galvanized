@@ -11,6 +11,7 @@ use zed::unstable::{
 };
 
 use crate::{
+    GalvanizedHandle as _,
     domain::vault::{Vault, VaultHandle as _},
     panel::{GalvanizedPanel, PrimaryButton as _, render_scene_header},
 };
@@ -32,6 +33,12 @@ pub enum VaultScene {
 }
 
 impl GalvanizedPanel {
+    /// Navigate to a specific vault scene.
+    pub fn go_to_vault_scene(&mut self, scene: VaultScene, cx: &mut Context<Self>) {
+        self.vault_scene = scene;
+        cx.notify();
+    }
+
     /// Main onboarding panel layout: header, step progress, scenes, footer.
     pub fn render_scene_vault(
         &mut self,
@@ -41,23 +48,23 @@ impl GalvanizedPanel {
         let (title, subtitle) = self.header_for_state();
 
         v_flex()
-            .id("onboarding-panel")
+            .id("vault-scene")
             .size_full()
             .bg(cx.theme().colors().panel_background)
             .child(render_scene_header(title.into(), subtitle.into(), cx))
             .child(
                 div()
-                    .id("onboarding-scenes")
+                    .id("vault-scenes")
                     .h_full()
                     .flex_1()
                     .overflow_y_scroll()
                     .p_5()
-                    .child(self.render_onboarding_scene(window, cx)),
+                    .child(self.render_scene_vault_exterior(window, cx)),
             )
     }
 
     /// Route to the current scene renderer based on onboarding state.
-    fn render_onboarding_scene(
+    fn render_scene_vault_exterior(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -65,22 +72,23 @@ impl GalvanizedPanel {
         match &self.vault_scene {
             VaultScene::VaultPicker => {
                 //
-                self.render_scene_picker(window, cx).into_any_element()
+                self.render_vault_scene_picker(window, cx)
+                    .into_any_element()
             }
             VaultScene::UnlockPrompt(user) => {
                 //
-                self.render_scene_sign_in(user.clone(), window, cx)
+                self.render_vault_scene_login(user.clone(), window, cx)
                     .into_any_element()
             }
             VaultScene::CreateVault => {
                 //
-                self.render_scene_create_vault(window, cx)
+                self.render_vault_scene_create(window, cx)
                     .into_any_element()
             }
         }
     }
 
-    fn render_scene_picker(
+    fn render_vault_scene_picker(
         &mut self,
         _window: &mut Window,
         cx: &mut Context<Self>,
@@ -113,8 +121,8 @@ impl GalvanizedPanel {
                     .flex_col()
                     .gap_2()
                     .mb_5()
-                    .children(self.galvanized.read(cx).users.values().map(|user| {
-                        let name = user.read(cx).name();
+                    .children(self.galvanized.read(cx).vaults.values().map(|vault| {
+                        let name = vault.read(cx).name();
                         let initial = name.chars().next().unwrap_or('?').to_string();
 
                         h_flex()
@@ -133,9 +141,12 @@ impl GalvanizedPanel {
                             })
                             .cursor_pointer()
                             .on_click(cx.listener({
-                                let user = user.clone();
-                                move |this, _e, _window, _cx| {
-                                    this.vault_scene = VaultScene::UnlockPrompt(user.clone());
+                                let vault = vault.clone();
+                                move |this, _e, _window, cx| {
+                                    this.go_to_vault_scene(
+                                        VaultScene::UnlockPrompt(vault.clone()),
+                                        cx,
+                                    );
                                 }
                             }))
                             .child(
@@ -242,13 +253,13 @@ impl GalvanizedPanel {
             )
     }
 
-    fn render_scene_sign_in(
+    fn render_vault_scene_login(
         &mut self,
-        user: Entity<Vault>,
+        vault: Entity<Vault>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let name = user.read(cx).name();
+        let name = vault.read(cx).name();
         let initial = name.chars().next().unwrap_or('?').to_string();
 
         h_flex()
@@ -350,7 +361,7 @@ impl GalvanizedPanel {
                                     .shadow_lg()
                                     .cursor_pointer()
                                     .on_click(cx.listener({
-                                        let user = user.clone();
+                                        let vault = vault.clone();
                                         move |this, _e, window, cx| {
                                             let input = this.login_password_input.clone();
                                             let password = input.read(cx).text(cx);
@@ -360,14 +371,12 @@ impl GalvanizedPanel {
                                             }
 
                                             info!("Sign in clicked");
-                                            let user = user.clone();
+                                            let vault = vault.clone();
                                             cx.spawn(async move |this, cx| {
-                                                user.unlock(cx, password).await?;
+                                                vault.unlock(cx, password).await?;
                                                 info!("Sign in succeeded");
                                                 this.update(cx, |this, cx| {
-                                                    this.galvanized.update(cx, |it, _cx| {
-                                                        it.active_user = Some(user);
-                                                    });
+                                                    this.galvanized.set_active_vault(vault, cx);
                                                 })?;
                                                 anyhow::Ok(())
                                             })
@@ -387,7 +396,7 @@ impl GalvanizedPanel {
             )
     }
 
-    fn render_scene_create_vault(
+    fn render_vault_scene_create(
         &mut self,
         _window: &mut Window,
         cx: &mut Context<Self>,
@@ -596,13 +605,9 @@ impl GalvanizedPanel {
         info!("Creating vault: {}", vault_name);
         cx.spawn(async move |this, cx| {
             let galvanized = this.read_with(cx, |this, _cx| this.galvanized.clone())?;
-            let user = galvanized
-                .update(cx, |g, cx| g.create_vault(vault_name, password, cx))
-                .await?;
-            this.update(cx, |this, cx| {
-                this.galvanized.update(cx, |it, _cx| {
-                    it.active_user = Some(user);
-                });
+            let vault = galvanized.create_vault(vault_name, password, cx).await?;
+            galvanized.set_active_vault(vault, cx);
+            this.update(cx, |this, _cx| {
                 this.vault_scene = VaultScene::VaultPicker;
             })?;
             anyhow::Ok(())

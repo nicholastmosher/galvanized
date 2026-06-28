@@ -69,7 +69,6 @@ pub struct GalvanizedPanel {
     profile_filters: Vec<SharedString>,
 
     // Panel scene
-    // pub(crate) active_user: Option<Entity<User>>,
     scene: PanelScene,
     create_space_kind: CreateSpaceKind,
 
@@ -178,6 +177,11 @@ impl GalvanizedPanel {
         self.active_app = Some(Box::new(app));
         cx.notify();
     }
+
+    pub fn go_to_vault_picker(&mut self, cx: &mut Context<Self>) {
+        self.active_app = None;
+        cx.notify();
+    }
 }
 
 impl Render for GalvanizedPanel {
@@ -192,7 +196,7 @@ impl Render for GalvanizedPanel {
 
 impl GalvanizedPanel {
     fn render_root(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let active_user = self.galvanized.read(cx).active_user.clone();
+        let active_user = self.galvanized.read(cx).active_vault.clone();
         let Some(user) = active_user else {
             return self.render_scene_vault(window, cx).into_any_element();
         };
@@ -200,7 +204,7 @@ impl GalvanizedPanel {
         match &self.scene {
             PanelScene::Home => {
                 //
-                self.render_home_panel(user, window, cx).into_any_element()
+                self.render_scene_home(user, window, cx).into_any_element()
             }
             PanelScene::CreatingSpace => {
                 //
@@ -221,7 +225,7 @@ impl GalvanizedPanel {
     /// - Left rail with Start button and Namespaces
     /// - Right sidebar upper search header
     /// - Right sidebar main navigation view
-    fn render_home_panel(
+    fn render_scene_home(
         &mut self,
         user: Entity<Vault>,
         window: &mut Window,
