@@ -17,7 +17,7 @@ use zed::unstable::{
     },
 };
 
-use crate::{Galvanized, domain::vaults::Vault};
+use crate::{Galvanized, domain::vault::Vault};
 
 pub fn render_vault_menu<T>(
     galvanized: Entity<Galvanized>,

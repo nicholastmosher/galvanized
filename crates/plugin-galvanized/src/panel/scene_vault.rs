@@ -11,7 +11,7 @@ use zed::unstable::{
 };
 
 use crate::{
-    domain::vaults::{Vault, VaultHandle as _},
+    domain::vault::{Vault, VaultHandle as _},
     panel::{GalvanizedPanel, PrimaryButton as _, render_scene_header},
 };
 

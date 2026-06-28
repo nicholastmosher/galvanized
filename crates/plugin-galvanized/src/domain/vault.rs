@@ -384,11 +384,11 @@ impl<'a> VaultAccess<'a> {
     }
 
     pub fn namespaces(&self) -> impl IntoIterator<Item = NamespaceId> {
-        self.vault.spaces.iter().map(|ns| ns.namespace.id())
+        self.vault.spaces.iter().map(|ns| ns.id())
     }
 
     pub fn subspaces(&self) -> impl IntoIterator<Item = SubspaceId> {
-        self.vault.profiles.iter().map(|ss| ss.subspace.id())
+        self.vault.profiles.iter().map(|s| s.id())
     }
 }
 
@@ -412,6 +412,8 @@ impl VaultMetadata {
 use plugin_willow::willow_serde::SubspaceIdSerde;
 use serde_with::serde_as;
 
+use crate::domain::{profile::Profile, space::Space};
+
 /// Data structure to serialize the secret content of a [`Vault`]
 #[serde_as]
 #[derive(derive_more::Debug, Serialize, Deserialize)]
@@ -426,54 +428,6 @@ pub struct VaultContent {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde_as(as = "Option<SubspaceIdSerde>")]
     active_profile: Option<SubspaceId>,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct Space {
-    name: SharedString,
-    namespace: Namespace,
-}
-
-impl Space {
-    pub fn new(name: SharedString, namespace: Namespace) -> Self {
-        Self { name, namespace }
-    }
-
-    pub fn id(&self) -> NamespaceId {
-        self.namespace.id()
-    }
-
-    pub fn name(&self) -> SharedString {
-        self.name.clone()
-    }
-
-    pub fn is_communal(&self) -> bool {
-        self.namespace.is_communal()
-    }
-
-    pub fn is_owned(&self) -> bool {
-        self.namespace.is_owned()
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct Profile {
-    name: SharedString,
-    subspace: Subspace,
-}
-
-impl Profile {
-    pub fn new(name: SharedString, subspace: Subspace) -> Self {
-        Self { name, subspace }
-    }
-
-    pub fn id(&self) -> SubspaceId {
-        self.subspace.id()
-    }
-
-    pub fn name(&self) -> SharedString {
-        self.name.clone()
-    }
 }
 
 impl VaultContent {

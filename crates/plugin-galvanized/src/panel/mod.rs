@@ -23,7 +23,7 @@ use zed::unstable::{
 use crate::{
     Galvanized, GalvanizedHandle as _,
     app_behavior::AppHandle,
-    domain::vaults::{Space, Vault},
+    domain::{space::Space, vault::Vault},
     panel::{scene_vault::VaultScene, vault_menu::render_vault_menu},
 };
 

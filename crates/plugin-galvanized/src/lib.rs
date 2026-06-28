@@ -12,7 +12,7 @@ use zed::unstable::{
 
 use crate::{
     app_behavior::AppHandle,
-    domain::vaults::{Vault, VaultContent, VaultMetadata},
+    domain::vault::{Vault, VaultContent, VaultMetadata},
     panel::{GalvanizedPanel, TogglePanel},
 };
 

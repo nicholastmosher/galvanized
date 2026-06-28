@@ -1,1 +1,3 @@
-pub mod vaults;
+pub mod profile;
+pub mod space;
+pub mod vault;

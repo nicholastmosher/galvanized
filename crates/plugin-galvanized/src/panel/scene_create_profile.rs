@@ -7,7 +7,7 @@ use zed::unstable::{
 };
 
 use crate::{
-    domain::vaults::Vault,
+    domain::vault::Vault,
     panel::{GZED_ORANGE, GalvanizedPanel, PanelScene, PrimaryButton as _},
 };
 

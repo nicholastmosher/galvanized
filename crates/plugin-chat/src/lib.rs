@@ -3,7 +3,7 @@ use iroh::EndpointId;
 use plugin_galvanized::{
     Galvanized,
     app_behavior::{AppBehavior, SpaceContextMenuItem},
-    vaults::Space,
+    domain::space::Space,
 };
 use samod::DocHandle;
 use tracing::{debug, info, instrument};
