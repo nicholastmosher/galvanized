@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use anyhow::{Context as _, Result, bail};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultToken, vault_db::VaultId};
-use plugin_willow::{Namespace, Subspace, WillowExt};
+use plugin_willow::WillowExt;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use willow25::entry::{NamespaceId, SubspaceId};
@@ -455,15 +455,4 @@ pub trait UnlockedVaultView {
             f(this, user, user_content, cx)
         })
     }
-}
-
-fn thing(user: &Entity<Vault>, cx: &mut Context<Vault>) -> impl IntoElement {
-    use zed::unstable::ui::div;
-
-    div()
-        //
-        .when_unlocked(user, cx, |el, user, content, cx| {
-            //
-            el
-        })
 }
