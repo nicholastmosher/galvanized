@@ -3,12 +3,19 @@ use std::collections::BTreeMap;
 use anyhow::{Context as _, Result, bail};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultToken, vault_db::VaultId};
 use plugin_willow::WillowExt;
+use plugin_willow::willow_serde::SubspaceIdSerde;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use serde_with::serde_as;
+use tracing::{info, warn};
 use willow25::entry::{NamespaceId, SubspaceId};
 use zed::unstable::{
     gpui::{AppContext, Entity, Task},
     ui::{Context, IntoElement, SharedString},
+};
+
+use crate::domain::{
+    profile::{Profile, ProfileData},
+    space::{Space, SpaceData},
 };
 
 /// A Vault stores a user's Profiles and Spaces encrypted with a password.
@@ -88,47 +95,57 @@ impl Vault {
             })?
             .await?;
 
-            info!("Unlocked user");
+            info!("Unlocked vault");
             Ok(())
         })
     }
 
-    /// If the given [`User`] is unlocked, fetch its content and store it in the entity
+    /// If the given [`Vault`] is unlocked, fetch its content and store it in the entity
     ///
-    /// This function is async because it drives IO to fetch and decrypt the user's
-    /// content from the underlying vault database. Be sure to cache any retrieved data
+    /// This function is async because it drives IO to fetch and decrypt the vault's
+    /// content from the underlying database. Be sure to cache any retrieved data
     /// to store in UI entities.
     ///
     // TODO: Create capability-powered caching mechanism that automatically invalidates
     // fetched cached data on lock.
     pub fn load_content(&mut self, cx: &mut Context<Self>) -> Task<Result<()>> {
-        let vault_handle = self.vault_token.clone().context("user is not unlocked");
+        let vault_handle = self.vault_token.clone().context("vault is not unlocked");
 
         cx.spawn(async move |this, cx| {
             let vault_handle = vault_handle?;
 
-            let user_vault = cx
+            let vault_content = cx
                 .vaults()
                 .read(vault_handle, |vault| {
                     serde_json::from_slice::<VaultContent>(vault.secret())
-                        .context("failed to deserialize UserVault")
+                        .context("failed to deserialize VaultContent")
                 })
                 .await??;
 
             this.update(cx, |this, cx| {
-                for space in &user_vault.spaces {
-                    if !this.unlocked_spaces.contains_key(&space.id()) {
-                        let space_entity = cx.new(|_cx| space.clone());
-                        this.unlocked_spaces.insert(space.id(), space_entity);
+                for space_data in &vault_content.spaces {
+                    if !this.unlocked_spaces.contains_key(&space_data.id()) {
+                        let space_entity = cx.new(|cx| Space::from_data(space_data.clone(), cx));
+                        this.unlocked_spaces.insert(space_data.id(), space_entity);
                     }
                 }
-                for profile in &user_vault.profiles {
+
+                for profile in &vault_content.profiles {
                     if !this.unlocked_profiles.contains_key(&profile.id()) {
-                        let profile_entity = cx.new(|_cx| profile.clone());
-                        this.unlocked_profiles.insert(profile.id(), profile_entity);
+                        let home_id = profile.home_space_id();
+                        let Some(home_space) = this.unlocked_spaces.get(&home_id) else {
+                            warn!("Found Profile with missing Home Space, skipping");
+                            continue;
+                        };
+                        let profile_id = profile.id();
+                        let profile = cx
+                            .new(|cx| Profile::from_data(profile.clone(), home_space.clone(), cx));
+
+                        this.unlocked_profiles.insert(profile_id, profile);
                     }
                 }
-                if let Some(active_profile_id) = &user_vault.active_profile {
+
+                if let Some(active_profile_id) = &vault_content.active_profile {
                     let active_profile = this
                         .unlocked_profiles
                         .iter()
@@ -136,50 +153,41 @@ impl Vault {
                         .map(|(_, profile)| profile.clone());
                     this.unlocked_active_profile = active_profile;
                 }
-                this.unlocked_vault = Some(user_vault);
+                this.unlocked_vault = Some(vault_content);
             })?;
 
             anyhow::Ok(())
         })
     }
 
-    /// Write the user's vault-protected content back to the vault, if it's unlocked
+    /// Write the vault's protected content back to the database, if it's unlocked
     fn update_content(
         &mut self,
         cx: &mut Context<Self>,
         update_fn: impl 'static + FnOnce(&mut VaultContent),
     ) -> Task<Result<()>> {
         let load_content_task = self.load_content(cx);
-        let vault_handle = self
-            .vault_token
-            .clone()
-            .context("user's vault is not unlocked");
+        let vault_handle = self.vault_token.clone().context("vault is not unlocked");
 
         cx.spawn(async move |this, cx| {
-            // Reload the user's content from the vault before updating
+            // Reload the vault's content from the database before updating
             load_content_task.await?;
             let vault_handle = vault_handle?;
 
-            let user_vault_content = this
+            let vault_content_bytes = this
                 .update(cx, |this, _cx| {
                     let vault = this.unlocked_vault.as_mut()?;
-                    info!(?vault, "Vault before update");
                     update_fn(vault);
-                    info!(?vault, "Vault after update");
                     let vault_bytes =
-                        serde_json::to_vec(vault).context("failed to serialize UserVault");
+                        serde_json::to_vec(vault).context("failed to serialize VaultContent");
                     Some(vault_bytes)
                 })?
                 .transpose()?
-                .context("cannot update UserVault, not loaded")?;
+                .context("cannot update VaultContent, not loaded")?;
 
             cx.vaults()
                 .update(vault_handle, |mut vault| {
-                    info!(
-                        content = &*String::from_utf8_lossy(&user_vault_content),
-                        "Writing vault content"
-                    );
-                    *vault.secret() = user_vault_content;
+                    *vault.secret() = vault_content_bytes;
                 })
                 .await?;
 
@@ -251,24 +259,23 @@ impl Vault {
             } else {
                 cx.willow().create_communal_namespace().await?
             };
-            let space =
-            let space = Space::new(name, namespace);
+            let space = cx.new(|cx| Space::new(name, namespace, cx));
 
             this.update(cx, {
                 let space = space.clone();
                 move |this, cx| {
-                    let key = space.id();
-                    let space_entity = cx.new(|_cx| space.clone());
-                    this.unlocked_spaces.insert(key, space_entity);
+                    let key = space.read(cx).id();
+                    this.unlocked_spaces.insert(key, space.clone());
+                    let space_data = space.read(cx).data().clone();
                     let task = this.update_content(cx, move |vault| {
-                        vault.spaces.push(space);
+                        vault.spaces.push(space_data);
                     });
                     task
                 }
             })?
             .await?;
 
-            let space = cx.new(move |_cx| space);
+            // let space = cx.new(move |_cx| space);
             anyhow::Ok(space)
         })
     }
@@ -298,18 +305,17 @@ impl Vault {
         cx.spawn(async move |this, cx| {
             let home_space = home_space_task.await?;
             let subspace = cx.willow().create_subspace().await?;
-            let profile = Profile::new(name, subspace, home_space);
+            let profile = cx.new(|cx| Profile::new(name, subspace, home_space, cx));
 
             this.update(cx, {
-                let profile = profile.clone();
                 move |this, cx| {
-                    let key = profile.id();
-                    let profile_entity = cx.new(|_cx| profile.clone());
-                    this.unlocked_profiles.insert(key, profile_entity.clone());
-                    this.unlocked_active_profile = Some(profile_entity);
+                    let key = profile.read(cx).id();
+                    this.unlocked_profiles.insert(key.clone(), profile.clone());
+                    this.unlocked_active_profile = Some(profile.clone());
+                    let profile_data = profile.read(cx).data().clone();
                     this.update_content(cx, move |vault| {
-                        vault.active_profile = Some(profile.id());
-                        vault.profiles.push(profile);
+                        vault.active_profile = Some(key);
+                        vault.profiles.push(profile_data);
                     })
                 }
             })?
@@ -414,21 +420,16 @@ impl VaultMetadata {
     }
 }
 
-use plugin_willow::willow_serde::SubspaceIdSerde;
-use serde_with::serde_as;
-
-use crate::domain::{profile::Profile, space::Space};
-
 /// Data structure to serialize the secret content of a [`Vault`]
 #[serde_as]
 #[derive(derive_more::Debug, Serialize, Deserialize)]
 #[debug("VaultContent")]
 pub struct VaultContent {
     #[serde(default)]
-    spaces: Vec<Space>,
+    spaces: Vec<SpaceData>,
 
     #[serde(default)]
-    profiles: Vec<Profile>,
+    profiles: Vec<ProfileData>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde_as(as = "Option<SubspaceIdSerde>")]

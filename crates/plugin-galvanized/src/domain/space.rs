@@ -3,30 +3,51 @@ use serde::{Deserialize, Serialize};
 use willow25::entry::NamespaceId;
 use zed::unstable::ui::{Context, SharedString};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Space {
+    data: SpaceData,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SpaceData {
     name: SharedString,
     namespace: Namespace,
 }
 
-impl Space {
-    pub fn new(name: SharedString, namespace: Namespace, _cx: &mut Context<Self>) -> Self {
-        Self { name, namespace }
-    }
-
+impl SpaceData {
     pub fn id(&self) -> NamespaceId {
         self.namespace.id()
     }
+}
+
+impl Space {
+    pub fn new(name: SharedString, namespace: Namespace, _cx: &mut Context<Self>) -> Self {
+        Self {
+            data: SpaceData { name, namespace },
+        }
+    }
+
+    pub fn from_data(data: SpaceData, _cx: &mut Context<Self>) -> Self {
+        Self { data }
+    }
+
+    pub fn data(&self) -> &SpaceData {
+        &self.data
+    }
+
+    pub fn id(&self) -> NamespaceId {
+        self.data.namespace.id()
+    }
 
     pub fn name(&self) -> SharedString {
-        self.name.clone()
+        self.data.name.clone()
     }
 
     pub fn is_communal(&self) -> bool {
-        self.namespace.is_communal()
+        self.data.namespace.is_communal()
     }
 
     pub fn is_owned(&self) -> bool {
-        self.namespace.is_owned()
+        self.data.namespace.is_owned()
     }
 }
