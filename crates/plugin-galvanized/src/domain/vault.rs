@@ -223,7 +223,7 @@ impl Vault {
         &mut self,
         name: SharedString,
         cx: &mut Context<Self>,
-    ) -> Task<Result<()>> {
+    ) -> Task<Result<Entity<Space>>> {
         self.create_space(name, false, cx)
     }
 
@@ -234,40 +234,42 @@ impl Vault {
         &mut self,
         name: SharedString,
         cx: &mut Context<Self>,
-    ) -> Task<Result<()>> {
+    ) -> Task<Result<Entity<Space>>> {
         self.create_space(name, true, cx)
     }
 
     /// Create an owned or communal Space, a Willow namespace with a display name
-    ///
-    /// This is side-effectful, after this the space will exist in the user's vault
     fn create_space(
         &mut self,
         name: SharedString,
         owned: bool,
         cx: &mut Context<Self>,
-    ) -> Task<Result<()>> {
+    ) -> Task<Result<Entity<Space>>> {
         cx.spawn(async move |this, cx| {
             let namespace = if owned {
                 cx.willow().create_owned_namespace().await?
             } else {
                 cx.willow().create_communal_namespace().await?
             };
+            let space =
             let space = Space::new(name, namespace);
 
             this.update(cx, {
+                let space = space.clone();
                 move |this, cx| {
                     let key = space.id();
                     let space_entity = cx.new(|_cx| space.clone());
                     this.unlocked_spaces.insert(key, space_entity);
-                    this.update_content(cx, move |vault| {
+                    let task = this.update_content(cx, move |vault| {
                         vault.spaces.push(space);
-                    })
+                    });
+                    task
                 }
             })?
             .await?;
 
-            anyhow::Ok(())
+            let space = cx.new(move |_cx| space);
+            anyhow::Ok(space)
         })
     }
 
@@ -291,9 +293,12 @@ impl Vault {
         name: SharedString,
         cx: &mut Context<Self>,
     ) -> Task<Result<()>> {
+        let home_space_task = self.create_space("Home".into(), true, cx);
+
         cx.spawn(async move |this, cx| {
+            let home_space = home_space_task.await?;
             let subspace = cx.willow().create_subspace().await?;
-            let profile = Profile::new(name, subspace);
+            let profile = Profile::new(name, subspace, home_space);
 
             this.update(cx, {
                 let profile = profile.clone();

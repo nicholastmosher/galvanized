@@ -1,7 +1,7 @@
 use plugin_willow::Namespace;
 use serde::{Deserialize, Serialize};
 use willow25::entry::NamespaceId;
-use zed::unstable::ui::SharedString;
+use zed::unstable::ui::{Context, SharedString};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Space {
@@ -10,7 +10,7 @@ pub struct Space {
 }
 
 impl Space {
-    pub fn new(name: SharedString, namespace: Namespace) -> Self {
+    pub fn new(name: SharedString, namespace: Namespace, _cx: &mut Context<Self>) -> Self {
         Self { name, namespace }
     }
 
