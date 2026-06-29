@@ -184,6 +184,34 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 June 28
+
+Screenshots from today:
+
+<div align="center">
+  <img src=".assets/galvanized-vault.png" alt="Screens for Create Profile, Unlock Profile, and Opened Profile" width="600">
+</div>
+
+- Have now got the Vault creation flow pretty much down:
+  - Top-level vault screen is a picker between existing vaults or creating a new vault
+  - Create Vault prompts for a Vault name, Profile name, and password
+    - Vault name is only visible locally but is unencrypted, used to name vaults in the picker
+    - Profile name is encrypted locally but visible to added contacts (remote profiles)
+  - Picking an existing vault goes to password unlock
+- I'm now thinking it's going to be necessary to have an initial Profile and for each Profile
+  to have a semi-special Home space.
+- A Profile's Home Space will be where things such as Contacts, Endpoints, etc. are stored.
+  - By convention a Profile will always have access to the Full Area of its own Home space
+  - May also be where we store Capabilities, which can be seen as the set of Areas in Spaces
+    that the Profile has access to.
+
+Next up
+
+- Leading with Chat use-case, a Profile should be able to add a remote Profile as a Contact
+- Previous chat POC was using EndpointId as the "identity" in chats, need to move a level up
+  to use a Profile's subspace ID as the identity.
+- Endpoints should either be ephemeral or easy to rotate.
+
 # 2026 June 21
 
 - Been awhile since an update, whoops
