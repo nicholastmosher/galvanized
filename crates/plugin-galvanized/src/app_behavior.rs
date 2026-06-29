@@ -10,7 +10,7 @@ use crate::domain::space::Space;
 /// Requires [`Render`], which becomes the sidebar main view when the app is focused.
 pub trait AppBehavior: Render + 'static {
     /// Unique identifier for this app type
-    fn id(&self) -> &'static str;
+    fn id() -> &'static str;
 
     /// The icon to use for this app's display
     fn icon(&self) -> SharedString; // TODO use better than emoji
@@ -50,8 +50,8 @@ pub trait AppHandle: 'static {
 }
 
 impl<T: AppBehavior> AppHandle for Entity<T> {
-    fn id(&self, cx: &App) -> &'static str {
-        self.read(cx).id()
+    fn id(&self, _cx: &App) -> &'static str {
+        T::id()
     }
 
     fn icon(&self, cx: &mut App) -> SharedString {

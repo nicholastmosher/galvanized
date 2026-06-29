@@ -56,7 +56,7 @@ impl ChatApp {
 }
 
 impl AppBehavior for ChatApp {
-    fn id(&self) -> &'static str {
+    fn id() -> &'static str {
         "chat"
     }
 

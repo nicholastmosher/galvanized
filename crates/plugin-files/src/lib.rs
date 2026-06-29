@@ -36,7 +36,7 @@ impl FilesApp {
 }
 
 impl AppBehavior for FilesApp {
-    fn id(&self) -> &'static str {
+    fn id() -> &'static str {
         "files"
     }
 

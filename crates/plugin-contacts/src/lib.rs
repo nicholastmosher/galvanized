@@ -1,19 +1,28 @@
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
 
+use anyhow::{Context as _, Result};
 use hex::ToHex;
-use plugin_galvanized::{Galvanized, app_behavior::AppBehavior};
+use plugin_galvanized::{
+    Galvanized,
+    app_behavior::AppBehavior,
+    domain::{profile::Profile, space::Space},
+};
+use plugin_willow::willow_serde::SubspaceIdSerde;
+use plugin_willow::{Namespace, Subspace, WillowExt as _};
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 use tracing::info;
 use willow25::entry::{SubspaceId, randomly_generate_subspace};
 use zed::unstable::{
     editor::Editor,
     gpui::{
-        self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, Image,
-        ImageFormat, KeyDownEvent, actions, img, rgba,
+        self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
+        actions, rgba,
     },
     ui::{
         ActiveTheme, App, Context, Div, FluentBuilder as _, Icon, IconName, IconSize,
         InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Render,
-        SharedString, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex, px,
+        SharedString, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex,
         v_flex,
     },
 };
@@ -79,48 +88,9 @@ impl Contacts {
             .map(|name| {
                 let (subspace_id, _secret) =
                     randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
-                Contact::new(ContactId(subspace_id), name.to_string())
+                Contact::new(ContactId { subspace_id }, name.to_string())
             })
             .collect()
-    }
-
-    fn add_contact_from_input(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let text = self.input_editor.read(cx).text(cx);
-        if text.is_empty() {
-            return;
-        }
-
-        let bytes = match hex::decode(text.trim()) {
-            Ok(bytes) => bytes,
-            Err(_) => {
-                info!("Failed to parse contact ID: invalid hex");
-                return;
-            }
-        };
-
-        if bytes.len() != 32 {
-            info!(
-                "Failed to parse contact ID: expected 32 bytes, got {}",
-                bytes.len()
-            );
-            return;
-        }
-
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&bytes);
-        let subspace_id = SubspaceId::from_bytes(&arr);
-
-        if self.contacts.iter().any(|c| c.contact_id.0 == subspace_id) {
-            info!("Contact already exists");
-            return;
-        }
-
-        let short_hex: String = text.trim().chars().take(8).collect();
-        let contact = Contact::new(ContactId(subspace_id), format!("Peer {}", short_hex));
-        self.contacts.push(contact);
-        self.input_editor
-            .update(cx, |editor, cx| editor.set_text("", window, cx));
-        cx.notify();
     }
 
     fn remove_contact(&mut self, index: usize, cx: &mut Context<Self>) {
@@ -132,7 +102,7 @@ impl Contacts {
 }
 
 impl AppBehavior for Contacts {
-    fn id(&self) -> &'static str {
+    fn id() -> &'static str {
         "contacts"
     }
 
@@ -183,11 +153,12 @@ impl Contacts {
                             .border_1()
                             .border_color(cx.theme().colors().border)
                             .rounded_md()
-                            .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                            .on_key_down(cx.listener(|_this, e: &KeyDownEvent, _window, _cx| {
                                 if e.keystroke.key != "enter" {
                                     return;
                                 }
-                                this.add_contact_from_input(window, cx);
+
+                                info!("TODO Create Contact");
                             }))
                             .child(
                                 //
@@ -233,7 +204,7 @@ impl Contacts {
                         )
                     })
                     .children(self.contacts.iter().enumerate().map(|(i, contact)| {
-                        let subspace_hex: String = contact.contact_id.0.to_bytes().encode_hex();
+                        let subspace_hex: String = contact.contact_id().to_hex();
                         let short_id: SharedString = {
                             let mut s = subspace_hex.clone();
                             s.truncate(16);
@@ -248,12 +219,7 @@ impl Contacts {
                             .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
                             .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                             .child(
-                                div()
-                                    .size(px(32.))
-                                    .child(img(contact.avatar.clone()).size(px(32.))),
-                            )
-                            .child(
-                                v_flex().child(contact.display_name.clone()).child(
+                                v_flex().child(contact.display_name()).child(
                                     div()
                                         .text_sm()
                                         .text_color(cx.theme().colors().text_muted)
@@ -289,35 +255,72 @@ impl EventEmitter<ContactsEvent> for Contacts {}
 
 /// A Contact represents a remote Profile, identified by its SubspaceId.
 pub struct Contact {
+    data: ContactData,
+}
+
+#[serde_as]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContactData {
     contact_id: ContactId,
     display_name: SharedString,
-    avatar: Arc<Image>,
 }
 
 impl Contact {
     pub fn new(contact_id: ContactId, display_name: impl Into<SharedString>) -> Self {
-        let identicon_png =
-            plot_icon::generate_png(contact_id.0.to_bytes().as_slice(), 512).unwrap();
-        let avatar = Image::from_bytes(ImageFormat::Png, identicon_png);
-        Self {
+        let data = ContactData {
             contact_id,
             display_name: display_name.into(),
-            avatar: Arc::new(avatar),
-        }
+        };
+        Self { data }
     }
 
     pub fn contact_id(&self) -> &ContactId {
-        &self.contact_id
+        &self.data.contact_id
     }
 
-    pub fn display_name(&self) -> &SharedString {
-        &self.display_name
+    pub fn display_name(&self) -> SharedString {
+        self.data.display_name.clone()
+    }
+
+    pub async fn save(
+        &self,
+        profile: Entity<Profile>,
+        space: Entity<Space>,
+        cx: &mut App,
+    ) -> Result<()> {
+        let namespace = space.read(cx).namespace().clone();
+        let subspace = profile.read(cx).subspace().clone();
+        let path = PathBuf::from(format!(
+            "/apps/{}/{}",
+            Contacts::id(),
+            self.contact_id().to_hex()
+        ));
+        let data = serde_json::to_vec(&self.data).context("failed to serialize ContactData")?;
+
+        cx.willow()
+            .create_entry(&namespace, &subspace, &path, data)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn load(
+        namespace: &Namespace,
+        subspace: &Subspace,
+        path: &Path,
+        cx: &mut App,
+    ) -> Result<Self> {
+        todo!()
     }
 }
 
 /// Wrapper around a Willow SubspaceId that identifies a remote Profile.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ContactId(pub SubspaceId);
+#[serde_as]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ContactId {
+    #[serde_as(as = "SubspaceIdSerde")]
+    subspace_id: SubspaceId,
+}
 
 impl ContactId {
     pub fn from_hex(hex_str: &str) -> Option<Self> {
@@ -327,17 +330,19 @@ impl ContactId {
         }
         let mut arr = [0u8; 32];
         arr.copy_from_slice(&bytes);
-        Some(ContactId(SubspaceId::from_bytes(&arr)))
+        Some(ContactId {
+            subspace_id: SubspaceId::from_bytes(&arr),
+        })
     }
 
     pub fn to_hex(&self) -> String {
-        self.0.to_bytes().encode_hex()
+        self.subspace_id.to_bytes().encode_hex()
     }
 }
 
 impl std::fmt::Display for ContactId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let hex: String = self.0.to_bytes().encode_hex();
+        let hex: String = self.subspace_id.to_bytes().encode_hex();
         write!(f, "{}", &hex[..16])
     }
 }

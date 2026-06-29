@@ -61,6 +61,10 @@ impl Profile {
         &self.data
     }
 
+    pub fn subspace(&self) -> &Subspace {
+        &self.data.subspace
+    }
+
     pub fn id(&self) -> SubspaceId {
         self.data.subspace.id()
     }

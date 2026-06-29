@@ -35,6 +35,10 @@ impl Space {
         &self.data
     }
 
+    pub fn namespace(&self) -> &Namespace {
+        &self.data.namespace
+    }
+
     pub fn id(&self) -> NamespaceId {
         self.data.namespace.id()
     }

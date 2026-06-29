@@ -1,35 +1,33 @@
 use crate::willow_serde::{NamespaceSecretSerde, SubspaceSecretSerde};
-use std::{collections::HashMap, path::PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
-use plugin_vault::{VaultsExt as _, vault_actor::VaultToken, vault_db::VaultId};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use tracing::info;
-use willow25::entry::randomly_generate_namespace;
+use ufotofu::IntoConsumer;
+use ufotofu::IntoProducer as _;
+use willow25::entry::Entrylike;
+use willow25::prelude::Area;
+use willow25::prelude::AuthorisedEntry;
+use willow25::prelude::TimeRange;
 use willow25::storage::Store;
 use willow25::{
     entry::{
-        Entry, NamespaceId, NamespaceSecret, SubspaceId, SubspaceSecret,
+        NamespaceId, NamespaceSecret, SubspaceId, SubspaceSecret,
         randomly_generate_communal_namespace, randomly_generate_owned_namespace,
         randomly_generate_subspace,
     },
-    path,
-    prelude::{AuthorisedEntry, WriteCapability},
+    prelude::WriteCapability,
     storage::MemoryStore,
 };
 use zed::unstable::{
-    gpui::{AnyEntity, AppContext, Entity, Global},
+    gpui::{AppContext, Entity, Global},
     gpui_tokio::Tokio,
-    ui::{App, SharedString},
+    ui::App,
 };
 
-use crate::model::Willowize;
-
 pub mod model;
-// pub mod profile;
-// pub mod space;
-// pub mod tasks;
 pub mod ui;
 pub mod willow_serde;
 
@@ -66,8 +64,6 @@ impl<C: AppContext> WillowExt for C {
 pub struct WillowCx<'a, C: AppContext> {
     cx: &'a mut C,
     /// Local state per Willow instance
-    // state: Arc<Mutex<WillowState>>,
-    // state: Rc<RefCell<WillowState>>,
     state: Entity<WillowState>,
 }
 
@@ -163,6 +159,107 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
 
         let subspace = Subspace { secret };
         Ok(subspace)
+    }
+
+    pub async fn create_entry(
+        &mut self,
+        namespace: &Namespace,
+        subspace: &Subspace,
+        path: &Path,
+        data: Vec<u8>,
+    ) -> Result<Option<AuthorisedEntry>> {
+        let namespace_id = namespace.id();
+        let subspace_id = subspace.id();
+        let path = path.to_willow_path()?;
+
+        let timestamp = willow25::prelude::Timestamp::now()?;
+        let write_capability = WriteCapability::new_owned(&namespace.secret, subspace.id());
+
+        let task = self.cx.update_entity(&self.state, move |it, cx| {
+            let mut store = it.store.clone();
+            let subspace = subspace.clone();
+            cx.spawn(async move |_this, _cx| {
+                let payload_length = data.len() as u64;
+                let mut payload_producer = data.into_producer();
+                store
+                    .create_entry(
+                        &namespace_id,
+                        &subspace_id,
+                        &path,
+                        timestamp,
+                        &mut payload_producer,
+                        payload_length,
+                        &write_capability,
+                        &subspace.secret,
+                    )
+                    .await
+            })
+        });
+
+        let entry = task.await?;
+        Ok(entry)
+    }
+
+    pub async fn list_entries(
+        &mut self,
+        namespace: &Namespace,
+        subspace: &Subspace,
+        path: &Path,
+    ) -> Result<Vec<AuthorisedEntry>> {
+        let namespace_id = namespace.id();
+        let subspace_id = subspace.id();
+        let path = path.to_willow_path()?;
+        let times = TimeRange::full();
+        let area = Area::new(Some(subspace_id), path, times);
+
+        let task = self.cx.update_entity(&self.state, |it, cx| {
+            let mut store = it.store.clone();
+            cx.spawn(async move |_this, _cx| {
+                let mut buffer = Vec::new();
+                let mut consumer = (&mut buffer).into_consumer();
+                store.get_area(&namespace_id, &area, &mut consumer).await?;
+                drop(consumer);
+                anyhow::Ok(buffer)
+            })
+        });
+
+        let entries = task.await?;
+        Ok(entries)
+    }
+
+    pub async fn read_entry(
+        &mut self,
+        namespace: &Namespace,
+        entry: AuthorisedEntry,
+    ) -> Result<Vec<u8>> {
+        let namespace_id = namespace.id();
+        let expected_digest = entry.payload_digest().clone();
+        let payload_slice_start = 0;
+        let payload_slice_length = entry.payload_length();
+
+        let task = self.cx.update_entity(&self.state, move |it, cx| {
+            let mut store = it.store.clone();
+
+            cx.spawn(async move |_this, _cx| {
+                let mut buffer = Vec::new();
+                let mut consumer = (&mut buffer).into_consumer();
+                store
+                    .get_entry_and_payload_slice(
+                        &namespace_id,
+                        &entry,
+                        Some(expected_digest),
+                        payload_slice_start,
+                        payload_slice_length,
+                        &mut consumer,
+                    )
+                    .await?;
+                drop(consumer);
+                anyhow::Ok(buffer)
+            })
+        });
+
+        let data = task.await?;
+        Ok(data)
     }
 
     // /// Creates a new Willow subspace, storing the private key in a new vault
@@ -410,3 +507,33 @@ impl WillowState {
 // //   at a path and described by the set of files the model refers to, as well
 // //   as the types of those files.
 // pub trait WillowModel: JsonSchema + Serialize + for<'de> Deserialize<'de> {}
+
+pub trait WillowPathExt {
+    fn to_willow_path(&self) -> Result<willow25::paths::Path>;
+}
+
+impl<P: AsRef<Path>> WillowPathExt for P {
+    fn to_willow_path(&self) -> Result<willow25::paths::Path> {
+        let path = self.as_ref();
+        let components = path
+            .components()
+            .map(|c| {
+                //
+                c.as_os_str().to_str().with_context(|| {
+                    format!(
+                        "invalid path component: {}",
+                        c.as_os_str().to_string_lossy()
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .map(|s| {
+                //
+                willow25::paths::Component::new(s.as_bytes())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let willow_path = willow25::paths::Path::from_components(&*components)?;
+        Ok(willow_path)
+    }
+}
