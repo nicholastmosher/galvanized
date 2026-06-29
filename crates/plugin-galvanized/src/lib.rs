@@ -105,7 +105,7 @@ impl Galvanized {
     ) -> Task<Result<Entity<Vault>>> {
         cx.spawn(async move |this, cx| {
             let vault_id = cx.vaults().create(password.to_string()).await?;
-            let vault_handle = cx.vaults().unlock(&vault_id, password).await?;
+            let vault_token = cx.vaults().unlock(&vault_id, password).await?;
 
             let vault_metadta = VaultMetadata::new(vault_name.clone());
             let vault_metadata_bytes =
@@ -117,7 +117,7 @@ impl Galvanized {
 
             // Initial vault should be empty, so we just write to the vault buffers
             cx.vaults()
-                .update(vault_handle, |mut vault| {
+                .update(vault_token.clone(), |mut vault| {
                     *vault.metadata() = vault_metadata_bytes;
                     *vault.secret() = vault_content_bytes;
                 })
@@ -126,6 +126,8 @@ impl Galvanized {
             info!(?vault_id, ?vault_name, "Wrote user to vault");
 
             let vault = cx.new(|cx| Vault::new(vault_id.clone(), vault_name, cx));
+            // Vault should be unlocked by default immediately after creation
+            vault.update(cx, |vault, _cx| vault.set_unlock_token(vault_token));
             this.update(cx, |this, _cx| {
                 this.vaults.insert(vault_id, vault.clone());
             })?;
@@ -161,17 +163,13 @@ impl Galvanized {
                 .iter()
                 .cloned()
                 .map(|vault_id| {
-                    cx.vaults()
-                        .read_metadata(&vault_id.clone(), move |vault| {
-                            info!(vault_metadata_bytes = ?vault.metadata(), "Reading metadata from vault");
+                    cx.vaults().read_metadata(&vault_id.clone(), move |vault| {
+                        // We'll filter out anything that doesn't deeserialize as a SubspaceMetadata
+                        let meta = serde_json::from_slice::<VaultMetadata>(vault.metadata());
 
-                            // We'll filter out anything that doesn't deeserialize as a SubspaceMetadata
-                            let meta =
-                                serde_json::from_slice::<VaultMetadata>(vault.metadata());
-
-                            info!(?meta, "Deserialized vault metadata");
-                            meta.map(|it| (vault_id.clone(), it)).ok()
-                        })
+                        info!(?meta, "Deserialized vault metadata");
+                        meta.map(|it| (vault_id.clone(), it)).ok()
+                    })
                 })
                 .collect::<Vec<_>>();
 
@@ -198,7 +196,8 @@ impl Galvanized {
             let vaults = this.update(cx, |this, cx| {
                 for (vault_id, metadata) in submetas {
                     if !this.vaults.contains_key(&vault_id) {
-                        let user = cx.new(|cx| Vault::from_metadata(vault_id.clone(), metadata, cx));
+                        let user =
+                            cx.new(|cx| Vault::from_metadata(vault_id.clone(), metadata, cx));
                         this.vaults.insert(vault_id, user);
                     }
                 }

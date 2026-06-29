@@ -600,7 +600,12 @@ impl GalvanizedPanel {
         cx.spawn(async move |this, cx| {
             let galvanized = this.read_with(cx, |this, _cx| this.galvanized.clone())?;
             let vault = galvanized.create_vault(vault_name, password, cx).await?;
-            galvanized.set_active_vault(vault, cx);
+            galvanized.set_active_vault(vault.clone(), cx);
+            vault
+                .update(cx, |vault, cx| {
+                    vault.create_profile(profile_name.into(), cx)
+                })
+                .await?;
             this.update(cx, |this, _cx| {
                 this.vault_scene = VaultScene::VaultPicker;
             })?;

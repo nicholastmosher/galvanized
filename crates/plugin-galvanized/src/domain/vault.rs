@@ -100,6 +100,10 @@ impl Vault {
         })
     }
 
+    pub fn set_unlock_token(&mut self, token: VaultToken) {
+        self.vault_token = Some(token);
+    }
+
     /// If the given [`Vault`] is unlocked, fetch its content and store it in the entity
     ///
     /// This function is async because it drives IO to fetch and decrypt the vault's
