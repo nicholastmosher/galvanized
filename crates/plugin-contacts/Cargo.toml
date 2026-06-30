@@ -5,15 +5,22 @@ edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
+data-encoding.workspace = true
+futures-concurrency.workspace = true
 hex.workspace = true
+iroh.workspace = true
 plot_icon.workspace = true
 plugin-galvanized.workspace = true
+plugin-p2p.workspace = true
 plugin-willow.workspace = true
 rand_core_0_6_4.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
+signature.workspace = true
+tokio.workspace = true
 tracing.workspace = true
+ufotofu.workspace = true
 uuid.workspace = true
 willow25.workspace = true
 zed.workspace = true

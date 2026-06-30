@@ -21,6 +21,7 @@ use willow25::{
     prelude::WriteCapability,
     storage::MemoryStore,
 };
+use zed::unstable::gpui::Task;
 use zed::unstable::{
     gpui::{AppContext, Entity, Global},
     gpui_tokio::Tokio,
@@ -109,6 +110,10 @@ impl Subspace {
     /// Returns the [`SubspaceId`] of this subspace
     pub fn id(&self) -> SubspaceId {
         self.secret.corresponding_subspace_id()
+    }
+
+    pub fn secret_todo_consider_access_control(&self) -> &SubspaceSecret {
+        &self.secret
     }
 }
 
@@ -200,44 +205,42 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
         Ok(entry)
     }
 
-    pub async fn list_entries(
+    pub fn list_entries(
         &mut self,
         namespace: &Namespace,
         subspace: &Subspace,
         path: &Path,
-    ) -> Result<Vec<AuthorisedEntry>> {
+    ) -> Task<Result<Vec<AuthorisedEntry>>> {
         let namespace_id = namespace.id();
         let subspace_id = subspace.id();
-        let path = path.to_willow_path()?;
         let times = TimeRange::full();
-        let area = Area::new(Some(subspace_id), path, times);
+        let path = path.to_willow_path();
 
-        let task = self.cx.update_entity(&self.state, |it, cx| {
+        self.cx.update_entity(&self.state, |it, cx| {
             let mut store = it.store.clone();
             cx.spawn(async move |_this, _cx| {
+                let path = path?;
+                let area = Area::new(Some(subspace_id), path, times);
                 let mut buffer = Vec::new();
                 let mut consumer = (&mut buffer).into_consumer();
                 store.get_area(&namespace_id, &area, &mut consumer).await?;
                 drop(consumer);
                 anyhow::Ok(buffer)
             })
-        });
-
-        let entries = task.await?;
-        Ok(entries)
+        })
     }
 
-    pub async fn read_entry(
+    pub fn read_entry(
         &mut self,
         namespace: &Namespace,
         entry: AuthorisedEntry,
-    ) -> Result<Vec<u8>> {
+    ) -> Task<Result<Vec<u8>>> {
         let namespace_id = namespace.id();
         let expected_digest = entry.payload_digest().clone();
         let payload_slice_start = 0;
         let payload_slice_length = entry.payload_length();
 
-        let task = self.cx.update_entity(&self.state, move |it, cx| {
+        self.cx.update_entity(&self.state, move |it, cx| {
             let mut store = it.store.clone();
 
             cx.spawn(async move |_this, _cx| {
@@ -256,10 +259,7 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
                 drop(consumer);
                 anyhow::Ok(buffer)
             })
-        });
-
-        let data = task.await?;
-        Ok(data)
+        })
     }
 
     // /// Creates a new Willow subspace, storing the private key in a new vault

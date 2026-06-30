@@ -5574,7 +5574,7 @@ checksum = "594435fe09e345ee388e4e8422072ff7dfeca8729389fbd997b3f5504c44cd47"
 dependencies = [
  "pkcs8 0.11.0-rc.10",
  "serde",
- "signature 3.0.0-rc.5",
+ "signature 3.0.0",
 ]
 
 [[package]]
@@ -5603,7 +5603,7 @@ dependencies = [
  "rand_core 0.9.3",
  "serde",
  "sha2 0.11.0-rc.2",
- "signature 3.0.0-rc.5",
+ "signature 3.0.0",
  "subtle",
  "zeroize",
 ]
@@ -15115,15 +15115,22 @@ name = "plugin-contacts"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "data-encoding",
+ "futures-concurrency",
  "hex",
+ "iroh",
  "plot_icon",
  "plugin-galvanized",
+ "plugin-p2p",
  "plugin-willow",
  "rand_core 0.6.4",
  "serde",
  "serde_json",
  "serde_with",
+ "signature 2.2.0",
+ "tokio",
  "tracing",
+ "ufotofu",
  "uuid",
  "willow25",
  "zed",
@@ -18307,9 +18314,9 @@ dependencies = [
 
 [[package]]
 name = "signature"
-version = "3.0.0-rc.5"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a0251c9d6468f4ba853b6352b190fb7c1e405087779917c238445eb03993826"
+checksum = "28d567dcbaf0049cb8ac2608a76cd95ff9e4412e1899d389ee400918ca7537f5"
 
 [[package]]
 name = "simd-adler32"

@@ -1,23 +1,26 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, anyhow};
 use hex::ToHex;
+use iroh::{EndpointAddr, EndpointId};
 use plugin_galvanized::{
     Galvanized,
     app_behavior::AppBehavior,
     domain::{profile::Profile, space::Space},
 };
+use plugin_p2p::P2pExt;
+use plugin_willow::WillowExt as _;
 use plugin_willow::willow_serde::SubspaceIdSerde;
-use plugin_willow::{Namespace, Subspace, WillowExt as _};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use tracing::info;
-use willow25::entry::{SubspaceId, randomly_generate_subspace};
+use signature::SignerMut as _;
+use ufotofu::{IntoConsumer as _, IntoProducer, codec::Decodable};
+use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
 use zed::unstable::{
     editor::Editor,
     gpui::{
         self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
-        actions, rgba,
+        Task, WeakEntity, actions, rgba,
     },
     ui::{
         ActiveTheme, App, Context, Div, FluentBuilder as _, Icon, IconName, IconSize,
@@ -25,6 +28,7 @@ use zed::unstable::{
         SharedString, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex,
         v_flex,
     },
+    util::ResultExt as _,
 };
 
 actions!(
@@ -38,7 +42,8 @@ actions!(
 pub fn init(cx: &mut App) {
     cx.observe_new::<Galvanized>(|galvanized, window, cx| {
         let Some(window) = window else { return };
-        let contacts = cx.new(|cx| Contacts::new(window, cx));
+        let galvanized_weak = cx.weak_entity();
+        let contacts = cx.new(|cx| Contacts::new(galvanized_weak, window, cx));
         galvanized.register_app(contacts.clone(), cx);
         galvanized
             .panel()
@@ -58,39 +63,30 @@ pub fn init(cx: &mut App) {
 /// The main Contacts entity, holding the list of contacts for the current
 /// profile in the current space.
 pub struct Contacts {
-    contacts: Vec<Contact>,
+    contacts: Vec<Entity<Contact>>,
     input_editor: Entity<Editor>,
     focus_handle: FocusHandle,
+    galvanized: WeakEntity<Galvanized>,
 }
 
 impl Contacts {
-    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        galvanized: WeakEntity<Galvanized>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let input_editor = cx.new(|cx| {
             let mut editor = Editor::single_line(window, cx);
             editor.set_placeholder_text("Paste remote Profile ID", window, cx);
             editor
         });
 
-        let contacts = Self::mock_contacts();
-
         Self {
-            contacts,
+            contacts: Default::default(),
             input_editor,
             focus_handle: cx.focus_handle(),
+            galvanized,
         }
-    }
-
-    /// Generate mock contacts for development purposes.
-    fn mock_contacts() -> Vec<Contact> {
-        let names = ["Alice", "Bob", "Charlie", "Diana"];
-        names
-            .iter()
-            .map(|name| {
-                let (subspace_id, _secret) =
-                    randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
-                Contact::new(ContactId { subspace_id }, name.to_string())
-            })
-            .collect()
     }
 
     fn remove_contact(&mut self, index: usize, cx: &mut Context<Self>) {
@@ -98,6 +94,51 @@ impl Contacts {
             self.contacts.remove(index);
             cx.notify();
         }
+    }
+
+    pub fn load(
+        &mut self,
+        space: Entity<Space>,
+        profile: Entity<Profile>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<Vec<Entity<Contact>>>> {
+        let path = PathBuf::from(format!("/apps/{}", Self::id()));
+        let namespace = space.read(cx).namespace().clone();
+        let subspace = profile.read(cx).subspace().clone();
+
+        cx.spawn(async move |_this, cx| {
+            use futures_concurrency::prelude::*;
+
+            let entries = cx
+                .willow()
+                .list_entries(&namespace, &subspace, &path)
+                .await?;
+
+            // Concurrently read entries from Willow store
+            let entries_bytes = entries
+                .into_iter()
+                .map(|entry| cx.willow().read_entry(&namespace, entry))
+                .collect::<Vec<_>>()
+                .join()
+                .await;
+
+            let contact_data = entries_bytes
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .map(|entry_bytes| {
+                    serde_json::from_slice::<ContactData>(&entry_bytes)
+                        .context("failed to deserialize ContactData")
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            let contacts = contact_data
+                .into_iter()
+                .map(|data| cx.new(|cx| Contact::from_data(data, cx)))
+                .collect::<Vec<_>>();
+
+            anyhow::Ok(contacts)
+        })
     }
 }
 
@@ -132,6 +173,55 @@ impl Render for Contacts {
 }
 
 impl Contacts {
+    /// User has pasted a contact ticket into the input editor and submitted it.
+    fn submit_create_contact(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        let ticket_string = self.input_editor.read(cx).text(cx);
+        let Some(ticket) = ticket_string.parse::<ContactTicket>().log_err() else {
+            return;
+        };
+
+        cx.spawn(async move |this, cx| {
+            ticket.verify().await?;
+            let contact = cx.new(|cx| Contact::from_ticket(ticket, cx));
+            this.update(cx, |this, _cx| {
+                this.contacts.push(contact);
+            })?;
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
+    }
+
+    fn copy_contact_ticket(
+        &mut self,
+        profile: Entity<Profile>,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(endpoint_id) = cx.p2p().endpoint_id().log_err() else {
+            return;
+        };
+        let endpoint_addrs = vec![EndpointAddr {
+            id: endpoint_id,
+            addrs: Default::default(),
+        }];
+
+        let profile_key = profile
+            .read(cx)
+            .subspace()
+            .secret_todo_consider_access_control()
+            .clone();
+        let display_name = profile.read(cx).name();
+
+        cx.spawn(async move |this, cx| {
+            //
+            let ticket = ContactTicket::new(profile_key, display_name, endpoint_addrs).await?;
+            anyhow::Ok(())
+        });
+
+        let ticket_string = serde_json::to_string(ticket).unwrap();
+        window.set_clipboard_text(&ticket_string);
+    }
+
     fn render_header(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             //
@@ -153,12 +243,12 @@ impl Contacts {
                             .border_1()
                             .border_color(cx.theme().colors().border)
                             .rounded_md()
-                            .on_key_down(cx.listener(|_this, e: &KeyDownEvent, _window, _cx| {
+                            .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
                                 if e.keystroke.key != "enter" {
                                     return;
                                 }
 
-                                info!("TODO Create Contact");
+                                this.submit_create_contact(window, cx);
                             }))
                             .child(
                                 //
@@ -181,7 +271,10 @@ impl Contacts {
                     .hover(|style| style.text_color(cx.theme().colors().text_placeholder))
                     .tooltip(Tooltip::text("Send this to a friend to paste in their app"))
                     .child(Icon::new(IconName::Copy).size(IconSize::Small))
-                    .child("Copy My ID: 0xdeadbeefdeadbeefdeadbeef"),
+                    .child("Copy My Profile Ticket")
+                    .on_click(cx.listener(|this, e, window, cx| {
+                        //
+                    })),
             )
     }
 
@@ -204,7 +297,8 @@ impl Contacts {
                         )
                     })
                     .children(self.contacts.iter().enumerate().map(|(i, contact)| {
-                        let subspace_hex: String = contact.contact_id().to_hex();
+                        let subspace_hex: String =
+                            contact.read(cx).profile_id().as_bytes().encode_hex();
                         let short_id: SharedString = {
                             let mut s = subspace_hex.clone();
                             s.truncate(16);
@@ -219,7 +313,7 @@ impl Contacts {
                             .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
                             .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                             .child(
-                                v_flex().child(contact.display_name()).child(
+                                v_flex().child(contact.read(cx).display_name()).child(
                                     div()
                                         .text_sm()
                                         .text_color(cx.theme().colors().text_muted)
@@ -261,21 +355,50 @@ pub struct Contact {
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContactData {
-    contact_id: ContactId,
+    #[serde_as(as = "SubspaceIdSerde")]
+    profile_id: SubspaceId,
     display_name: SharedString,
+    endpoint_id: Option<EndpointId>,
 }
 
 impl Contact {
-    pub fn new(contact_id: ContactId, display_name: impl Into<SharedString>) -> Self {
+    pub fn new(
+        profile_id: SubspaceId,
+        display_name: impl Into<SharedString>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let data = ContactData {
-            contact_id,
+            profile_id,
             display_name: display_name.into(),
+            endpoint_id: None,
         };
+        Self::from_data(data, cx)
+    }
+
+    pub fn from_data(data: ContactData, _cx: &mut Context<Self>) -> Self {
         Self { data }
     }
 
-    pub fn contact_id(&self) -> &ContactId {
-        &self.data.contact_id
+    pub fn from_profile(profile: &Entity<Profile>, cx: &mut Context<Self>) -> Self {
+        let data = ContactData {
+            profile_id: profile.read(cx).id(),
+            display_name: profile.read(cx).name(),
+            endpoint_id: None,
+        };
+        Self::from_data(data, cx)
+    }
+
+    pub fn from_ticket(ticket: ContactTicket, cx: &mut Context<Self>) -> Self {
+        let data = ContactData {
+            profile_id: ticket.message.profile_id,
+            display_name: ticket.message.display_name.clone(),
+            endpoint_id: None,
+        };
+        Self::from_data(data, cx)
+    }
+
+    pub fn profile_id(&self) -> &SubspaceId {
+        &self.data.profile_id
     }
 
     pub fn display_name(&self) -> SharedString {
@@ -290,11 +413,8 @@ impl Contact {
     ) -> Result<()> {
         let namespace = space.read(cx).namespace().clone();
         let subspace = profile.read(cx).subspace().clone();
-        let path = PathBuf::from(format!(
-            "/apps/{}/{}",
-            Contacts::id(),
-            self.contact_id().to_hex()
-        ));
+        let profile_id = self.profile_id().as_bytes().encode_hex::<String>();
+        let path = PathBuf::from(format!("/apps/{}/{}", Contacts::id(), profile_id));
         let data = serde_json::to_vec(&self.data).context("failed to serialize ContactData")?;
 
         cx.willow()
@@ -303,46 +423,163 @@ impl Contact {
 
         Ok(())
     }
-
-    pub async fn load(
-        namespace: &Namespace,
-        subspace: &Subspace,
-        path: &Path,
-        cx: &mut App,
-    ) -> Result<Self> {
-        todo!()
-    }
 }
 
-/// Wrapper around a Willow SubspaceId that identifies a remote Profile.
+// /// Wrapper around a Willow SubspaceId that identifies a remote Profile.
+// #[serde_as]
+// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+// pub struct ContactId {
+//     #[serde_as(as = "SubspaceIdSerde")]
+//     subspace_id: SubspaceId,
+// }
+
+// impl ContactId {
+//     pub fn from_hex(hex_str: &str) -> Option<Self> {
+//         let bytes = hex::decode(hex_str).ok()?;
+//         if bytes.len() != 32 {
+//             return None;
+//         }
+//         let mut arr = [0u8; 32];
+//         arr.copy_from_slice(&bytes);
+//         Some(ContactId {
+//             subspace_id: SubspaceId::from_bytes(&arr),
+//         })
+//     }
+
+//     pub fn to_hex(&self) -> String {
+//         self.subspace_id.to_bytes().encode_hex()
+//     }
+// }
+
+// impl std::fmt::Display for ContactId {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         let hex: String = self.subspace_id.to_bytes().encode_hex();
+//         write!(f, "{}", &hex[..16])
+//     }
+// }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactTicket {
+    message: ContactTicketMessage,
+    signature: Vec<u8>,
+}
+
 #[serde_as]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ContactId {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactTicketMessage {
     #[serde_as(as = "SubspaceIdSerde")]
-    subspace_id: SubspaceId,
+    profile_id: SubspaceId,
+    display_name: SharedString,
+    endpoints: Vec<EndpointAddr>,
 }
 
-impl ContactId {
-    pub fn from_hex(hex_str: &str) -> Option<Self> {
-        let bytes = hex::decode(hex_str).ok()?;
-        if bytes.len() != 32 {
-            return None;
+impl ContactTicketMessage {
+    pub fn new(
+        profile_id: SubspaceId,
+        display_name: SharedString,
+        endpoints: Vec<EndpointAddr>,
+    ) -> Self {
+        Self {
+            profile_id,
+            display_name,
+            endpoints,
         }
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&bytes);
-        Some(ContactId {
-            subspace_id: SubspaceId::from_bytes(&arr),
-        })
-    }
-
-    pub fn to_hex(&self) -> String {
-        self.subspace_id.to_bytes().encode_hex()
     }
 }
 
-impl std::fmt::Display for ContactId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let hex: String = self.subspace_id.to_bytes().encode_hex();
-        write!(f, "{}", &hex[..16])
+impl ContactTicket {
+    /// Create a new ticket for the given profile key and endpoints.
+    ///
+    /// On construction, the ticket message is signed using the profile key
+    /// and the signature is stored in the ticket alongside the message.
+    async fn new(
+        mut profile_key: SubspaceSecret,
+        display_name: SharedString,
+        endpoints: Vec<EndpointAddr>,
+    ) -> Result<Self> {
+        let message = ContactTicketMessage::new(
+            profile_key.corresponding_subspace_id(),
+            display_name,
+            endpoints,
+        );
+        let message_bytes =
+            serde_json::to_vec(&message).context("failed to serialize TicketMessage")?;
+
+        let subspace_signature = profile_key.try_sign(&message_bytes)?;
+        let mut signature = Vec::new();
+        let mut consumer = (&mut signature).into_consumer();
+
+        use ufotofu::codec::Encodable;
+        subspace_signature.encode(&mut consumer).await?;
+        drop(consumer);
+
+        Ok(Self { message, signature })
+    }
+
+    /// Verifies that the signature of the ticket matches the profile ID in the message.
+    async fn verify(&self) -> Result<()> {
+        use signature::Verifier;
+        let message_bytes = serde_json::to_vec(&self.message).unwrap();
+        let signature = self.signature.clone();
+        let mut sig_producer = signature.into_producer();
+        let subspace_signature = SubspaceSignature::decode(&mut sig_producer)
+            .await
+            .map_err(|_| anyhow!("failed to decode ticket signature"))?;
+        self.message
+            .profile_id
+            .verify(&message_bytes, &subspace_signature)?;
+        Ok(())
+    }
+
+    /// Deserialize from a slice of bytes to a Ticket.
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        serde_json::from_slice(bytes).map_err(Into::into)
+    }
+
+    /// Serialize from a `Ticket` to a `Vec` of bytes.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(self).expect("serde_json::to_vec is infallible")
+    }
+}
+
+// The `Display` trait allows us to use the `to_string`
+// method on `Ticket`.
+impl std::fmt::Display for ContactTicket {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut text = data_encoding::BASE32_NOPAD.encode(&self.to_bytes()[..]);
+        text.make_ascii_lowercase();
+        write!(f, "{}", text)
+    }
+}
+
+// The `FromStr` trait allows us to turn a `str` into
+// a `Ticket`
+impl std::str::FromStr for ContactTicket {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = data_encoding::BASE32_NOPAD.decode(s.to_ascii_uppercase().as_bytes())?;
+        Self::from_bytes(&bytes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use willow25::entry::randomly_generate_subspace;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_sign_verify_ticket() {
+        let (_id, secret) = randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
+        let endpoints = vec![];
+        let display_name = "Fred".into();
+        let ticket = ContactTicket::new(secret, display_name, endpoints)
+            .await
+            .expect("failed to create ticket");
+
+        ticket
+            .verify()
+            .await
+            .expect("ticket should verify successfully");
     }
 }

@@ -12,7 +12,10 @@ use zed::unstable::{
 
 use crate::{
     app_behavior::AppHandle,
-    domain::vault::{Vault, VaultContent, VaultMetadata},
+    domain::{
+        profile::Profile,
+        vault::{Vault, VaultContent, VaultMetadata},
+    },
     panel::{GalvanizedPanel, TogglePanel},
 };
 
@@ -44,6 +47,7 @@ pub struct Galvanized {
     workspace: Entity<Workspace>,
 
     loading_vaults_task: Option<Task<Result<Vec<Entity<Vault>>>>>,
+    on_select_profile: Vec<Box<dyn Fn(Entity<Profile>, &mut App)>>,
 }
 
 impl Galvanized {
@@ -59,6 +63,7 @@ impl Galvanized {
             workspace,
 
             loading_vaults_task: None,
+            on_select_profile: Default::default(),
         };
         this.load_vaults(cx);
         this
@@ -224,6 +229,10 @@ impl Galvanized {
         });
 
         self.loading_vaults_task = Some(task);
+    }
+
+    pub fn on_select_profile(&mut self, f: impl 'static + Fn(Entity<Profile>, &mut App)) {
+        self.on_select_profile.push(Box::new(f));
     }
 }
 
