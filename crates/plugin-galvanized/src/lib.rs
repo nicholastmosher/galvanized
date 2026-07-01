@@ -40,14 +40,13 @@ pub fn init(cx: &mut App) {
 
 /// Top-level entity for shared Galvanized state and plugins
 pub struct Galvanized {
-    apps: BTreeMap<&'static str, Box<dyn AppHandle>>,
-    panel: Entity<GalvanizedPanel>,
     pub(crate) active_vault: Option<Entity<Vault>>,
-    vaults: BTreeMap<VaultId, Entity<Vault>>,
-    workspace: Entity<Workspace>,
-
+    apps: BTreeMap<&'static str, Box<dyn AppHandle>>,
     loading_vaults_task: Option<Task<Result<Vec<Entity<Vault>>>>>,
     on_select_profile: Vec<Box<dyn Fn(Entity<Profile>, &mut App)>>,
+    panel: Entity<GalvanizedPanel>,
+    vaults: BTreeMap<VaultId, Entity<Vault>>,
+    workspace: Entity<Workspace>,
 }
 
 impl Galvanized {
@@ -56,14 +55,13 @@ impl Galvanized {
         let panel = cx.new(|cx| GalvanizedPanel::new(galvanized, window, cx));
 
         let mut this = Self {
-            apps: Default::default(),
-            panel,
             active_vault: Default::default(),
+            apps: Default::default(),
+            loading_vaults_task: Default::default(),
+            on_select_profile: Default::default(),
+            panel,
             vaults: Default::default(),
             workspace,
-
-            loading_vaults_task: None,
-            on_select_profile: Default::default(),
         };
         this.load_vaults(cx);
         this
@@ -233,6 +231,11 @@ impl Galvanized {
 
     pub fn on_select_profile(&mut self, f: impl 'static + Fn(Entity<Profile>, &mut App)) {
         self.on_select_profile.push(Box::new(f));
+    }
+
+    pub fn active_profile(&self, cx: &App) -> Option<Entity<Profile>> {
+        let active_profile = self.active_vault.as_ref()?.read(cx).active_profile()?;
+        Some(active_profile)
     }
 }
 

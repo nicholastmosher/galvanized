@@ -7,6 +7,7 @@ edition = "2024"
 anyhow.workspace = true
 derive_more = { workspace = true, features = ["display", "debug"] }
 futures-concurrency.workspace = true
+hex.workspace = true
 plugin-vault.workspace = true
 plugin-willow.workspace = true
 serde.workspace = true

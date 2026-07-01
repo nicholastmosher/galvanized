@@ -14,13 +14,14 @@ use plugin_willow::willow_serde::SubspaceIdSerde;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use signature::SignerMut as _;
+use tracing::info;
 use ufotofu::{IntoConsumer as _, IntoProducer, codec::Decodable};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
 use zed::unstable::{
     editor::Editor,
     gpui::{
-        self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
-        Task, WeakEntity, actions, rgba,
+        self, Action, AppContext as _, ClipboardItem, Entity, EventEmitter, FocusHandle, Focusable,
+        KeyDownEvent, Task, WeakEntity, actions, rgba,
     },
     ui::{
         ActiveTheme, App, Context, Div, FluentBuilder as _, Icon, IconName, IconSize,
@@ -64,9 +65,10 @@ pub fn init(cx: &mut App) {
 /// profile in the current space.
 pub struct Contacts {
     contacts: Vec<Entity<Contact>>,
-    input_editor: Entity<Editor>,
+    copy_ticket: Option<String>,
     focus_handle: FocusHandle,
     galvanized: WeakEntity<Galvanized>,
+    input_editor: Entity<Editor>,
 }
 
 impl Contacts {
@@ -77,15 +79,16 @@ impl Contacts {
     ) -> Self {
         let input_editor = cx.new(|cx| {
             let mut editor = Editor::single_line(window, cx);
-            editor.set_placeholder_text("Paste remote Profile ID", window, cx);
+            editor.set_placeholder_text("Paste Profile Ticket", window, cx);
             editor
         });
 
         Self {
             contacts: Default::default(),
-            input_editor,
+            copy_ticket: None,
             focus_handle: cx.focus_handle(),
             galvanized,
+            input_editor,
         }
     }
 
@@ -162,6 +165,11 @@ impl AppBehavior for Contacts {
 
 impl Render for Contacts {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if let Some(copy_ticket) = self.copy_ticket.take() {
+            cx.write_to_clipboard(ClipboardItem::new_string(copy_ticket));
+            info!("Copied ContactTicket");
+        }
+
         v_flex()
             .size_full()
             .p_2()
@@ -213,13 +221,15 @@ impl Contacts {
         let display_name = profile.read(cx).name();
 
         cx.spawn(async move |this, cx| {
-            //
             let ticket = ContactTicket::new(profile_key, display_name, endpoint_addrs).await?;
-            anyhow::Ok(())
-        });
+            let ticket_string = ticket.to_string();
+            this.update(cx, |this, _cx| {
+                this.copy_ticket = Some(ticket_string);
+            })?;
 
-        let ticket_string = serde_json::to_string(ticket).unwrap();
-        window.set_clipboard_text(&ticket_string);
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
     }
 
     fn render_header(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -271,9 +281,16 @@ impl Contacts {
                     .hover(|style| style.text_color(cx.theme().colors().text_placeholder))
                     .tooltip(Tooltip::text("Send this to a friend to paste in their app"))
                     .child(Icon::new(IconName::Copy).size(IconSize::Small))
-                    .child("Copy My Profile Ticket")
-                    .on_click(cx.listener(|this, e, window, cx| {
-                        //
+                    .child("Copy Profile Ticket")
+                    .on_click(cx.listener(move |this, _e, window, cx| {
+                        let active_profile = this
+                            .galvanized
+                            .read_with(cx, |it, cx| it.active_profile(cx))
+                            .log_err()
+                            .flatten();
+                        if let Some(profile) = active_profile {
+                            this.copy_contact_ticket(profile.clone(), window, cx);
+                        }
                     })),
             )
     }
@@ -293,7 +310,7 @@ impl Contacts {
                         el.p_4().child(
                             div()
                                 .text_color(cx.theme().colors().text_muted)
-                                .child("No contacts yet. Paste a Profile ID above to add one."),
+                                .child("Paste a Profile ticket to add a contact"),
                         )
                     })
                     .children(self.contacts.iter().enumerate().map(|(i, contact)| {

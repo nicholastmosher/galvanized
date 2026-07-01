@@ -1,3 +1,4 @@
+use hex::ToHex as _;
 use tracing::info;
 use zed::unstable::{
     gpui::{self, ClickEvent, Corner, CursorStyle, Entity, FontWeight, Stateful, point, rgba},
@@ -221,7 +222,14 @@ impl RenderOnce for ProfileNugget {
                         div()
                             .text_xs()
                             .text_color(cx.theme().colors().text_muted)
-                            .child("Online"),
+                            .child({
+                                let profile_string: String =
+                                    self.profile.read(cx).id().as_bytes().encode_hex();
+                                let profile_string =
+                                    profile_string.chars().take(8).collect::<String>();
+                                format!("...{}", profile_string)
+                                // profile_string
+                            }),
                     ),
             )
     }
