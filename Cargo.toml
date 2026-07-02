@@ -31,10 +31,10 @@ futures = "0.3.32"
 futures-concurrency = "7.7.1"
 hex = "0.4.3"
 image = "0.24.9"
-iroh = { version = "0.96", features = ["address-lookup-mdns"] }
-iroh-blobs = "0.98.0"
-iroh-docs = "0.96.0"
-iroh-gossip = "0.96.0"
+iroh = { git = "https://github.com/nicholastmosher/iroh", branch = "galvanized" }
+# iroh-blobs = "0.98.0"
+# iroh-docs = "0.96.0"
+# iroh-gossip = "0.96.0"
 libp2p = { version = "0.54.1", features = ["full"] }
 libp2p-stream = "0.2.0-alpha"
 libp2p-swarm = "0.45"
@@ -75,6 +75,7 @@ zeroize = { version = "1.8.2", features = ["std", "zeroize_derive"] }
 # If you run into build errors, make sure this is using the git dep, not path
 # I sometimes switch it to path dep when tweaking Zed itself
 zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+# zed = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 # zed = { path = "../zed/crates/zed" }
 
 # Path dependencies

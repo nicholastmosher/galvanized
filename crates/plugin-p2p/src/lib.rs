@@ -7,7 +7,7 @@ use dashmap::DashMap;
 use futures::{SinkExt as _, Stream};
 use iroh::{
     Endpoint, EndpointAddr, EndpointId,
-    endpoint::{Connection, RecvStream, SendStream},
+    endpoint::{Connection, RecvStream, SendStream, presets::N0},
     protocol::{AcceptError, ProtocolHandler, Router},
 };
 use iroh_repo::IrohSamod;
@@ -28,10 +28,9 @@ use zed::unstable::{
     util::{ResultExt, TryFutureExt},
 };
 
+pub mod actor;
 pub mod codec;
 pub mod iroh_repo;
-
-// --- P2p Plugin API
 
 pub fn init(cx: &mut App) {
     let iroh = P2pCx::new(cx);
@@ -42,7 +41,7 @@ pub fn init(cx: &mut App) {
     cx.spawn(async move |cx| {
         let uuid = Uuid::new_v4();
         let base_path = format!("/tmp/iroh-automerge-{uuid}");
-        let endpoint = Endpoint::builder().bind().await?;
+        let endpoint = Endpoint::builder(N0).bind().await?;
 
         let automerge_repo = samod::Repo::build_tokio()
             .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
