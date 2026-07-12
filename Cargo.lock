@@ -14780,6 +14780,7 @@ dependencies = [
  "derive_more",
  "futures-concurrency",
  "hex",
+ "plugin-p2p",
  "plugin-vault",
  "plugin-willow",
  "serde",

@@ -8,7 +8,6 @@ use plugin_galvanized::{
     app_behavior::AppBehavior,
     domain::{profile::Profile, space::Space},
 };
-use plugin_p2p::P2pExt;
 use plugin_willow::WillowExt as _;
 use plugin_willow::willow_serde::SubspaceIdSerde;
 use serde::{Deserialize, Serialize};
@@ -205,13 +204,13 @@ impl Contacts {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(endpoint_id) = cx.p2p().endpoint_id().log_err() else {
+        let Some(p2p) = self
+            .galvanized
+            .read_with(cx, |it, _cx| it.p2p().clone())
+            .log_err()
+        else {
             return;
         };
-        let endpoint_addrs = vec![EndpointAddr {
-            id: endpoint_id,
-            addrs: Default::default(),
-        }];
 
         let profile_key = profile
             .read(cx)
@@ -221,6 +220,16 @@ impl Contacts {
         let display_name = profile.read(cx).name();
 
         cx.spawn(async move |this, cx| {
+            let endpoint_id = cx
+                .update_entity(&p2p, |it, cx| it.endpoint_id(cx))
+                .await
+                .context("iroh not initialized")?;
+
+            let endpoint_addrs = vec![EndpointAddr {
+                id: endpoint_id,
+                addrs: Default::default(),
+            }];
+
             let ticket = ContactTicket::new(profile_key, display_name, endpoint_addrs).await?;
             let ticket_string = ticket.to_string();
             this.update(cx, |this, _cx| {
@@ -248,50 +257,50 @@ impl Contacts {
                             .child("Contacts"),
                     )
                     .child(
+                        //
                         h_flex()
-                            .flex_grow()
-                            .border_1()
-                            .border_color(cx.theme().colors().border)
-                            .rounded_md()
-                            .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
-                                if e.keystroke.key != "enter" {
-                                    return;
+                            .id("copy-profile-id")
+                            .gap_2()
+                            .text_xs()
+                            .text_color(cx.theme().colors().text_muted)
+                            .hover(|style| style.text_color(cx.theme().colors().text_placeholder))
+                            .tooltip(Tooltip::text("Send this to a friend to paste in their app"))
+                            .child(Icon::new(IconName::Copy).size(IconSize::Small))
+                            .child("Copy Profile Ticket")
+                            .on_click(cx.listener(move |this, _e, window, cx| {
+                                let active_profile = this
+                                    .galvanized
+                                    .read_with(cx, |it, cx| it.active_profile(cx))
+                                    .log_err()
+                                    .flatten();
+                                if let Some(profile) = active_profile {
+                                    this.copy_contact_ticket(profile.clone(), window, cx);
                                 }
-
-                                this.submit_create_contact(window, cx);
-                            }))
-                            .child(
-                                //
-                                div()
-                                    //
-                                    .flex_grow()
-                                    .bg(cx.theme().colors().editor_background)
-                                    .px_2()
-                                    .child(self.input_editor.clone()),
-                            ),
+                            })),
                     ),
             )
             .child(
-                //
                 h_flex()
-                    .id("copy-profile-id")
-                    .gap_2()
-                    .text_xs()
-                    .text_color(cx.theme().colors().text_muted)
-                    .hover(|style| style.text_color(cx.theme().colors().text_placeholder))
-                    .tooltip(Tooltip::text("Send this to a friend to paste in their app"))
-                    .child(Icon::new(IconName::Copy).size(IconSize::Small))
-                    .child("Copy Profile Ticket")
-                    .on_click(cx.listener(move |this, _e, window, cx| {
-                        let active_profile = this
-                            .galvanized
-                            .read_with(cx, |it, cx| it.active_profile(cx))
-                            .log_err()
-                            .flatten();
-                        if let Some(profile) = active_profile {
-                            this.copy_contact_ticket(profile.clone(), window, cx);
+                    .flex_grow()
+                    .border_1()
+                    .border_color(cx.theme().colors().border)
+                    .rounded_md()
+                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                        if e.keystroke.key != "enter" {
+                            return;
                         }
-                    })),
+
+                        this.submit_create_contact(window, cx);
+                    }))
+                    .child(
+                        //
+                        div()
+                            //
+                            .flex_grow()
+                            .bg(cx.theme().colors().editor_background)
+                            .px_2()
+                            .child(self.input_editor.clone()),
+                    ),
             )
     }
 
@@ -307,7 +316,7 @@ impl Contacts {
             .child(
                 div()
                     .when(self.contacts.is_empty(), |el: Div| {
-                        el.p_4().child(
+                        el.p_2().child(
                             div()
                                 .text_color(cx.theme().colors().text_muted)
                                 .child("Paste a Profile ticket to add a contact"),

@@ -13,12 +13,13 @@ use culpa::throws;
 use futures::{FutureExt, Stream, StreamExt as _};
 use futures_concurrency::stream::Merge;
 use iroh::{
-    Endpoint,
+    Endpoint, EndpointId,
     endpoint::{Incoming, presets::N0},
     protocol::{DynProtocolHandler, ProtocolHandler},
 };
 use tokio::{
     runtime::Handle,
+    sync::oneshot,
     task::{JoinError, JoinSet},
 };
 use tracing::{Instrument as _, error, field::Empty, info_span, trace, warn};
@@ -75,6 +76,16 @@ impl Actor {
             .await?;
         Ok(())
     }
+
+    pub async fn endpoint_id(&self) -> Option<iroh::EndpointId> {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send_async(ActorInput::RequestEndpointId { tx })
+            .await
+            .expect("channel error while requesting endpoint id");
+        let endpoint_id = rx.await.expect("channel error while receiving endpoint id");
+        Some(endpoint_id)
+    }
 }
 
 /// Internal actor state.
@@ -96,6 +107,9 @@ pub enum ActorInput {
     },
     /// Unregister the protocol handler for the given ALPN.
     UnregisterProtocol { alpn: Vec<u8> },
+
+    /// Request the endpoint ID of the actor.
+    RequestEndpointId { tx: oneshot::Sender<EndpointId> },
 }
 
 impl ActorEngine {
@@ -286,6 +300,11 @@ impl ActorEngine {
             }
             ActorInput::UnregisterProtocol { alpn } => {
                 self.handle_uninstall_protocol(&alpn);
+            }
+            ActorInput::RequestEndpointId { tx } => {
+                let endpoint_id = self.endpoint.id();
+                tx.send(endpoint_id)
+                    .expect("channel error sending endpoint id response");
             }
         }
 
