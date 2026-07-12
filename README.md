@@ -184,6 +184,27 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 July 11
+
+- Need to create a parallel between capabilities as signed objects and type-level capabilities
+- Need to effectively create an encrypted vault (e.g. password-manager) implemented on Willow
+- Profile Home Spaces should by default have an encrypted vault
+- In-Willow-FS vault is a different thing than top-level master password vault
+- I still want to use CRDTs to make useful apps sooner than later, but I'm imagining a layer
+  that verifies capabilities before agreeing to sync with a given peer.
+  - Might need to look at samod-core
+
+Today:
+
+- Need to revisit plugin-p2p, and protocol plugins and composability
+- Need a p2p plugin which establishes contacts and allows creating chats
+- A peer-to-peer object graph? e.g. a configuration object for an app which can be
+  live-updated from code or UI, but p2p
+- Object is identified by `(namespace_id, subspace_id)` and lives at
+  `<namespace_id>/<subspace_id>: /<prefix>/<doc_uuid_signature>/`
+- E.g. Address chats as files or whatever app-specific pattern makes sense
+- Create a new chat just by genrating a new chat file
+
 # 2026 June 28
 
 Screenshots from today:
