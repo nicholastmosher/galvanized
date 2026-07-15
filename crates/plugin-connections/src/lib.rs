@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context as _, anyhow, bail};
 use iroh::{EndpointAddr, EndpointId};
+use plugin_p2p::v1::P2pExt as _;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument};
 use zed::unstable::{
@@ -26,7 +27,6 @@ use zed::unstable::{
 };
 
 use plugin_chat::ChatUi;
-use plugin_p2p::P2pExt as _;
 
 struct GlobalWorkspace(Entity<Workspace>);
 impl Global for GlobalWorkspace {}

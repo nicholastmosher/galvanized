@@ -5,7 +5,11 @@ edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
+chrono.workspace = true
+dashmap.workspace = true
 data-encoding.workspace = true
+derive_more.workspace = true
+futures.workspace = true
 futures-concurrency.workspace = true
 hex.workspace = true
 iroh.workspace = true
@@ -18,7 +22,9 @@ serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 signature.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 tracing.workspace = true
 ufotofu.workspace = true
 uuid.workspace = true

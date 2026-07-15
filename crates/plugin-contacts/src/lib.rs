@@ -8,6 +8,7 @@ use plugin_galvanized::{
     app_behavior::AppBehavior,
     domain::{profile::Profile, space::Space},
 };
+use plugin_p2p::P2pHandle as _;
 use plugin_willow::WillowExt as _;
 use plugin_willow::willow_serde::SubspaceIdSerde;
 use serde::{Deserialize, Serialize};
@@ -30,6 +31,8 @@ use zed::unstable::{
     },
     util::ResultExt as _,
 };
+
+pub mod protocol;
 
 actions!(
     contacts,
@@ -187,6 +190,14 @@ impl Contacts {
             return;
         };
 
+        let Some(p2p) = self
+            .galvanized
+            .read_with(cx, |it, _cx| it.p2p().clone())
+            .log_err()
+        else {
+            return;
+        };
+
         cx.spawn(async move |this, cx| {
             ticket.verify().await?;
             let contact = cx.new(|cx| Contact::from_ticket(ticket, cx));
@@ -220,10 +231,7 @@ impl Contacts {
         let display_name = profile.read(cx).name();
 
         cx.spawn(async move |this, cx| {
-            let endpoint_id = cx
-                .update_entity(&p2p, |it, cx| it.endpoint_id(cx))
-                .await
-                .context("iroh not initialized")?;
+            let endpoint_id = p2p.endpoint_id(cx).await.context("iroh not initialized")?;
 
             let endpoint_addrs = vec![EndpointAddr {
                 id: endpoint_id,

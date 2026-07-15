@@ -7,11 +7,12 @@ use iroh::endpoint::ConnectingError;
 use iroh::endpoint::ConnectionError;
 use iroh::endpoint::RemoteEndpointIdError;
 use iroh::endpoint::quic;
-use iroh::protocol::DynProtocolHandler;
 use std::collections::BTreeMap;
 use thiserror::Error;
 
 use std::sync::Arc;
+
+use crate::actor::AnyDynProtocolHandler;
 
 #[allow(missing_docs)]
 #[non_exhaustive]
@@ -68,21 +69,21 @@ impl From<quic::ClosedStream> for AcceptError {
 
 /// A typed map of protocol handlers, mapping them from ALPNs.
 #[derive(Debug, Default)]
-pub(crate) struct ProtocolMap(BTreeMap<Vec<u8>, Arc<dyn DynProtocolHandler>>);
+pub(crate) struct ProtocolMap(BTreeMap<Vec<u8>, Arc<dyn AnyDynProtocolHandler>>);
 
 impl ProtocolMap {
     /// Returns the registered protocol handler for an ALPN as a [`Arc<dyn ProtocolHandler>`].
-    pub(crate) fn get(&self, alpn: &[u8]) -> Option<Arc<dyn DynProtocolHandler>> {
+    pub(crate) fn get(&self, alpn: &[u8]) -> Option<Arc<dyn AnyDynProtocolHandler>> {
         self.0.get(alpn).map(|p| p.clone())
     }
 
     /// Inserts a protocol handler.
-    pub(crate) fn insert(&mut self, alpn: Vec<u8>, handler: Arc<dyn DynProtocolHandler>) {
+    pub(crate) fn insert(&mut self, alpn: Vec<u8>, handler: Arc<dyn AnyDynProtocolHandler>) {
         self.0.insert(alpn, handler);
     }
 
     /// Removes a protocol handler by ALPN, returning the removed handler if one existed.
-    pub(crate) fn remove(&mut self, alpn: &[u8]) -> Option<Arc<dyn DynProtocolHandler>> {
+    pub(crate) fn remove(&mut self, alpn: &[u8]) -> Option<Arc<dyn AnyDynProtocolHandler>> {
         self.0.remove(alpn)
     }
 

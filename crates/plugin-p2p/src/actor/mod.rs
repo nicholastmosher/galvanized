@@ -3,6 +3,7 @@
 //! This actor maintains the state of the protocol and handles incoming events.
 
 use std::{
+    any::{Any, TypeId},
     ops::ControlFlow,
     sync::{Arc, RwLock},
 };
@@ -23,13 +24,15 @@ use tokio::{
     task::{JoinError, JoinSet},
 };
 use tracing::{Instrument as _, error, field::Empty, info_span, trace, warn};
-use zed::unstable::{gpui::AppContext, gpui_tokio::Tokio, ui::App, util::ResultExt};
+use zed::unstable::{gpui_tokio::Tokio, ui::App, util::ResultExt};
 
 use protocol::ProtocolMap;
 
 pub mod protocol;
 
 type Shutdown<T = ()> = ShutdownManager<T>;
+pub trait AnyDynProtocolHandler: Any + DynProtocolHandler {}
+impl<P: Any + DynProtocolHandler> AnyDynProtocolHandler for P {}
 
 /// External handle interface to the actor.
 #[derive(derive_more::Debug, Clone)]
@@ -58,10 +61,10 @@ impl Actor {
         }
     }
 
-    pub async fn register_protocol(
+    pub async fn register_protocol<P: ProtocolHandler>(
         &self,
         alpn: Vec<u8>,
-        handler: impl ProtocolHandler,
+        handler: P,
     ) -> Result<()> {
         let handler = Arc::new(handler);
         self.tx
@@ -75,6 +78,20 @@ impl Actor {
             .send_async(ActorInput::UnregisterProtocol { alpn })
             .await?;
         Ok(())
+    }
+
+    pub async fn protocol<P: Any + ProtocolHandler>(&self, alpn: Vec<u8>) -> Option<Arc<P>> {
+        let (client_tx, rx) = oneshot::channel();
+        self.tx
+            .send_async(ActorInput::GetProtocol { alpn, client_tx })
+            .await
+            .expect("channel error while requesting protocol");
+        let protocol = rx
+            .await
+            .expect("channel error while fetching protocol object");
+
+        let protocol = protocol.and_then(|it| Arc::downcast::<P>(it).ok());
+        protocol
     }
 
     pub async fn endpoint_id(&self) -> Option<iroh::EndpointId> {
@@ -103,10 +120,17 @@ pub enum ActorInput {
     /// Register a new protocol handler for the given ALPN.
     RegisterProtocol {
         alpn: Vec<u8>,
-        handler: Arc<dyn DynProtocolHandler>,
+        handler: Arc<dyn AnyDynProtocolHandler>,
     },
+
     /// Unregister the protocol handler for the given ALPN.
     UnregisterProtocol { alpn: Vec<u8> },
+
+    /// Get the protocol handler for the given ALPN.
+    GetProtocol {
+        alpn: Vec<u8>,
+        client_tx: oneshot::Sender<Option<Arc<dyn AnyDynProtocolHandler>>>,
+    },
 
     /// Request the endpoint ID of the actor.
     RequestEndpointId { tx: oneshot::Sender<EndpointId> },
@@ -301,6 +325,12 @@ impl ActorEngine {
             ActorInput::UnregisterProtocol { alpn } => {
                 self.handle_uninstall_protocol(&alpn);
             }
+            ActorInput::GetProtocol { alpn, client_tx } => {
+                let protocol = self.handle_get_protocol(&alpn);
+                client_tx
+                    .send(protocol)
+                    .expect("channel error while sending get protocol response");
+            }
             ActorInput::RequestEndpointId { tx } => {
                 let endpoint_id = self.endpoint.id();
                 tx.send(endpoint_id)
@@ -312,7 +342,7 @@ impl ActorEngine {
     }
 
     /// Installs a new protocol handler for accepting inbound connections with the given ALPN.
-    fn handle_install_protocol(&mut self, alpn: Vec<u8>, handler: Arc<dyn DynProtocolHandler>) {
+    fn handle_install_protocol(&mut self, alpn: Vec<u8>, handler: Arc<dyn AnyDynProtocolHandler>) {
         let mut protocols = self.protocol_map.write().unwrap();
         protocols.insert(alpn, handler);
     }
@@ -321,6 +351,12 @@ impl ActorEngine {
     fn handle_uninstall_protocol(&mut self, alpn: &[u8]) {
         let mut protocols = self.protocol_map.write().unwrap();
         protocols.remove(alpn);
+    }
+
+    /// Returns the protocol handler for the given ALPN, if one is registered.
+    fn handle_get_protocol(&mut self, alpn: &[u8]) -> Option<Arc<dyn AnyDynProtocolHandler>> {
+        let protocols = self.protocol_map.read().unwrap();
+        protocols.get(alpn)
     }
 }
 
