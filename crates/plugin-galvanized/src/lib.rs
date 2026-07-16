@@ -45,7 +45,7 @@ pub struct Galvanized {
     apps: BTreeMap<&'static str, Box<dyn AppHandle>>,
     loading_vaults_task: Option<Task<Result<Vec<Entity<Vault>>>>>,
     on_select_profile: Vec<Box<dyn Fn(Entity<Profile>, &mut App)>>,
-    p2p: Entity<P2p>,
+    // p2p: Entity<P2p>,
     panel: Entity<GalvanizedPanel>,
     vaults: BTreeMap<VaultId, Entity<Vault>>,
     workspace: Entity<Workspace>,
@@ -54,7 +54,7 @@ pub struct Galvanized {
 impl Galvanized {
     pub fn new(workspace: Entity<Workspace>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let galvanized = cx.entity();
-        let p2p = cx.new(|cx| P2p::new(cx));
+        // let p2p = cx.new(|cx| P2p::new(cx));
         let panel = cx.new(|cx| GalvanizedPanel::new(galvanized, window, cx));
 
         let mut this = Self {
@@ -62,7 +62,7 @@ impl Galvanized {
             apps: Default::default(),
             loading_vaults_task: Default::default(),
             on_select_profile: Default::default(),
-            p2p,
+            // p2p,
             panel,
             vaults: Default::default(),
             workspace,
@@ -92,10 +92,6 @@ impl Galvanized {
                     .log_err();
             });
         })
-    }
-
-    pub fn p2p(&self) -> Entity<P2p> {
-        self.p2p.clone()
     }
 
     /// Returns the panel view displaying Galvanized navigation

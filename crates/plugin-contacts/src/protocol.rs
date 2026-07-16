@@ -1,11 +1,14 @@
-use std::{io::ErrorKind, sync::Arc};
+use std::{
+    io::ErrorKind,
+    sync::{Arc, RwLock},
+};
 
 use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, TimeDelta, Utc};
 use dashmap::DashMap;
-use futures::Stream;
+use futures::{SinkExt, Stream};
 use iroh::{
-    EndpointId,
+    Endpoint, EndpointAddr,
     endpoint::{Connection, SendStream},
     protocol::{AcceptError, ProtocolHandler},
 };
@@ -25,8 +28,20 @@ use zed::unstable::{db::smol::stream::StreamExt, util::ResultExt as _};
 
 #[derive(derive_more::Debug, Clone)]
 pub struct ContactsProtocol {
+    inner: Arc<ContactsProtocolState>,
+}
+
+#[derive(derive_more::Debug)]
+pub struct ContactsProtocolState {
+    /// The state of the connection to each contact.
     contacts_state: Arc<DashMap<SubspaceId, ContactState>>,
-    local_key: SubspaceSecret,
+
+    /// Profile key for the local profile.
+    #[debug("ProfileKey")]
+    local_profile_key: SubspaceSecret,
+
+    /// The Iroh Endpoint for this contact connection.
+    endpoint: RwLock<Option<Endpoint>>,
 }
 
 #[derive(Debug)]
@@ -39,13 +54,16 @@ pub struct ContactState {
 }
 
 impl ContactsProtocol {
-    pub const ALPN: &[&[u8]] = &[b"/galvanized/contacts/1"];
+    pub const ALPN: &[u8] = b"/galvanized/contacts/1";
 
     pub fn new(local_key: SubspaceSecret) -> Self {
-        Self {
+        let inner = Arc::new(ContactsProtocolState {
             contacts_state: Default::default(),
-            local_key,
-        }
+            local_profile_key: local_key,
+            endpoint: Default::default(),
+        });
+
+        Self { inner }
     }
 }
 
@@ -55,7 +73,6 @@ impl ProtocolHandler for ContactsProtocol {
         connection: Connection,
     ) -> impl Future<Output = Result<(), AcceptError>> + Send {
         async move {
-            let endpoint_id = connection.remote_id();
             // NOTE: Requires dialer to send a message on open_bi stream to pass this await
             info!("Contacts ProtocolHandler waiting for handshake");
             let (control_stream_send, mut recv_control_stream) = connection.accept_bi().await?;
@@ -85,7 +102,9 @@ impl ProtocolHandler for ContactsProtocol {
                     .context("failed to verify handshake message for ContactsProtocol")?;
 
                 // Ensure the message was intended for us
-                if envelope.meta.sender_id != self.local_key.corresponding_subspace_id() {
+                if envelope.meta.sender_id
+                    != self.inner.local_profile_key.corresponding_subspace_id()
+                {
                     bail!("handshake message was not intended for us");
                 }
 
@@ -94,7 +113,8 @@ impl ProtocolHandler for ContactsProtocol {
                     ContactsMessage::V1(ContactsMessageV1::RequestConnectContact {
                         target_contact,
                     }) => {
-                        self.contacts_state
+                        self.inner
+                            .contacts_state
                             .insert(target_contact.clone(), contact_state);
                         info!(?target_contact, "Received handshake, added Contact state");
                     }
@@ -108,7 +128,7 @@ impl ProtocolHandler for ContactsProtocol {
             .await
             .map_err(|error| AcceptError::from_err(std::io::Error::new(ErrorKind::Other, error)))?;
 
-            self.run_loop(endpoint_id, &mut stream).await;
+            self.run_loop(&mut stream).await;
             Ok(())
         }
     }
@@ -117,48 +137,86 @@ impl ProtocolHandler for ContactsProtocol {
 type FrameItem = Result<BytesMut, <LengthDelimitedCodec as Decoder>::Error>;
 
 impl ContactsProtocol {
-    async fn connect() {
-        //
+    pub fn set_endpoint(&mut self, endpoint: Endpoint) {
+        *self.inner.endpoint.write().unwrap() = Some(endpoint);
     }
 
-    async fn run_loop(
-        &self,
-        peer: EndpointId,
-        stream: &mut (impl Unpin + Stream<Item = FrameItem>),
-    ) {
+    /// Returns a list of Contacts that are currently connected.
+    pub fn contacts(&self) {
+        // TODO
+    }
+
+    pub async fn connect(&self, target_profile_id: &SubspaceId, addrs: EndpointAddr) -> Result<()> {
+        info!(?target_profile_id, ?addrs, "ContactsProtocol::connect");
+        let Some(endpoint) = self.inner.endpoint.read().unwrap().clone() else {
+            bail!("Iroh not initialized for Profile");
+        };
+
+        let connection = endpoint.connect(addrs, Self::ALPN).await?;
+        let (mut control_stream_send, mut control_stream_recv) = connection.open_bi().await?;
+        info!("connect: open_bi completed");
+
+        {
+            let mut framed = Framed::new(&mut control_stream_send, LengthDelimitedCodec::default());
+            let message = ContactsMessage::V1(ContactsMessageV1::RequestConnectContact {
+                target_contact: target_profile_id.clone(),
+            });
+            let envelope =
+                SignedEnvelope::new(message, self.inner.local_profile_key.clone()).await?;
+            let envelope_bytes = envelope.to_bytes()?;
+            framed.send(envelope_bytes.into()).await?;
+            info!("connect: Sent handshake");
+        }
+
+        let contact_state = ContactState {
+            connection,
+            control_stream_send,
+        };
+        self.inner
+            .contacts_state
+            .insert(target_profile_id.clone(), contact_state);
+
+        let mut framed_recv =
+            Framed::new(&mut control_stream_recv, LengthDelimitedCodec::default());
+        info!("connect: Starting control loop");
+        self.run_loop(&mut framed_recv).await;
+        Ok(())
+    }
+
+    async fn run_loop(&self, stream: &mut (impl Unpin + Stream<Item = FrameItem>)) {
         loop {
-            self.try_run_loop(&peer, stream).await.log_err();
+            self.try_run_loop(stream).await.log_err();
         }
     }
 
     async fn try_run_loop(
         &self,
-        peer: &EndpointId,
         stream: &mut (impl Unpin + Stream<Item = FrameItem>),
     ) -> Result<()> {
         while let Some(frame) = stream.try_next().await? {
-            self.try_handle_frame(peer, frame).await?;
+            self.try_handle_frame(frame).await?;
         }
 
         Ok(())
     }
 
-    async fn try_handle_frame(&self, peer: &EndpointId, frame: BytesMut) -> Result<()> {
+    async fn try_handle_frame(&self, frame: BytesMut) -> Result<()> {
         let signed_envelope = serde_json::from_slice::<SignedEnvelope<ContactsMessage>>(&frame)?;
 
         // Verify the signature of the message, or return error
         signed_envelope.verify().await?;
 
         // Ensure the message was intended for us
-        if signed_envelope.meta.sender_id != self.local_key.corresponding_subspace_id() {
+        if signed_envelope.meta.sender_id
+            != self.inner.local_profile_key.corresponding_subspace_id()
+        {
             bail!("handshake message was not intended for us");
         }
 
         match &signed_envelope.meta.message {
             ContactsMessage::V1(v1) => {
                 let sender_profile_id = &signed_envelope.meta.sender_id;
-                self.try_handle_v1_message(sender_profile_id, peer, v1)
-                    .await?;
+                self.try_handle_v1_message(sender_profile_id, v1).await?;
             }
         }
 
@@ -168,7 +226,6 @@ impl ContactsProtocol {
     async fn try_handle_v1_message(
         &self,
         sender_profile_id: &SubspaceId,
-        peer: &EndpointId,
         v1: &ContactsMessageV1,
     ) -> Result<()> {
         //

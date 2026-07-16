@@ -3,7 +3,7 @@
 //! This actor maintains the state of the protocol and handles incoming events.
 
 use std::{
-    any::{Any, TypeId},
+    any::Any,
     ops::ControlFlow,
     sync::{Arc, RwLock},
 };
@@ -64,9 +64,9 @@ impl Actor {
     pub async fn register_protocol<P: ProtocolHandler>(
         &self,
         alpn: Vec<u8>,
-        handler: P,
+        handler: impl Into<Arc<P>>,
     ) -> Result<()> {
-        let handler = Arc::new(handler);
+        let handler = handler.into();
         self.tx
             .send_async(ActorInput::RegisterProtocol { alpn, handler })
             .await?;

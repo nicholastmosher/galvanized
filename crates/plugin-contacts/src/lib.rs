@@ -2,11 +2,14 @@ use std::path::PathBuf;
 
 use anyhow::{Context as _, Result, anyhow};
 use hex::ToHex;
-use iroh::{EndpointAddr, EndpointId};
+use iroh::{Endpoint, EndpointAddr, EndpointId, endpoint::presets::N0};
 use plugin_galvanized::{
     Galvanized,
     app_behavior::AppBehavior,
-    domain::{profile::Profile, space::Space},
+    domain::{
+        profile::{Profile, ProfileHandle},
+        space::Space,
+    },
 };
 use plugin_p2p::P2pHandle as _;
 use plugin_willow::WillowExt as _;
@@ -21,16 +24,18 @@ use zed::unstable::{
     editor::Editor,
     gpui::{
         self, Action, AppContext as _, ClipboardItem, Entity, EventEmitter, FocusHandle, Focusable,
-        KeyDownEvent, Task, WeakEntity, actions, rgba,
+        KeyDownEvent, Task, WeakEntity, actions,
     },
     ui::{
-        ActiveTheme, App, Context, Div, FluentBuilder as _, Icon, IconName, IconSize,
+        ActiveTheme, App, Context, FluentBuilder as _, Icon, IconName, IconSize,
         InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Render,
         SharedString, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex,
         v_flex,
     },
     util::ResultExt as _,
 };
+
+use crate::protocol::ContactsProtocol;
 
 pub mod protocol;
 
@@ -59,6 +64,23 @@ pub fn init(cx: &mut App) {
                     .update(cx, move |panel, cx| panel.set_active_app(contacts, cx));
             },
         );
+    })
+    .detach();
+
+    // Each Profile has its own p2p stack, here we register the Contacts protocol for each
+    cx.observe_new::<Profile>(|profile, _window, cx| {
+        let local_key = profile.subspace().secret_todo_consider_access_control();
+        let mut protocol = ContactsProtocol::new(local_key.clone());
+        profile
+            .p2p()
+            .register_protocol(ContactsProtocol::ALPN.to_vec(), protocol.clone(), cx);
+
+        cx.spawn(async move |_this, _cx| {
+            let endpoint = Endpoint::builder(N0).bind().await?;
+            protocol.set_endpoint(endpoint);
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
     })
     .detach();
 }
@@ -91,13 +113,6 @@ impl Contacts {
             focus_handle: cx.focus_handle(),
             galvanized,
             input_editor,
-        }
-    }
-
-    fn remove_contact(&mut self, index: usize, cx: &mut Context<Self>) {
-        if index < self.contacts.len() {
-            self.contacts.remove(index);
-            cx.notify();
         }
     }
 
@@ -172,38 +187,54 @@ impl Render for Contacts {
             info!("Copied ContactTicket");
         }
 
+        let active_profile = self
+            .galvanized
+            .read_with(cx, |it, cx| it.active_profile(cx))
+            .log_err()
+            .flatten();
+
         v_flex()
             .size_full()
             .p_2()
             .gap_2()
-            .child(self.render_header(window, cx))
-            .child(ListSeparator)
-            .child(self.render_contact_list(window, cx))
+            .when_none(&active_profile, |el| {
+                //
+                el.child("No active profile")
+            })
+            .when_some(active_profile.as_ref(), |el, profile| {
+                //
+                el.child(self.render_header(profile.clone(), window, cx))
+                    .child(ListSeparator)
+                    .child(self.render_contact_list(profile.clone(), window, cx))
+            })
     }
 }
 
 impl Contacts {
     /// User has pasted a contact ticket into the input editor and submitted it.
-    fn submit_create_contact(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    fn submit_create_contact(
+        &mut self,
+        profile: Entity<Profile>,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let ticket_string = self.input_editor.read(cx).text(cx);
         let Some(ticket) = ticket_string.parse::<ContactTicket>().log_err() else {
             return;
         };
 
-        let Some(p2p) = self
-            .galvanized
-            .read_with(cx, |it, _cx| it.p2p().clone())
-            .log_err()
-        else {
-            return;
-        };
-
-        cx.spawn(async move |this, cx| {
+        cx.spawn(async move |_this, cx| {
             ticket.verify().await?;
-            let contact = cx.new(|cx| Contact::from_ticket(ticket, cx));
-            this.update(cx, |this, _cx| {
-                this.contacts.push(contact);
-            })?;
+            let contacts_protocol = profile
+                .p2p(cx)
+                .protocol::<ContactsProtocol, _>(ContactsProtocol::ALPN.to_vec(), cx);
+            if let Some(contacts_protocol) = contacts_protocol {
+                //
+                let target_profile_id = ticket.message.profile_id;
+                let addrs = ticket.message.addrs;
+                contacts_protocol.connect(&target_profile_id, addrs).await?;
+            }
+
             anyhow::Ok(())
         })
         .detach_and_log_err(cx);
@@ -215,14 +246,7 @@ impl Contacts {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(p2p) = self
-            .galvanized
-            .read_with(cx, |it, _cx| it.p2p().clone())
-            .log_err()
-        else {
-            return;
-        };
-
+        let p2p = profile.p2p(cx);
         let profile_key = profile
             .read(cx)
             .subspace()
@@ -233,12 +257,11 @@ impl Contacts {
         cx.spawn(async move |this, cx| {
             let endpoint_id = p2p.endpoint_id(cx).await.context("iroh not initialized")?;
 
-            let endpoint_addrs = vec![EndpointAddr {
+            let addr = EndpointAddr {
                 id: endpoint_id,
                 addrs: Default::default(),
-            }];
-
-            let ticket = ContactTicket::new(profile_key, display_name, endpoint_addrs).await?;
+            };
+            let ticket = ContactTicket::new(profile_key, display_name, addr).await?;
             let ticket_string = ticket.to_string();
             this.update(cx, |this, _cx| {
                 this.copy_ticket = Some(ticket_string);
@@ -249,7 +272,12 @@ impl Contacts {
         .detach_and_log_err(cx);
     }
 
-    fn render_header(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_header(
+        &mut self,
+        profile: Entity<Profile>,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         v_flex()
             //
             .px_2()
@@ -275,13 +303,9 @@ impl Contacts {
                             .tooltip(Tooltip::text("Send this to a friend to paste in their app"))
                             .child(Icon::new(IconName::Copy).size(IconSize::Small))
                             .child("Copy Profile Ticket")
-                            .on_click(cx.listener(move |this, _e, window, cx| {
-                                let active_profile = this
-                                    .galvanized
-                                    .read_with(cx, |it, cx| it.active_profile(cx))
-                                    .log_err()
-                                    .flatten();
-                                if let Some(profile) = active_profile {
+                            .on_click(cx.listener({
+                                let profile = profile.clone();
+                                move |this, _e, window, cx| {
                                     this.copy_contact_ticket(profile.clone(), window, cx);
                                 }
                             })),
@@ -293,12 +317,12 @@ impl Contacts {
                     .border_1()
                     .border_color(cx.theme().colors().border)
                     .rounded_md()
-                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                    .on_key_down(cx.listener(move |this, e: &KeyDownEvent, window, cx| {
                         if e.keystroke.key != "enter" {
                             return;
                         }
 
-                        this.submit_create_contact(window, cx);
+                        this.submit_create_contact(profile.clone(), window, cx);
                     }))
                     .child(
                         //
@@ -314,60 +338,68 @@ impl Contacts {
 
     fn render_contact_list(
         &mut self,
+        profile: Entity<Profile>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let p2p = profile.p2p(cx);
+        let protocol = p2p.protocol::<ContactsProtocol, _>(ContactsProtocol::ALPN.to_vec(), cx);
+
         div()
             .id("contacts-list")
             .size_full()
             .overflow_y_scroll()
             .child(
                 div()
-                    .when(self.contacts.is_empty(), |el: Div| {
+                    .when_none(&protocol, |el| {
                         el.p_2().child(
                             div()
                                 .text_color(cx.theme().colors().text_muted)
                                 .child("Paste a Profile ticket to add a contact"),
                         )
                     })
-                    .children(self.contacts.iter().enumerate().map(|(i, contact)| {
-                        let subspace_hex: String =
-                            contact.read(cx).profile_id().as_bytes().encode_hex();
-                        let short_id: SharedString = {
-                            let mut s = subspace_hex.clone();
-                            s.truncate(16);
-                            SharedString::from(s)
-                        };
+                    .when_some(protocol, |el, _protocol| {
+                        // TODO
+                        el
+                    }),
+                // .children(self.contacts.iter().enumerate().map(|(i, contact)| {
+                //     let subspace_hex: String =
+                //         contact.read(cx).profile_id().as_bytes().encode_hex();
+                //     let short_id: SharedString = {
+                //         let mut s = subspace_hex.clone();
+                //         s.truncate(16);
+                //         SharedString::from(s)
+                //     };
 
-                        h_flex()
-                            .id(SharedString::from(format!("contact-{i}")))
-                            .p_2()
-                            .gap_2()
-                            .rounded_md()
-                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                            .child(
-                                v_flex().child(contact.read(cx).display_name()).child(
-                                    div()
-                                        .text_sm()
-                                        .text_color(cx.theme().colors().text_muted)
-                                        .child(short_id),
-                                ),
-                            )
-                            .child(div().flex_grow())
-                            .child(
-                                div()
-                                    .id(SharedString::from(format!("remove-contact-{i}")))
-                                    .hover(|style| style.text_color(rgba(0xef4444ff)))
-                                    .on_click(cx.listener({
-                                        let index = i;
-                                        move |this, _e, _window, cx| {
-                                            this.remove_contact(index, cx);
-                                        }
-                                    }))
-                                    .child(div().px_1().child("✕")),
-                            )
-                    })),
+                //     h_flex()
+                //         .id(SharedString::from(format!("contact-{i}")))
+                //         .p_2()
+                //         .gap_2()
+                //         .rounded_md()
+                //         .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                //         .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                //         .child(
+                //             v_flex().child(contact.read(cx).display_name()).child(
+                //                 div()
+                //                     .text_sm()
+                //                     .text_color(cx.theme().colors().text_muted)
+                //                     .child(short_id),
+                //             ),
+                //         )
+                //         .child(div().flex_grow())
+                //         .child(
+                //             div()
+                //                 .id(SharedString::from(format!("remove-contact-{i}")))
+                //                 .hover(|style| style.text_color(rgba(0xef4444ff)))
+                //                 .on_click(cx.listener({
+                //                     let index = i;
+                //                     move |this, _e, _window, cx| {
+                //                         this.remove_contact(index, cx);
+                //                     }
+                //                 }))
+                //                 .child(div().px_1().child("✕")),
+                //         )
+                // })),
             )
     }
 }
@@ -504,19 +536,15 @@ pub struct ContactTicketMessage {
     #[serde_as(as = "SubspaceIdSerde")]
     profile_id: SubspaceId,
     display_name: SharedString,
-    endpoints: Vec<EndpointAddr>,
+    addrs: EndpointAddr,
 }
 
 impl ContactTicketMessage {
-    pub fn new(
-        profile_id: SubspaceId,
-        display_name: SharedString,
-        endpoints: Vec<EndpointAddr>,
-    ) -> Self {
+    pub fn new(profile_id: SubspaceId, display_name: SharedString, addrs: EndpointAddr) -> Self {
         Self {
             profile_id,
             display_name,
-            endpoints,
+            addrs,
         }
     }
 }
@@ -529,13 +557,10 @@ impl ContactTicket {
     async fn new(
         mut profile_key: SubspaceSecret,
         display_name: SharedString,
-        endpoints: Vec<EndpointAddr>,
+        addrs: EndpointAddr,
     ) -> Result<Self> {
-        let message = ContactTicketMessage::new(
-            profile_key.corresponding_subspace_id(),
-            display_name,
-            endpoints,
-        );
+        let message =
+            ContactTicketMessage::new(profile_key.corresponding_subspace_id(), display_name, addrs);
         let message_bytes =
             serde_json::to_vec(&message).context("failed to serialize TicketMessage")?;
 
@@ -605,7 +630,11 @@ mod tests {
     #[tokio::test]
     async fn test_sign_verify_ticket() {
         let (_id, secret) = randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
-        let endpoints = vec![];
+        let id = EndpointId::from_bytes(&[0u8; 32]).unwrap();
+        let endpoints = EndpointAddr {
+            id,
+            addrs: Default::default(),
+        };
         let display_name = "Fred".into();
         let ticket = ContactTicket::new(secret, display_name, endpoints)
             .await
