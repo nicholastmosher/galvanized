@@ -1,6 +1,6 @@
 use std::{any::Any, sync::Arc};
 
-use iroh::{Endpoint, endpoint::presets::N0, protocol::ProtocolHandler};
+use iroh::{Endpoint, protocol::ProtocolHandler};
 use zed::unstable::{
     gpui::{AppContext, Entity, Task},
     ui::{App, Context},
@@ -25,6 +25,9 @@ pub struct P2p {
     /// The handle to the actor that manages the p2p connection.
     actor: Actor,
 
+    /// The Iroh Endpoint for this p2p instance.
+    endpoint: Endpoint,
+
     /// An object shared with the actor that holds the installed protocol handlers.
     ///
     /// This allows us to call, without async, to access the API object of any given protocol.
@@ -36,16 +39,16 @@ impl P2p {
     pub fn new(endpoint: Endpoint, cx: &mut App) -> Self {
         let shutdown = async_shutdown::ShutdownManager::new();
         let protocols = Protocols::default();
-        let actor = Actor::spawn(shutdown, endpoint, protocols.clone(), cx);
-
-        Self { actor, protocols }
+        let actor = Actor::spawn(shutdown, endpoint.clone(), protocols.clone(), cx);
+        Self::from_parts(actor, endpoint, protocols)
     }
 
     /// Creates a new `P2p` instance from an existing actor, with an empty protocol stack.
-    pub fn from_actor(actor: Actor) -> Self {
+    pub fn from_parts(actor: Actor, endpoint: Endpoint, protocols: Protocols) -> Self {
         Self {
             actor,
-            protocols: Default::default(),
+            endpoint,
+            protocols,
         }
     }
 
@@ -55,9 +58,8 @@ impl P2p {
         task
     }
 
-    pub fn endpoint(&self, cx: &mut Context<Self>) -> Task<iroh::Endpoint> {
-        let actor = self.actor.clone();
-        cx.spawn(async move |_this, _cx| actor.endpoint().await)
+    pub fn endpoint(&self) -> Endpoint {
+        self.endpoint.clone()
     }
 
     pub fn register_protocol<P: ProtocolHandler>(
@@ -100,32 +102,28 @@ impl P2p {
 }
 
 pub trait P2pHandle {
-    //
-    fn register_protocol<C: AppContext>(
-        &self,
-        alpn: Vec<u8>,
-        handler: impl ProtocolHandler,
-        cx: &mut C,
-    );
+    fn register_protocol<P, C>(&self, handler: P, cx: &mut C)
+    where
+        P: KeyedProtocolHandler,
+        C: AppContext;
     fn unregister_protocol<C: AppContext>(&self, alpn: Vec<u8>, cx: &mut C);
-    fn protocol<P: Any + ProtocolHandler, C: AppContext>(
-        &self,
-        alpn: Vec<u8>,
-        cx: &mut C,
-    ) -> Option<Arc<P>>;
+    fn protocol<P: Any + KeyedProtocolHandler, C: AppContext>(&self, cx: &mut C) -> Option<Arc<P>>;
     fn endpoint_id<C: AppContext>(&self, cx: &mut C) -> Task<Option<iroh::EndpointId>>;
-    fn endpoint<C: AppContext>(&self, cx: &mut C) -> Task<iroh::Endpoint>;
+    fn endpoint<C: AppContext>(&self, cx: &mut C) -> Endpoint;
+}
+
+pub trait KeyedProtocolHandler: ProtocolHandler {
+    const ALPN: &'static [u8];
 }
 
 impl P2pHandle for Entity<P2p> {
-    fn register_protocol<C: AppContext>(
-        &self,
-        alpn: Vec<u8>,
-        handler: impl ProtocolHandler,
-        cx: &mut C,
-    ) {
+    fn register_protocol<P, C>(&self, handler: P, cx: &mut C)
+    where
+        P: KeyedProtocolHandler,
+        C: AppContext,
+    {
         cx.update_entity(self, |this, cx| {
-            this.register_protocol(alpn, handler, cx);
+            this.register_protocol(P::ALPN.to_vec(), handler, cx);
         });
     }
 
@@ -135,19 +133,15 @@ impl P2pHandle for Entity<P2p> {
         });
     }
 
-    fn protocol<P: Any + ProtocolHandler, C: AppContext>(
-        &self,
-        alpn: Vec<u8>,
-        cx: &mut C,
-    ) -> Option<Arc<P>> {
-        cx.update_entity(self, |this, cx| this.protocol::<P>(alpn, cx))
+    fn protocol<P: Any + KeyedProtocolHandler, C: AppContext>(&self, cx: &mut C) -> Option<Arc<P>> {
+        cx.update_entity(self, |this, cx| this.protocol::<P>(P::ALPN.to_vec(), cx))
     }
 
     fn endpoint_id<C: AppContext>(&self, cx: &mut C) -> Task<Option<iroh::EndpointId>> {
         cx.update_entity(self, |this, cx| this.endpoint_id(cx))
     }
 
-    fn endpoint<C: AppContext>(&self, cx: &mut C) -> Task<iroh::Endpoint> {
-        cx.update_entity(self, |this, cx| this.endpoint(cx))
+    fn endpoint<C: AppContext>(&self, cx: &mut C) -> Endpoint {
+        cx.read_entity(self, |it, _cx| it.endpoint())
     }
 }

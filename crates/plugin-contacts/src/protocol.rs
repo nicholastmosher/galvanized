@@ -9,6 +9,7 @@ use iroh::{
     endpoint::{Connection, SendStream},
     protocol::{AcceptError, ProtocolHandler},
 };
+use plugin_p2p::KeyedProtocolHandler;
 use plugin_willow::willow_serde::SubspaceIdSerde;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -48,8 +49,6 @@ pub struct ContactState {
 }
 
 impl ContactsProtocol {
-    pub const ALPN: &[u8] = b"/galvanized/contacts/1";
-
     pub fn new(local_key: SubspaceSecret) -> Self {
         let inner = Arc::new(ContactsProtocolState {
             per_contact_state: Default::default(),
@@ -58,6 +57,10 @@ impl ContactsProtocol {
 
         Self { inner }
     }
+}
+
+impl KeyedProtocolHandler for ContactsProtocol {
+    const ALPN: &[u8] = b"/galvanized/contacts/1";
 }
 
 impl ProtocolHandler for ContactsProtocol {

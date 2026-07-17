@@ -71,9 +71,7 @@ pub fn init(cx: &mut App) {
     cx.observe_new::<Profile>(|profile, _window, cx| {
         let local_key = profile.subspace().secret_todo_consider_access_control();
         let protocol = ContactsProtocol::new(local_key.clone());
-        profile
-            .p2p()
-            .register_protocol(ContactsProtocol::ALPN.to_vec(), protocol.clone(), cx);
+        profile.p2p().register_protocol(protocol, cx);
     })
     .detach();
 }
@@ -219,9 +217,8 @@ impl Contacts {
         cx.spawn(async move |_this, cx| {
             ticket.verify().await?;
             let p2p = profile.p2p(cx);
-            let endpoint = p2p.endpoint(cx).await;
-            let contacts_protocol =
-                p2p.protocol::<ContactsProtocol, _>(ContactsProtocol::ALPN.to_vec(), cx);
+            let endpoint = p2p.endpoint(cx);
+            let contacts_protocol = p2p.protocol::<ContactsProtocol, _>(cx);
             if let Some(contacts_protocol) = contacts_protocol {
                 let target_profile_id = ticket.message.profile_id;
                 let addrs = ticket.message.addrs;
@@ -338,7 +335,7 @@ impl Contacts {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let p2p = profile.p2p(cx);
-        let protocol = p2p.protocol::<ContactsProtocol, _>(ContactsProtocol::ALPN.to_vec(), cx);
+        let protocol = p2p.protocol::<ContactsProtocol, _>(cx);
 
         div()
             .id("contacts-list")
@@ -355,6 +352,7 @@ impl Contacts {
                     })
                     .when_some(protocol, |el, _protocol| {
                         // TODO
+                        _protocol.contacts();
                         el
                     }),
                 // .children(self.contacts.iter().enumerate().map(|(i, contact)| {
@@ -413,12 +411,18 @@ pub struct Contact {
     data: ContactData,
 }
 
+/// Serializable, persistent data for a Contact.
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContactData {
+    /// Profile ID of the remote Profile this Contact represents.
     #[serde_as(as = "SubspaceIdSerde")]
     profile_id: SubspaceId,
+
+    /// The display name of the remote Profile.
     display_name: SharedString,
+
+    /// The last EndpointId seen for this Contact.
     endpoint_id: Option<EndpointId>,
 }
 
