@@ -31,25 +31,11 @@ pub struct ContactsProtocol {
 #[derive(derive_more::Debug)]
 pub struct ContactsProtocolState {
     /// The state of the connection to each contact.
-    contacts_state: ContactsState,
+    per_contact_state: Arc<DashMap<SubspaceId, ContactState>>,
 
     /// Profile key for the local profile.
     #[debug("ProfileKey")]
     local_profile_key: SubspaceSecret,
-}
-
-#[derive(derive_more::Debug, Default, Clone)]
-#[debug("ContactsState<SubspaceId, ContactState>")]
-pub struct ContactsState {
-    index: Arc<DashMap<SubspaceId, ContactState>>,
-}
-
-impl Deref for ContactsState {
-    type Target = DashMap<SubspaceId, ContactState>;
-
-    fn deref(&self) -> &Self::Target {
-        &*self.index
-    }
 }
 
 #[derive(Debug)]
@@ -66,7 +52,7 @@ impl ContactsProtocol {
 
     pub fn new(local_key: SubspaceSecret) -> Self {
         let inner = Arc::new(ContactsProtocolState {
-            contacts_state: Default::default(),
+            per_contact_state: Default::default(),
             local_profile_key: local_key,
         });
 
@@ -121,7 +107,7 @@ impl ProtocolHandler for ContactsProtocol {
                         target_contact,
                     }) => {
                         self.inner
-                            .contacts_state
+                            .per_contact_state
                             .insert(target_contact.clone(), contact_state);
                         info!(?target_contact, "Received handshake, added Contact state");
                     }
@@ -144,10 +130,6 @@ impl ProtocolHandler for ContactsProtocol {
 type FrameItem = Result<BytesMut, <LengthDelimitedCodec as Decoder>::Error>;
 
 impl ContactsProtocol {
-    pub fn contacts_state(&self) -> &ContactsState {
-        &self.inner.contacts_state
-    }
-
     /// Returns a list of Contacts that are currently connected.
     pub fn contacts(&self) {
         // TODO
@@ -182,7 +164,7 @@ impl ContactsProtocol {
             control_stream_send,
         };
         self.inner
-            .contacts_state
+            .per_contact_state
             .insert(target_profile_id.clone(), contact_state);
 
         let mut framed_recv =
