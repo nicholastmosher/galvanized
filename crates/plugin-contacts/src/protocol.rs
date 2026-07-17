@@ -1,7 +1,4 @@
-use std::{
-    io::ErrorKind,
-    sync::{Arc, RwLock},
-};
+use std::{io::ErrorKind, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, TimeDelta, Utc};
@@ -39,9 +36,6 @@ pub struct ContactsProtocolState {
     /// Profile key for the local profile.
     #[debug("ProfileKey")]
     local_profile_key: SubspaceSecret,
-
-    /// The Iroh Endpoint for this contact connection.
-    endpoint: RwLock<Option<Endpoint>>,
 }
 
 #[derive(Debug)]
@@ -60,7 +54,6 @@ impl ContactsProtocol {
         let inner = Arc::new(ContactsProtocolState {
             contacts_state: Default::default(),
             local_profile_key: local_key,
-            endpoint: Default::default(),
         });
 
         Self { inner }
@@ -137,20 +130,18 @@ impl ProtocolHandler for ContactsProtocol {
 type FrameItem = Result<BytesMut, <LengthDelimitedCodec as Decoder>::Error>;
 
 impl ContactsProtocol {
-    pub fn set_endpoint(&mut self, endpoint: Endpoint) {
-        *self.inner.endpoint.write().unwrap() = Some(endpoint);
-    }
-
     /// Returns a list of Contacts that are currently connected.
     pub fn contacts(&self) {
         // TODO
     }
 
-    pub async fn connect(&self, target_profile_id: &SubspaceId, addrs: EndpointAddr) -> Result<()> {
+    pub async fn connect(
+        &self,
+        endpoint: &Endpoint,
+        target_profile_id: &SubspaceId,
+        addrs: EndpointAddr,
+    ) -> Result<()> {
         info!(?target_profile_id, ?addrs, "ContactsProtocol::connect");
-        let Some(endpoint) = self.inner.endpoint.read().unwrap().clone() else {
-            bail!("Iroh not initialized for Profile");
-        };
 
         let connection = endpoint.connect(addrs, Self::ALPN).await?;
         let (mut control_stream_send, mut control_stream_recv) = connection.open_bi().await?;

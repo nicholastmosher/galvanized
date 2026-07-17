@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context as _, Result, anyhow};
 use hex::ToHex;
-use iroh::{Endpoint, EndpointAddr, EndpointId, endpoint::presets::N0};
+use iroh::{EndpointAddr, EndpointId};
 use plugin_galvanized::{
     Galvanized,
     app_behavior::AppBehavior,
@@ -70,17 +70,10 @@ pub fn init(cx: &mut App) {
     // Each Profile has its own p2p stack, here we register the Contacts protocol for each
     cx.observe_new::<Profile>(|profile, _window, cx| {
         let local_key = profile.subspace().secret_todo_consider_access_control();
-        let mut protocol = ContactsProtocol::new(local_key.clone());
+        let protocol = ContactsProtocol::new(local_key.clone());
         profile
             .p2p()
             .register_protocol(ContactsProtocol::ALPN.to_vec(), protocol.clone(), cx);
-
-        cx.spawn(async move |_this, _cx| {
-            let endpoint = Endpoint::builder(N0).bind().await?;
-            protocol.set_endpoint(endpoint);
-            anyhow::Ok(())
-        })
-        .detach_and_log_err(cx);
     })
     .detach();
 }
@@ -225,14 +218,16 @@ impl Contacts {
 
         cx.spawn(async move |_this, cx| {
             ticket.verify().await?;
-            let contacts_protocol = profile
-                .p2p(cx)
-                .protocol::<ContactsProtocol, _>(ContactsProtocol::ALPN.to_vec(), cx);
+            let p2p = profile.p2p(cx);
+            let endpoint = p2p.endpoint(cx).await;
+            let contacts_protocol =
+                p2p.protocol::<ContactsProtocol, _>(ContactsProtocol::ALPN.to_vec(), cx);
             if let Some(contacts_protocol) = contacts_protocol {
-                //
                 let target_profile_id = ticket.message.profile_id;
                 let addrs = ticket.message.addrs;
-                contacts_protocol.connect(&target_profile_id, addrs).await?;
+                contacts_protocol
+                    .connect(&endpoint, &target_profile_id, addrs)
+                    .await?;
             }
 
             anyhow::Ok(())

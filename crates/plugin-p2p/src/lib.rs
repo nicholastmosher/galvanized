@@ -45,6 +45,11 @@ impl P2p {
         task
     }
 
+    pub fn endpoint(&self, cx: &mut Context<Self>) -> Task<iroh::Endpoint> {
+        let actor = self.actor.clone();
+        cx.spawn(async move |_this, _cx| actor.endpoint().await)
+    }
+
     pub fn register_protocol<P: ProtocolHandler>(
         &mut self,
         alpn: Vec<u8>,
@@ -99,6 +104,7 @@ pub trait P2pHandle {
         cx: &mut C,
     ) -> Option<Arc<P>>;
     fn endpoint_id<C: AppContext>(&self, cx: &mut C) -> Task<Option<iroh::EndpointId>>;
+    fn endpoint<C: AppContext>(&self, cx: &mut C) -> Task<iroh::Endpoint>;
 }
 
 impl P2pHandle for Entity<P2p> {
@@ -129,5 +135,9 @@ impl P2pHandle for Entity<P2p> {
 
     fn endpoint_id<C: AppContext>(&self, cx: &mut C) -> Task<Option<iroh::EndpointId>> {
         cx.update_entity(self, |this, cx| this.endpoint_id(cx))
+    }
+
+    fn endpoint<C: AppContext>(&self, cx: &mut C) -> Task<iroh::Endpoint> {
+        cx.update_entity(self, |this, cx| this.endpoint(cx))
     }
 }

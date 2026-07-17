@@ -103,6 +103,15 @@ impl Actor {
         let endpoint_id = rx.await.expect("channel error while receiving endpoint id");
         Some(endpoint_id)
     }
+
+    pub async fn endpoint(&self) -> Endpoint {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send_async(ActorInput::RequestEndpoint { tx })
+            .await
+            .expect("channel error while requesting endpoint");
+        rx.await.expect("channel error while receiving endpoint")
+    }
 }
 
 /// Internal actor state.
@@ -134,6 +143,9 @@ pub enum ActorInput {
 
     /// Request the endpoint ID of the actor.
     RequestEndpointId { tx: oneshot::Sender<EndpointId> },
+
+    /// Request a clone of the actor's Iroh Endpoint.
+    RequestEndpoint { tx: oneshot::Sender<Endpoint> },
 }
 
 impl ActorEngine {
@@ -335,6 +347,10 @@ impl ActorEngine {
                 let endpoint_id = self.endpoint.id();
                 tx.send(endpoint_id)
                     .expect("channel error sending endpoint id response");
+            }
+            ActorInput::RequestEndpoint { tx } => {
+                tx.send(self.endpoint.clone())
+                    .expect("channel error sending endpoint response");
             }
         }
 
