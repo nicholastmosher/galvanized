@@ -1,4 +1,4 @@
-use std::{io::ErrorKind, sync::Arc};
+use std::{io::ErrorKind, ops::Deref, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, TimeDelta, Utc};
@@ -28,10 +28,24 @@ pub struct ContactsProtocol {
     inner: Arc<ContactsProtocolState>,
 }
 
+#[derive(derive_more::Debug, Default, Clone)]
+#[debug("ContactsState<SubspaceId, ContactState>")]
+pub struct ContactsState {
+    index: Arc<DashMap<SubspaceId, ContactState>>,
+}
+
+impl Deref for ContactsState {
+    type Target = DashMap<SubspaceId, ContactState>;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.index
+    }
+}
+
 #[derive(derive_more::Debug)]
 pub struct ContactsProtocolState {
     /// The state of the connection to each contact.
-    contacts_state: Arc<DashMap<SubspaceId, ContactState>>,
+    contacts_state: ContactsState,
 
     /// Profile key for the local profile.
     #[debug("ProfileKey")]
@@ -130,6 +144,10 @@ impl ProtocolHandler for ContactsProtocol {
 type FrameItem = Result<BytesMut, <LengthDelimitedCodec as Decoder>::Error>;
 
 impl ContactsProtocol {
+    pub fn contacts_state(&self) -> &ContactsState {
+        &self.inner.contacts_state
+    }
+
     /// Returns a list of Contacts that are currently connected.
     pub fn contacts(&self) {
         // TODO

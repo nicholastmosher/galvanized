@@ -6,7 +6,7 @@ use zed::unstable::{
     ui::{App, Context},
 };
 
-use crate::actor::{Actor, protocol::ProtocolMap};
+use crate::actor::{Actor, protocol::Protocols};
 
 pub mod actor;
 pub mod codec;
@@ -20,14 +20,14 @@ pub fn init(_cx: &mut App) {
 pub struct P2p {
     //
     actor: Actor,
-    protocols: ProtocolMap,
+    protocols: Protocols,
 }
 
 impl P2p {
     pub fn new(cx: &mut App) -> Self {
         let shutdown = async_shutdown::ShutdownManager::new();
-        let actor = Actor::spawn(shutdown, cx);
-        let protocols = Default::default();
+        let protocols = Protocols::default();
+        let actor = Actor::spawn(shutdown, protocols.clone(), cx);
 
         Self { actor, protocols }
     }

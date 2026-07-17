@@ -2,11 +2,7 @@
 //!
 //! This actor maintains the state of the protocol and handles incoming events.
 
-use std::{
-    any::Any,
-    ops::ControlFlow,
-    sync::{Arc, RwLock},
-};
+use std::{any::Any, ops::ControlFlow, sync::Arc};
 
 use anyhow::{Context, Error, Result};
 use async_shutdown::ShutdownManager;
@@ -26,7 +22,7 @@ use tokio::{
 use tracing::{Instrument as _, error, field::Empty, info_span, trace, warn};
 use zed::unstable::{gpui_tokio::Tokio, ui::App, util::ResultExt};
 
-use protocol::ProtocolMap;
+use protocol::Protocols;
 
 pub mod protocol;
 
@@ -42,13 +38,13 @@ pub struct Actor {
 
 impl Actor {
     /// Spawn a new Actor in the background, this becomes the handle API.
-    pub fn spawn(shutdown: Shutdown, cx: &mut App) -> Self {
+    pub fn spawn(shutdown: Shutdown, protocols: Protocols, cx: &mut App) -> Self {
         let tokio_handle = Tokio::handle(cx);
         let (tx, rx) = flume::bounded(10);
         let future = {
             let tokio_handle = tokio_handle.clone();
             async move {
-                let engine = ActorEngine::new(tokio_handle, shutdown, rx).await?;
+                let engine = ActorEngine::new(tokio_handle, shutdown, protocols, rx).await?;
                 engine.run().await;
                 anyhow::Ok(())
             }
@@ -118,7 +114,7 @@ impl Actor {
 pub struct ActorEngine {
     rx: flume::Receiver<ActorInput>,
     endpoint: Endpoint,
-    protocol_map: Arc<RwLock<ProtocolMap>>,
+    protocols: Protocols,
     task_quits: JoinSet<Option<()>>,
     shutdown: Shutdown,
     tokio_handle: Handle,
@@ -153,36 +149,29 @@ impl ActorEngine {
     async fn new(
         tokio_handle: Handle,
         shutdown: Shutdown,
+        protocols: Protocols,
         rx: flume::Receiver<ActorInput>,
     ) -> Result<ActorEngine> {
         let endpoint = Endpoint::builder(N0)
             .bind()
             .await
             .context("failed to init Actor/Endpoint")?;
-        let engine = ActorEngine {
-            //
-            rx,
-            endpoint,
-            protocol_map: Default::default(),
-            task_quits: Default::default(),
-            shutdown,
-            tokio_handle,
-        };
+        let engine = Self::from_endpoint(tokio_handle, shutdown, protocols, endpoint, rx);
         Ok(engine)
     }
 
     /// Build from an existing `Endpoint`, avoids async and result of `new`.
     fn from_endpoint(
-        endpoint: Endpoint,
         tokio_handle: Handle,
         shutdown: Shutdown,
+        protocols: Protocols,
+        endpoint: Endpoint,
         rx: flume::Receiver<ActorInput>,
     ) -> ActorEngine {
         ActorEngine {
-            //
             rx,
             endpoint,
-            protocol_map: Default::default(),
+            protocols,
             task_quits: Default::default(),
             shutdown,
             tokio_handle,
@@ -207,7 +196,7 @@ impl ActorEngine {
         let engine = ActorEngine {
             rx: self.rx,
             endpoint,
-            protocol_map: self.protocol_map,
+            protocols: self.protocols,
             task_quits: self.task_quits,
             shutdown: self.shutdown,
             tokio_handle: self.tokio_handle,
@@ -305,7 +294,7 @@ impl ActorEngine {
     }
 
     fn handle_accept_incoming(&mut self, incoming: Incoming) {
-        let protocols = self.protocol_map.clone();
+        let protocols = self.protocols.clone();
         let span = info_span!(
             "router.accept",
             me = %self.endpoint.id().fmt_short(),
@@ -359,24 +348,24 @@ impl ActorEngine {
 
     /// Installs a new protocol handler for accepting inbound connections with the given ALPN.
     fn handle_install_protocol(&mut self, alpn: Vec<u8>, handler: Arc<dyn AnyDynProtocolHandler>) {
-        let mut protocols = self.protocol_map.write().unwrap();
-        protocols.insert(alpn, handler);
+        self.protocols.insert(alpn, handler);
     }
 
     /// Uninstalls the protocol handler for the given ALPN.
-    fn handle_uninstall_protocol(&mut self, alpn: &[u8]) {
-        let mut protocols = self.protocol_map.write().unwrap();
-        protocols.remove(alpn);
+    fn handle_uninstall_protocol(
+        &mut self,
+        alpn: &[u8],
+    ) -> Option<(Vec<u8>, Arc<dyn AnyDynProtocolHandler>)> {
+        self.protocols.remove(alpn)
     }
 
     /// Returns the protocol handler for the given ALPN, if one is registered.
     fn handle_get_protocol(&mut self, alpn: &[u8]) -> Option<Arc<dyn AnyDynProtocolHandler>> {
-        let protocols = self.protocol_map.read().unwrap();
-        protocols.get(alpn)
+        self.protocols.get(alpn)
     }
 }
 
-async fn handle_connection(incoming: Incoming, protocols: Arc<RwLock<ProtocolMap>>) {
+async fn handle_connection(incoming: Incoming, protocols: Protocols) {
     let mut accepting = match incoming.accept() {
         Ok(conn) => conn,
         Err(err) => {
@@ -392,14 +381,12 @@ async fn handle_connection(incoming: Incoming, protocols: Arc<RwLock<ProtocolMap
         }
     };
     tracing::Span::current().record("alpn", String::from_utf8_lossy(&alpn).to_string());
-    let handler = {
-        let protocols_read_lock = protocols.read().expect("lock");
-        let Some(handler) = protocols_read_lock.get(&alpn).clone() else {
-            warn!("Ignoring connection: unsupported ALPN protocol");
-            return;
-        };
-        handler
+
+    let Some(handler) = protocols.get(&alpn).clone() else {
+        warn!("Ignoring connection: unsupported ALPN protocol");
+        return;
     };
+
     match handler.on_accepting(accepting).await {
         Ok(connection) => {
             tracing::Span::current().record(
