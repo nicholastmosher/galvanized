@@ -1,6 +1,7 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context as _, Result, bail};
+use iroh::{Endpoint, endpoint::presets::N0};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultToken, vault_db::VaultId};
 use plugin_willow::WillowExt;
 use plugin_willow::willow_serde::SubspaceIdSerde;
@@ -126,6 +127,23 @@ impl Vault {
                 })
                 .await??;
 
+            use futures_concurrency::prelude::*;
+            let endpoints_futs = vault_content
+                .profiles
+                .iter()
+                .map(|profile| async move {
+                    let endpoint = Endpoint::builder(N0).bind().await?;
+                    anyhow::Ok((profile.id(), endpoint))
+                })
+                .collect::<Vec<_>>();
+
+            // Concurrently initialize one Endpoint per profile
+            let profile_endpoints = endpoints_futs
+                .join()
+                .await
+                .into_iter()
+                .collect::<Result<HashMap<_, _>, _>>()?;
+
             this.update(cx, |this, cx| {
                 for space_data in &vault_content.spaces {
                     if !this.unlocked_spaces.contains_key(&space_data.id()) {
@@ -141,9 +159,13 @@ impl Vault {
                             warn!("Found Profile with missing Home Space, skipping");
                             continue;
                         };
+                        let Some(endpoint) = profile_endpoints.get(&profile.id()).cloned() else {
+                            continue;
+                        };
                         let profile_id = profile.id();
-                        let profile = cx
-                            .new(|cx| Profile::from_data(profile.clone(), home_space.clone(), cx));
+                        let profile = cx.new(|cx| {
+                            Profile::from_parts(endpoint, profile.clone(), home_space.clone(), cx)
+                        });
 
                         this.unlocked_profiles.insert(profile_id, profile);
                     }
@@ -309,7 +331,8 @@ impl Vault {
         cx.spawn(async move |this, cx| {
             let home_space = home_space_task.await?;
             let subspace = cx.willow().create_subspace().await?;
-            let profile = cx.new(|cx| Profile::new(name, subspace, home_space, cx));
+            let endpoint = Endpoint::builder(N0).bind().await?;
+            let profile = cx.new(|cx| Profile::new(endpoint, subspace, name, home_space, cx));
 
             this.update(cx, {
                 move |this, cx| {

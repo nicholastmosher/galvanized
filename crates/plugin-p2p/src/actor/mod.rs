@@ -38,13 +38,19 @@ pub struct Actor {
 
 impl Actor {
     /// Spawn a new Actor in the background, this becomes the handle API.
-    pub fn spawn(shutdown: Shutdown, protocols: Protocols, cx: &mut App) -> Self {
+    pub fn spawn(
+        shutdown: Shutdown,
+        endpoint: Endpoint,
+        protocols: Protocols,
+        cx: &mut App,
+    ) -> Self {
         let tokio_handle = Tokio::handle(cx);
         let (tx, rx) = flume::bounded(10);
         let future = {
             let tokio_handle = tokio_handle.clone();
             async move {
-                let engine = ActorEngine::new(tokio_handle, shutdown, protocols, rx).await?;
+                let engine =
+                    ActorEngine::new(tokio_handle, shutdown, endpoint, protocols, rx).await?;
                 engine.run().await;
                 anyhow::Ok(())
             }
@@ -149,13 +155,10 @@ impl ActorEngine {
     async fn new(
         tokio_handle: Handle,
         shutdown: Shutdown,
+        endpoint: Endpoint,
         protocols: Protocols,
         rx: flume::Receiver<ActorInput>,
     ) -> Result<ActorEngine> {
-        let endpoint = Endpoint::builder(N0)
-            .bind()
-            .await
-            .context("failed to init Actor/Endpoint")?;
         let engine = Self::from_endpoint(tokio_handle, shutdown, protocols, endpoint, rx);
         Ok(engine)
     }

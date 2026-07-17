@@ -1,6 +1,6 @@
 use std::{any::Any, sync::Arc};
 
-use iroh::protocol::ProtocolHandler;
+use iroh::{Endpoint, endpoint::presets::N0, protocol::ProtocolHandler};
 use zed::unstable::{
     gpui::{AppContext, Entity, Task},
     ui::{App, Context},
@@ -17,21 +17,31 @@ pub fn init(_cx: &mut App) {
     //
 }
 
+/// Entity representing an Iroh p2p instance, with dynamic protocol support.
+///
+/// Constructing an instance of `P2p` will spawn an actor that allows installing
+/// [`ProtocolHandler`]s dynamically, to allow plugins to register custom protocols.
 pub struct P2p {
-    //
+    /// The handle to the actor that manages the p2p connection.
     actor: Actor,
+
+    /// An object shared with the actor that holds the installed protocol handlers.
+    ///
+    /// This allows us to call, without async, to access the API object of any given protocol.
     protocols: Protocols,
 }
 
 impl P2p {
-    pub fn new(cx: &mut App) -> Self {
+    /// Create a new `P2p` instance, with an empty protocol stack and spawning a new actor.
+    pub fn new(endpoint: Endpoint, cx: &mut App) -> Self {
         let shutdown = async_shutdown::ShutdownManager::new();
         let protocols = Protocols::default();
-        let actor = Actor::spawn(shutdown, protocols.clone(), cx);
+        let actor = Actor::spawn(shutdown, endpoint, protocols.clone(), cx);
 
         Self { actor, protocols }
     }
 
+    /// Creates a new `P2p` instance from an existing actor, with an empty protocol stack.
     pub fn from_actor(actor: Actor) -> Self {
         Self {
             actor,

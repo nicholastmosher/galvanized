@@ -14786,6 +14786,7 @@ dependencies = [
  "derive_more",
  "futures-concurrency",
  "hex",
+ "iroh",
  "plugin-p2p",
  "plugin-vault",
  "plugin-willow",

@@ -1,3 +1,4 @@
+use iroh::Endpoint;
 use plugin_p2p::P2p;
 use plugin_willow::Subspace;
 use plugin_willow::willow_serde::NamespaceIdSerde;
@@ -39,21 +40,27 @@ impl ProfileData {
 
 impl Profile {
     pub fn new(
-        name: SharedString,
+        endpoint: Endpoint,
         subspace: Subspace,
+        name: SharedString,
         home: Entity<Space>,
-        cx: &mut Context<Self>,
+        cx: &mut Context<'_, Self>,
     ) -> Self {
         let data = ProfileData {
             name,
             subspace,
             home_space: home.read(cx).id(),
         };
-        Self::from_data(data, home, cx)
+        Self::from_parts(endpoint, data, home, cx)
     }
 
-    pub fn from_data(data: ProfileData, home: Entity<Space>, cx: &mut Context<Self>) -> Self {
-        let p2p = cx.new(|cx| P2p::new(cx));
+    pub fn from_parts(
+        endpoint: Endpoint,
+        data: ProfileData,
+        home: Entity<Space>,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let p2p = cx.new(|cx| P2p::new(endpoint, cx));
         Self { data, home, p2p }
     }
 

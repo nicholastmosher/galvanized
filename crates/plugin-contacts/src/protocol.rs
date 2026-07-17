@@ -28,6 +28,16 @@ pub struct ContactsProtocol {
     inner: Arc<ContactsProtocolState>,
 }
 
+#[derive(derive_more::Debug)]
+pub struct ContactsProtocolState {
+    /// The state of the connection to each contact.
+    contacts_state: ContactsState,
+
+    /// Profile key for the local profile.
+    #[debug("ProfileKey")]
+    local_profile_key: SubspaceSecret,
+}
+
 #[derive(derive_more::Debug, Default, Clone)]
 #[debug("ContactsState<SubspaceId, ContactState>")]
 pub struct ContactsState {
@@ -40,16 +50,6 @@ impl Deref for ContactsState {
     fn deref(&self) -> &Self::Target {
         &*self.index
     }
-}
-
-#[derive(derive_more::Debug)]
-pub struct ContactsProtocolState {
-    /// The state of the connection to each contact.
-    contacts_state: ContactsState,
-
-    /// Profile key for the local profile.
-    #[debug("ProfileKey")]
-    local_profile_key: SubspaceSecret,
 }
 
 #[derive(Debug)]
