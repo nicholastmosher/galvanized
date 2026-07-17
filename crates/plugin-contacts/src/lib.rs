@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow, bail};
 use hex::ToHex;
 use iroh::{EndpointAddr, EndpointId};
 use plugin_galvanized::{
@@ -35,7 +35,7 @@ use zed::unstable::{
     util::ResultExt as _,
 };
 
-use crate::protocol::ContactsProtocol;
+use crate::protocol::{ContactPeer, ContactsProtocol};
 
 pub mod protocol;
 
@@ -70,7 +70,8 @@ pub fn init(cx: &mut App) {
     // Each Profile has its own p2p stack, here we register the Contacts protocol for each
     cx.observe_new::<Profile>(|profile, _window, cx| {
         let local_key = profile.subspace().secret_todo_consider_access_control();
-        let protocol = ContactsProtocol::new(local_key.clone());
+        let endpoint = profile.p2p().endpoint(cx);
+        let protocol = ContactsProtocol::new(endpoint, local_key.clone());
         profile.p2p().register_protocol(protocol, cx);
     })
     .detach();
@@ -107,6 +108,7 @@ impl Contacts {
         }
     }
 
+    /// Load Contacts from the given Profile and Space.
     pub fn load(
         &mut self,
         space: Entity<Space>,
@@ -217,16 +219,12 @@ impl Contacts {
         cx.spawn(async move |_this, cx| {
             ticket.verify().await?;
             let p2p = profile.p2p(cx);
-            let endpoint = p2p.endpoint(cx);
             let contacts_protocol = p2p.protocol::<ContactsProtocol, _>(cx);
-            if let Some(contacts_protocol) = contacts_protocol {
-                let target_profile_id = ticket.message.profile_id;
-                let addrs = ticket.message.addrs;
-                contacts_protocol
-                    .connect(&endpoint, &target_profile_id, addrs)
-                    .await?;
-            }
+            let Some(contacts_protocol) = contacts_protocol else {
+                bail!("ContactsProtocol not installed when trying to create Contact");
+            };
 
+            let contact_peer = contacts_protocol.connect(&ticket, cx).await?;
             anyhow::Ok(())
         })
         .detach_and_log_err(cx);
@@ -408,7 +406,11 @@ impl EventEmitter<ContactsEvent> for Contacts {}
 
 /// A Contact represents a remote Profile, identified by its SubspaceId.
 pub struct Contact {
+    /// The persistent data for this Contact.
     data: ContactData,
+
+    /// The peer connection for this Contact, if one exists.
+    peer: Option<ContactPeer>,
 }
 
 /// Serializable, persistent data for a Contact.
@@ -441,7 +443,7 @@ impl Contact {
     }
 
     pub fn from_data(data: ContactData, _cx: &mut Context<Self>) -> Self {
-        Self { data }
+        Self { data, peer: None }
     }
 
     pub fn from_profile(profile: &Entity<Profile>, cx: &mut Context<Self>) -> Self {

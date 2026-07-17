@@ -160,6 +160,7 @@ impl Vault {
                             continue;
                         };
                         let Some(endpoint) = profile_endpoints.get(&profile.id()).cloned() else {
+                            warn!(profile_id = ?profile.id(), "Failed to init endpoint for profile, skipping Profile");
                             continue;
                         };
                         let profile_id = profile.id();

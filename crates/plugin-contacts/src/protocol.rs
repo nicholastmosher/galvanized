@@ -1,3 +1,17 @@
+//! Contains the [`ContactsProtocol`], which provides p2p functionality for the contacts plugin.
+//!
+//! The Contacts plugin is responsible for connecting two Profiles to each other over p2p.
+//! It's like an address book that also maintains network connections to each contact.
+//!
+//! The [`ContactsProtocol`] acts both as a receiver that serves incoming requests (as an Iroh
+//! [`ProtocolHandler`]) and as a client, providing a programmatic API for initiating requests.
+//!
+//! On plugin initialization, the [`ContactsProtocol`] is registered with the Iroh runtime and
+//! begins listening for requests.
+//!
+//! The first real unit of work begins with a [`ContactsProtocol::connect`] call, which initiates
+//! a connection to a remote endpoint, requesting to connect with a specific remote [`Profile`].
+
 use std::{io::ErrorKind, ops::Deref, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -5,7 +19,7 @@ use chrono::{DateTime, TimeDelta, Utc};
 use dashmap::DashMap;
 use futures::{SinkExt, Stream};
 use iroh::{
-    Endpoint, EndpointAddr,
+    Endpoint,
     endpoint::{Connection, SendStream},
     protocol::{AcceptError, ProtocolHandler},
 };
@@ -22,37 +36,79 @@ use tokio_util::{
 use tracing::info;
 use ufotofu::{IntoConsumer as _, IntoProducer as _, codec::Decodable as _};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
-use zed::unstable::{db::smol::stream::StreamExt, util::ResultExt as _};
+use zed::unstable::{db::smol::stream::StreamExt, gpui::AppContext, util::ResultExt as _};
 
+use crate::ContactTicket;
+
+/// The [`ContactsProtocol`] object, which is installed into the Iroh protocols
+/// stack and is also used as the client-side API object.
 #[derive(derive_more::Debug, Clone)]
 pub struct ContactsProtocol {
     inner: Arc<ContactsProtocolState>,
 }
 
+impl Deref for ContactsProtocol {
+    type Target = Arc<ContactsProtocolState>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+/// The inner shared state for the [`ContactsProtocol`].
 #[derive(derive_more::Debug)]
 pub struct ContactsProtocolState {
-    /// The state of the connection to each contact.
-    per_contact_state: Arc<DashMap<SubspaceId, ContactState>>,
+    /// The Iroh Endpoint used for this protocol.
+    endpoint: Endpoint,
 
     /// Profile key for the local profile.
     #[debug("ProfileKey")]
     local_profile_key: SubspaceSecret,
+
+    /// The state of the connection to each contact's peer.
+    contact_peer_state: Arc<DashMap<SubspaceId, ContactPeer>>,
+}
+
+/// A shared object containing the p2p connection state for one contact.
+#[derive(Debug, Clone)]
+pub struct ContactPeer {
+    state: Arc<ContactPeerState>,
 }
 
 #[derive(Debug)]
-pub struct ContactState {
+pub struct ContactPeerState {
     /// The Iroh Connection established with the remote peer.
     connection: Connection,
 
     /// The send half of the control stream for this contact connection.
     control_stream_send: SendStream,
+
+    /// The Profile ID of the remote contact.
+    profile_id: SubspaceId,
+}
+
+impl ContactPeer {
+    pub fn new(
+        connection: Connection,
+        control_stream_send: SendStream,
+        profile_id: SubspaceId,
+    ) -> Self {
+        Self {
+            state: Arc::new(ContactPeerState {
+                connection,
+                control_stream_send,
+                profile_id,
+            }),
+        }
+    }
 }
 
 impl ContactsProtocol {
-    pub fn new(local_key: SubspaceSecret) -> Self {
+    pub fn new(endpoint: Endpoint, local_key: SubspaceSecret) -> Self {
         let inner = Arc::new(ContactsProtocolState {
-            per_contact_state: Default::default(),
+            endpoint,
             local_profile_key: local_key,
+            contact_peer_state: Default::default(),
         });
 
         Self { inner }
@@ -73,11 +129,6 @@ impl ProtocolHandler for ContactsProtocol {
             info!("Contacts ProtocolHandler waiting for handshake");
             let (control_stream_send, mut recv_control_stream) = connection.accept_bi().await?;
             info!("Contacts ProtocolHandler handshake received");
-
-            let contact_state = ContactState {
-                connection,
-                control_stream_send,
-            };
 
             let mut control_stream =
                 Framed::new(&mut recv_control_stream, LengthDelimitedCodec::new());
@@ -104,18 +155,15 @@ impl ProtocolHandler for ContactsProtocol {
                     bail!("handshake message was not intended for us");
                 }
 
+                let contact_peer = ContactPeer::new(connection, control_stream_send, envelope.meta.sender_id.clone());
+
                 #[allow(unreachable_patterns)]
                 match &envelope.meta.message {
-                    ContactsMessage::V1(ContactsMessageV1::RequestConnectContact {
-                        target_contact,
-                    }) => {
-                        self.inner
-                            .per_contact_state
-                            .insert(target_contact.clone(), contact_state);
-                        info!(?target_contact, "Received handshake, added Contact state");
+                    ContactsMessage::V1(ContactsMessageV1::EstablishControlStream) => {
+                        self.contact_peer_state.insert(envelope.meta.sender_id.clone(), contact_peer);
                     }
                     _ => {
-                        bail!("expected handshake as the first message in ContactsProtocol");
+                        bail!("expected EstablishControlStream handshake as the first message in ContactsProtocol");
                     }
                 }
 
@@ -138,23 +186,27 @@ impl ContactsProtocol {
         // TODO
     }
 
-    pub async fn connect(
+    /// Given a [`ContactTicket`], establishes a connection to the Iroh endpoint where the target Profile is located.
+    ///
+    /// After the connection is established, a [`Contact`] entity is returned.
+    pub async fn connect<C: AppContext>(
         &self,
-        endpoint: &Endpoint,
-        target_profile_id: &SubspaceId,
-        addrs: EndpointAddr,
-    ) -> Result<()> {
+        ticket: &ContactTicket,
+        cx: &mut C,
+    ) -> Result<ContactPeer> {
+        let target_profile_id = ticket.message.profile_id.clone();
+        let addrs = ticket.message.addrs.clone();
+        let display_name = ticket.message.display_name.clone();
+
         info!(?target_profile_id, ?addrs, "ContactsProtocol::connect");
 
-        let connection = endpoint.connect(addrs, Self::ALPN).await?;
+        let connection = self.endpoint.connect(addrs, Self::ALPN).await?;
         let (mut control_stream_send, mut control_stream_recv) = connection.open_bi().await?;
         info!("connect: open_bi completed");
 
         {
             let mut framed = Framed::new(&mut control_stream_send, LengthDelimitedCodec::default());
-            let message = ContactsMessage::V1(ContactsMessageV1::RequestConnectContact {
-                target_contact: target_profile_id.clone(),
-            });
+            let message = ContactsMessage::V1(ContactsMessageV1::EstablishControlStream);
             let envelope =
                 SignedEnvelope::new(message, self.inner.local_profile_key.clone()).await?;
             let envelope_bytes = envelope.to_bytes()?;
@@ -162,19 +214,21 @@ impl ContactsProtocol {
             info!("connect: Sent handshake");
         }
 
-        let contact_state = ContactState {
-            connection,
-            control_stream_send,
-        };
+        let contact_peer =
+            ContactPeer::new(connection, control_stream_send, target_profile_id.clone());
         self.inner
-            .per_contact_state
-            .insert(target_profile_id.clone(), contact_state);
+            .contact_peer_state
+            .insert(target_profile_id.clone(), contact_peer.clone());
 
-        let mut framed_recv =
-            Framed::new(&mut control_stream_recv, LengthDelimitedCodec::default());
-        info!("connect: Starting control loop");
-        self.run_loop(&mut framed_recv).await;
-        Ok(())
+        let protocol = self.clone();
+        tokio::task::spawn(async move {
+            let mut framed_recv =
+                Framed::new(&mut control_stream_recv, LengthDelimitedCodec::default());
+            info!("connect: Starting control loop");
+            protocol.run_loop(&mut framed_recv).await;
+        });
+
+        Ok(contact_peer)
     }
 
     async fn run_loop(&self, stream: &mut (impl Unpin + Stream<Item = FrameItem>)) {
@@ -338,6 +392,8 @@ pub enum ContactsMessage {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content")]
 pub enum ContactsMessageV1 {
+    /// A handshake used to complete the `accept_bi` call and open a control stream
+    EstablishControlStream,
     /// Request to connect with a contact by that contact's Profile ID
     RequestConnectContact {
         #[serde_as(as = "SubspaceIdSerde")]
