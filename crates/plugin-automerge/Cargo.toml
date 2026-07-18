@@ -1,0 +1,15 @@
+[package]
+name = "plugin-automerge"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+bytes.workspace = true
+derive_more.workspace = true
+futures.workspace = true
+iroh.workspace = true
+plugin-p2p.workspace = true
+samod.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true

@@ -14698,6 +14698,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "plugin-automerge"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "derive_more",
+ "futures",
+ "iroh",
+ "plugin-p2p",
+ "samod",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "plugin-calendar"
 version = "0.0.0"
 dependencies = [
