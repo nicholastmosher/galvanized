@@ -406,7 +406,7 @@ impl EventEmitter<ContactsEvent> for Contacts {}
 
 /// A Contact represents a remote Profile, identified by its SubspaceId.
 pub struct Contact {
-    /// The persistent data for this Contact.
+    /// The persistent, serializable data for this Contact.
     data: ContactData,
 
     /// The peer connection for this Contact, if one exists.
@@ -417,26 +417,60 @@ pub struct Contact {
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContactData {
+    /// The ID and name of the remote Profile.
+    name: ContactName,
+
+    /// The last EndpointId seen for this Contact.
+    endpoint_id: Option<EndpointId>,
+}
+
+impl ContactData {
+    /// Creates a new `ContactData` with the given name and endpoint ID.
+    ///
+    /// # Example
+    ///
+    /// Using `endpoint_id: impl Into<Option<EndpointId>>` allows passing an `EndpointId` value or `None`.
+    ///
+    /// ```
+    /// # fn example(name: ContactName, endpoint_id: EndpointId) {
+    /// let contact_data = ContactData::new(name.clone(), endpoint_id);
+    /// let contact_data = ContactData::new(name, None);
+    /// # }
+    /// ```
+    pub fn new(name: ContactName, endpoint_id: impl Into<Option<EndpointId>>) -> Self {
+        Self {
+            name,
+            endpoint_id: endpoint_id.into(),
+        }
+    }
+}
+
+/// The name of a Contact, including the profile ID and display name.
+#[serde_as]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactName {
     /// Profile ID of the remote Profile this Contact represents.
     #[serde_as(as = "SubspaceIdSerde")]
     profile_id: SubspaceId,
 
     /// The display name of the remote Profile.
     display_name: SharedString,
+}
 
-    /// The last EndpointId seen for this Contact.
-    endpoint_id: Option<EndpointId>,
+impl ContactName {
+    /// Creates a new `ContactName` with the given profile ID and display name.
+    pub fn new(profile_id: SubspaceId, display_name: impl Into<SharedString>) -> Self {
+        Self {
+            profile_id,
+            display_name: display_name.into(),
+        }
+    }
 }
 
 impl Contact {
-    pub fn new(
-        profile_id: SubspaceId,
-        display_name: impl Into<SharedString>,
-        cx: &mut Context<Self>,
-    ) -> Self {
+    pub fn new(name: ContactName, cx: &mut Context<Self>) -> Self {
         let data = ContactData {
-            profile_id,
-            display_name: display_name.into(),
+            name,
             endpoint_id: None,
         };
         Self::from_data(data, cx)
@@ -448,28 +482,35 @@ impl Contact {
 
     pub fn from_profile(profile: &Entity<Profile>, cx: &mut Context<Self>) -> Self {
         let data = ContactData {
-            profile_id: profile.read(cx).id(),
-            display_name: profile.read(cx).name(),
+            name: ContactName::new(profile.read(cx).id(), profile.read(cx).name()),
             endpoint_id: None,
         };
         Self::from_data(data, cx)
     }
 
     pub fn from_ticket(ticket: ContactTicket, cx: &mut Context<Self>) -> Self {
+        let name = ContactName::new(
+            ticket.message.profile_id,
+            ticket.message.display_name.clone(),
+        );
         let data = ContactData {
-            profile_id: ticket.message.profile_id,
-            display_name: ticket.message.display_name.clone(),
+            name,
             endpoint_id: None,
         };
         Self::from_data(data, cx)
     }
 
     pub fn profile_id(&self) -> &SubspaceId {
-        &self.data.profile_id
+        &self.data.name.profile_id
     }
 
     pub fn display_name(&self) -> SharedString {
-        self.data.display_name.clone()
+        self.data.name.display_name.clone()
+    }
+
+    /// Sets the peer connection for this Contact.
+    pub fn set_peer(&mut self, peer: ContactPeer) {
+        self.peer = Some(peer);
     }
 
     pub async fn save(
