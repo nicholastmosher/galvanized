@@ -14702,6 +14702,8 @@ name = "plugin-automerge"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "automerge",
+ "autosurgeon",
  "bytes",
  "derive_more",
  "futures",
@@ -14710,6 +14712,7 @@ dependencies = [
  "samod",
  "tokio-util",
  "tracing",
+ "zed",
 ]
 
 [[package]]
