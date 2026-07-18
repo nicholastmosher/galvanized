@@ -205,7 +205,7 @@ impl Render for Contacts {
 
 impl Contacts {
     /// User has pasted a contact ticket into the input editor and submitted it.
-    fn submit_create_contact(
+    fn submit_contact_ticket(
         &mut self,
         profile: Entity<Profile>,
         _window: &mut Window,
@@ -216,6 +216,18 @@ impl Contacts {
             return;
         };
 
+        // Create the Contact entity immediately (data-only, no peer yet)
+        let contact = cx.new(|cx| Contact::from_ticket(ticket.clone(), cx));
+        self.contacts.push(contact.clone());
+
+        // Observe the Contact so the Contacts list re-renders when it changes
+        cx.observe(&contact, |_this, _contact, cx| {
+            cx.notify();
+        })
+        .detach();
+
+        cx.notify();
+
         cx.spawn(async move |_this, cx| {
             ticket.verify().await?;
             let p2p = profile.p2p(cx);
@@ -224,7 +236,13 @@ impl Contacts {
                 bail!("ContactsProtocol not installed when trying to create Contact");
             };
 
-            let contact_peer = contacts_protocol.connect(&ticket, cx).await?;
+            let contact_peer = contacts_protocol.connect(&ticket).await?;
+
+            // Attach the peer to the Contact entity, which emits a ContactEvent
+            let _ = contact.update(cx, |contact, cx| {
+                contact.set_peer(contact_peer, cx);
+            });
+
             anyhow::Ok(())
         })
         .detach_and_log_err(cx);
@@ -312,7 +330,7 @@ impl Contacts {
                             return;
                         }
 
-                        this.submit_create_contact(profile.clone(), window, cx);
+                        this.submit_contact_ticket(profile.clone(), window, cx);
                     }))
                     .child(
                         //
@@ -328,69 +346,57 @@ impl Contacts {
 
     fn render_contact_list(
         &mut self,
-        profile: Entity<Profile>,
+        _profile: Entity<Profile>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let p2p = profile.p2p(cx);
-        let protocol = p2p.protocol::<ContactsProtocol, _>(cx);
-
         div()
             .id("contacts-list")
             .size_full()
             .overflow_y_scroll()
             .child(
                 div()
-                    .when_none(&protocol, |el| {
+                    .when(self.contacts.is_empty(), |el| {
                         el.p_2().child(
                             div()
                                 .text_color(cx.theme().colors().text_muted)
                                 .child("Paste a Profile ticket to add a contact"),
                         )
                     })
-                    .when_some(protocol, |el, _protocol| {
-                        // TODO
-                        _protocol.contacts();
-                        el
-                    }),
-                // .children(self.contacts.iter().enumerate().map(|(i, contact)| {
-                //     let subspace_hex: String =
-                //         contact.read(cx).profile_id().as_bytes().encode_hex();
-                //     let short_id: SharedString = {
-                //         let mut s = subspace_hex.clone();
-                //         s.truncate(16);
-                //         SharedString::from(s)
-                //     };
+                    .children(self.contacts.iter().enumerate().map(|(i, contact)| {
+                        let contact_ref = contact.read(cx);
+                        let display_name = contact_ref.display_name();
+                        let has_peer = contact_ref.peer.is_some();
+                        let status_icon = if has_peer { "🟢" } else { "⚪" };
+                        let status_text = if has_peer {
+                            "Connected"
+                        } else {
+                            "No connection"
+                        };
 
-                //     h_flex()
-                //         .id(SharedString::from(format!("contact-{i}")))
-                //         .p_2()
-                //         .gap_2()
-                //         .rounded_md()
-                //         .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                //         .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-                //         .child(
-                //             v_flex().child(contact.read(cx).display_name()).child(
-                //                 div()
-                //                     .text_sm()
-                //                     .text_color(cx.theme().colors().text_muted)
-                //                     .child(short_id),
-                //             ),
-                //         )
-                //         .child(div().flex_grow())
-                //         .child(
-                //             div()
-                //                 .id(SharedString::from(format!("remove-contact-{i}")))
-                //                 .hover(|style| style.text_color(rgba(0xef4444ff)))
-                //                 .on_click(cx.listener({
-                //                     let index = i;
-                //                     move |this, _e, _window, cx| {
-                //                         this.remove_contact(index, cx);
-                //                     }
-                //                 }))
-                //                 .child(div().px_1().child("✕")),
-                //         )
-                // })),
+                        h_flex()
+                            .id(SharedString::from(format!("contact-{i}")))
+                            .p_2()
+                            .gap_2()
+                            .rounded_md()
+                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                            .child(
+                                v_flex()
+                                    .child(
+                                        h_flex()
+                                            .gap_1()
+                                            .child(SharedString::from(status_icon))
+                                            .child(display_name),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .text_color(cx.theme().colors().text_muted)
+                                            .child(status_text),
+                                    ),
+                            )
+                    })),
             )
     }
 }
@@ -412,6 +418,19 @@ pub struct Contact {
     /// The peer connection for this Contact, if one exists.
     peer: Option<ContactPeer>,
 }
+
+/// Events emitted by a [`Contact`] entity when its state changes.
+///
+/// These events allow any GPUI entity to react to changes in a Contact's
+/// live protocol state without knowing about the protocol layer.
+#[derive(Clone, Debug)]
+pub enum ContactEvent {
+    /// A peer connection was established for this Contact.
+    PeerConnected,
+    /// The peer connection for this Contact was lost.
+    PeerDisconnected,
+}
+impl EventEmitter<ContactEvent> for Contact {}
 
 /// Serializable, persistent data for a Contact.
 #[serde_as]
@@ -490,7 +509,7 @@ impl Contact {
 
     pub fn from_ticket(ticket: ContactTicket, cx: &mut Context<Self>) -> Self {
         let name = ContactName::new(
-            ticket.message.profile_id,
+            ticket.message.sender_profile_id,
             ticket.message.display_name.clone(),
         );
         let data = ContactData {
@@ -509,8 +528,22 @@ impl Contact {
     }
 
     /// Sets the peer connection for this Contact.
-    pub fn set_peer(&mut self, peer: ContactPeer) {
+    ///
+    /// Emits a [`ContactEvent::PeerConnected`] so that any subscriber
+    /// (e.g. the contacts list, a chat view) can react to the change.
+    pub fn set_peer(&mut self, peer: ContactPeer, cx: &mut Context<Self>) {
         self.peer = Some(peer);
+        cx.emit(ContactEvent::PeerConnected);
+        cx.notify();
+    }
+
+    /// Removes the peer connection for this Contact.
+    ///
+    /// Emits a [`ContactEvent::PeerDisconnected`] so subscribers can react.
+    pub fn clear_peer(&mut self, cx: &mut Context<Self>) {
+        self.peer = None;
+        cx.emit(ContactEvent::PeerDisconnected);
+        cx.notify();
     }
 
     pub async fn save(
@@ -533,39 +566,6 @@ impl Contact {
     }
 }
 
-// /// Wrapper around a Willow SubspaceId that identifies a remote Profile.
-// #[serde_as]
-// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-// pub struct ContactId {
-//     #[serde_as(as = "SubspaceIdSerde")]
-//     subspace_id: SubspaceId,
-// }
-
-// impl ContactId {
-//     pub fn from_hex(hex_str: &str) -> Option<Self> {
-//         let bytes = hex::decode(hex_str).ok()?;
-//         if bytes.len() != 32 {
-//             return None;
-//         }
-//         let mut arr = [0u8; 32];
-//         arr.copy_from_slice(&bytes);
-//         Some(ContactId {
-//             subspace_id: SubspaceId::from_bytes(&arr),
-//         })
-//     }
-
-//     pub fn to_hex(&self) -> String {
-//         self.subspace_id.to_bytes().encode_hex()
-//     }
-// }
-
-// impl std::fmt::Display for ContactId {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         let hex: String = self.subspace_id.to_bytes().encode_hex();
-//         write!(f, "{}", &hex[..16])
-//     }
-// }
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContactTicket {
     message: ContactTicketMessage,
@@ -576,15 +576,19 @@ pub struct ContactTicket {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContactTicketMessage {
     #[serde_as(as = "SubspaceIdSerde")]
-    profile_id: SubspaceId,
+    sender_profile_id: SubspaceId,
     display_name: SharedString,
     addrs: EndpointAddr,
 }
 
 impl ContactTicketMessage {
-    pub fn new(profile_id: SubspaceId, display_name: SharedString, addrs: EndpointAddr) -> Self {
+    pub fn new(
+        sender_profile_id: SubspaceId,
+        display_name: SharedString,
+        addrs: EndpointAddr,
+    ) -> Self {
         Self {
-            profile_id,
+            sender_profile_id,
             display_name,
             addrs,
         }
@@ -626,8 +630,9 @@ impl ContactTicket {
         let subspace_signature = SubspaceSignature::decode(&mut sig_producer)
             .await
             .map_err(|_| anyhow!("failed to decode ticket signature"))?;
+        // TODO verify hash
         self.message
-            .profile_id
+            .sender_profile_id
             .verify(&message_bytes, &subspace_signature)?;
         Ok(())
     }

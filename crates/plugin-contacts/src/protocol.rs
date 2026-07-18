@@ -36,9 +36,9 @@ use tokio_util::{
 use tracing::info;
 use ufotofu::{IntoConsumer as _, IntoProducer as _, codec::Decodable as _};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
-use zed::unstable::{db::smol::stream::StreamExt, gpui::AppContext, util::ResultExt as _};
+use zed::unstable::{db::smol::stream::StreamExt, ui::SharedString, util::ResultExt as _};
 
-use crate::ContactTicket;
+use crate::{ContactName, ContactTicket};
 
 /// The [`ContactsProtocol`] object, which is installed into the Iroh protocols
 /// stack and is also used as the client-side API object.
@@ -83,21 +83,17 @@ pub struct ContactPeerState {
     /// The send half of the control stream for this contact connection.
     control_stream_send: SendStream,
 
-    /// The Profile ID of the remote contact.
-    profile_id: SubspaceId,
+    /// The Profile ID and display name of the remote contact.
+    name: ContactName,
 }
 
 impl ContactPeer {
-    pub fn new(
-        connection: Connection,
-        control_stream_send: SendStream,
-        profile_id: SubspaceId,
-    ) -> Self {
+    pub fn new(connection: Connection, control_stream_send: SendStream, name: ContactName) -> Self {
         Self {
             state: Arc::new(ContactPeerState {
                 connection,
                 control_stream_send,
-                profile_id,
+                name,
             }),
         }
     }
@@ -155,11 +151,12 @@ impl ProtocolHandler for ContactsProtocol {
                     bail!("handshake message was not intended for us");
                 }
 
-                let contact_peer = ContactPeer::new(connection, control_stream_send, envelope.meta.sender_id.clone());
 
                 #[allow(unreachable_patterns)]
-                match &envelope.meta.message {
-                    ContactsMessage::V1(ContactsMessageV1::EstablishControlStream) => {
+                match &envelope.message {
+                    ContactsMessage::V1(ContactsMessageV1::EstablishControlStream { sender_display_name }) => {
+                        let name = ContactName::new(envelope.meta.sender_id.clone(), sender_display_name.clone());
+                        let contact_peer = ContactPeer::new(connection, control_stream_send, name);
                         self.contact_peer_state.insert(envelope.meta.sender_id.clone(), contact_peer);
                     }
                     _ => {
@@ -186,19 +183,20 @@ impl ContactsProtocol {
         // TODO
     }
 
-    /// Given a [`ContactTicket`], establishes a connection to the Iroh endpoint where the target Profile is located.
+    /// Given a [`ContactTicket`] received from a remote peer, establishes a connection
+    /// to the Iroh endpoint where the target Profile is located.
     ///
     /// After the connection is established, a [`Contact`] entity is returned.
-    pub async fn connect<C: AppContext>(
-        &self,
-        ticket: &ContactTicket,
-        cx: &mut C,
-    ) -> Result<ContactPeer> {
-        let target_profile_id = ticket.message.profile_id.clone();
+    pub async fn connect(&self, ticket: &ContactTicket) -> Result<ContactPeer> {
         let addrs = ticket.message.addrs.clone();
-        let display_name = ticket.message.display_name.clone();
+        let ticket_sender_profile_id = ticket.message.sender_profile_id.clone();
+        let ticket_sender_display_name = ticket.message.display_name.clone();
 
-        info!(?target_profile_id, ?addrs, "ContactsProtocol::connect");
+        info!(
+            ?ticket_sender_profile_id,
+            ?addrs,
+            "ContactsProtocol::connect"
+        );
 
         let connection = self.endpoint.connect(addrs, Self::ALPN).await?;
         let (mut control_stream_send, mut control_stream_recv) = connection.open_bi().await?;
@@ -206,19 +204,28 @@ impl ContactsProtocol {
 
         {
             let mut framed = Framed::new(&mut control_stream_send, LengthDelimitedCodec::default());
-            let message = ContactsMessage::V1(ContactsMessageV1::EstablishControlStream);
-            let envelope =
-                SignedEnvelope::new(message, self.inner.local_profile_key.clone()).await?;
+            let message = ContactsMessage::V1(ContactsMessageV1::EstablishControlStream {
+                sender_display_name: ticket_sender_display_name.clone(),
+            });
+            let envelope = SignedEnvelope::new(
+                message,
+                self.inner.local_profile_key.clone(),
+                ticket_sender_profile_id.clone(),
+            )
+            .await?;
             let envelope_bytes = envelope.to_bytes()?;
             framed.send(envelope_bytes.into()).await?;
             info!("connect: Sent handshake");
         }
 
-        let contact_peer =
-            ContactPeer::new(connection, control_stream_send, target_profile_id.clone());
+        let name = ContactName::new(
+            ticket_sender_profile_id.clone(),
+            ticket_sender_display_name.clone(),
+        );
+        let contact_peer = ContactPeer::new(connection, control_stream_send, name);
         self.inner
             .contact_peer_state
-            .insert(target_profile_id.clone(), contact_peer.clone());
+            .insert(ticket_sender_profile_id.clone(), contact_peer.clone());
 
         let protocol = self.clone();
         tokio::task::spawn(async move {
@@ -261,7 +268,7 @@ impl ContactsProtocol {
             bail!("handshake message was not intended for us");
         }
 
-        match &signed_envelope.meta.message {
+        match &signed_envelope.message {
             ContactsMessage::V1(v1) => {
                 let sender_profile_id = &signed_envelope.meta.sender_id;
                 self.try_handle_v1_message(sender_profile_id, v1).await?;
@@ -286,46 +293,58 @@ impl<M: Serialize + for<'de> Deserialize<'de>> Message for M {}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SignedEnvelope<M> {
-    meta: MetaEnvelope<M>,
+    /// Metadata including the sender's profile ID and timestamp of the envelope.
+    meta: EnvelopeMetadata,
+
+    /// The message contents, including type and any fields
+    message: M,
+
+    /// The signature of the envelope, verifying the sender's identity.
     signature: Vec<u8>,
 }
 
 /// Signing an envelope containing the key's own public key authenticates us as the sender.
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize)]
-pub struct MetaEnvelope<M> {
+pub struct EnvelopeMetadata {
     /// Profile/Subspace ID of the sender requesting contact.
     #[serde_as(as = "SubspaceIdSerde")]
     sender_id: SubspaceId,
 
+    /// Profile/Subspace ID of the recipient of the message.
+    #[serde_as(as = "SubspaceIdSerde")]
+    recipient_id: SubspaceId,
+
     /// Timestamp when the request was created.
     timestamp: DateTime<Utc>,
-
-    /// Message contents.
-    message: M,
 }
 
 impl<M: Message> SignedEnvelope<M> {
     /// Create a new signed envelope with the given message and profile key,
     /// timestamped at the current time.
-    pub async fn new(message: M, profile_key: SubspaceSecret) -> Result<Self> {
-        Self::new_at(message, profile_key, Utc::now()).await
+    pub async fn new(
+        message: M,
+        sender_key: SubspaceSecret,
+        recipient_id: SubspaceId,
+    ) -> Result<Self> {
+        Self::new_at(message, sender_key, recipient_id, Utc::now()).await
     }
 
     /// Create a new signed envelope with the given message and profile key,
     /// timestamped at the specified time.
     pub async fn new_at(
         message: M,
-        mut profile_key: SubspaceSecret,
+        mut sender_key: SubspaceSecret,
+        recipient_id: SubspaceId,
         timestamp: DateTime<Utc>,
     ) -> Result<Self> {
-        let meta = MetaEnvelope {
-            sender_id: profile_key.corresponding_subspace_id(),
+        let meta = EnvelopeMetadata {
+            sender_id: sender_key.corresponding_subspace_id(),
+            recipient_id,
             timestamp,
-            message,
         };
         let envelope_bytes = serde_json::to_vec(&meta).unwrap();
-        let subspace_signature = profile_key.try_sign(&envelope_bytes)?;
+        let subspace_signature = sender_key.try_sign(&envelope_bytes)?;
         let mut signature = Vec::new();
         let mut consumer = (&mut signature).into_consumer();
 
@@ -333,7 +352,11 @@ impl<M: Message> SignedEnvelope<M> {
         subspace_signature.encode(&mut consumer).await?;
         drop(consumer);
 
-        Ok(Self { meta, signature })
+        Ok(Self {
+            meta,
+            message,
+            signature,
+        })
     }
 
     pub async fn verify(&self) -> Result<()> {
@@ -393,7 +416,10 @@ pub enum ContactsMessage {
 #[serde(tag = "type", content = "content")]
 pub enum ContactsMessageV1 {
     /// A handshake used to complete the `accept_bi` call and open a control stream
-    EstablishControlStream,
+    EstablishControlStream {
+        /// The display name of the sender.
+        sender_display_name: SharedString,
+    },
     /// Request to connect with a contact by that contact's Profile ID
     RequestConnectContact {
         #[serde_as(as = "SubspaceIdSerde")]
