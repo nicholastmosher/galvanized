@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result, anyhow, bail};
+use futures::stream::StreamExt as _;
 use hex::ToHex;
 use iroh::{EndpointAddr, EndpointId};
 use plugin_automerge::protocol::AutomergeProtocol;
@@ -71,6 +72,7 @@ pub fn init(cx: &mut App) {
     // Each Profile has its own p2p stack, here we register the Contacts protocol for each
     cx.observe_new::<Profile>(|profile, _window, cx| {
         let local_key = profile.subspace().secret_todo_consider_access_control();
+        let local_display_name = profile.name();
         let endpoint = profile.p2p().endpoint(cx);
         let Some(automerge) = profile.p2p().protocol::<AutomergeProtocol, _>(cx) else {
             warn!("Failed to get AutomergeProtocol for ContactsProtocol");
@@ -79,7 +81,8 @@ pub fn init(cx: &mut App) {
         // AutomergeProtocol is already a shared object with Arc-like semantics
         // So here we escape the Arc by cloning the object so we can use it directly, without Arc
         let automerge = AutomergeProtocol::clone(&*automerge);
-        let protocol = ContactsProtocol::new(endpoint, automerge, local_key.clone());
+        let protocol =
+            ContactsProtocol::new(endpoint, automerge, local_key.clone(), local_display_name);
         profile.p2p().register_protocol(protocol, cx);
     })
     .detach();
@@ -537,10 +540,39 @@ impl Contact {
 
     /// Sets the peer connection for this Contact.
     ///
-    /// Emits a [`ContactEvent::PeerConnected`] so that any subscriber
-    /// (e.g. the contacts list, a chat view) can react to the change.
+    /// Emits a [`ContactEvent::PeerConnected`] and spawns a listener
+    /// that updates the display name from the automerge document.
     pub fn set_peer(&mut self, peer: ContactPeer, cx: &mut Context<Self>) {
-        self.peer = Some(peer);
+        self.peer = Some(peer.clone());
+
+        // Spawn a task that listens for automerge doc changes and updates the display name
+        let entity = cx.entity().downgrade();
+        cx.spawn(async move |_this, cx| {
+            let doc_handle = peer.doc_handle();
+            let mut change_stream = doc_handle.changes();
+
+            // Read the initial display name from the doc
+            if let Ok(display_name) = peer.read_display_name().await {
+                entity.update(cx, |contact, cx| {
+                    contact.data.name.display_name = display_name.into();
+                    cx.notify();
+                })?;
+            }
+
+            // Listen for subsequent changes
+            while change_stream.next().await.is_some() {
+                if let Ok(display_name) = peer.read_display_name().await {
+                    entity.update(cx, |contact, cx| {
+                        contact.data.name.display_name = display_name.into();
+                        cx.notify();
+                    })?;
+                }
+            }
+
+            anyhow::Ok(())
+        })
+        .detach();
+
         cx.emit(ContactEvent::PeerConnected);
         cx.notify();
     }
