@@ -15,6 +15,8 @@
 use std::{io::ErrorKind, ops::Deref, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
+use automerge::Automerge;
+use autosurgeon::{Hydrate, Reconcile};
 use chrono::{DateTime, TimeDelta, Utc};
 use dashmap::DashMap;
 use futures::{SinkExt, Stream};
@@ -23,8 +25,10 @@ use iroh::{
     endpoint::{Connection, SendStream},
     protocol::{AcceptError, ProtocolHandler},
 };
+use plugin_automerge::{Automergable, protocol::AutomergeProtocol};
 use plugin_p2p::KeyedProtocolHandler;
 use plugin_willow::willow_serde::SubspaceIdSerde;
+use samod::DocHandle;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use signature::SignerMut as _;
@@ -33,7 +37,7 @@ use tokio_util::{
     bytes::BytesMut,
     codec::{Decoder, Framed, LengthDelimitedCodec},
 };
-use tracing::info;
+use tracing::{info, warn};
 use ufotofu::{IntoConsumer as _, IntoProducer as _, codec::Decodable as _};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
 use zed::unstable::{db::smol::stream::StreamExt, ui::SharedString, util::ResultExt as _};
@@ -58,6 +62,9 @@ impl Deref for ContactsProtocol {
 /// The inner shared state for the [`ContactsProtocol`].
 #[derive(derive_more::Debug)]
 pub struct ContactsProtocolState {
+    /// The Automerge protocol instance for this contacts protocol.
+    automerge: AutomergeProtocol,
+
     /// The Iroh Endpoint used for this protocol.
     endpoint: Endpoint,
 
@@ -75,33 +82,78 @@ pub struct ContactPeer {
     state: Arc<ContactPeerState>,
 }
 
+impl Automergable for ContactPeer {
+    type Crdt = ContactData;
+
+    fn doc_handle(&self) -> DocHandle {
+        self.state.doc_handle.clone()
+    }
+}
+
+#[derive(Debug, Hydrate, Reconcile)]
+pub struct ContactData {
+    //
+}
+
 #[derive(Debug)]
 pub struct ContactPeerState {
+    /// The Automerge protocol instance for this contact peer.
+    automerge: AutomergeProtocol,
+
     /// The Iroh Connection established with the remote peer.
     connection: Connection,
 
     /// The send half of the control stream for this contact connection.
     control_stream_send: SendStream,
 
+    /// The handle to this peer's own contact identity document, if we have it.
+    doc_handle: DocHandle,
+
     /// The Profile ID and display name of the remote contact.
     name: ContactName,
 }
 
 impl ContactPeer {
-    pub fn new(connection: Connection, control_stream_send: SendStream, name: ContactName) -> Self {
-        Self {
+    /// Create a new `ContactPeer` with a new Automerge document.
+    pub async fn new(
+        connection: Connection,
+        control_stream_send: SendStream,
+        name: ContactName,
+        automerge: AutomergeProtocol,
+    ) -> Result<Self> {
+        let doc = Automerge::new();
+        let doc_handle = automerge.repo().create(doc).await?;
+        Self::with_doc_handle(connection, control_stream_send, name, automerge, doc_handle).await
+    }
+
+    /// Create a new `ContactPeer` with an existing Automerge document handle.
+    pub async fn with_doc_handle(
+        connection: Connection,
+        control_stream_send: SendStream,
+        name: ContactName,
+        automerge: AutomergeProtocol,
+        doc_handle: DocHandle,
+    ) -> Result<Self> {
+        Ok(Self {
             state: Arc::new(ContactPeerState {
+                automerge,
                 connection,
                 control_stream_send,
                 name,
+                doc_handle,
             }),
-        }
+        })
     }
 }
 
 impl ContactsProtocol {
-    pub fn new(endpoint: Endpoint, local_key: SubspaceSecret) -> Self {
+    pub fn new(
+        endpoint: Endpoint,
+        automerge: AutomergeProtocol,
+        local_key: SubspaceSecret,
+    ) -> Self {
         let inner = Arc::new(ContactsProtocolState {
+            automerge,
             endpoint,
             local_profile_key: local_key,
             contact_peer_state: Default::default(),
@@ -120,6 +172,7 @@ impl ProtocolHandler for ContactsProtocol {
         &self,
         connection: Connection,
     ) -> impl Future<Output = Result<(), AcceptError>> + Send {
+        let automerge = self.automerge.clone();
         async move {
             // NOTE: Requires dialer to send a message on open_bi stream to pass this await
             info!("Contacts ProtocolHandler waiting for handshake");
@@ -151,12 +204,11 @@ impl ProtocolHandler for ContactsProtocol {
                     bail!("handshake message was not intended for us");
                 }
 
-
                 #[allow(unreachable_patterns)]
                 match &envelope.message {
-                    ContactsMessage::V1(ContactsMessageV1::EstablishControlStream { sender_display_name }) => {
+                    ContactsMessage::V1(ContactsMessageV1::EstablishControlStream { sender_display_name}) => {
                         let name = ContactName::new(envelope.meta.sender_id.clone(), sender_display_name.clone());
-                        let contact_peer = ContactPeer::new(connection, control_stream_send, name);
+                        let contact_peer = ContactPeer::new(connection, control_stream_send, name, automerge).await?;
                         self.contact_peer_state.insert(envelope.meta.sender_id.clone(), contact_peer);
                     }
                     _ => {
@@ -218,11 +270,16 @@ impl ContactsProtocol {
             info!("connect: Sent handshake");
         }
 
+        let automerge = self.automerge.clone();
+        warn!("Creating empty doc, TODO load doc");
+        // let doc = Automerge::new(); // TODO load
+        // let doc_handle = automerge.repo().create(doc).await?;
         let name = ContactName::new(
             ticket_sender_profile_id.clone(),
             ticket_sender_display_name.clone(),
         );
-        let contact_peer = ContactPeer::new(connection, control_stream_send, name);
+        let contact_peer =
+            ContactPeer::new(connection, control_stream_send, name, automerge).await?;
         self.inner
             .contact_peer_state
             .insert(ticket_sender_profile_id.clone(), contact_peer.clone());

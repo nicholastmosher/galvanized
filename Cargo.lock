@@ -14759,6 +14759,8 @@ name = "plugin-contacts"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "automerge",
+ "autosurgeon",
  "chrono",
  "dashmap",
  "data-encoding",
@@ -14768,10 +14770,12 @@ dependencies = [
  "hex",
  "iroh",
  "plot_icon",
+ "plugin-automerge",
  "plugin-galvanized",
  "plugin-p2p",
  "plugin-willow",
  "rand_core 0.6.4",
+ "samod",
  "serde",
  "serde_json",
  "serde_with",

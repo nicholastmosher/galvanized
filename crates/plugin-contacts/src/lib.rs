@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context as _, Result, anyhow, bail};
 use hex::ToHex;
 use iroh::{EndpointAddr, EndpointId};
+use plugin_automerge::protocol::AutomergeProtocol;
 use plugin_galvanized::{
     Galvanized,
     app_behavior::AppBehavior,
@@ -17,7 +18,7 @@ use plugin_willow::willow_serde::SubspaceIdSerde;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use signature::SignerMut as _;
-use tracing::info;
+use tracing::{info, warn};
 use ufotofu::{IntoConsumer as _, IntoProducer, codec::Decodable};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
 use zed::unstable::{
@@ -71,7 +72,14 @@ pub fn init(cx: &mut App) {
     cx.observe_new::<Profile>(|profile, _window, cx| {
         let local_key = profile.subspace().secret_todo_consider_access_control();
         let endpoint = profile.p2p().endpoint(cx);
-        let protocol = ContactsProtocol::new(endpoint, local_key.clone());
+        let Some(automerge) = profile.p2p().protocol::<AutomergeProtocol, _>(cx) else {
+            warn!("Failed to get AutomergeProtocol for ContactsProtocol");
+            return;
+        };
+        // AutomergeProtocol is already a shared object with Arc-like semantics
+        // So here we escape the Arc by cloning the object so we can use it directly, without Arc
+        let automerge = AutomergeProtocol::clone(&*automerge);
+        let protocol = ContactsProtocol::new(endpoint, automerge, local_key.clone());
         profile.p2p().register_protocol(protocol, cx);
     })
     .detach();

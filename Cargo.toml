@@ -82,6 +82,7 @@ zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-pl
 
 # Path dependencies
 # csh-demo = { path = "crates/csh-demo" }
+plugin-automerge = { path = "crates/plugin-automerge" }
 plugin-calendar = { path = "crates/plugin-calendar" }
 plugin-chat = { path = "crates/plugin-chat" }
 plugin-contacts = { path = "crates/plugin-contacts" }
