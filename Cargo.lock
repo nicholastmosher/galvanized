@@ -14712,6 +14712,7 @@ dependencies = [
  "plugin-galvanized",
  "plugin-p2p",
  "samod",
+ "tokio",
  "tokio-util",
  "tracing",
  "uuid",

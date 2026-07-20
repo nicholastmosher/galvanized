@@ -78,15 +78,15 @@ impl P2p {
         _cx: &mut Context<Self>,
     ) -> Option<Arc<P>> {
         let protocol = self.actor.protocol::<P>(&alpn);
-        if let Some(protocol) = &protocol {
+        if protocol.is_some() {
             info!(
-                protocol = ?protocol,
+                protocol = type_name::<P>(),
                 "Found protocol for ALPN: {}",
                 String::from_utf8_lossy(&alpn)
             );
         }
         let protocol = protocol.and_then(|it| Arc::downcast::<P>(it).ok());
-        if let Some(protocol) = &protocol {
+        if protocol.is_some() {
             info!(
                 "Successfully downcasted protocol for ALPN: {}",
                 String::from_utf8_lossy(&alpn)

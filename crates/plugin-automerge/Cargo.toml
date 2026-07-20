@@ -14,6 +14,7 @@ iroh.workspace = true
 plugin-galvanized.workspace = true
 plugin-p2p.workspace = true
 samod.workspace = true
+tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
 uuid.workspace = true

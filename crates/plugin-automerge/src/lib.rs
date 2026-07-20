@@ -1,7 +1,7 @@
 use anyhow::Result;
 use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
-use plugin_galvanized::domain::profile::{Profile, ProfileHandle};
-use plugin_p2p::{KeyedProtocolHandler, P2p, P2pHandle};
+use plugin_galvanized::domain::profile::Profile;
+use plugin_p2p::P2pHandle;
 use samod::{DocHandle, PeerId, storage::InMemoryStorage};
 use tracing::info;
 use zed::unstable::{
@@ -16,32 +16,29 @@ pub mod protocol;
 
 pub fn init(cx: &mut App) {
     // For each new P2p instance, register the Automerge protocol handler.
-    cx.observe_new::<Profile>(|_profile, _window, cx| {
-        cx.spawn(async move |profile, cx| {
-            // let uuid = Uuid::new_v4();
-            // let base_path = format!("/tmp/iroh-automerge-{uuid}");
-            // let endpoint = Endpoint::builder(N0).bind().await?;
-            let p2p = profile.p2p(cx)?;
-            let endpoint = p2p.endpoint(cx);
+    cx.observe_new::<Profile>(|profile, _window, cx| {
+        let endpoint = profile.p2p().endpoint(cx);
 
-            let automerge_repo = samod::Repo::build_tokio()
-                .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
-                // .with_storage(TokioFilesystemStorage::new(format!(
-                //     "{}/{}",
-                //     base_path,
-                //     endpoint.id(),
-                // )))
-                .with_storage(InMemoryStorage::new())
-                .load()
-                .await;
-
-            let protocol_automerge = AutomergeProtocol::new(endpoint.clone(), automerge_repo);
-            p2p.register_protocol(protocol_automerge, cx);
-            info!(endpoint_id = %endpoint.id(), "Registered AutomergeProtocol with P2p instance");
-
-            anyhow::Ok(())
-        })
-        .detach_and_log_err(cx);
+        let protocol_automerge = {
+            let endpoint = endpoint.clone();
+            AutomergeProtocol::new(
+                endpoint.clone(),
+                Box::pin(async move {
+                    samod::Repo::build_tokio()
+                        .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
+                        // .with_storage(TokioFilesystemStorage::new(format!(
+                        //     "{}/{}",
+                        //     base_path,
+                        //     endpoint.id(),
+                        // )))
+                        .with_storage(InMemoryStorage::new())
+                        .load()
+                        .await
+                }),
+            )
+        };
+        profile.p2p().register_protocol(protocol_automerge, cx);
+        info!(endpoint_id = %endpoint.id(), "Registered AutomergeProtocol with P2p instance");
     })
     .detach();
 }

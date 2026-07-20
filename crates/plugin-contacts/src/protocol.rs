@@ -128,8 +128,12 @@ impl ContactPeer {
         automerge: AutomergeProtocol,
         initial_data: ContactData,
     ) -> Result<Self> {
+        let Some(repo) = automerge.repo() else {
+            bail!("Automerge protocol repo not initialized");
+        };
+
         let doc = Automerge::new();
-        let doc_handle = automerge.repo().create(doc).await?;
+        let doc_handle = repo.create(doc).await?;
 
         // Write the initial profile data into the document
         doc_handle.with_document(|am| {
@@ -268,18 +272,19 @@ impl ProtocolHandler for ContactsProtocol {
                         info!("accept: dialing automerge peer");
                         automerge.dial_peer(remote_addr).await?;
 
+                        let Some(repo) = automerge.repo() else {
+                            bail!("Automerge protocol repo not initialized");
+                        };
+
                         // Wait for the automerge connection to be established
-                        automerge
-                            .repo()
-                            .when_connected(PeerId::from_string(
+                        repo.when_connected(PeerId::from_string(
                                 remote_endpoint_id.to_string(),
                             ))
                             .await?;
                         info!("accept: connected to automerge peer");
 
                         // Find the remote's profile document
-                        let remote_doc_handle = automerge
-                            .repo()
+                        let remote_doc_handle = repo
                             .find(doc_id.clone())
                             .await?
                             .context("failed to find remote ContactData document")?;
@@ -287,7 +292,7 @@ impl ProtocolHandler for ContactsProtocol {
 
                         // Create a local doc with our profile data
                         let local_doc = Automerge::new();
-                        let local_doc_handle = automerge.repo().create(local_doc).await?;
+                        let local_doc_handle = repo.create(local_doc).await?;
                         let local_data = ContactData {
                             display_name: local_display_name.to_string(),
                         };
@@ -384,11 +389,15 @@ impl ContactsProtocol {
         // Create a doc with the local profile's display name, before sending the handshake
         // so we can include the doc_id in the EstablishControlStream message.
         let automerge = self.automerge.clone();
+        let Some(repo) = automerge.repo() else {
+            bail!("Automerge protocol repo not initialized");
+        };
+
         let initial_data = ContactData {
             display_name: self.inner.local_display_name.to_string(),
         };
         let doc = Automerge::new();
-        let doc_handle = automerge.repo().create(doc).await?;
+        let doc_handle = repo.create(doc).await?;
         doc_handle.with_document(|am| {
             let mut tx = am.transaction();
             autosurgeon::reconcile(&mut tx, &initial_data)
@@ -498,10 +507,12 @@ impl ContactsProtocol {
                     "Received AcceptConnectContact, opening remote doc"
                 );
 
+                let Some(repo) = self.automerge.repo() else {
+                    bail!("Automerge protocol repo not initialized");
+                };
+
                 // Find the remote's profile document via automerge sync
-                let _remote_doc_handle = self
-                    .automerge
-                    .repo()
+                let _remote_doc_handle = repo
                     .find(doc_id.clone())
                     .await?
                     .context("failed to find remote ContactData document")?;
