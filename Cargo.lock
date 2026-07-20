@@ -7027,6 +7027,7 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "plot_icon",
+ "plugin-automerge",
  "plugin-calendar",
  "plugin-chat",
  "plugin-contacts",
@@ -14712,6 +14713,7 @@ dependencies = [
  "samod",
  "tokio-util",
  "tracing",
+ "uuid",
  "zed",
 ]
 

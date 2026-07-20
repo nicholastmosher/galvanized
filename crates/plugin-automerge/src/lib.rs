@@ -1,11 +1,48 @@
 use anyhow::Result;
 use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
-use samod::DocHandle;
+use plugin_p2p::{KeyedProtocolHandler, P2p, P2pHandle};
+use samod::{DocHandle, PeerId, storage::InMemoryStorage};
 use tracing::info;
-use zed::unstable::gpui::{AppContext, Entity, Task};
+use zed::unstable::{
+    gpui::{AppContext, Entity, Task},
+    ui::App,
+};
+
+use crate::protocol::AutomergeProtocol;
 
 pub mod codec;
 pub mod protocol;
+
+pub fn init(cx: &mut App) {
+    // For each new P2p instance, register the Automerge protocol handler.
+    cx.observe_new::<P2p>(|_p2p, _window, cx| {
+        cx.spawn(async move |p2p, cx| {
+            // let uuid = Uuid::new_v4();
+            // let base_path = format!("/tmp/iroh-automerge-{uuid}");
+            // let endpoint = Endpoint::builder(N0).bind().await?;
+            let endpoint = p2p.endpoint(cx)?;
+
+            let automerge_repo = samod::Repo::build_tokio()
+                .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
+                // .with_storage(TokioFilesystemStorage::new(format!(
+                //     "{}/{}",
+                //     base_path,
+                //     endpoint.id(),
+                // )))
+                .with_storage(InMemoryStorage::new())
+                .load()
+                .await;
+
+            let protocol_automerge = AutomergeProtocol::new(endpoint.clone(), automerge_repo);
+            p2p.update(cx, |p2p, cx| {
+                p2p.register_protocol(AutomergeProtocol::ALPN.to_vec(), protocol_automerge, cx);
+            })?;
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
+    })
+    .detach();
+}
 
 /// Trait to be implemented by types used as Entities which want to sync with peers.
 pub trait Automergable: 'static {
@@ -103,12 +140,12 @@ mod tests {
     use gpui::Context;
     use samod::DocHandle;
     use zed::unstable::{
-        gpui::{self, Entity, TestAppContext},
+        gpui::{self, Entity},
         ui::App,
     };
 
-    #[zed::unstable::gpui::test]
-    fn test_api(mut _cx: &TestAppContext) {
+    // Compile-only test, can't make #[gpui::test] work yet
+    fn test_api(mut _cx: &App) {
         pub struct Calendar {
             doc_handle: DocHandle,
         }
