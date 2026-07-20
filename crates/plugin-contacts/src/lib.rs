@@ -81,9 +81,18 @@ pub fn init(cx: &mut App) {
         // AutomergeProtocol is already a shared object with Arc-like semantics
         // So here we escape the Arc by cloning the object so we can use it directly, without Arc
         let automerge = AutomergeProtocol::clone(&*automerge);
-        let protocol =
-            ContactsProtocol::new(endpoint, automerge, local_key.clone(), local_display_name);
+        let protocol = ContactsProtocol::new(
+            endpoint,
+            automerge,
+            local_key.clone(),
+            local_display_name.clone(),
+        );
         profile.p2p().register_protocol(protocol, cx);
+        info!(
+            id = ?local_key.corresponding_subspace_id(),
+            name = %local_display_name,
+            "Registered ContactsProtocol with profile"
+        );
     })
     .detach();
 }
@@ -244,7 +253,7 @@ impl Contacts {
             let p2p = profile.p2p(cx);
             let contacts_protocol = p2p.protocol::<ContactsProtocol, _>(cx);
             let Some(contacts_protocol) = contacts_protocol else {
-                bail!("ContactsProtocol not installed when trying to create Contact");
+                bail!("ContactsProtocol not installed when trying to connect Contact");
             };
 
             let contact_peer = contacts_protocol.connect(&ticket).await?;
@@ -274,8 +283,7 @@ impl Contacts {
         let display_name = profile.read(cx).name();
 
         cx.spawn(async move |this, cx| {
-            let endpoint_id = p2p.endpoint_id(cx).await.context("iroh not initialized")?;
-
+            let endpoint_id = p2p.endpoint_id(cx);
             let addr = EndpointAddr {
                 id: endpoint_id,
                 addrs: Default::default(),

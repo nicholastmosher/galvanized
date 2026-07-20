@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use willow25::entry::{NamespaceId, SubspaceId};
 use zed::unstable::{
-    gpui::{AppContext, Entity},
+    gpui::{AppContext, Entity, WeakEntity},
     ui::{Context, SharedString},
 };
 
@@ -90,11 +90,22 @@ impl Profile {
 }
 
 pub trait ProfileHandle {
-    fn p2p<C: AppContext>(&self, cx: &mut C) -> Entity<P2p>;
+    type Result<T>;
+    fn p2p<C: AppContext>(&self, cx: &mut C) -> Self::Result<Entity<P2p>>;
 }
 
 impl ProfileHandle for Entity<Profile> {
-    fn p2p<C: AppContext>(&self, cx: &mut C) -> Entity<P2p> {
+    type Result<T> = T;
+
+    fn p2p<C: AppContext>(&self, cx: &mut C) -> Self::Result<Entity<P2p>> {
         cx.read_entity(self, |it, _cx| it.p2p())
+    }
+}
+
+impl ProfileHandle for WeakEntity<Profile> {
+    type Result<T> = anyhow::Result<T>;
+
+    fn p2p<C: AppContext>(&self, cx: &mut C) -> Self::Result<Entity<P2p>> {
+        self.read_with(cx, |it, _cx| it.p2p())
     }
 }

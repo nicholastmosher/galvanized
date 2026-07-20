@@ -11,6 +11,7 @@ bytes.workspace = true
 derive_more.workspace = true
 futures.workspace = true
 iroh.workspace = true
+plugin-galvanized.workspace = true
 plugin-p2p.workspace = true
 samod.workspace = true
 tokio-util.workspace = true

@@ -84,15 +84,12 @@ impl Protocols {
     }
 
     /// Inserts a protocol handler.
-    pub(crate) fn insert(&mut self, alpn: Vec<u8>, handler: Arc<dyn AnyDynProtocolHandler>) {
+    pub(crate) fn insert(&self, alpn: Vec<u8>, handler: Arc<dyn AnyDynProtocolHandler>) {
         self.index.insert(alpn, handler);
     }
 
     /// Removes a protocol handler by ALPN, returning the removed handler if one existed.
-    pub(crate) fn remove(
-        &mut self,
-        alpn: &[u8],
-    ) -> Option<(Vec<u8>, Arc<dyn AnyDynProtocolHandler>)> {
+    pub(crate) fn remove(&self, alpn: &[u8]) -> Option<(Vec<u8>, Arc<dyn AnyDynProtocolHandler>)> {
         self.index.remove(alpn)
     }
 

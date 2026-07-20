@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use anyhow::{Context as _, Result};
-use plugin_p2p::P2p;
 use plugin_vault::{VaultsExt as _, vault_db::VaultId};
 use tracing::info;
 use zed::unstable::{

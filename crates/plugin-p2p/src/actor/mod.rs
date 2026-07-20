@@ -10,13 +10,12 @@ use culpa::throws;
 use futures::{FutureExt, Stream, StreamExt as _};
 use futures_concurrency::stream::Merge;
 use iroh::{
-    Endpoint, EndpointId,
+    Endpoint,
     endpoint::{Incoming, presets::N0},
     protocol::{DynProtocolHandler, ProtocolHandler},
 };
 use tokio::{
     runtime::Handle,
-    sync::oneshot,
     task::{JoinError, JoinSet},
 };
 use tracing::{Instrument as _, error, field::Empty, info_span, trace, warn};
@@ -31,9 +30,13 @@ pub trait AnyDynProtocolHandler: Any + DynProtocolHandler {}
 impl<P: Any + DynProtocolHandler> AnyDynProtocolHandler for P {}
 
 /// External handle interface to the actor.
+///
+/// The Actor handle and ActorEngine share both the same endpoint and protocol map.
 #[derive(derive_more::Debug, Clone)]
 pub struct Actor {
-    tx: flume::Sender<ActorInput>,
+    endpoint: Endpoint,
+    protocols: Protocols,
+    _tx: flume::Sender<ActorInput>,
 }
 
 impl Actor {
@@ -47,6 +50,8 @@ impl Actor {
         let tokio_handle = Tokio::handle(cx);
         let (tx, rx) = flume::bounded(10);
         let future = {
+            let endpoint = endpoint.clone();
+            let protocols = protocols.clone();
             let tokio_handle = tokio_handle.clone();
             async move {
                 let engine =
@@ -58,61 +63,35 @@ impl Actor {
         tokio_handle.spawn(future);
 
         Self {
-            //
-            tx,
+            endpoint,
+            protocols,
+            _tx: tx,
         }
     }
 
-    pub async fn register_protocol<P: ProtocolHandler>(
+    pub fn register_protocol<P: ProtocolHandler>(&self, alpn: Vec<u8>, handler: impl Into<Arc<P>>) {
+        self.protocols.insert(alpn, handler.into());
+    }
+
+    pub fn unregister_protocol(
         &self,
-        alpn: Vec<u8>,
-        handler: impl Into<Arc<P>>,
-    ) -> Result<()> {
-        let handler = handler.into();
-        self.tx
-            .send_async(ActorInput::RegisterProtocol { alpn, handler })
-            .await?;
-        Ok(())
+        alpn: &[u8],
+    ) -> Option<(Vec<u8>, Arc<dyn AnyDynProtocolHandler>)> {
+        self.protocols.remove(alpn)
     }
 
-    pub async fn unregister_protocol(&self, alpn: Vec<u8>) -> Result<()> {
-        self.tx
-            .send_async(ActorInput::UnregisterProtocol { alpn })
-            .await?;
-        Ok(())
-    }
-
-    pub async fn protocol<P: Any + ProtocolHandler>(&self, alpn: Vec<u8>) -> Option<Arc<P>> {
-        let (client_tx, rx) = oneshot::channel();
-        self.tx
-            .send_async(ActorInput::GetProtocol { alpn, client_tx })
-            .await
-            .expect("channel error while requesting protocol");
-        let protocol = rx
-            .await
-            .expect("channel error while fetching protocol object");
-
+    pub fn protocol<P: Any + ProtocolHandler>(&self, alpn: &[u8]) -> Option<Arc<P>> {
+        let protocol = self.protocols.get(alpn);
         let protocol = protocol.and_then(|it| Arc::downcast::<P>(it).ok());
         protocol
     }
 
-    pub async fn endpoint_id(&self) -> Option<iroh::EndpointId> {
-        let (tx, rx) = oneshot::channel();
-        self.tx
-            .send_async(ActorInput::RequestEndpointId { tx })
-            .await
-            .expect("channel error while requesting endpoint id");
-        let endpoint_id = rx.await.expect("channel error while receiving endpoint id");
-        Some(endpoint_id)
+    pub fn endpoint_id(&self) -> iroh::EndpointId {
+        self.endpoint.id()
     }
 
-    pub async fn endpoint(&self) -> Endpoint {
-        let (tx, rx) = oneshot::channel();
-        self.tx
-            .send_async(ActorInput::RequestEndpoint { tx })
-            .await
-            .expect("channel error while requesting endpoint");
-        rx.await.expect("channel error while receiving endpoint")
+    pub fn endpoint(&self) -> Endpoint {
+        self.endpoint.clone()
     }
 }
 
@@ -127,28 +106,7 @@ pub struct ActorEngine {
 }
 
 /// Input messages that the actor engine can receive and process
-pub enum ActorInput {
-    /// Register a new protocol handler for the given ALPN.
-    RegisterProtocol {
-        alpn: Vec<u8>,
-        handler: Arc<dyn AnyDynProtocolHandler>,
-    },
-
-    /// Unregister the protocol handler for the given ALPN.
-    UnregisterProtocol { alpn: Vec<u8> },
-
-    /// Get the protocol handler for the given ALPN.
-    GetProtocol {
-        alpn: Vec<u8>,
-        client_tx: oneshot::Sender<Option<Arc<dyn AnyDynProtocolHandler>>>,
-    },
-
-    /// Request the endpoint ID of the actor.
-    RequestEndpointId { tx: oneshot::Sender<EndpointId> },
-
-    /// Request a clone of the actor's Iroh Endpoint.
-    RequestEndpoint { tx: oneshot::Sender<Endpoint> },
-}
+pub enum ActorInput {}
 
 impl ActorEngine {
     /// Construct a new `ActorEngine`, initializing a new `Endpoint`.
@@ -248,6 +206,7 @@ impl ActorEngine {
                 Some(endpoint_incoming) = self.endpoint.accept() => {
                     self.handle_accept_incoming(endpoint_incoming);
                 },
+                // Currently redundant, this is where any control-event handling would go
                 Some(input_event) = input.next() => {
                     if let ControlFlow::Break(()) = self.try_handle_event(input_event).await? {
                         break;
@@ -320,51 +279,15 @@ impl ActorEngine {
     /// - When making quick, direct edits to the actor state, do it here
     /// - When initiating a long-running task, spawn it here and hold any
     ///   necessary handles or channels to communicate with the task.
+    // NOTE: This was previously used for registering/unregistering protocols.
+    // Now we share the Protocols map between the actor
     #[throws]
     async fn try_handle_event(&mut self, event: ActorInput) -> ControlFlow<()> {
         match event {
-            ActorInput::RegisterProtocol { alpn, handler } => {
-                self.handle_install_protocol(alpn, handler);
-            }
-            ActorInput::UnregisterProtocol { alpn } => {
-                self.handle_uninstall_protocol(&alpn);
-            }
-            ActorInput::GetProtocol { alpn, client_tx } => {
-                let protocol = self.handle_get_protocol(&alpn);
-                client_tx
-                    .send(protocol)
-                    .expect("channel error while sending get protocol response");
-            }
-            ActorInput::RequestEndpointId { tx } => {
-                let endpoint_id = self.endpoint.id();
-                tx.send(endpoint_id)
-                    .expect("channel error sending endpoint id response");
-            }
-            ActorInput::RequestEndpoint { tx } => {
-                tx.send(self.endpoint.clone())
-                    .expect("channel error sending endpoint response");
-            }
+            //
         }
 
-        ControlFlow::Continue(())
-    }
-
-    /// Installs a new protocol handler for accepting inbound connections with the given ALPN.
-    fn handle_install_protocol(&mut self, alpn: Vec<u8>, handler: Arc<dyn AnyDynProtocolHandler>) {
-        self.protocols.insert(alpn, handler);
-    }
-
-    /// Uninstalls the protocol handler for the given ALPN.
-    fn handle_uninstall_protocol(
-        &mut self,
-        alpn: &[u8],
-    ) -> Option<(Vec<u8>, Arc<dyn AnyDynProtocolHandler>)> {
-        self.protocols.remove(alpn)
-    }
-
-    /// Returns the protocol handler for the given ALPN, if one is registered.
-    fn handle_get_protocol(&mut self, alpn: &[u8]) -> Option<Arc<dyn AnyDynProtocolHandler>> {
-        self.protocols.get(alpn)
+        // ControlFlow::Continue(())
     }
 }
 

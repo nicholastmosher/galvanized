@@ -14709,6 +14709,7 @@ dependencies = [
  "derive_more",
  "futures",
  "iroh",
+ "plugin-galvanized",
  "plugin-p2p",
  "samod",
  "tokio-util",

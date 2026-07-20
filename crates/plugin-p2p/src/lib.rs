@@ -4,14 +4,14 @@ use std::{
 };
 
 use anyhow::Result;
-use iroh::{Endpoint, protocol::ProtocolHandler};
+use iroh::{Endpoint, EndpointId, protocol::ProtocolHandler};
 use tracing::info;
 use zed::unstable::{
-    gpui::{AppContext, Entity, Task, WeakEntity},
+    gpui::{AppContext, Entity, WeakEntity},
     ui::{App, Context},
 };
 
-use crate::actor::{Actor, protocol::Protocols};
+use crate::actor::{Actor, AnyDynProtocolHandler, protocol::Protocols};
 
 pub mod actor;
 pub mod codec;
@@ -29,14 +29,6 @@ pub fn init(_cx: &mut App) {
 pub struct P2p {
     /// The handle to the actor that manages the p2p connection.
     actor: Actor,
-
-    /// The Iroh Endpoint for this p2p instance.
-    endpoint: Endpoint,
-
-    /// An object shared with the actor that holds the installed protocol handlers.
-    ///
-    /// This allows us to call, without async, to access the API object of any given protocol.
-    protocols: Protocols,
 }
 
 impl P2p {
@@ -44,62 +36,39 @@ impl P2p {
     pub fn new(endpoint: Endpoint, cx: &mut App) -> Self {
         let shutdown = async_shutdown::ShutdownManager::new();
         let protocols = Protocols::default();
-        let actor = Actor::spawn(shutdown, endpoint.clone(), protocols.clone(), cx);
-        Self::from_parts(actor, endpoint, protocols)
+        let actor = Actor::spawn(shutdown, endpoint, protocols, cx);
+        Self::from_actor(actor)
     }
 
     /// Creates a new `P2p` instance from an existing actor, with an empty protocol stack.
-    pub fn from_parts(actor: Actor, endpoint: Endpoint, protocols: Protocols) -> Self {
-        Self {
-            actor,
-            endpoint,
-            protocols,
-        }
+    pub fn from_actor(actor: Actor) -> Self {
+        Self { actor }
     }
 
     /// Returns the endpoint id of this `P2p` instance.
-    pub fn endpoint_id(&self, cx: &mut Context<Self>) -> Task<Option<iroh::EndpointId>> {
-        let actor = self.actor.clone();
-        let task = cx.spawn(async move |_this, _cx| actor.endpoint_id().await);
-        task
+    pub fn endpoint_id(&self, _cx: &mut Context<Self>) -> EndpointId {
+        self.actor.endpoint_id()
     }
 
     /// Returns the endpoint of this `P2p` instance.
     pub fn endpoint(&self) -> Endpoint {
-        self.endpoint.clone()
+        self.actor.endpoint()
     }
 
     /// Registers a protocol handler for the given ALPN protocol.
     ///
     /// There may only be one protocol handler registered for each ALPN.
-    pub fn register_protocol<P: Any + ProtocolHandler>(
-        &mut self,
-        alpn: Vec<u8>,
-        handler: P,
-        cx: &mut Context<Self>,
-    ) {
-        let handler = Arc::new(handler);
-        self.protocols.insert(alpn.clone(), handler.clone());
-        info!(?alpn, type=type_name::<P>(), "Inserted protocol handler");
-
-        let actor = self.actor.clone();
-        cx.spawn(async move |_this, _cx| {
-            actor.register_protocol::<P>(alpn, handler).await?;
-            anyhow::Ok(())
-        })
-        .detach_and_log_err(cx);
+    pub fn register_protocol<P: Any + ProtocolHandler>(&mut self, alpn: Vec<u8>, handler: P) {
+        self.actor.register_protocol(alpn.clone(), handler);
+        info!(?alpn, type=type_name::<P>(), "Registered protocol handler");
     }
 
     /// Removes the protocol handler for the given ALPN protocol.
-    pub fn unregister_protocol(&mut self, alpn: Vec<u8>, cx: &mut Context<Self>) {
-        self.protocols.remove(&alpn);
-
-        let actor = self.actor.clone();
-        cx.spawn(async move |_this, _cx| {
-            actor.unregister_protocol(alpn).await?;
-            anyhow::Ok(())
-        })
-        .detach_and_log_err(cx);
+    pub fn unregister_protocol(
+        &mut self,
+        alpn: &[u8],
+    ) -> Option<(Vec<u8>, Arc<dyn AnyDynProtocolHandler>)> {
+        self.actor.unregister_protocol(alpn)
     }
 
     /// Returns the protocol handler for the given ALPN protocol, if one is registered.
@@ -108,8 +77,17 @@ impl P2p {
         alpn: Vec<u8>,
         _cx: &mut Context<Self>,
     ) -> Option<Arc<P>> {
-        let protocol = self.protocols.get(&alpn);
+        let protocol = self.actor.protocol::<P>(&alpn);
+        info!(
+            protocol = ?protocol,
+            "Found protocol for ALPN: {}",
+            String::from_utf8_lossy(&alpn)
+        );
         let protocol = protocol.and_then(|it| Arc::downcast::<P>(it).ok());
+        info!(
+            "Successfully downcasted protocol for ALPN: {}",
+            String::from_utf8_lossy(&alpn)
+        );
         protocol
     }
 }
@@ -120,15 +98,16 @@ pub trait P2pHandle {
     where
         P: KeyedProtocolHandler,
         C: AppContext;
-    fn unregister_protocol<C: AppContext>(&self, alpn: Vec<u8>, cx: &mut C) -> Self::Result<()>;
+    fn unregister_protocol<C: AppContext>(
+        &self,
+        alpn: &[u8],
+        cx: &mut C,
+    ) -> Self::Result<Option<(Vec<u8>, Arc<dyn AnyDynProtocolHandler>)>>;
     fn protocol<P: Any + KeyedProtocolHandler, C: AppContext>(
         &self,
         cx: &mut C,
     ) -> Self::Result<Option<Arc<P>>>;
-    fn endpoint_id<C: AppContext>(
-        &self,
-        cx: &mut C,
-    ) -> Self::Result<Task<Option<iroh::EndpointId>>>;
+    fn endpoint_id<C: AppContext>(&self, cx: &mut C) -> Self::Result<EndpointId>;
     fn endpoint<C: AppContext>(&self, cx: &mut C) -> Self::Result<Endpoint>;
 }
 
@@ -144,15 +123,17 @@ impl P2pHandle for Entity<P2p> {
         P: KeyedProtocolHandler,
         C: AppContext,
     {
-        cx.update_entity(self, |this, cx| {
-            this.register_protocol(P::ALPN.to_vec(), handler, cx);
+        cx.update_entity(self, |p2p, _cx| {
+            p2p.register_protocol(P::ALPN.to_vec(), handler);
         });
     }
 
-    fn unregister_protocol<C: AppContext>(&self, alpn: Vec<u8>, cx: &mut C) -> Self::Result<()> {
-        cx.update_entity(self, |this, cx| {
-            this.unregister_protocol(alpn, cx);
-        });
+    fn unregister_protocol<C: AppContext>(
+        &self,
+        alpn: &[u8],
+        cx: &mut C,
+    ) -> Self::Result<Option<(Vec<u8>, Arc<dyn AnyDynProtocolHandler>)>> {
+        cx.update_entity(self, |p2p, _cx| p2p.unregister_protocol(alpn))
     }
 
     fn protocol<P: Any + KeyedProtocolHandler, C: AppContext>(
@@ -162,10 +143,7 @@ impl P2pHandle for Entity<P2p> {
         cx.update_entity(self, |this, cx| this.protocol::<P>(P::ALPN.to_vec(), cx))
     }
 
-    fn endpoint_id<C: AppContext>(
-        &self,
-        cx: &mut C,
-    ) -> Self::Result<Task<Option<iroh::EndpointId>>> {
+    fn endpoint_id<C: AppContext>(&self, cx: &mut C) -> Self::Result<EndpointId> {
         cx.update_entity(self, |this, cx| this.endpoint_id(cx))
     }
 
@@ -182,13 +160,17 @@ impl P2pHandle for WeakEntity<P2p> {
         P: KeyedProtocolHandler,
         C: AppContext,
     {
-        self.update(cx, |it, cx| {
-            it.register_protocol(P::ALPN.to_vec(), handler, cx)
+        self.update(cx, |p2p, _cx| {
+            p2p.register_protocol(P::ALPN.to_vec(), handler)
         })
     }
 
-    fn unregister_protocol<C: AppContext>(&self, alpn: Vec<u8>, cx: &mut C) -> Self::Result<()> {
-        self.update(cx, |it, cx| it.unregister_protocol(alpn, cx))
+    fn unregister_protocol<C: AppContext>(
+        &self,
+        alpn: &[u8],
+        cx: &mut C,
+    ) -> Self::Result<Option<(Vec<u8>, Arc<dyn AnyDynProtocolHandler>)>> {
+        self.update(cx, |p2p, _cx| p2p.unregister_protocol(alpn))
     }
 
     fn protocol<P: Any + KeyedProtocolHandler, C: AppContext>(
@@ -198,10 +180,7 @@ impl P2pHandle for WeakEntity<P2p> {
         self.update(cx, |it, cx| it.protocol::<P>(P::ALPN.to_vec(), cx))
     }
 
-    fn endpoint_id<C: AppContext>(
-        &self,
-        cx: &mut C,
-    ) -> Self::Result<Task<Option<iroh::EndpointId>>> {
+    fn endpoint_id<C: AppContext>(&self, cx: &mut C) -> Self::Result<EndpointId> {
         self.update(cx, |it, cx| it.endpoint_id(cx))
     }
 
