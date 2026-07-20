@@ -18,7 +18,7 @@ use tokio::{
     runtime::Handle,
     task::{JoinError, JoinSet},
 };
-use tracing::{Instrument as _, error, field::Empty, info_span, trace, warn};
+use tracing::{Instrument as _, error, field::Empty, info, info_span, trace, warn};
 use zed::unstable::{gpui_tokio::Tokio, ui::App, util::ResultExt};
 
 use protocol::Protocols;
@@ -71,13 +71,26 @@ impl Actor {
 
     pub fn register_protocol<P: ProtocolHandler>(&self, alpn: Vec<u8>, handler: impl Into<Arc<P>>) {
         self.protocols.insert(alpn, handler.into());
+        self.sync_alpns();
     }
 
     pub fn unregister_protocol(
         &self,
         alpn: &[u8],
     ) -> Option<(Vec<u8>, Arc<dyn AnyDynProtocolHandler>)> {
-        self.protocols.remove(alpn)
+        let result = self.protocols.remove(alpn);
+        self.sync_alpns();
+        result
+    }
+
+    /// Synchronize the endpoint's ALPN list with the registered protocols.
+    ///
+    /// iroh's [`Endpoint`] maintains its own list of accepted ALPNs for QUIC handshake
+    /// negotiation. When protocols are registered or unregistered dynamically, we must
+    /// update the endpoint so it accepts incoming connections for the correct ALPNs.
+    fn sync_alpns(&self) {
+        let alpns: Vec<Vec<u8>> = self.protocols.alpns().collect();
+        self.endpoint.set_alpns(alpns);
     }
 
     pub fn protocol<P: Any + ProtocolHandler>(&self, alpn: &[u8]) -> Option<Arc<P>> {
@@ -306,8 +319,19 @@ async fn handle_connection(incoming: Incoming, protocols: Protocols) {
             return;
         }
     };
-    tracing::Span::current().record("alpn", String::from_utf8_lossy(&alpn).to_string());
+    let incoming_alpn = String::from_utf8_lossy(&alpn).to_string();
+    tracing::Span::current().record("alpn", incoming_alpn.clone());
 
+    {
+        let registered_alpns = protocols
+            .alpns()
+            .map(|it| String::from_utf8_lossy(&it).to_string())
+            .collect::<Vec<_>>();
+        info!(
+            ?registered_alpns,
+            incoming_alpn, "Handling incoming connection"
+        );
+    }
     let Some(handler) = protocols.get(&alpn).clone() else {
         warn!("Ignoring connection: unsupported ALPN protocol");
         return;
