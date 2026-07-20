@@ -25,6 +25,7 @@ use iroh::{
     endpoint::{Connection, SendStream},
     protocol::{AcceptError, ProtocolHandler},
 };
+use iroh_ping::Ping;
 use plugin_automerge::{Automergable, protocol::AutomergeProtocol};
 use plugin_p2p::KeyedProtocolHandler;
 use plugin_willow::willow_serde::SubspaceIdSerde;
@@ -40,7 +41,12 @@ use tokio_util::{
 use tracing::info;
 use ufotofu::{IntoConsumer as _, IntoProducer as _, codec::Decodable as _};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
-use zed::unstable::{db::smol::stream::StreamExt, ui::SharedString, util::ResultExt as _};
+use zed::unstable::{
+    db::smol::stream::StreamExt,
+    gpui::{AppContext, Entity},
+    ui::SharedString,
+    util::ResultExt as _,
+};
 
 use crate::{ContactName, ContactTicket};
 
@@ -65,18 +71,21 @@ pub struct ContactsProtocolState {
     /// The Automerge protocol instance for this contacts protocol.
     automerge: AutomergeProtocol,
 
+    /// The state of the connection to each contact's peer.
+    contact_peer_state: Arc<DashMap<SubspaceId, ContactPeer>>,
+
     /// The Iroh Endpoint used for this protocol.
     endpoint: Endpoint,
+
+    /// The display name of the local profile, used when creating new contact docs.
+    local_display_name: SharedString,
 
     /// Profile key for the local profile.
     #[debug("ProfileKey")]
     local_profile_key: SubspaceSecret,
 
-    /// The display name of the local profile, used when creating new contact docs.
-    local_display_name: SharedString,
-
-    /// The state of the connection to each contact's peer.
-    contact_peer_state: Arc<DashMap<SubspaceId, ContactPeer>>,
+    /// The ping protocol object, used to check latency
+    ping: Ping,
 }
 
 /// A shared object containing the p2p connection state for one contact.
@@ -116,6 +125,11 @@ pub struct ContactPeerState {
 
     /// The Profile ID and display name of the remote contact.
     name: ContactName,
+
+    /// Iroh protocol pinging with the remote Contact.
+    ///
+    /// Used to measure the latency of connection between two Contacts/Peers.
+    ping: Ping,
 }
 
 impl ContactPeer {
@@ -126,6 +140,7 @@ impl ContactPeer {
         control_stream_send: SendStream,
         name: ContactName,
         automerge: AutomergeProtocol,
+        ping: Ping,
         initial_data: ContactData,
     ) -> Result<Self> {
         let Some(repo) = automerge.repo() else {
@@ -143,7 +158,20 @@ impl ContactPeer {
             anyhow::Ok(())
         })?;
 
-        Self::with_doc_handle(connection, control_stream_send, name, automerge, doc_handle).await
+        Self::with_doc_handle(
+            connection,
+            control_stream_send,
+            name,
+            automerge,
+            ping,
+            doc_handle,
+        )
+        .await
+    }
+
+    pub async fn is_connected(&self) -> bool {
+        //
+        todo!()
     }
 
     /// Create a new `ContactPeer` with an existing Automerge document handle.
@@ -152,6 +180,7 @@ impl ContactPeer {
         control_stream_send: SendStream,
         name: ContactName,
         automerge: AutomergeProtocol,
+        ping: Ping,
         doc_handle: DocHandle,
     ) -> Result<Self> {
         Ok(Self {
@@ -159,8 +188,9 @@ impl ContactPeer {
                 automerge,
                 connection,
                 control_stream_send,
-                name,
                 doc_handle,
+                name,
+                ping,
             }),
         })
     }
@@ -199,15 +229,17 @@ impl ContactsProtocol {
     pub fn new(
         endpoint: Endpoint,
         automerge: AutomergeProtocol,
+        ping: Ping,
         local_key: SubspaceSecret,
         local_display_name: SharedString,
     ) -> Self {
         let inner = Arc::new(ContactsProtocolState {
             automerge,
-            endpoint,
-            local_profile_key: local_key,
-            local_display_name,
             contact_peer_state: Default::default(),
+            endpoint,
+            local_display_name,
+            local_profile_key: local_key,
+            ping,
         });
 
         Self { inner }
@@ -224,6 +256,7 @@ impl ProtocolHandler for ContactsProtocol {
         connection: Connection,
     ) -> impl Future<Output = Result<(), AcceptError>> + Send {
         let automerge = self.automerge.clone();
+        let ping = self.ping.clone();
         let local_display_name = self.inner.local_display_name.clone();
         let local_profile_key = self.inner.local_profile_key.clone();
         let contact_peer_state = self.inner.contact_peer_state.clone();
@@ -335,6 +368,7 @@ impl ProtocolHandler for ContactsProtocol {
                             control_stream_send,
                             name,
                             automerge,
+                            ping,
                             remote_doc_handle,
                         )
                         .await?;
@@ -353,6 +387,30 @@ impl ProtocolHandler for ContactsProtocol {
 
             self.run_loop(&mut stream).await;
             Ok(())
+        }
+    }
+}
+
+pub trait ContactsProtocolHandle {
+    type Result<T>;
+    fn connect<C: AppContext>(
+        &self,
+        ticket: &ContactTicket,
+        cx: &mut C,
+    ) -> impl Future<Output = Self::Result<ContactPeer>>;
+}
+
+impl ContactsProtocolHandle for Entity<ContactsProtocol> {
+    type Result<T> = anyhow::Result<T>;
+    fn connect<C: AppContext>(
+        &self,
+        ticket: &ContactTicket,
+        cx: &mut C,
+    ) -> impl Future<Output = Self::Result<ContactPeer>> {
+        let protocol = cx.read_entity(self, |it, _cx| it.clone());
+        async move {
+            let peer = protocol.connect(ticket).await?;
+            anyhow::Ok(peer)
         }
     }
 }
@@ -389,6 +447,7 @@ impl ContactsProtocol {
         // Create a doc with the local profile's display name, before sending the handshake
         // so we can include the doc_id in the EstablishControlStream message.
         let automerge = self.automerge.clone();
+        let ping = self.ping.clone();
         let Some(repo) = automerge.repo() else {
             bail!("Automerge protocol repo not initialized");
         };
@@ -436,6 +495,7 @@ impl ContactsProtocol {
             control_stream_send,
             name,
             automerge,
+            ping,
             doc_handle,
         )
         .await?;
@@ -455,9 +515,7 @@ impl ContactsProtocol {
     }
 
     async fn run_loop(&self, stream: &mut (impl Unpin + Stream<Item = FrameItem>)) {
-        loop {
-            self.try_run_loop(stream).await.log_err();
-        }
+        self.try_run_loop(stream).await.log_err();
     }
 
     async fn try_run_loop(

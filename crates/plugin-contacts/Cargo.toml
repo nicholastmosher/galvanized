@@ -15,6 +15,7 @@ futures.workspace = true
 futures-concurrency.workspace = true
 hex.workspace = true
 iroh.workspace = true
+iroh-ping.workspace = true
 plot_icon.workspace = true
 plugin-automerge.workspace = true
 plugin-galvanized.workspace = true

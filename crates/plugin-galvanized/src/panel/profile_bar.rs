@@ -17,10 +17,10 @@ use crate::{
 impl GalvanizedPanel {
     pub fn render_profile_bar(
         &mut self,
-        user: Entity<Vault>,
+        vault: Entity<Vault>,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let active_profile = user.read(cx).active_profile();
+        let active_profile = vault.read(cx).active_profile();
 
         h_flex()
             .id("profile-bar")
@@ -36,7 +36,7 @@ impl GalvanizedPanel {
             })
             .when_some(active_profile, |el, profile| {
                 //
-                el.child(render_profile_popover_bar(user, profile, cx))
+                el.child(render_profile_popover_bar(vault, profile, cx))
             })
     }
 }
@@ -65,7 +65,7 @@ fn render_empty_profile_bar<T: 'static>(cx: &mut Context<T>) -> impl IntoElement
 
 /// Element for bar when there's an active profile, including popup menu
 fn render_profile_popover_bar(
-    user: Entity<Vault>,
+    vault: Entity<Vault>,
     profile: Entity<Profile>,
     cx: &mut Context<GalvanizedPanel>,
 ) -> impl IntoElement {
@@ -75,30 +75,41 @@ fn render_profile_popover_bar(
         .anchor(Corner::BottomLeft)
         .attach(Corner::TopLeft)
         .offset(point(px(0.), px(-4.)))
-        .trigger(ProfileNugget::new("profile-nugget", profile))
+        .trigger(ProfileNugget::new("profile-nugget", profile.clone()))
         .menu({
             move |window, cx| {
                 let panel = panel.clone();
-                let user = user.clone();
-                let profiles = user.read(cx).profiles();
+                let vault = vault.clone();
+                let profiles = vault.read(cx).profiles();
                 Some(ContextMenu::build(window, cx, move |menu, _window, _cx| {
                     let mut menu = menu.header("Profiles");
-                    for profile in profiles {
+                    for saved_profile in profiles {
                         menu = menu.custom_entry(
                             {
-                                let profile = profile.clone();
+                                let saved_profile = saved_profile.clone();
                                 move |_window, cx| {
                                     //
                                     div()
                                         //
                                         .p_2()
-                                        .child(profile.read(cx).name())
+                                        .child(saved_profile.read(cx).name())
                                         .into_any_element()
                                 }
                             },
-                            move |_window, cx| {
-                                //
-                                info!(name = &**profile.read(cx).name(), "Clicked profile");
+                            {
+                                let clicked_profile = saved_profile.clone();
+                                let vault = vault.clone();
+                                move |_window, cx| {
+                                    //
+                                    info!(
+                                        name = &**clicked_profile.read(cx).name(),
+                                        "Clicked profile"
+                                    );
+                                    vault.update(cx, |vault, cx| {
+                                        //
+                                        vault.set_active_profile(clicked_profile.clone(), cx);
+                                    });
+                                }
                             },
                         );
                     }

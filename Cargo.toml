@@ -33,6 +33,7 @@ futures-concurrency = "7.7.1"
 hex = "0.4.3"
 image = "0.24.9"
 iroh = { git = "https://github.com/nicholastmosher/iroh", branch = "galvanized" }
+iroh-ping = "1.0.0"
 # iroh-blobs = "0.98.0"
 # iroh-docs = "0.96.0"
 # iroh-gossip = "0.96.0"

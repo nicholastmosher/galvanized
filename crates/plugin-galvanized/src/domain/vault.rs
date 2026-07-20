@@ -315,6 +315,17 @@ impl Vault {
         self.unlocked_active_profile.clone()
     }
 
+    // TODO capabilities
+    pub fn set_active_profile(&mut self, profile: Entity<Profile>, cx: &mut Context<Self>) {
+        self.unlocked_active_profile = Some(profile);
+        cx.notify();
+    }
+
+    pub fn clear_active_profile(&mut self, cx: &mut Context<Self>) {
+        self.unlocked_active_profile = None;
+        cx.notify();
+    }
+
     pub fn profiles(&self) -> Vec<Entity<Profile>> {
         self.unlocked_profiles.values().cloned().collect()
     }

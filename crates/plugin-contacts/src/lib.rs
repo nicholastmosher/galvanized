@@ -4,6 +4,7 @@ use anyhow::{Context as _, Result, anyhow, bail};
 use futures::stream::StreamExt as _;
 use hex::ToHex;
 use iroh::{EndpointAddr, EndpointId};
+use iroh_ping::Ping;
 use plugin_automerge::protocol::AutomergeProtocol;
 use plugin_galvanized::{
     Galvanized,
@@ -81,9 +82,11 @@ pub fn init(cx: &mut App) {
         // AutomergeProtocol is already a shared object with Arc-like semantics
         // So here we escape the Arc by cloning the object so we can use it directly, without Arc
         let automerge = AutomergeProtocol::clone(&*automerge);
+        let ping = Ping::new();
         let protocol = ContactsProtocol::new(
             endpoint,
             automerge,
+            ping,
             local_key.clone(),
             local_display_name.clone(),
         );
