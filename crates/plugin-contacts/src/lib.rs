@@ -1,3 +1,27 @@
+//! The Contacts app maintains a list of remote Profiles
+//! and shares public identity information with them.
+//!
+//! # In this crate
+//!
+//! - We have [`Contacts`], an Entity that implements [`AppBehavior`]
+//!   to integrate with Galvanized.
+//!
+//! - We have [`Contact`] which is an Entity representing one remote [`Profile`],
+//!   i.e. a profile controlled by a remote peer.
+//!
+//!   - [`Contact`] is the UI / domain object for rendering any contents of
+//!     the given contact. It contains both a data object for persistence and
+//!     a copy of this contact's [`ContactPeer`] object, representing a live
+//!     connection to the given contact, if one exists.
+//!
+//! - We have [`ContactsProtocol`], which impls Iroh's [`ProtocolHandler`]
+//!   to define inbound connection behavior and also provides client APIs
+//!   to define outbound behavior.
+//!
+//! - We have [`ContactPeer`], which represents and manages a live connection
+//!   with a given remote [`Contact`]. If the ContactPeer exists, it means we
+//!   have a live Iroh Connection to the remote contact.
+
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result, anyhow, bail};
@@ -5,7 +29,7 @@ use futures::stream::StreamExt as _;
 use hex::ToHex;
 use iroh::{EndpointAddr, EndpointId};
 use iroh_ping::Ping;
-use plugin_automerge::protocol::AutomergeProtocol;
+use plugin_automerge::{Automergable as _, protocol::AutomergeProtocol};
 use plugin_galvanized::{
     Galvanized,
     app_behavior::AppBehavior,

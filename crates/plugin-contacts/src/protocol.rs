@@ -14,7 +14,7 @@
 
 use std::{io::ErrorKind, ops::Deref, sync::Arc};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Result, anyhow, bail};
 use automerge::Automerge;
 use autosurgeon::{Hydrate, Reconcile};
 use chrono::{DateTime, TimeDelta, Utc};
@@ -29,7 +29,7 @@ use iroh_ping::Ping;
 use plugin_automerge::{Automergable, protocol::AutomergeProtocol};
 use plugin_p2p::KeyedProtocolHandler;
 use plugin_willow::willow_serde::SubspaceIdSerde;
-use samod::{DocHandle, DocumentId, PeerId};
+use samod::DocHandle;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use signature::SignerMut as _;
@@ -72,7 +72,7 @@ pub struct ContactsProtocolState {
     automerge: AutomergeProtocol,
 
     /// The state of the connection to each contact's peer.
-    contact_peer_state: Arc<DashMap<SubspaceId, ContactPeer>>,
+    contact_peers: Arc<DashMap<SubspaceId, ContactPeer>>,
 
     /// The Iroh Endpoint used for this protocol.
     endpoint: Endpoint,
@@ -83,6 +83,10 @@ pub struct ContactsProtocolState {
     /// Profile key for the local profile.
     #[debug("ProfileKey")]
     local_profile_key: SubspaceSecret,
+
+    /// Pending ContactPeers have received a `RequestConnectContact` but have not
+    /// been approved by the user.
+    pending_contact_peers: Arc<DashMap<SubspaceId, ContactPeer>>,
 
     /// The ping protocol object, used to check latency
     ping: Ping,
@@ -111,25 +115,17 @@ pub struct ContactData {
 
 #[derive(Debug)]
 pub struct ContactPeerState {
-    /// The Automerge protocol instance for this contact peer.
-    automerge: AutomergeProtocol,
-
     /// The Iroh Connection established with the remote peer.
     connection: Connection,
 
     /// The send half of the control stream for this contact connection.
     control_stream_send: SendStream,
 
-    /// The handle to this peer's own contact identity document, if we have it.
+    /// The handle to this peer's own contact identity document.
     doc_handle: DocHandle,
 
     /// The Profile ID and display name of the remote contact.
     name: ContactName,
-
-    /// Iroh protocol pinging with the remote Contact.
-    ///
-    /// Used to measure the latency of connection between two Contacts/Peers.
-    ping: Ping,
 }
 
 impl ContactPeer {
@@ -139,60 +135,36 @@ impl ContactPeer {
         connection: Connection,
         control_stream_send: SendStream,
         name: ContactName,
-        automerge: AutomergeProtocol,
-        ping: Ping,
-        initial_data: ContactData,
+        protocol: ContactsProtocol,
     ) -> Result<Self> {
-        let Some(repo) = automerge.repo() else {
-            bail!("Automerge protocol repo not initialized");
+        let Some(repo) = protocol.automerge.repo() else {
+            bail!("Automerge repo not initialized")
         };
-
         let doc = Automerge::new();
         let doc_handle = repo.create(doc).await?;
 
-        // Write the initial profile data into the document
-        doc_handle.with_document(|am| {
-            let mut tx = am.transaction();
-            autosurgeon::reconcile(&mut tx, &initial_data)?;
-            let (_change_hash, _patch_log) = tx.commit();
-            anyhow::Ok(())
-        })?;
-
-        Self::with_doc_handle(
+        Ok(Self::with_doc_handle(
             connection,
             control_stream_send,
             name,
-            automerge,
-            ping,
             doc_handle,
-        )
-        .await
-    }
-
-    pub async fn is_connected(&self) -> bool {
-        //
-        todo!()
+        ))
     }
 
     /// Create a new `ContactPeer` with an existing Automerge document handle.
-    pub async fn with_doc_handle(
+    pub fn with_doc_handle(
         connection: Connection,
         control_stream_send: SendStream,
         name: ContactName,
-        automerge: AutomergeProtocol,
-        ping: Ping,
         doc_handle: DocHandle,
-    ) -> Result<Self> {
-        Ok(Self {
-            state: Arc::new(ContactPeerState {
-                automerge,
-                connection,
-                control_stream_send,
-                doc_handle,
-                name,
-                ping,
-            }),
-        })
+    ) -> Self {
+        let state = Arc::new(ContactPeerState {
+            connection,
+            control_stream_send,
+            doc_handle,
+            name,
+        });
+        Self { state }
     }
 
     /// Read the display name from the automerge document.
@@ -213,16 +185,6 @@ impl ContactPeer {
     pub fn profile_id(&self) -> &SubspaceId {
         &self.state.name.profile_id
     }
-
-    /// Get the automerge doc handle for this contact peer.
-    pub fn doc_handle(&self) -> DocHandle {
-        self.state.doc_handle.clone()
-    }
-
-    /// Get the automerge protocol instance.
-    pub fn automerge(&self) -> &AutomergeProtocol {
-        &self.state.automerge
-    }
 }
 
 impl ContactsProtocol {
@@ -235,10 +197,11 @@ impl ContactsProtocol {
     ) -> Self {
         let inner = Arc::new(ContactsProtocolState {
             automerge,
-            contact_peer_state: Default::default(),
+            contact_peers: Default::default(),
             endpoint,
             local_display_name,
             local_profile_key: local_key,
+            pending_contact_peers: Default::default(),
             ping,
         });
 
@@ -255,137 +218,45 @@ impl ProtocolHandler for ContactsProtocol {
         &self,
         connection: Connection,
     ) -> impl Future<Output = Result<(), AcceptError>> + Send {
-        let automerge = self.automerge.clone();
-        let ping = self.ping.clone();
-        let local_display_name = self.inner.local_display_name.clone();
-        let local_profile_key = self.inner.local_profile_key.clone();
-        let contact_peer_state = self.inner.contact_peer_state.clone();
         async move {
             // NOTE: Requires dialer to send a message on open_bi stream to pass this await
             info!("Contacts ProtocolHandler waiting for handshake");
-            let (mut control_stream_send, mut recv_control_stream) = connection.accept_bi().await?;
+            let (control_stream_send, mut recv_control_stream) = connection.accept_bi().await?;
             info!("Contacts ProtocolHandler handshake received");
-
-            let remote_endpoint_id = connection.remote_id();
-            let remote_addr = iroh::EndpointAddr::from(remote_endpoint_id);
 
             let mut control_stream =
                 Framed::new(&mut recv_control_stream, LengthDelimitedCodec::new());
 
             // Handle initial message to establish contact state
-            let mut stream = (async move || {
+            let mut control_stream = (async move || {
                 let Some(frame) = control_stream.try_next().await? else {
                     bail!("missing expected handshake for ContactsProtocol");
                 };
 
-                let envelope = serde_json::from_slice::<SignedEnvelope<ContactsMessage>>(&frame)
-                    .context("failed to parse ContactsProtocol handshake")?;
+                let signed_envelope = self.try_receive_frame(frame).await?;
+                let ContactsMessage::V1(ContactsMessageV1::RequestConnectContact(request)) =
+                    signed_envelope.message
+                else {
+                    bail!(
+                        "expected ContactsMessageV1, got {:?}",
+                        signed_envelope.message
+                    )
+                };
 
-                // Verify the signature of the message, or return error
-                envelope
-                    .verify()
-                    .await
-                    .context("failed to verify handshake message for ContactsProtocol")?;
+                let sender_id = signed_envelope.meta.sender_id;
+                let name = ContactName::new(sender_id.clone(), &request.sender_display_name);
+                let contact_peer =
+                    ContactPeer::new(connection, control_stream_send, name, self.clone()).await?;
 
-                // Ensure the message was intended for us
-                if envelope.meta.sender_id
-                    != local_profile_key.corresponding_subspace_id()
-                {
-                    bail!("handshake message was not intended for us");
-                }
-
-                let remote_profile_id = envelope.meta.sender_id.clone();
-
-                #[allow(unreachable_patterns)]
-                match &envelope.message {
-                    ContactsMessage::V1(ContactsMessageV1::EstablishControlStream {
-                        doc_id,
-                    }) => {
-                        // Dial the automerge protocol to connect to the dialer
-                        info!("accept: dialing automerge peer");
-                        automerge.dial_peer(remote_addr).await?;
-
-                        let Some(repo) = automerge.repo() else {
-                            bail!("Automerge protocol repo not initialized");
-                        };
-
-                        // Wait for the automerge connection to be established
-                        repo.when_connected(PeerId::from_string(
-                                remote_endpoint_id.to_string(),
-                            ))
-                            .await?;
-                        info!("accept: connected to automerge peer");
-
-                        // Find the remote's profile document
-                        let remote_doc_handle = repo
-                            .find(doc_id.clone())
-                            .await?
-                            .context("failed to find remote ContactData document")?;
-                        info!("accept: found remote ContactData document");
-
-                        // Create a local doc with our profile data
-                        let local_doc = Automerge::new();
-                        let local_doc_handle = repo.create(local_doc).await?;
-                        let local_data = ContactData {
-                            display_name: local_display_name.to_string(),
-                        };
-                        local_doc_handle.with_document(|am| {
-                            let mut tx = am.transaction();
-                            autosurgeon::reconcile(&mut tx, &local_data)
-                                .context("failed to write local ContactData")?;
-                            let (_change_hash, _patch_log) = tx.commit();
-                            anyhow::Ok(())
-                        })?;
-                        let local_doc_id = local_doc_handle.document_id().clone();
-
-                        // Send AcceptConnectContact with our doc_id
-                        {
-                            let mut framed = Framed::new(
-                                &mut control_stream_send,
-                                LengthDelimitedCodec::default(),
-                            );
-                            let response =
-                                ContactsMessage::V1(ContactsMessageV1::AcceptConnectContact {
-                                    doc_id: local_doc_id,
-                                });
-                            let response_envelope = SignedEnvelope::new(
-                                response,
-                                local_profile_key.clone(),
-                                remote_profile_id.clone(),
-                            )
-                            .await?;
-                            let envelope_bytes = response_envelope.to_bytes()?;
-                            framed.send(envelope_bytes.into()).await?;
-                            info!("accept: sent AcceptConnectContact with doc_id");
-                        }
-
-                        let name = ContactName::new(
-                            remote_profile_id.clone(),
-                            SharedString::default(),
-                        );
-                        let contact_peer = ContactPeer::with_doc_handle(
-                            connection,
-                            control_stream_send,
-                            name,
-                            automerge,
-                            ping,
-                            remote_doc_handle,
-                        )
-                        .await?;
-                        contact_peer_state
-                            .insert(remote_profile_id.clone(), contact_peer);
-                    }
-                    _ => {
-                        bail!("expected EstablishControlStream handshake as the first message in ContactsProtocol");
-                    }
-                }
+                // Add this peer to the pending list, contingent on this user accepting
+                self.pending_contact_peers.insert(sender_id, contact_peer);
 
                 anyhow::Ok(control_stream)
             })()
             .await
             .map_err(|error| AcceptError::from_err(std::io::Error::new(ErrorKind::Other, error)))?;
 
-            self.run_loop(&mut stream).await;
+            self.run_loop(&mut control_stream).await;
             Ok(())
         }
     }
@@ -418,11 +289,6 @@ impl ContactsProtocolHandle for Entity<ContactsProtocol> {
 type FrameItem = Result<BytesMut, <LengthDelimitedCodec as Decoder>::Error>;
 
 impl ContactsProtocol {
-    /// Returns a list of Contacts that are currently connected.
-    pub fn contacts(&self) {
-        // TODO
-    }
-
     /// Given a [`ContactTicket`] received from a remote peer, establishes a connection
     /// to the Iroh endpoint where the target Profile is located.
     ///
@@ -430,9 +296,12 @@ impl ContactsProtocol {
     /// `DocumentId` in the handshake so the remote peer can open the same document.
     pub async fn connect(&self, ticket: &ContactTicket) -> Result<ContactPeer> {
         let addrs = ticket.message.addrs.clone();
-        let automerge_addrs = addrs.clone();
         let ticket_sender_profile_id = ticket.message.sender_profile_id.clone();
         let ticket_sender_display_name = ticket.message.display_name.clone();
+        let name = ContactName::new(
+            ticket_sender_profile_id.clone(),
+            ticket_sender_display_name.clone(),
+        );
 
         info!(
             ?ticket_sender_profile_id,
@@ -441,37 +310,25 @@ impl ContactsProtocol {
         );
 
         let connection = self.endpoint.connect(addrs, Self::ALPN).await?;
-        let (mut control_stream_send, mut control_stream_recv) = connection.open_bi().await?;
+        let (mut control_stream_send, control_stream_recv) = connection.open_bi().await?;
         info!("connect: open_bi completed");
 
-        // Create a doc with the local profile's display name, before sending the handshake
-        // so we can include the doc_id in the EstablishControlStream message.
-        let automerge = self.automerge.clone();
-        let ping = self.ping.clone();
-        let Some(repo) = automerge.repo() else {
-            bail!("Automerge protocol repo not initialized");
-        };
+        // Spawn this peer's event loop to handle incoming messages
+        // Start this before sending the outbound request to avoid
+        // missing the response due to a race condition
+        let this = self.clone();
+        tokio::task::spawn(async move {
+            let mut framed_recv = Framed::new(control_stream_recv, LengthDelimitedCodec::new());
+            this.run_loop(&mut framed_recv).await;
+        });
 
-        let initial_data = ContactData {
-            display_name: self.inner.local_display_name.to_string(),
-        };
-        let doc = Automerge::new();
-        let doc_handle = repo.create(doc).await?;
-        doc_handle.with_document(|am| {
-            let mut tx = am.transaction();
-            autosurgeon::reconcile(&mut tx, &initial_data)
-                .context("failed to write initial ContactData to doc")?;
-            let (_change_hash, _patch_log) = tx.commit();
-            anyhow::Ok(())
-        })?;
-        let doc_id = doc_handle.document_id().clone();
-
-        // Send the handshake with our doc_id
+        // Send outbound request asking for a new connection to a contact
         {
             let mut framed = Framed::new(&mut control_stream_send, LengthDelimitedCodec::default());
-            let message = ContactsMessage::V1(ContactsMessageV1::EstablishControlStream {
-                doc_id: doc_id.clone(),
-            });
+            let message = RequestConnectContact::new(
+                self.local_display_name.clone(),
+                ticket_sender_profile_id.clone(),
+            );
             let envelope = SignedEnvelope::new(
                 message,
                 self.inner.local_profile_key.clone(),
@@ -480,36 +337,13 @@ impl ContactsProtocol {
             .await?;
             let envelope_bytes = envelope.to_bytes()?;
             framed.send(envelope_bytes.into()).await?;
-            info!("connect: Sent handshake with doc_id");
         }
 
-        // Dial the automerge protocol to start syncing the document
-        automerge.dial_peer(automerge_addrs).await?;
-
-        let name = ContactName::new(
-            ticket_sender_profile_id.clone(),
-            ticket_sender_display_name.clone(),
-        );
-        let contact_peer = ContactPeer::with_doc_handle(
-            connection,
-            control_stream_send,
-            name,
-            automerge,
-            ping,
-            doc_handle,
-        )
-        .await?;
-        self.inner
-            .contact_peer_state
-            .insert(ticket_sender_profile_id.clone(), contact_peer.clone());
-
-        let protocol = self.clone();
-        tokio::task::spawn(async move {
-            let mut framed_recv =
-                Framed::new(&mut control_stream_recv, LengthDelimitedCodec::default());
-            info!("connect: Starting control loop");
-            protocol.run_loop(&mut framed_recv).await;
-        });
+        // Store initial state for the contact peer
+        let contact_peer =
+            ContactPeer::new(connection, control_stream_send, name, self.clone()).await?;
+        self.pending_contact_peers
+            .insert(ticket_sender_profile_id, contact_peer.clone());
 
         Ok(contact_peer)
     }
@@ -523,29 +357,35 @@ impl ContactsProtocol {
         stream: &mut (impl Unpin + Stream<Item = FrameItem>),
     ) -> Result<()> {
         while let Some(frame) = stream.try_next().await? {
-            self.try_handle_frame(frame).await?;
+            let signed_envelope = self.try_receive_frame(frame).await?;
+            self.try_handle_message(&signed_envelope).await?;
         }
 
         Ok(())
     }
 
-    async fn try_handle_frame(&self, frame: BytesMut) -> Result<()> {
+    /// Deserializes and verifies a message from a frame from the control stream.
+    async fn try_receive_frame(&self, frame: BytesMut) -> Result<SignedEnvelope<ContactsMessage>> {
         let signed_envelope = serde_json::from_slice::<SignedEnvelope<ContactsMessage>>(&frame)?;
 
         // Verify the signature of the message, or return error
         signed_envelope.verify().await?;
 
+        let sender_profile_id = &signed_envelope.meta.sender_id;
+
         // Ensure the message was intended for us
-        if signed_envelope.meta.sender_id
-            != self.inner.local_profile_key.corresponding_subspace_id()
-        {
+        if sender_profile_id != &self.inner.local_profile_key.corresponding_subspace_id() {
             bail!("handshake message was not intended for us");
         }
 
-        match &signed_envelope.message {
+        Ok(signed_envelope)
+    }
+
+    async fn try_handle_message(&self, envelope: &SignedEnvelope<ContactsMessage>) -> Result<()> {
+        match &envelope.message {
             ContactsMessage::V1(v1) => {
-                let sender_profile_id = &signed_envelope.meta.sender_id;
-                self.try_handle_v1_message(sender_profile_id, v1).await?;
+                self.try_handle_v1_message(&envelope.meta.sender_id, v1)
+                    .await?;
             }
         }
 
@@ -558,38 +398,47 @@ impl ContactsProtocol {
         v1: &ContactsMessageV1,
     ) -> Result<()> {
         match v1 {
-            ContactsMessageV1::AcceptConnectContact { doc_id } => {
-                info!(
-                    ?sender_profile_id,
-                    ?doc_id,
-                    "Received AcceptConnectContact, opening remote doc"
-                );
-
-                let Some(repo) = self.automerge.repo() else {
-                    bail!("Automerge protocol repo not initialized");
-                };
-
-                // Find the remote's profile document via automerge sync
-                let _remote_doc_handle = repo
-                    .find(doc_id.clone())
-                    .await?
-                    .context("failed to find remote ContactData document")?;
-                info!("Opened remote ContactData document");
-
-                // Update the ContactPeer in our state to use the remote's doc handle
-                if let Some(_peer) = self.contact_peer_state.get_mut(sender_profile_id) {
-                    // We can't easily swap the doc_handle since it's behind an Arc,
-                    // but the remote doc is now in the repo and will sync automatically.
-                    // The ContactPeer already has its own doc_handle for the local profile.
-                    // For now, we log that the remote doc is available.
-                    info!(
-                        "Remote doc {} is now syncing for contact {:?}",
-                        doc_id, sender_profile_id
-                    );
-                }
+            ContactsMessageV1::RequestConnectContact(_request) => {
+                bail!("RequestConnectContact must be the first message handled");
             }
-            _ => {}
+            ContactsMessageV1::AcceptConnectContact(request) => {
+                self.try_handle_accept_connect_contact(
+                    sender_profile_id,
+                    &request.requester_profile_id,
+                )
+                .await?;
+            }
+            ContactsMessageV1::RejectConnectContact(reject_connect_contact) => {
+                info!(?reject_connect_contact, "Received RejectConnectContact");
+                self.pending_contact_peers.remove(sender_profile_id);
+            }
         }
+        Ok(())
+    }
+
+    async fn try_handle_accept_connect_contact(
+        &self,
+        sender_profile_id: &SubspaceId,
+        requester_profile_id: &SubspaceId,
+    ) -> Result<()> {
+        info!(
+            ?sender_profile_id,
+            ?requester_profile_id,
+            "Received AcceptConnectContact, opening remote doc"
+        );
+
+        // We were the original "requester", so ensure the requester's profile ID matches our own
+        if sender_profile_id != &self.local_profile_key.corresponding_subspace_id() {
+            bail!("Requester profile ID does not match our own");
+        }
+
+        // If we're receiving this, the recipient of our connection request has accepted it.
+        let Some((id, peer)) = self.pending_contact_peers.remove(sender_profile_id) else {
+            bail!("No pending contact peer found for sender");
+        };
+
+        info!("Contact accepted connection request, moving peer from pending to active");
+        self.contact_peers.insert(id, peer);
         Ok(())
     }
 }
@@ -722,19 +571,65 @@ pub enum ContactsMessage {
 #[serde(tag = "type", content = "content")]
 pub enum ContactsMessageV1 {
     /// A handshake used to complete the `accept_bi` call and open a control stream.
-    /// Carries the `DocumentId` of the sender's profile data document.
-    EstablishControlStream {
-        /// The Automerge document ID containing the sender's profile data.
-        doc_id: DocumentId,
-    },
-    /// Request to connect with a contact by that contact's Profile ID
-    RequestConnectContact {
-        #[serde_as(as = "SubspaceIdSerde")]
-        target_contact: SubspaceId,
-    },
-    /// Accept a connection request, carrying the responder's profile document ID.
-    AcceptConnectContact {
-        /// The Automerge document ID containing the responder's profile data.
-        doc_id: DocumentId,
-    },
+    RequestConnectContact(RequestConnectContact),
+
+    /// Accept a request to connect with a contact.
+    AcceptConnectContact(AcceptConnectContact),
+
+    /// Reject a request to connect with a contact.
+    RejectConnectContact(RejectConnectContact),
+}
+
+#[serde_as]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RequestConnectContact {
+    /// The display name of the sender Profile.
+    sender_display_name: SharedString,
+
+    /// As the sender, the target_contact is the profile ID of the contact I'm trying to connect with.
+    ///
+    /// As the receiver, the target_contact should by MY profile ID, I need to verify it or discard.
+    #[serde_as(as = "SubspaceIdSerde")]
+    target_contact: SubspaceId,
+}
+
+impl RequestConnectContact {
+    pub fn new(sender_display_name: SharedString, target_contact: SubspaceId) -> ContactsMessage {
+        ContactsMessage::V1(ContactsMessageV1::RequestConnectContact(Self {
+            sender_display_name,
+            target_contact,
+        }))
+    }
+}
+
+#[serde_as]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AcceptConnectContact {
+    /// The Profile ID of the requester who we are accepting the connection from.
+    #[serde_as(as = "SubspaceIdSerde")]
+    requester_profile_id: SubspaceId,
+}
+
+impl AcceptConnectContact {
+    pub fn new(requester_profile_id: SubspaceId) -> ContactsMessage {
+        ContactsMessage::V1(ContactsMessageV1::AcceptConnectContact(Self {
+            requester_profile_id,
+        }))
+    }
+}
+
+#[serde_as]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RejectConnectContact {
+    /// The Profile ID of the requester who we are rejecting the connection from.
+    #[serde_as(as = "SubspaceIdSerde")]
+    requester_profile_id: SubspaceId,
+}
+
+impl RejectConnectContact {
+    pub fn new(requester_profile_id: SubspaceId) -> ContactsMessage {
+        ContactsMessage::V1(ContactsMessageV1::RejectConnectContact(Self {
+            requester_profile_id,
+        }))
+    }
 }
