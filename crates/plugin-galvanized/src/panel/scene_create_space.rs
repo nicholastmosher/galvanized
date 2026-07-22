@@ -1,5 +1,5 @@
 use zed::unstable::{
-    gpui::{FontWeight, linear_color_stop, linear_gradient},
+    gpui::{FontWeight, TaskExt as _, linear_color_stop, linear_gradient},
     ui::{
         ActiveTheme as _, Color, Context, FluentBuilder as _, Icon, IconName, IconSize,
         InteractiveElement as _, IntoElement, ParentElement as _, StatefulInteractiveElement as _,
@@ -77,7 +77,7 @@ impl GalvanizedPanel {
                                             .border_color(cx.theme().colors().border_variant)
                                             .items_center()
                                             .justify_center()
-                                            .child(Icon::new(IconName::LockOutlined).size(IconSize::Medium).color(Color::Custom(cx.theme().colors().text_muted))),
+                                            .child(Icon::new(IconName::Lock).size(IconSize::Medium).color(Color::Custom(cx.theme().colors().text_muted))),
                                     )
                                     .child(
                                         div()

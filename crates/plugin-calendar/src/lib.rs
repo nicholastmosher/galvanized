@@ -107,14 +107,14 @@ impl Render for CalendarItem {
                     .child(
                         //
                         v_flex()
-                            .flex_grow()
+                            .flex_grow_1()
                             //
                             .bg(cx.theme().colors().panel_background)
                             .p_2()
                             .rounded_xl()
                             .child(
                                 div()
-                                    .flex_grow()
+                                    .flex_grow(1.)
                                     //
                                     .grid()
                                     .grid_rows(5)

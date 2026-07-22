@@ -51,7 +51,7 @@ use zed::unstable::{
     editor::Editor,
     gpui::{
         self, Action, AppContext as _, ClipboardItem, Entity, EventEmitter, FocusHandle, Focusable,
-        KeyDownEvent, Task, WeakEntity, actions,
+        KeyDownEvent, Task, TaskExt as _, WeakEntity, actions,
     },
     ui::{
         ActiveTheme, App, Context, FluentBuilder as _, Icon, IconName, IconSize,
@@ -367,7 +367,7 @@ impl Contacts {
             )
             .child(
                 h_flex()
-                    .flex_grow()
+                    .flex_grow(1.)
                     .border_1()
                     .border_color(cx.theme().colors().border)
                     .rounded_md()
@@ -382,7 +382,7 @@ impl Contacts {
                         //
                         div()
                             //
-                            .flex_grow()
+                            .flex_grow_1()
                             .bg(cx.theme().colors().editor_background)
                             .px_2()
                             .child(self.input_editor.clone()),

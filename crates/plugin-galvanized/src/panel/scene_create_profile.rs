@@ -1,5 +1,5 @@
 use zed::unstable::{
-    gpui::{Entity, FontWeight},
+    gpui::{Entity, FontWeight, TaskExt as _},
     ui::{
         ActiveTheme as _, Context, InteractiveElement as _, IntoElement, ParentElement,
         StatefulInteractiveElement as _, Styled as _, Window, div, h_flex, v_flex,

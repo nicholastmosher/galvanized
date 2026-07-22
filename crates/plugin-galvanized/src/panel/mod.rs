@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 use tracing::info;
 use zed::unstable::{
     gpui::{
-        self, Action, AppContext as _, Corner, DismissEvent, Entity, EventEmitter, FocusHandle,
+        self, Action, Anchor, AppContext as _, DismissEvent, Entity, EventEmitter, FocusHandle,
         Focusable, FontWeight, Hsla, MouseButton, MouseDownEvent, Point, Stateful, Subscription,
         actions, anchored, deferred, linear_color_stop, linear_gradient, rgba,
     },
@@ -364,7 +364,7 @@ impl GalvanizedPanel {
                 deferred(
                     anchored()
                         .position(*position)
-                        .anchor(Corner::TopLeft)
+                        .anchor(Anchor::TopLeft)
                         .child(menu.clone()),
                 )
                 .with_priority(3)
@@ -475,14 +475,6 @@ impl Panel for GalvanizedPanel {
     ) {
     }
 
-    fn size(&self, _window: &Window, _cx: &App) -> Pixels {
-        self.width.unwrap_or(DEFAULT_WIDTH)
-    }
-
-    fn set_size(&mut self, size: Option<Pixels>, _window: &mut Window, _cx: &mut Context<Self>) {
-        self.width = size.map(|size| size.max(px(360.)));
-    }
-
     fn icon(&self, _window: &Window, _cx: &App) -> Option<IconName> {
         Some(IconName::Hash)
     }
@@ -497,6 +489,10 @@ impl Panel for GalvanizedPanel {
 
     fn activation_priority(&self) -> u32 {
         10
+    }
+
+    fn default_size(&self, window: &Window, cx: &App) -> Pixels {
+        px(300.)
     }
 }
 

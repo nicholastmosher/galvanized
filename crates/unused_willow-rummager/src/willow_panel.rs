@@ -1,4 +1,4 @@
-use crate::db::kvp::KEY_VALUE_STORE;
+use crate::db::kvp::KeyValueStore;
 use crate::gpui;
 use crate::util::ResultExt as _;
 use anyhow::{Context as _, bail};
@@ -91,26 +91,26 @@ impl WillowPanel {
         workspace: WeakEntity<Workspace>,
         mut cx: AsyncWindowContext,
     ) -> anyhow::Result<Entity<Self>> {
-        let serialized_panel = cx
-            .background_executor()
-            .spawn(async move { KEY_VALUE_STORE.read_kvp(WILLOW_PANEL_KEY) })
-            .await
-            .context("loading willow panel")
-            .log_err()
-            .flatten()
-            .map(|panel| serde_json::from_str::<SerializedWillowPanel>(&panel))
-            .transpose()
-            .log_err()
-            .flatten();
+        // let serialized_panel = cx
+        //     .background_executor()
+        //     .spawn(async move { KeyValueStore.read_kvp(WILLOW_PANEL_KEY) })
+        //     .await
+        //     .context("loading willow panel")
+        //     .log_err()
+        //     .flatten()
+        //     .map(|panel| serde_json::from_str::<SerializedWillowPanel>(&panel))
+        //     .transpose()
+        //     .log_err()
+        //     .flatten();
 
         workspace.update_in(&mut cx, |workspace, window, cx| {
             let panel = Self::new(workspace, window, cx);
-            if let Some(serialized_panel) = serialized_panel {
-                panel.update(cx, |panel, cx| {
-                    panel.width = serialized_panel.width.map(|px| px.round());
-                    cx.notify();
-                });
-            }
+            // if let Some(serialized_panel) = serialized_panel {
+            panel.update(cx, |panel, cx| {
+                // panel.width = serialized_panel.width.map(|px| px.round());
+                // cx.notify();
+            });
+            // }
             panel
         })
     }
@@ -273,20 +273,6 @@ impl Panel for WillowPanel {
         _cx: &mut Context<Self>,
     ) {
         // Position changes are handled by the dock
-    }
-
-    fn size(&self, _window: &Window, _cx: &App) -> Pixels {
-        self.width.unwrap_or(px(320.))
-        // .unwrap_or_else(|| {
-        // WillowPanelSettings::get_global(cx)
-        //     .default_width
-        //     .unwrap_or(px(320.))
-        // })
-    }
-
-    fn set_size(&mut self, size: Option<Pixels>, _window: &mut Window, cx: &mut Context<Self>) {
-        self.width = size;
-        self.serialize(cx);
     }
 
     fn icon(&self, _window: &Window, _cx: &App) -> Option<IconName> {

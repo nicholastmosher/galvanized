@@ -1,4 +1,5 @@
 use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
+use futures::StreamExt as _;
 use iroh::EndpointId;
 use plugin_galvanized::{
     Galvanized,
@@ -9,11 +10,10 @@ use samod::DocHandle;
 use tracing::{debug, info, instrument};
 use uuid::Uuid;
 use zed::unstable::{
-    db::smol::stream::StreamExt as _,
     editor::Editor,
     gpui::{
         self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
-        actions, rgb,
+        TaskExt as _, actions, rgb,
     },
     ui::{
         ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
@@ -297,7 +297,7 @@ impl Render for ChatUi {
                         //
                         // The direct container of every child ChatBubble
                         v_flex()
-                            .flex_grow()
+                            .flex_grow_1()
                             //
                             .p_2()
                             .gap_2()
@@ -307,7 +307,7 @@ impl Render for ChatUi {
                             })),
                     ),
             )
-            .child(div().flex_grow())
+            .child(div().flex_grow_1())
             // Text input below
             .child(self.render_chat_input(window, cx))
     }

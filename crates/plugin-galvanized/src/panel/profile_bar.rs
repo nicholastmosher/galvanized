@@ -1,7 +1,7 @@
 use hex::ToHex as _;
 use tracing::info;
 use zed::unstable::{
-    gpui::{self, ClickEvent, Corner, CursorStyle, Entity, FontWeight, Stateful, point, rgba},
+    gpui::{self, Anchor, ClickEvent, CursorStyle, Entity, FontWeight, Stateful, point, rgba},
     ui::{
         ActiveTheme as _, App, Clickable, Context, ContextMenu, Div, ElementId, FluentBuilder as _,
         InteractiveElement as _, IntoElement, ParentElement as _, PopoverMenu, RenderOnce,
@@ -72,8 +72,8 @@ fn render_profile_popover_bar(
     let panel = cx.entity();
     PopoverMenu::new("popover")
         .full_width(true)
-        .anchor(Corner::BottomLeft)
-        .attach(Corner::TopLeft)
+        .anchor(Anchor::BottomLeft)
+        .attach(Anchor::TopLeft)
         .offset(point(px(0.), px(-4.)))
         .trigger(ProfileNugget::new("profile-nugget", profile.clone()))
         .menu({
@@ -102,7 +102,7 @@ fn render_profile_popover_bar(
                                 move |_window, cx| {
                                     //
                                     info!(
-                                        name = &**clicked_profile.read(cx).name(),
+                                        name = &*clicked_profile.read(cx).name(),
                                         "Clicked profile"
                                     );
                                     vault.update(cx, |vault, cx| {
@@ -179,7 +179,7 @@ impl RenderOnce for ProfileNugget {
         let initial = profile_name.chars().next().unwrap_or('?').to_string();
 
         self.base
-            .flex_grow()
+            .flex_grow_1()
             .p_2()
             .gap_2()
             .rounded_xl()

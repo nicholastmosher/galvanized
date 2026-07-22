@@ -19,7 +19,7 @@ use automerge::Automerge;
 use autosurgeon::{Hydrate, Reconcile};
 use chrono::{DateTime, TimeDelta, Utc};
 use dashmap::DashMap;
-use futures::{SinkExt, Stream};
+use futures::{SinkExt, Stream, TryStreamExt as _};
 use iroh::{
     Endpoint,
     endpoint::{Connection, SendStream},
@@ -42,7 +42,6 @@ use tracing::info;
 use ufotofu::{IntoConsumer as _, IntoProducer as _, codec::Decodable as _};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
 use zed::unstable::{
-    db::smol::stream::StreamExt,
     gpui::{AppContext, Entity},
     ui::SharedString,
     util::ResultExt as _,

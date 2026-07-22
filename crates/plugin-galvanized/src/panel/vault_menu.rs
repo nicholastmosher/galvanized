@@ -6,7 +6,7 @@
 
 use zed::unstable::{
     gpui::{
-        self, AppContext as _, ClickEvent, Corner, CursorStyle, DismissEvent, Entity, EventEmitter,
+        self, Anchor, AppContext as _, ClickEvent, CursorStyle, DismissEvent, Entity, EventEmitter,
         FocusHandle, Focusable, Stateful, linear_color_stop, linear_gradient, point, rgba,
     },
     ui::{
@@ -26,8 +26,8 @@ pub fn render_vault_menu<T>(
     _cx: &mut Context<T>,
 ) -> impl IntoElement {
     PopoverMenu::new("start-menu")
-        .anchor(Corner::TopLeft)
-        .attach(Corner::TopRight)
+        .anchor(Anchor::TopLeft)
+        .attach(Anchor::TopRight)
         .offset(point(px(6.), px(0.)))
         .trigger(VaultButton::new("vault-button"))
         .menu(move |_window, cx| {
@@ -239,6 +239,6 @@ fn render_menu_header<T: EventEmitter<DismissEvent>>(
                     cx.emit(DismissEvent);
                 }))
                 .tooltip(Tooltip::text("Lock Vault"))
-                .child(Icon::new(IconName::LockOutlined)),
+                .child(Icon::new(IconName::Lock)),
         )
 }

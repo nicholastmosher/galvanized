@@ -4,7 +4,8 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
-zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+# zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+zed.workspace = true
 
 # Third-party deps
 async-tungstenite = { version = "0.31.0", features = ["tokio", "tokio-rustls-manual-roots", "tokio-runtime"] }

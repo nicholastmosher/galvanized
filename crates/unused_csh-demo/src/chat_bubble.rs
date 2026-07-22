@@ -41,7 +41,7 @@ impl Render for ChatBubble {
             .children(["Alice", "Bob"].into_iter().map(|name| {
                 //
                 h_flex()
-                    .flex_shrink()
+                    .flex_shrink_1()
                     //
                     .bg(cx.theme().colors().panel_background)
                     .p_4()
@@ -85,7 +85,11 @@ impl Component for ChatBubble {
         ComponentScope::None
     }
 
-    fn preview(_window: &mut Window, cx: &mut App) -> Option<AnyElement> {
-        Some(cx.new(|cx| ChatBubble::new(cx)).into_any_element())
+    fn preview(_window: &mut Window, cx: &mut App) -> AnyElement {
+        cx.new(|cx| ChatBubble::new(cx)).into_any_element()
+    }
+
+    fn description() -> &'static str {
+        "A chat bubble"
     }
 }

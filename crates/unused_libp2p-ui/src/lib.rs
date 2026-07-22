@@ -1,12 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use libp2p::{PeerId, StreamProtocol, mdns::Event as MdnsEvent};
+use libp2p::{PeerId, StreamProtocol, futures::StreamExt as _, mdns::Event as MdnsEvent};
 use libp2p_stream::Control;
 use libp2p_swarm::SwarmEvent;
 use zed::unstable::{
-    db::smol::stream::StreamExt,
     editor::Editor,
-    gpui::{self, Action, AppContext, EventEmitter, FocusHandle, Focusable, actions, rgb},
+    gpui::{
+        self, Action, AppContext, EventEmitter, FocusHandle, Focusable, TaskExt as _, actions, rgb,
+    },
     ui::{
         App, Button, Clickable, Context, IconName, IntoElement, ListItem, ParentElement, Pixels,
         Render, Styled, Window, div, px,
@@ -320,14 +321,6 @@ impl Panel for Libp2pUi {
         self.dock_position = position;
     }
 
-    fn size(&self, _window: &Window, _cx: &App) -> Pixels {
-        self.width.unwrap_or_else(|| px(300.))
-    }
-
-    fn set_size(&mut self, size: Option<Pixels>, _window: &mut Window, _cx: &mut Context<Self>) {
-        self.width = size;
-    }
-
     fn icon(&self, _window: &Window, _cx: &App) -> Option<IconName> {
         Some(IconName::Link)
     }
@@ -342,5 +335,9 @@ impl Panel for Libp2pUi {
 
     fn activation_priority(&self) -> u32 {
         40
+    }
+
+    fn default_size(&self, window: &Window, cx: &App) -> Pixels {
+        px(300.)
     }
 }

@@ -5,7 +5,7 @@ use anyhow::{Context, Result, bail};
 use automerge::Automerge;
 use bytes::BytesMut;
 use dashmap::DashMap;
-use futures::{SinkExt as _, Stream};
+use futures::{SinkExt as _, Stream, TryStreamExt as _};
 use iroh::{
     Endpoint, EndpointAddr, EndpointId,
     endpoint::{Connection, RecvStream, SendStream, presets::N0},
@@ -21,8 +21,7 @@ use tokio_util::codec::{Decoder, Framed, LengthDelimitedCodec};
 use tracing::info;
 use uuid::Uuid;
 use zed::unstable::{
-    db::smol::stream::StreamExt,
-    gpui::{AppContext, Entity, Global},
+    gpui::{AppContext, Entity, Global, TaskExt},
     gpui_tokio::Tokio,
     ui::App,
     util::{ResultExt, TryFutureExt},

@@ -20,7 +20,7 @@ impl GalvanizedPanel {
         // Search bar with filter badges
         v_flex()
             .id("sidebar-search-header")
-            .flex_grow()
+            .flex_grow_1()
             .when(
                 !self.space_filters.is_empty() || !self.profile_filters.is_empty(),
                 |el| el.child(self.render_filter_badges(cx)),

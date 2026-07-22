@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use tracing::info;
 use zed::unstable::{
-    gpui::{Entity, FontWeight, Hsla, KeyDownEvent, rgba},
+    gpui::{Entity, FontWeight, Hsla, KeyDownEvent, TaskExt as _, rgba},
     ui::{
         ActiveTheme, Color, Context, Icon, IconName, IconSize, InteractiveElement, IntoElement,
         ParentElement as _, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex,
@@ -285,7 +285,7 @@ impl GalvanizedPanel {
                                     //
                                     .mx_auto()
                                     .child(
-                                        Icon::new(IconName::LockOutlined)
+                                        Icon::new(IconName::Lock)
                                             .size(IconSize::Medium)
                                             .color(Color::Custom(*GZED_ORANGE)),
                                     ),

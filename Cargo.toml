@@ -1,7 +1,18 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/*"
+    "crates/app-galvanized",
+    "crates/plugin-automerge",
+    "crates/plugin-calendar",
+    "crates/plugin-chat",
+    "crates/plugin-contacts",
+    "crates/plugin-files",
+    "crates/plugin-galvanized",
+    "crates/plugin-p2p",
+    "crates/plugin-theme-palette",
+    "crates/plugin-vault",
+    "crates/plugin-willow",
+    "crates/strict-cap",
 ]
 exclude = [
     "crates/unused_iroh-automerge"
@@ -77,9 +88,9 @@ zeroize = { version = "1.8.2", features = ["std", "zeroize_derive"] }
 # If you run into build errors, make sure this is using the git dep, not path
 # I sometimes switch it to path dep when tweaking Zed itself
 # gpui = { package = "gpui", git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins", features = ["test-support"] }
-zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+# zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
 # zed = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
-# zed = { path = "../zed/crates/zed" }
+zed = { path = "../zed/crates/zed" }
 
 # Path dependencies
 # csh-demo = { path = "crates/csh-demo" }
@@ -102,12 +113,13 @@ strict-cap = { path = "crates/strict-cap" }
 # willow-api-derive = { path = "crates/willow-api-derive" }
 # zed = { path = "../../../zed/crates/zed" }
 
-
 [patch.crates-io]
+async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
 async-task = { git = "https://github.com/smol-rs/async-task.git", rev = "b4486cd71e4e94fbda54ce6302444de14f4d190e" }
-notify = { git = "https://github.com/zed-industries/notify.git", rev = "ce58c24cad542c28e04ced02e20325a4ec28a31d" }
-notify-types = { git = "https://github.com/zed-industries/notify.git", rev = "ce58c24cad542c28e04ced02e20325a4ec28a31d" }
 windows-capture = { git = "https://github.com/zed-industries/windows-capture.git", rev = "f0d6c1b6691db75461b732f6d5ff56eed002eeb9" }
 calloop = { git = "https://github.com/zed-industries/calloop" }
-livekit = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev = "37835f840d0070d45ac8b31cce6a6ae7aca3f459" }
-libwebrtc = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev = "37835f840d0070d45ac8b31cce6a6ae7aca3f459" }
+livekit = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev = "d0e27be0cdad89eadab3e36207cda0a2b6e359ee" }
+libwebrtc = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev = "d0e27be0cdad89eadab3e36207cda0a2b6e359ee" }
+notify = { git = "https://github.com/zed-industries/notify", rev = "faecbc33db4f59313e5225ef766bfd9e54a54cfd" }
+notify-types = { git = "https://github.com/zed-industries/notify", rev = "faecbc33db4f59313e5225ef766bfd9e54a54cfd" }
+webrtc-sys = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev = "d0e27be0cdad89eadab3e36207cda0a2b6e359ee" }
