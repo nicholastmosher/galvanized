@@ -1,5 +1,6 @@
 use std::sync::LazyLock;
 
+use gpui_component::alert::Alert;
 use tracing::info;
 use zed::unstable::{
     gpui::{Entity, FontWeight, Hsla, KeyDownEvent, TaskExt as _, rgba},
@@ -51,6 +52,7 @@ impl GalvanizedPanel {
             .id("vault-scene")
             .size_full()
             .bg(cx.theme().colors().panel_background)
+            .child(Alert::info("alert", "This is an information alert"))
             .child(render_scene_header(title.into(), subtitle.into(), cx))
             .child(
                 div()

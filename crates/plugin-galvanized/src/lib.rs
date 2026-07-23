@@ -24,6 +24,8 @@ pub mod domain;
 pub mod panel;
 
 pub fn init(cx: &mut App) {
+    gpui_component::init(cx);
+
     cx.observe_new::<Workspace>(|workspace, window, cx| {
         let Some(window) = window else { return };
         let workspace_entity = cx.entity();
