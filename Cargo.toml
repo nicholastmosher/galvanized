@@ -89,8 +89,8 @@ zeroize = { version = "1.8.2", features = ["std", "zeroize_derive"] }
 # I sometimes switch it to path dep when tweaking Zed itself
 # gpui = { package = "gpui", git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins", features = ["test-support"] }
 # zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
-# zed = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
-zed = { path = "../zed/crates/zed" }
+zed = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
+# zed = { path = "../zed/crates/zed" }
 
 # Path dependencies
 # csh-demo = { path = "crates/csh-demo" }

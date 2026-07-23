@@ -104,6 +104,7 @@ dependencies = [
 [[package]]
 name = "acp_thread"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "action_log",
  "agent-client-protocol",
@@ -147,6 +148,7 @@ dependencies = [
 [[package]]
 name = "acp_tools"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "agent-client-protocol",
  "agent_servers",
@@ -168,6 +170,7 @@ dependencies = [
 [[package]]
 name = "action_log"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "buffer_diff",
@@ -188,6 +191,7 @@ dependencies = [
 [[package]]
 name = "activity_indicator"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "auto_update",
@@ -274,6 +278,7 @@ dependencies = [
 [[package]]
 name = "agent"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "acp_thread",
  "action_log",
@@ -390,6 +395,7 @@ dependencies = [
 [[package]]
 name = "agent_servers"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "acp_thread",
  "action_log",
@@ -430,6 +436,7 @@ dependencies = [
 [[package]]
 name = "agent_settings"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -451,6 +458,7 @@ dependencies = [
 [[package]]
 name = "agent_skills"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -468,6 +476,7 @@ dependencies = [
 [[package]]
 name = "agent_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "acp_thread",
  "action_log",
@@ -587,6 +596,7 @@ dependencies = [
 [[package]]
 name = "ai_onboarding"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "client",
  "cloud_api_types",
@@ -762,6 +772,7 @@ dependencies = [
 [[package]]
 name = "anthropic"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -962,6 +973,7 @@ dependencies = [
 [[package]]
 name = "askpass"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "futures",
@@ -978,6 +990,7 @@ dependencies = [
 [[package]]
 name = "assets"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "gpui",
@@ -1371,6 +1384,7 @@ dependencies = [
 [[package]]
 name = "audio"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -1390,6 +1404,7 @@ dependencies = [
 [[package]]
 name = "auto_update"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "client",
@@ -1414,6 +1429,7 @@ dependencies = [
 [[package]]
 name = "auto_update_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "agent_skills",
  "anyhow",
@@ -1998,6 +2014,7 @@ dependencies = [
 [[package]]
 name = "aws_http_client"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "aws-smithy-runtime-api",
  "aws-smithy-types",
@@ -2091,6 +2108,7 @@ checksum = "55248b47b0caf0546f7988906588779981c43bb1bc9d0c44087278f80cdb44ba"
 [[package]]
 name = "bedrock"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "aws-sdk-bedrockruntime",
@@ -2382,6 +2400,7 @@ dependencies = [
 [[package]]
 name = "breadcrumbs"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui",
  "ui",
@@ -2427,6 +2446,7 @@ dependencies = [
 [[package]]
 name = "buffer_diff"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "clock",
  "gpui",
@@ -2588,6 +2608,7 @@ checksum = "ade8366b8bd5ba243f0a58f036cc0ca8a2f069cff1a2351ef1cac6b083e16fc0"
 [[package]]
 name = "call"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "audio",
@@ -2868,6 +2889,7 @@ dependencies = [
 [[package]]
 name = "channel"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "client",
@@ -3035,6 +3057,7 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 [[package]]
 name = "cli"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "askpass",
@@ -3065,6 +3088,7 @@ dependencies = [
 [[package]]
 name = "client"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-channel 2.5.0",
@@ -3123,6 +3147,7 @@ dependencies = [
 [[package]]
 name = "clock"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "serde",
  "smallvec",
@@ -3131,6 +3156,7 @@ dependencies = [
 [[package]]
 name = "cloud_api_client"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-lock",
@@ -3149,6 +3175,7 @@ dependencies = [
 [[package]]
 name = "cloud_api_types"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3163,6 +3190,7 @@ dependencies = [
 [[package]]
 name = "cloud_llm_client"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "serde",
@@ -3270,6 +3298,7 @@ dependencies = [
 [[package]]
 name = "codestral"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "edit_prediction",
@@ -3291,6 +3320,7 @@ dependencies = [
 [[package]]
 name = "collab_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "call",
@@ -3327,6 +3357,7 @@ dependencies = [
 [[package]]
 name = "collections"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui_util",
  "indexmap 2.14.0",
@@ -3368,6 +3399,7 @@ dependencies = [
 [[package]]
 name = "command_palette"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "client",
@@ -3394,6 +3426,7 @@ dependencies = [
 [[package]]
 name = "command_palette_hooks"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "collections",
  "derive_more",
@@ -3419,6 +3452,7 @@ checksum = "ea0095f6103c2a8b44acd6fd15960c801dafebf02e21940360833e0673f48ba7"
 [[package]]
 name = "component"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "collections",
  "gpui",
@@ -3431,6 +3465,7 @@ dependencies = [
 [[package]]
 name = "component_preview"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "client",
@@ -3583,6 +3618,7 @@ checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
 [[package]]
 name = "context_server"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-channel 2.5.0",
@@ -3640,6 +3676,7 @@ dependencies = [
 [[package]]
 name = "copilot"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3669,6 +3706,7 @@ dependencies = [
 [[package]]
 name = "copilot_chat"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anthropic",
  "anyhow",
@@ -3689,6 +3727,7 @@ dependencies = [
 [[package]]
 name = "copilot_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "copilot",
@@ -4143,6 +4182,7 @@ dependencies = [
 [[package]]
 name = "crashes"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "async-process",
  "crash-handler",
@@ -4184,6 +4224,7 @@ dependencies = [
 [[package]]
 name = "credentials_provider"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "gpui",
@@ -4314,6 +4355,7 @@ dependencies = [
 [[package]]
 name = "csv_preview"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "editor",
@@ -4489,6 +4531,7 @@ dependencies = [
 [[package]]
 name = "dap"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-compression",
@@ -4532,6 +4575,7 @@ dependencies = [
 [[package]]
 name = "dap_adapters"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4711,6 +4755,7 @@ checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
 [[package]]
 name = "db"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "gpui",
@@ -4729,6 +4774,7 @@ dependencies = [
 [[package]]
 name = "debug_adapter_extension"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4744,6 +4790,7 @@ dependencies = [
 [[package]]
 name = "debugger_tools"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "dap",
@@ -4761,6 +4808,7 @@ dependencies = [
 [[package]]
 name = "debugger_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "bitflags 2.13.0",
@@ -4824,6 +4872,7 @@ dependencies = [
 [[package]]
 name = "deepseek"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "futures",
@@ -4959,6 +5008,7 @@ dependencies = [
 [[package]]
 name = "derive_refineable"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4968,6 +5018,7 @@ dependencies = [
 [[package]]
 name = "dev_container"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-tar",
@@ -5000,6 +5051,7 @@ dependencies = [
 [[package]]
 name = "diagnostics"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "agent_settings",
  "anyhow",
@@ -5351,6 +5403,7 @@ dependencies = [
 [[package]]
 name = "edit_prediction"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "ai_onboarding",
  "anyhow",
@@ -5414,6 +5467,7 @@ dependencies = [
 [[package]]
 name = "edit_prediction_context"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "clock",
@@ -5437,6 +5491,7 @@ dependencies = [
 [[package]]
 name = "edit_prediction_metrics"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "imara-diff",
  "serde",
@@ -5449,6 +5504,7 @@ dependencies = [
 [[package]]
 name = "edit_prediction_types"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "client",
  "gpui",
@@ -5460,6 +5516,7 @@ dependencies = [
 [[package]]
 name = "edit_prediction_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "buffer_diff",
@@ -5501,6 +5558,7 @@ dependencies = [
 [[package]]
 name = "editor"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -5650,6 +5708,7 @@ dependencies = [
 [[package]]
 name = "encoding_selector"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "editor",
  "encoding_rs",
@@ -5752,6 +5811,7 @@ dependencies = [
 [[package]]
 name = "env_var"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui_shared_string",
 ]
@@ -5857,6 +5917,7 @@ dependencies = [
 [[package]]
 name = "etw_tracing"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "gpui",
@@ -5941,6 +6002,7 @@ checksum = "af9673d8203fcb076b19dfd17e38b3d4ae9f44959416ea532ce72415a6020365"
 [[package]]
 name = "extension"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5973,6 +6035,7 @@ dependencies = [
 [[package]]
 name = "extension_host"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-compression",
@@ -6018,6 +6081,7 @@ dependencies = [
 [[package]]
 name = "extensions_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "cloud_api_types",
@@ -6158,6 +6222,7 @@ dependencies = [
 [[package]]
 name = "feature_flags"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "collections",
  "feature_flags_macros",
@@ -6172,6 +6237,7 @@ dependencies = [
 [[package]]
 name = "feature_flags_macros"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6181,6 +6247,7 @@ dependencies = [
 [[package]]
 name = "feedback"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "client",
  "extension_host",
@@ -6207,6 +6274,7 @@ checksum = "64cd1e32ddd350061ae6edb1b082d7c54915b5c672c389143b9a63403a109f24"
 [[package]]
 name = "file_finder"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "channel",
@@ -6237,6 +6305,7 @@ dependencies = [
 [[package]]
 name = "file_icons"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui",
  "serde",
@@ -6526,6 +6595,7 @@ dependencies = [
 [[package]]
 name = "fs"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "ashpd",
@@ -6759,6 +6829,7 @@ dependencies = [
 [[package]]
 name = "fuzzy"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui",
  "log",
@@ -6768,6 +6839,7 @@ dependencies = [
 [[package]]
 name = "fuzzy_nucleo"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "fuzzy",
  "gpui",
@@ -6973,6 +7045,7 @@ dependencies = [
 [[package]]
 name = "git"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "askpass",
@@ -7006,6 +7079,7 @@ dependencies = [
 [[package]]
 name = "git_hosting_providers"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7026,6 +7100,7 @@ dependencies = [
 [[package]]
 name = "git_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "agent_settings",
  "anyhow",
@@ -7308,6 +7383,7 @@ dependencies = [
 [[package]]
 name = "go_to_line"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "editor",
  "gpui",
@@ -7348,6 +7424,7 @@ dependencies = [
 [[package]]
 name = "google_ai"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "futures",
@@ -7397,6 +7474,7 @@ dependencies = [
 [[package]]
 name = "gpui"
 version = "0.2.2"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "accesskit",
  "anyhow",
@@ -7478,6 +7556,7 @@ dependencies = [
 [[package]]
 name = "gpui_linux"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "accesskit",
  "accesskit_unix",
@@ -7528,6 +7607,7 @@ dependencies = [
 [[package]]
 name = "gpui_macos"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "accesskit",
  "accesskit_macos",
@@ -7574,6 +7654,7 @@ dependencies = [
 [[package]]
 name = "gpui_macros"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -7584,6 +7665,7 @@ dependencies = [
 [[package]]
 name = "gpui_platform"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "console_error_panic_hook",
  "gpui",
@@ -7596,6 +7678,7 @@ dependencies = [
 [[package]]
 name = "gpui_shared_string"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "schemars 1.2.1",
  "serde",
@@ -7605,6 +7688,7 @@ dependencies = [
 [[package]]
 name = "gpui_tokio"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "gpui",
@@ -7615,6 +7699,7 @@ dependencies = [
 [[package]]
 name = "gpui_util"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "log",
@@ -7624,6 +7709,7 @@ dependencies = [
 [[package]]
 name = "gpui_web"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -7647,6 +7733,7 @@ dependencies = [
 [[package]]
 name = "gpui_wgpu"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -7675,6 +7762,7 @@ dependencies = [
 [[package]]
 name = "gpui_windows"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "accesskit",
  "accesskit_windows",
@@ -7703,6 +7791,7 @@ dependencies = [
 [[package]]
 name = "grammars"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "language_core",
@@ -8156,6 +8245,7 @@ dependencies = [
 [[package]]
 name = "html_to_markdown"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "html5ever",
@@ -8235,6 +8325,7 @@ dependencies = [
 [[package]]
 name = "http_client"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-compression",
@@ -8259,6 +8350,7 @@ dependencies = [
 [[package]]
 name = "http_client_tls"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "rustls 0.23.35",
  "rustls-platform-verifier 0.5.3",
@@ -8267,6 +8359,7 @@ dependencies = [
 [[package]]
 name = "http_proxy"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -8472,6 +8565,7 @@ dependencies = [
 [[package]]
 name = "icons"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "serde",
  "strum 0.27.2",
@@ -8688,6 +8782,7 @@ dependencies = [
 [[package]]
 name = "image_viewer"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "db",
@@ -8797,6 +8892,7 @@ dependencies = [
 [[package]]
 name = "input_latency_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "chrono",
  "collections",
@@ -8808,6 +8904,7 @@ dependencies = [
 [[package]]
 name = "inspector_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "command_palette_hooks",
@@ -8829,6 +8926,7 @@ dependencies = [
 [[package]]
 name = "install_cli"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "client",
@@ -9456,6 +9554,7 @@ dependencies = [
 [[package]]
 name = "journal"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -9514,6 +9613,7 @@ dependencies = [
 [[package]]
 name = "json_schema_store"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -9618,6 +9718,7 @@ dependencies = [
 [[package]]
 name = "keymap_editor"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -9754,6 +9855,7 @@ dependencies = [
 [[package]]
 name = "language"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9803,6 +9905,7 @@ dependencies = [
 [[package]]
 name = "language_core"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -9822,6 +9925,7 @@ dependencies = [
 [[package]]
 name = "language_extension"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9844,6 +9948,7 @@ dependencies = [
 [[package]]
 name = "language_model"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -9867,6 +9972,7 @@ dependencies = [
 [[package]]
 name = "language_model_core"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-lock",
@@ -9886,6 +9992,7 @@ dependencies = [
 [[package]]
 name = "language_models"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "ai_onboarding",
  "anthropic",
@@ -9949,6 +10056,7 @@ dependencies = [
 [[package]]
 name = "language_models_cloud"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anthropic",
  "anyhow",
@@ -9970,6 +10078,7 @@ dependencies = [
 [[package]]
 name = "language_onboarding"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "db",
  "editor",
@@ -9982,6 +10091,7 @@ dependencies = [
 [[package]]
 name = "language_selector"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "editor",
@@ -10001,6 +10111,7 @@ dependencies = [
 [[package]]
 name = "language_tools"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "client",
@@ -10031,6 +10142,7 @@ dependencies = [
 [[package]]
 name = "languages"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-compression",
@@ -10243,6 +10355,7 @@ dependencies = [
 [[package]]
 name = "line_ending_selector"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "editor",
  "gpui",
@@ -10395,6 +10508,7 @@ dependencies = [
 [[package]]
 name = "livekit_api"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -10410,6 +10524,7 @@ dependencies = [
 [[package]]
 name = "livekit_client"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -10449,6 +10564,7 @@ dependencies = [
 [[package]]
 name = "llama_cpp"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "futures",
@@ -10473,6 +10589,7 @@ dependencies = [
 [[package]]
 name = "lmstudio"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "futures",
@@ -10634,6 +10751,7 @@ dependencies = [
 [[package]]
 name = "lsp"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -10776,6 +10894,7 @@ dependencies = [
 [[package]]
 name = "markdown"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -10802,6 +10921,7 @@ dependencies = [
 [[package]]
 name = "markdown_preview"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "db",
@@ -10910,6 +11030,7 @@ dependencies = [
 [[package]]
 name = "media"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "bindgen 0.71.1",
@@ -10957,6 +11078,7 @@ dependencies = [
 [[package]]
 name = "menu"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui",
 ]
@@ -10964,6 +11086,7 @@ dependencies = [
 [[package]]
 name = "mermaid_render"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "gpui",
@@ -11050,6 +11173,7 @@ dependencies = [
 [[package]]
 name = "migrator"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -11170,6 +11294,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 [[package]]
 name = "miniprofiler_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "command_palette_hooks",
  "gpui",
@@ -11217,6 +11342,7 @@ dependencies = [
 [[package]]
 name = "mistral"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "futures",
@@ -11267,6 +11393,7 @@ dependencies = [
 [[package]]
 name = "multi_buffer"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "buffer_diff",
@@ -11494,6 +11621,7 @@ dependencies = [
 [[package]]
 name = "net"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-io",
@@ -11668,6 +11796,7 @@ dependencies = [
 [[package]]
 name = "node_runtime"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-compression",
@@ -11784,6 +11913,7 @@ dependencies = [
 [[package]]
 name = "notifications"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "channel",
@@ -12050,6 +12180,7 @@ dependencies = [
 [[package]]
 name = "oauth_callback_server"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "futures",
@@ -12398,6 +12529,7 @@ dependencies = [
 [[package]]
 name = "ollama"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "futures",
@@ -12411,6 +12543,7 @@ dependencies = [
 [[package]]
 name = "onboarding"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "client",
@@ -12511,6 +12644,7 @@ dependencies = [
 [[package]]
 name = "open_ai"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -12529,6 +12663,7 @@ dependencies = [
 [[package]]
 name = "open_path_prompt"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "file_icons",
  "futures",
@@ -12548,6 +12683,7 @@ dependencies = [
 [[package]]
 name = "open_router"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "futures",
@@ -12564,6 +12700,7 @@ dependencies = [
 [[package]]
 name = "opencode"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "futures",
@@ -12748,6 +12885,7 @@ dependencies = [
 [[package]]
 name = "outline"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "editor",
  "fuzzy_nucleo",
@@ -12766,6 +12904,7 @@ dependencies = [
 [[package]]
 name = "outline_panel"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-channel 2.5.0",
@@ -12862,6 +13001,7 @@ dependencies = [
 [[package]]
 name = "panel"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui",
  "ui",
@@ -12984,6 +13124,7 @@ dependencies = [
 [[package]]
 name = "paths"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "const_format",
  "dirs",
@@ -13120,6 +13261,7 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 [[package]]
 name = "perf"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "collections",
  "serde",
@@ -13749,6 +13891,7 @@ dependencies = [
 [[package]]
 name = "picker"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "db",
@@ -13772,6 +13915,7 @@ dependencies = [
 [[package]]
 name = "picker_preview"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "editor",
  "gpui",
@@ -13880,6 +14024,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "platform_title_bar"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui",
  "project",
@@ -14374,6 +14519,7 @@ checksum = "e8cf8e6a8aa66ce33f63993ffc4ea4271eb5b0530a9002db8455ea6050c77bfa"
 [[package]]
 name = "prettier"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -14483,6 +14629,7 @@ dependencies = [
 [[package]]
 name = "project"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -14560,6 +14707,7 @@ dependencies = [
 [[package]]
 name = "project_panel"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "client",
@@ -14601,6 +14749,7 @@ dependencies = [
 [[package]]
 name = "project_symbols"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "editor",
@@ -14621,6 +14770,7 @@ dependencies = [
 [[package]]
 name = "prompt_store"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "agent_skills",
  "anyhow",
@@ -14777,6 +14927,7 @@ dependencies = [
 [[package]]
 name = "proto"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "prost 0.9.0",
@@ -15228,6 +15379,7 @@ dependencies = [
 [[package]]
 name = "recent_projects"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "askpass",
@@ -15346,6 +15498,7 @@ dependencies = [
 [[package]]
 name = "refineable"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "derive_refineable",
 ]
@@ -15403,6 +15556,7 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 [[package]]
 name = "release_channel"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui",
  "semver",
@@ -15411,6 +15565,7 @@ dependencies = [
 [[package]]
 name = "remote"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "askpass",
@@ -15443,6 +15598,7 @@ dependencies = [
 [[package]]
 name = "remote_connection"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "askpass",
@@ -15471,6 +15627,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 [[package]]
 name = "repl"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-dispatcher",
@@ -15600,6 +15757,7 @@ dependencies = [
 [[package]]
 name = "reqwest_client"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "bytes",
@@ -15679,6 +15837,7 @@ dependencies = [
 [[package]]
 name = "rope"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "heapless",
  "log",
@@ -15723,6 +15882,7 @@ dependencies = [
 [[package]]
 name = "rpc"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-tungstenite",
@@ -16158,6 +16318,7 @@ dependencies = [
 [[package]]
 name = "sandbox"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "futures",
@@ -16191,6 +16352,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "async-task",
  "backtrace",
@@ -16326,6 +16488,7 @@ checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
 [[package]]
 name = "search"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "any_vec",
  "anyhow",
@@ -16677,6 +16840,7 @@ dependencies = [
 [[package]]
 name = "session"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "db",
  "gpui",
@@ -16688,6 +16852,7 @@ dependencies = [
 [[package]]
 name = "settings"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -16716,6 +16881,7 @@ dependencies = [
 [[package]]
 name = "settings_content"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -16736,6 +16902,7 @@ dependencies = [
 [[package]]
 name = "settings_json"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "serde",
@@ -16750,6 +16917,7 @@ dependencies = [
 [[package]]
 name = "settings_macros"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "quote",
  "syn 2.0.117",
@@ -16758,6 +16926,7 @@ dependencies = [
 [[package]]
 name = "settings_profile_selector"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "fuzzy",
  "gpui",
@@ -16771,6 +16940,7 @@ dependencies = [
 [[package]]
 name = "settings_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "agent",
  "agent_settings",
@@ -16908,6 +17078,7 @@ checksum = "24188a676b6ae68c3b2cb3a01be17fbf7240ce009799bb56d5b1409051e78fde"
 [[package]]
 name = "shell_command_parser"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "brush-parser",
 ]
@@ -16930,6 +17101,7 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 [[package]]
 name = "sidebar"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "acp_thread",
  "action_log",
@@ -17213,6 +17385,7 @@ checksum = "199905e6153d6405f9728fe44daace35f8f837bbf830bb6e85fbd5828709a886"
 [[package]]
 name = "snippet"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "smallvec",
@@ -17221,6 +17394,7 @@ dependencies = [
 [[package]]
 name = "snippet_provider"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -17241,6 +17415,7 @@ dependencies = [
 [[package]]
 name = "snippets_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "file_icons",
  "fuzzy",
@@ -17342,6 +17517,7 @@ dependencies = [
 [[package]]
 name = "sqlez"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -17360,6 +17536,7 @@ dependencies = [
 [[package]]
 name = "sqlez_macros"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "sqlez",
  "sqlformat",
@@ -17623,6 +17800,7 @@ checksum = "2b2231b7c3057d5e4ad0156fb3dc807d900806020c5ffa3ee6ff2c8c76fb8520"
 [[package]]
 name = "streaming_diff"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "ordered-float 2.10.1",
  "rope",
@@ -17744,6 +17922,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "sum_tree"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "heapless",
  "log",
@@ -17855,6 +18034,7 @@ dependencies = [
 [[package]]
 name = "svg_preview"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "file_icons",
  "gpui",
@@ -18097,6 +18277,7 @@ dependencies = [
 [[package]]
 name = "syntax_theme"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui",
 ]
@@ -18202,6 +18383,7 @@ dependencies = [
 [[package]]
 name = "system_specs"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "gpui",
@@ -18216,6 +18398,7 @@ dependencies = [
 [[package]]
 name = "tab_switcher"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "collections",
  "editor",
@@ -18277,6 +18460,7 @@ checksum = "df7f62577c25e07834649fc3b39fafdc597c0a3527dc1c60129201ccfcbaa50c"
 [[package]]
 name = "task"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -18299,6 +18483,7 @@ dependencies = [
 [[package]]
 name = "tasks_ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -18322,6 +18507,7 @@ dependencies = [
 [[package]]
 name = "telemetry"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "futures",
  "serde",
@@ -18332,6 +18518,7 @@ dependencies = [
 [[package]]
 name = "telemetry_events"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "semver",
  "serde",
@@ -18385,6 +18572,7 @@ dependencies = [
 [[package]]
 name = "terminal"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "alacritty_terminal",
  "anyhow",
@@ -18428,6 +18616,7 @@ dependencies = [
 [[package]]
 name = "terminal_view"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -18464,6 +18653,7 @@ dependencies = [
 [[package]]
 name = "text"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "clock",
@@ -18481,6 +18671,7 @@ dependencies = [
 [[package]]
 name = "theme"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -18501,6 +18692,7 @@ dependencies = [
 [[package]]
 name = "theme_extension"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "extension",
@@ -18513,6 +18705,7 @@ dependencies = [
 [[package]]
 name = "theme_selector"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "fs",
  "fuzzy",
@@ -18533,6 +18726,7 @@ dependencies = [
 [[package]]
 name = "theme_settings"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -18661,6 +18855,7 @@ dependencies = [
 [[package]]
 name = "time_format"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "core-foundation 0.10.0",
  "core-foundation-sys",
@@ -18744,6 +18939,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 [[package]]
 name = "title_bar"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "agent_settings",
  "anyhow",
@@ -19060,6 +19256,7 @@ dependencies = [
 [[package]]
 name = "toolchain_selector"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "convert_case 0.11.0",
@@ -19564,6 +19761,7 @@ dependencies = [
 [[package]]
 name = "ui"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "chrono",
  "component",
@@ -19588,6 +19786,7 @@ dependencies = [
 [[package]]
 name = "ui_input"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "component",
  "gpui",
@@ -19597,6 +19796,7 @@ dependencies = [
 [[package]]
 name = "ui_macros"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "quote",
  "syn 2.0.117",
@@ -19605,6 +19805,7 @@ dependencies = [
 [[package]]
 name = "ui_prompt"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui",
  "markdown",
@@ -19812,6 +20013,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 [[package]]
 name = "util"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-fs",
@@ -19851,6 +20053,7 @@ dependencies = [
 [[package]]
 name = "util_macros"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "perf",
  "quote",
@@ -19997,6 +20200,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 [[package]]
 name = "vim"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "collections",
@@ -20036,6 +20240,7 @@ dependencies = [
 [[package]]
 name = "vim_mode_setting"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui",
  "settings",
@@ -20638,6 +20843,7 @@ dependencies = [
 [[package]]
 name = "watch"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "parking_lot",
 ]
@@ -20778,6 +20984,7 @@ dependencies = [
 [[package]]
 name = "web_search"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "cloud_llm_client",
@@ -20789,6 +20996,7 @@ dependencies = [
 [[package]]
 name = "web_search_providers"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "client",
@@ -21090,6 +21298,7 @@ dependencies = [
 [[package]]
 name = "which_key"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "command_palette",
  "gpui",
@@ -21930,6 +22139,7 @@ checksum = "1e7ac75179f18232fe9c285163565a57ef8d3c89254a30685b57d83a38d326c2"
 [[package]]
 name = "windows_resources"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "embed-resource",
 ]
@@ -22230,6 +22440,7 @@ dependencies = [
 [[package]]
 name = "workspace"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "agent_settings",
  "any_vec",
@@ -22282,6 +22493,7 @@ dependencies = [
 [[package]]
 name = "worktree"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "async-channel 2.5.0",
@@ -22392,6 +22604,7 @@ checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
 [[package]]
 name = "x_ai"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "schemars 1.2.1",
@@ -22696,6 +22909,7 @@ dependencies = [
 [[package]]
 name = "zed"
 version = "1.11.3"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "acp_thread",
  "acp_tools",
@@ -22972,6 +23186,7 @@ dependencies = [
 [[package]]
 name = "zed_actions"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "gpui",
  "schemars 1.2.1",
@@ -22982,6 +23197,7 @@ dependencies = [
 [[package]]
 name = "zed_credentials_provider"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "credentials_provider",
@@ -22996,6 +23212,7 @@ dependencies = [
 [[package]]
 name = "zed_env_vars"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "env_var",
 ]
@@ -23127,6 +23344,7 @@ dependencies = [
 [[package]]
 name = "zeta_prompt"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "imara-diff",
@@ -23157,6 +23375,7 @@ dependencies = [
 [[package]]
 name = "zlog"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -23167,6 +23386,7 @@ dependencies = [
 [[package]]
 name = "zlog_settings"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "collections",
  "gpui",
@@ -23212,6 +23432,7 @@ dependencies = [
 [[package]]
 name = "ztracing"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 dependencies = [
  "tracing",
  "tracing-subscriber",
@@ -23222,6 +23443,7 @@ dependencies = [
 [[package]]
 name = "ztracing_macro"
 version = "0.1.0"
+source = "git+https://github.com/nicholastmosher/zed?branch=galvanized#e2ebec030c0b34d32eca49af1ceceb072b36d4c3"
 
 [[package]]
 name = "zune-core"
