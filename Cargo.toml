@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/app-galvanized",
+    "crates/app-galvanized", "crates/galvanized-core",
     "crates/plugin-automerge",
     "crates/plugin-calendar",
     "crates/plugin-chat",
@@ -93,6 +93,7 @@ zeroize = { version = "1.8.2", features = ["std", "zeroize_derive"] }
 # gpui = { package = "gpui", git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins", features = ["test-support"] }
 # zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
 gpui = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
+gpui_platform = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 zed = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 # gpui = { path = "../zed/crates/gpui" }
 # zed = { path = "../zed/crates/zed" }
