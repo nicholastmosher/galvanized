@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 gpui.workspace = true
+gpui-component.workspace = true
 gpui_platform.workspace = true
