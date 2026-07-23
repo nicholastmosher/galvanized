@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context as _, Result, bail};
+use gpui::{AppContext, Context, Entity, IntoElement, SharedString, Task};
 use iroh::{Endpoint, endpoint::presets::N0};
 use plugin_vault::{VaultsExt as _, vault_actor::VaultToken, vault_db::VaultId};
 use plugin_willow::WillowExt;
@@ -9,10 +10,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::{info, warn};
 use willow25::entry::{NamespaceId, SubspaceId};
-use zed::unstable::{
-    gpui::{AppContext, Entity, Task},
-    ui::{Context, IntoElement, SharedString},
-};
 
 use crate::domain::{
     profile::{Profile, ProfileData},

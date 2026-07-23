@@ -1,7 +1,4 @@
-use zed::unstable::{
-    gpui::{Action, AnyView, Entity},
-    ui::{App, Render, SharedString, Window},
-};
+use gpui::{Action, AnyView, App, Entity, Render, SharedString, Window};
 
 use crate::domain::space::Space;
 

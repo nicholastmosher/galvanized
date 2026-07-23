@@ -14629,6 +14629,8 @@ dependencies = [
  "anyhow",
  "derive_more",
  "futures-concurrency",
+ "galvanized-core",
+ "gpui",
  "gpui-component",
  "hex",
  "iroh 1.0.2 (git+https://github.com/nicholastmosher/iroh?branch=galvanized)",
@@ -14639,9 +14641,10 @@ dependencies = [
  "serde_json",
  "serde_with",
  "tracing",
+ "ui",
+ "ui_input",
  "uuid",
  "willow25",
- "zed",
 ]
 
 [[package]]

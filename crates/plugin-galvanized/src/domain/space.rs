@@ -1,7 +1,7 @@
+use gpui::{Context, SharedString};
 use plugin_willow::Namespace;
 use serde::{Deserialize, Serialize};
 use willow25::entry::NamespaceId;
-use zed::unstable::ui::{Context, SharedString};
 
 #[derive(Clone)]
 pub struct Space {

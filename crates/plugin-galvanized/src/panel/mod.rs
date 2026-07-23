@@ -1,24 +1,15 @@
 use std::sync::LazyLock;
 
-use tracing::info;
-use zed::unstable::{
-    gpui::{
-        self, Action, Anchor, AppContext as _, DismissEvent, Entity, EventEmitter, FocusHandle,
-        Focusable, FontWeight, Hsla, MouseButton, MouseDownEvent, Point, Stateful, Subscription,
-        actions, anchored, deferred, linear_color_stop, linear_gradient, rgba,
-    },
-    ui::{
-        ActiveTheme, App, Context, ContextMenu, Div, ElementId, FluentBuilder as _, IconName,
-        InteractiveElement, IntoElement, ParentElement as _, Pixels, Render, SharedString,
-        StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex, px, v_flex,
-    },
-    ui_input::InputField,
-    util::ResultExt,
-    workspace::{
-        Panel,
-        dock::{DockPosition, PanelEvent},
-    },
+use gpui::{
+    self, Anchor, App, AppContext as _, Context, DismissEvent, Div, ElementId, Entity, FocusHandle,
+    Focusable, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton, MouseDownEvent,
+    ParentElement as _, Pixels, Point, Render, SharedString, Stateful,
+    StatefulInteractiveElement as _, Styled, Subscription, Window, actions, anchored, deferred,
+    div, linear_color_stop, linear_gradient, px, rgba,
 };
+use tracing::info;
+use zed_ui::{ActiveTheme as _, ContextMenu, FluentBuilder as _, Tooltip, h_flex, v_flex};
+use zed_ui_input::InputField;
 
 use crate::{
     Galvanized, GalvanizedHandle as _,
@@ -443,58 +434,58 @@ impl GalvanizedPanel {
     }
 }
 
-impl EventEmitter<PanelEvent> for GalvanizedPanel {}
+// impl EventEmitter<PanelEvent> for GalvanizedPanel {}
 impl Focusable for GalvanizedPanel {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
 
-impl Panel for GalvanizedPanel {
-    fn persistent_name() -> &'static str {
-        "Galvanized"
-    }
+// impl Panel for GalvanizedPanel {
+//     fn persistent_name() -> &'static str {
+//         "Galvanized"
+//     }
 
-    fn panel_key() -> &'static str {
-        "galvanized"
-    }
+//     fn panel_key() -> &'static str {
+//         "galvanized"
+//     }
 
-    fn position(&self, _window: &Window, _cx: &App) -> DockPosition {
-        DockPosition::Left
-    }
+//     fn position(&self, _window: &Window, _cx: &App) -> DockPosition {
+//         DockPosition::Left
+//     }
 
-    fn position_is_valid(&self, _position: DockPosition) -> bool {
-        true
-    }
+//     fn position_is_valid(&self, _position: DockPosition) -> bool {
+//         true
+//     }
 
-    fn set_position(
-        &mut self,
-        _position: DockPosition,
-        _window: &mut Window,
-        _cx: &mut Context<Self>,
-    ) {
-    }
+//     fn set_position(
+//         &mut self,
+//         _position: DockPosition,
+//         _window: &mut Window,
+//         _cx: &mut Context<Self>,
+//     ) {
+//     }
 
-    fn icon(&self, _window: &Window, _cx: &App) -> Option<IconName> {
-        Some(IconName::Hash)
-    }
+//     fn icon(&self, _window: &Window, _cx: &App) -> Option<IconName> {
+//         Some(IconName::Hash)
+//     }
 
-    fn icon_tooltip(&self, _window: &Window, _cx: &App) -> Option<&'static str> {
-        Some("Galvanized")
-    }
+//     fn icon_tooltip(&self, _window: &Window, _cx: &App) -> Option<&'static str> {
+//         Some("Galvanized")
+//     }
 
-    fn toggle_action(&self) -> Box<dyn Action> {
-        Box::new(TogglePanel)
-    }
+//     fn toggle_action(&self) -> Box<dyn Action> {
+//         Box::new(TogglePanel)
+//     }
 
-    fn activation_priority(&self) -> u32 {
-        10
-    }
+//     fn activation_priority(&self) -> u32 {
+//         10
+//     }
 
-    fn default_size(&self, window: &Window, cx: &App) -> Pixels {
-        px(300.)
-    }
-}
+//     fn default_size(&self, window: &Window, cx: &App) -> Pixels {
+//         px(300.)
+//     }
+// }
 
 pub trait PrimaryButton {
     fn primary_button(self) -> Self;

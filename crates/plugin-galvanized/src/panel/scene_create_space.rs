@@ -1,10 +1,10 @@
-use zed::unstable::{
-    gpui::{FontWeight, TaskExt as _, linear_color_stop, linear_gradient},
-    ui::{
-        ActiveTheme as _, Color, Context, FluentBuilder as _, Icon, IconName, IconSize,
-        InteractiveElement as _, IntoElement, ParentElement as _, StatefulInteractiveElement as _,
-        Styled as _, Window, div, h_flex, px, v_flex,
-    },
+use gpui::{
+    Context, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
+    StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div, linear_color_stop,
+    linear_gradient, px,
+};
+use zed_ui::{
+    ActiveTheme as _, Color, FluentBuilder as _, Icon, IconName, IconSize, h_flex, v_flex,
 };
 
 use crate::panel::{

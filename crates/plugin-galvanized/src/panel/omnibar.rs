@@ -1,11 +1,8 @@
-use zed::unstable::{
-    gpui::{Entity, KeyDownEvent, rgba},
-    ui::{
-        ActiveTheme as _, Context, FluentBuilder as _, InteractiveElement as _, IntoElement,
-        ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, div,
-        h_flex, v_flex,
-    },
+use gpui::{
+    Context, Entity, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _,
+    SharedString, StatefulInteractiveElement as _, Styled as _, div, rgba,
 };
+use zed_ui::{ActiveTheme as _, FluentBuilder as _, h_flex, v_flex};
 
 use crate::{domain::vault::Vault, panel::GalvanizedPanel};
 

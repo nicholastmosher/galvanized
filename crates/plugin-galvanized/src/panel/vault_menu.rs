@@ -4,17 +4,14 @@
 //!
 //! This mod contains both pieces used in a `PopoverMenu` to allow full customizability.
 
-use zed::unstable::{
-    gpui::{
-        self, Anchor, AppContext as _, ClickEvent, CursorStyle, DismissEvent, Entity, EventEmitter,
-        FocusHandle, Focusable, Stateful, linear_color_stop, linear_gradient, point, rgba,
-    },
-    ui::{
-        ActiveTheme as _, App, Clickable, Context, Div, ElementId, Icon, IconName,
-        InteractiveElement as _, IntoElement, ParentElement as _, PopoverMenu, Render, RenderOnce,
-        StatefulInteractiveElement as _, Styled as _, Toggleable, Tooltip, Window, div, h_flex, px,
-        v_flex,
-    },
+use gpui::{
+    self, Anchor, App, AppContext as _, ClickEvent, Context, CursorStyle, DismissEvent, Div,
+    ElementId, Entity, EventEmitter, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
+    ParentElement as _, Render, RenderOnce, Stateful, StatefulInteractiveElement as _, Styled as _,
+    Window, div, linear_color_stop, linear_gradient, point, px, rgba,
+};
+use zed_ui::{
+    ActiveTheme as _, Clickable, Icon, IconName, PopoverMenu, Toggleable, Tooltip, h_flex, v_flex,
 };
 
 use crate::{Galvanized, domain::vault::Vault};

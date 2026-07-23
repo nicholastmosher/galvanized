@@ -1,15 +1,13 @@
 use std::sync::LazyLock;
 
+use gpui::{
+    Context, Entity, FontWeight, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent,
+    ParentElement as _, StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div,
+    px, rgba,
+};
 use gpui_component::alert::Alert;
 use tracing::info;
-use zed::unstable::{
-    gpui::{Entity, FontWeight, Hsla, KeyDownEvent, TaskExt as _, rgba},
-    ui::{
-        ActiveTheme, Color, Context, Icon, IconName, IconSize, InteractiveElement, IntoElement,
-        ParentElement as _, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex,
-        px, v_flex,
-    },
-};
+use zed_ui::{ActiveTheme as _, Color, Icon, IconName, IconSize, Tooltip, h_flex, v_flex};
 
 use crate::{
     GalvanizedHandle as _,

@@ -95,11 +95,14 @@ zeroize = { version = "1.8.2", features = ["std", "zeroize_derive"] }
 gpui = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 gpui_platform = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 zed = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
+zed_ui = { package = "ui", git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
+zed_ui_input = { package = "ui_input", git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 # gpui = { path = "../zed/crates/gpui" }
 # zed = { path = "../zed/crates/zed" }
 
 # Path dependencies
 # csh-demo = { path = "crates/csh-demo" }
+galvanized-core = { path = "crates/galvanized-core" }
 plugin-automerge = { path = "crates/plugin-automerge" }
 plugin-calendar = { path = "crates/plugin-calendar" }
 plugin-chat = { path = "crates/plugin-chat" }

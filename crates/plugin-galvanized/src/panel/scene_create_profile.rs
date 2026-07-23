@@ -1,10 +1,8 @@
-use zed::unstable::{
-    gpui::{Entity, FontWeight, TaskExt as _},
-    ui::{
-        ActiveTheme as _, Context, InteractiveElement as _, IntoElement, ParentElement,
-        StatefulInteractiveElement as _, Styled as _, Window, div, h_flex, v_flex,
-    },
+use gpui::{
+    Context, Entity, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
+    StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div,
 };
+use zed_ui::{ActiveTheme as _, h_flex, v_flex};
 
 use crate::{
     domain::vault::Vault,

@@ -1,3 +1,4 @@
+use gpui::{AppContext, Context, Entity, SharedString, WeakEntity};
 use iroh::Endpoint;
 use plugin_p2p::P2p;
 use plugin_willow::Subspace;
@@ -5,10 +6,6 @@ use plugin_willow::willow_serde::NamespaceIdSerde;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use willow25::entry::{NamespaceId, SubspaceId};
-use zed::unstable::{
-    gpui::{AppContext, Entity, WeakEntity},
-    ui::{Context, SharedString},
-};
 
 use crate::domain::space::Space;
 

@@ -1,12 +1,12 @@
+use gpui::{
+    self, Anchor, App, ClickEvent, Context, CursorStyle, Div, ElementId, Entity, FontWeight,
+    InteractiveElement as _, IntoElement, ParentElement as _, RenderOnce, Stateful,
+    StatefulInteractiveElement as _, Styled as _, Window, div, point, px, rgba,
+};
 use hex::ToHex as _;
 use tracing::info;
-use zed::unstable::{
-    gpui::{self, Anchor, ClickEvent, CursorStyle, Entity, FontWeight, Stateful, point, rgba},
-    ui::{
-        ActiveTheme as _, App, Clickable, Context, ContextMenu, Div, ElementId, FluentBuilder as _,
-        InteractiveElement as _, IntoElement, ParentElement as _, PopoverMenu, RenderOnce,
-        StatefulInteractiveElement as _, Styled as _, Toggleable, Window, div, h_flex, px,
-    },
+use zed_ui::{
+    ActiveTheme as _, Clickable, ContextMenu, FluentBuilder as _, PopoverMenu, Toggleable, h_flex,
 };
 
 use crate::{
