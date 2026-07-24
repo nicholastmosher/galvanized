@@ -13,7 +13,7 @@ use tracing::info;
 
 pub fn init(cx: &mut App) {
     let options = WindowOptions {
-        window_bounds: Some(WindowBounds::centered(size(px(600.), px(400.)), cx)),
+        window_bounds: Some(WindowBounds::centered(size(px(1000.), px(800.)), cx)),
         ..Default::default()
     };
 
@@ -35,7 +35,7 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(_cx: &mut Context<Self>) -> Self {
         Self {
             left_panel: None,
             main_content: None,
@@ -72,10 +72,10 @@ impl Workspace {
     pub fn add_item_to_active_pane(
         &mut self,
         item: Box<impl Into<AnyView>>,
-        destination_index: Option<usize>,
-        focus_item: bool,
-        window: &mut Window,
-        cx: &mut App,
+        _destination_index: Option<usize>,
+        _focus_item: bool,
+        _window: &mut Window,
+        _cx: &mut App,
     ) {
         let item = *item;
         let view = item.into();
@@ -117,22 +117,18 @@ impl Render for Workspace {
                         //
                         el.child(
                             resizable_panel()
+                                .size(300.)
                                 //
-                                .child(
-                                    div()
-                                        //
-                                        .size_full()
-                                        .child(panel),
-                                ),
+                                .child(panel),
                         )
                     })
                     .when_some(self.main_content.clone(), |el, content| {
                         //
-                        el.child(resizable_panel().child(*content))
+                        el.child(content.into_any_element())
                     })
                     .when_none(&self.main_content, |el| {
                         //
-                        el.child(resizable_panel().child(div().size_full().child("Main View")))
+                        el.child("Main view".into_any_element())
                     }),
             )
     }
@@ -149,7 +145,7 @@ impl Panel {
 }
 
 impl Render for Panel {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
             //
             .size_full()

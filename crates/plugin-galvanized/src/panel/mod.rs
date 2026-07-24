@@ -30,7 +30,7 @@ pub mod scene_create_space;
 pub mod scene_vault;
 pub mod vault_menu;
 
-const DEFAULT_WIDTH: Pixels = px(380.);
+// const DEFAULT_WIDTH: Pixels = px(380.);
 
 actions!(
     galvanized,
@@ -44,7 +44,7 @@ actions!(
 
 pub struct GalvanizedPanel {
     focus_handle: FocusHandle,
-    width: Option<Pixels>,
+    // width: Option<Pixels>,
     galvanized: Entity<Galvanized>,
 
     pub(crate) vault_scene: VaultScene,
@@ -152,7 +152,7 @@ impl GalvanizedPanel {
 
         Self {
             focus_handle: cx.focus_handle(),
-            width: None,
+            // width: None,
             galvanized,
 
             vault_scene: VaultScene::VaultPicker,
@@ -188,10 +188,10 @@ impl GalvanizedPanel {
 
 impl Render for GalvanizedPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let panel_width = self.width.unwrap_or(DEFAULT_WIDTH) - px(1.);
+        // let panel_width = self.width.unwrap_or(DEFAULT_WIDTH) - px(1.);
         div()
-            .h_full()
-            .w(panel_width)
+            // .w(panel_width)
+            .size_full()
             .child(self.render_root(window, cx))
     }
 }
