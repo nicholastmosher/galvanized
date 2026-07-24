@@ -197,18 +197,18 @@ impl GalvanizedPanel {
                                             .primary_button()
                                             .cursor_pointer()
                                             .on_click(cx.listener(|this, _e, _window, cx| {
-                                                let name = this.space_name_input.read(cx).text(cx);
+                                                let name = this.space_name_input.read(cx).value();
                                                 let kind = this.create_space_kind;
                                                 this.create_space_kind = Default::default();
                                                 if !name.is_empty() {
                                                     this.scene = PanelScene::Home;
                                                 }
 
-                                                let Some(user) = this.galvanized.read(cx).active_vault.clone() else {
+                                                let Some(vault) = this.galvanized.read(cx).active_vault.clone() else {
                                                     return;
                                                 };
 
-                                                user.update(cx, |it, cx| {
+                                                vault.update(cx, |it, cx| {
                                                     if kind.is_owned() {
                                                         it.create_owned_space(name.into(), cx)
                                                     } else {

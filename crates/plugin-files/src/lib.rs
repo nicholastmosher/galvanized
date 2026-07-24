@@ -1,8 +1,8 @@
-use plugin_galvanized::{Galvanized, app_behavior::AppBehavior};
-use zed::unstable::{
-    gpui::{self, Action, AppContext as _, actions},
-    ui::{App, Context, IntoElement, Render, SharedString, Window, div},
+use gpui::{
+    self, Action, App, AppContext as _, Context, IntoElement, Render, SharedString, Window,
+    actions, div,
 };
+use plugin_galvanized::{Galvanized, app_behavior::AppBehavior};
 
 actions!(
     files,

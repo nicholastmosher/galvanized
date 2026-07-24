@@ -40,13 +40,14 @@ impl GalvanizedPanel {
                             return;
                         }
 
-                        let search_text = this.search_input.read(cx).text(cx);
+                        let search_text = this.search_input.read(cx).value();
                         if search_text.is_empty() {
                             return;
                         }
 
                         this.profile_filters.push(search_text.into());
-                        this.search_input.update(cx, |it, cx| it.clear(window, cx));
+                        this.search_input
+                            .update(cx, |it, cx| it.set_value("", window, cx));
                     }))
                     .child(self.search_input.clone()),
             )

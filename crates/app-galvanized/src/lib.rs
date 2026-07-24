@@ -1,12 +1,12 @@
-use image::imageops::FilterType;
-use zed::unstable::gpui::{App, Image, ImageFormat};
+use gpui::App;
 
 pub mod observability;
 
 pub fn init(cx: &mut App) {
-    // observability::init(cx);
-    zed::init(cx);
+    observability::init(cx);
+    // zed::init(cx);
     plugin_galvanized::init(cx);
+    galvanized_core::init(cx);
 
     plugin_vault::init(cx);
     plugin_p2p::init(cx);
@@ -18,10 +18,4 @@ pub fn init(cx: &mut App) {
     plugin_files::init(cx);
 
     plugin_theme_palette::init(cx);
-}
-
-pub fn identicon(bytes: &[u8]) -> Image {
-    let identicon =
-        plot_icon::generate_png_scaled_custom(bytes, 127, 4, FilterType::Triangle).unwrap();
-    Image::from_bytes(ImageFormat::Png, identicon)
 }

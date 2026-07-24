@@ -24,8 +24,18 @@
 
 use std::path::PathBuf;
 
+use crate::protocol::{ContactPeer, ContactsProtocol};
 use anyhow::{Context as _, Result, anyhow, bail};
 use futures::stream::StreamExt as _;
+use galvanized_core::Workspace;
+use gpui::{
+    self, Action, App, AppContext as _, ClipboardItem, Context, Entity, EventEmitter, FocusHandle,
+    Focusable, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render,
+    SharedString, StatefulInteractiveElement as _, Styled as _, Task, TaskExt as _, WeakEntity,
+    Window, actions, div,
+};
+use gpui_component::input::{Input, InputState};
+use gpui_util::ResultExt as _;
 use hex::ToHex;
 use iroh::{EndpointAddr, EndpointId};
 use iroh_ping::Ping;
@@ -47,22 +57,10 @@ use signature::SignerMut as _;
 use tracing::{info, warn};
 use ufotofu::{IntoConsumer as _, IntoProducer, codec::Decodable};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
-use zed::unstable::{
-    editor::Editor,
-    gpui::{
-        self, Action, AppContext as _, ClipboardItem, Entity, EventEmitter, FocusHandle, Focusable,
-        KeyDownEvent, Task, TaskExt as _, WeakEntity, actions,
-    },
-    ui::{
-        ActiveTheme, App, Context, FluentBuilder as _, Icon, IconName, IconSize,
-        InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Render,
-        SharedString, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex,
-        v_flex,
-    },
-    util::ResultExt as _,
+use zed_ui::{
+    ActiveTheme as _, FluentBuilder as _, Icon, IconName, IconSize, ListSeparator, Tooltip, h_flex,
+    v_flex,
 };
-
-use crate::protocol::{ContactPeer, ContactsProtocol};
 
 pub mod protocol;
 
@@ -131,7 +129,8 @@ pub struct Contacts {
     copy_ticket: Option<String>,
     focus_handle: FocusHandle,
     galvanized: WeakEntity<Galvanized>,
-    input_editor: Entity<Editor>,
+    // input_editor: Entity<Editor>,
+    input: Entity<InputState>,
 }
 
 impl Contacts {
@@ -140,18 +139,14 @@ impl Contacts {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let input_editor = cx.new(|cx| {
-            let mut editor = Editor::single_line(window, cx);
-            editor.set_placeholder_text("Paste Profile Ticket", window, cx);
-            editor
-        });
+        let input = cx.new(|cx| InputState::new(window, cx));
 
         Self {
             contacts: Default::default(),
             copy_ticket: None,
             focus_handle: cx.focus_handle(),
             galvanized,
-            input_editor,
+            input,
         }
     }
 
@@ -258,7 +253,9 @@ impl Contacts {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let ticket_string = self.input_editor.read(cx).text(cx);
+        let Some(ticket_string) = self.input.read(cx).text().as_str() else {
+            return;
+        };
         let Some(ticket) = ticket_string.parse::<ContactTicket>().log_err() else {
             return;
         };
@@ -385,7 +382,7 @@ impl Contacts {
                             .flex_grow_1()
                             .bg(cx.theme().colors().editor_background)
                             .px_2()
-                            .child(self.input_editor.clone()),
+                            .child(Input::new(&self.input)),
                     ),
             )
     }
@@ -448,7 +445,7 @@ impl Contacts {
 }
 
 impl Focusable for Contacts {
-    fn focus_handle(&self, _cx: &App) -> zed::unstable::gpui::FocusHandle {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }

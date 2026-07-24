@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+galvanized-core.workspace = true
+gpui.workspace = true
 plugin-galvanized.workspace = true
 tracing.workspace = true
 willow25.workspace = true
-zed.workspace = true
+# zed.workspace = true

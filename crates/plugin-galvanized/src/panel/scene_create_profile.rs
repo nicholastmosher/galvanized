@@ -83,7 +83,7 @@ impl GalvanizedPanel {
                                     .shadow_lg()
                                     .cursor_pointer()
                                     .on_click(cx.listener(move |this, _e, _window, cx| {
-                                        let name = this.vault_name_input.read(cx).text(cx);
+                                        let name = this.vault_name_input.read(cx).value();
                                         if name.is_empty() {
                                             return;
                                         }

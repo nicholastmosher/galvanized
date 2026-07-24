@@ -10,6 +10,7 @@ futures-concurrency.workspace = true
 galvanized-core.workspace = true
 gpui.workspace = true
 gpui-component.workspace = true
+gpui_util.workspace = true
 hex.workspace = true
 iroh.workspace = true
 plugin-p2p.workspace = true

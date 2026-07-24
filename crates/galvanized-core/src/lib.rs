@@ -1,8 +1,12 @@
+use std::sync::Arc;
+
 use gpui::{
-    AnyView, App, AppContext as _, Context, IntoElement, ParentElement as _, Render, Styled,
-    Window, WindowBounds, WindowOptions, div, prelude::FluentBuilder, px, rgb, size,
+    Action, AnyView, App, AppContext as _, Context, Div, Entity, InteractiveElement as _,
+    IntoElement, ParentElement as _, Render, Styled, Window, WindowBounds, WindowOptions, div,
+    prelude::FluentBuilder, px, rgb, size,
 };
 use gpui_component::resizable::{h_resizable, resizable_panel};
+use tracing::info;
 
 pub fn init(cx: &mut App) {
     gpui_component::init(cx);
@@ -12,38 +16,78 @@ pub fn init(cx: &mut App) {
         ..Default::default()
     };
 
-    cx.observe_new::<Galvanized>(|galvanized, _window, cx| {
-        let panel = cx.new(|cx| Panel::new(cx));
-        galvanized.set_left_panel(panel, cx);
-    })
-    .detach();
-
     let _window_handle = cx
         .open_window(options, |_window, cx| {
             //
-            cx.new(|cx| Galvanized::new(cx))
+            cx.new(|cx| Workspace::new(cx))
         })
         .expect("should open main Galvanized window");
 }
 
-pub struct Galvanized {
+/// Minimal reproduction of Zed's Workspace entity, serves as the top-level view
+pub struct Workspace {
     //
     left_panel: Option<AnyView>,
+    actions: Vec<Box<dyn Fn(Div, &Workspace, &mut Window, &mut Context<Self>) -> Div>>,
 }
 
-impl Galvanized {
+impl Workspace {
     pub fn new(cx: &mut Context<Self>) -> Self {
-        Self { left_panel: None }
+        Self {
+            left_panel: None,
+            actions: Default::default(),
+        }
     }
 
-    pub fn set_left_panel(&mut self, panel: impl Into<AnyView>, cx: &mut Context<Self>) {
+    pub fn register_action<A: Action>(
+        &mut self,
+        callback: impl Fn(&mut Self, &A, &mut Window, &mut Context<Self>) + 'static,
+    ) -> &mut Self {
+        let callback = Arc::new(callback);
+
+        self.actions.push(Box::new(move |div, _, _, cx| {
+            let callback = callback.clone();
+            div.on_action(cx.listener(move |workspace, event, window, cx| {
+                (callback)(workspace, event, window, cx)
+            }))
+        }));
+        self
+    }
+
+    pub fn add_panel(
+        &mut self,
+        panel: impl Into<AnyView>,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        info!("Adding panel");
         self.left_panel = Some(panel.into());
         cx.notify();
     }
 }
 
-impl Render for Galvanized {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+pub trait GalvanizedHandle {
+    fn register_action<A: Action>(
+        &self,
+        cx: &mut App,
+        action: impl 'static + Fn(&mut Workspace, &A, &mut Window, &mut Context<Workspace>),
+    );
+}
+
+impl GalvanizedHandle for Entity<Workspace> {
+    fn register_action<A: Action>(
+        &self,
+        cx: &mut App,
+        action: impl 'static + Fn(&mut Workspace, &A, &mut Window, &mut Context<Workspace>),
+    ) {
+        self.update(cx, move |this, _cx| {
+            this.register_action(action);
+        })
+    }
+}
+
+impl Render for Workspace {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
             //
             .debug()
@@ -52,7 +96,7 @@ impl Render for Galvanized {
             .child(
                 //
                 h_resizable("resizable")
-                    .when_some(self.left_panel.as_ref(), |el, panel| {
+                    .when_some(self.left_panel.clone(), |el, panel| {
                         //
                         el.child(
                             resizable_panel()
@@ -61,8 +105,8 @@ impl Render for Galvanized {
                                     div()
                                         //
                                         .size_full()
-                                        .child(panel.clone()),
-                                ), //
+                                        .child(panel),
+                                ),
                         )
                     })
                     .child(
@@ -81,7 +125,7 @@ pub struct Panel {
 }
 
 impl Panel {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(_cx: &mut Context<Self>) -> Self {
         Self {}
     }
 }

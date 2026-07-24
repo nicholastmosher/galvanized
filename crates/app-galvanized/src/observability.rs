@@ -1,6 +1,8 @@
 use std::time::Duration;
 
 use anyhow::Result;
+use gpui::{App, AppContext, Global};
+use gpui_util::ResultExt as _;
 use opentelemetry::{
     KeyValue,
     global::{self, BoxedTracer},
@@ -11,36 +13,31 @@ use opentelemetry_sdk::{Resource, metrics::SdkMeterProvider, trace::SdkTracerPro
 use tracing::{Subscriber, error, info};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
-    EnvFilter, Layer, layer::SubscriberExt as _, registry::LookupSpan, util::SubscriberInitExt as _,
+    EnvFilter, layer::SubscriberExt as _, registry::LookupSpan, util::SubscriberInitExt as _,
 };
 use uuid::Uuid;
-use zed::unstable::{
-    gpui::{AppContext, Global},
-    ui::App,
-    util::ResultExt,
-};
 
 /// Tracing with Opentelemetry, OTLP exporter
 pub fn init(cx: &mut App) {
     let instance = Uuid::new_v4();
-    let otel_layer = init_otel_tracing(instance).log_err();
-    let loki_layer = init_loki_logging(instance).log_err();
+    // let otel_layer = init_otel_tracing(instance).log_err();
+    // let loki_layer = init_loki_logging(instance).log_err();
     tracing_subscriber::registry()
         .with(EnvFilter::from_default_env())
         // .with(tracing_subscriber::fmt::layer().with_filter(EnvFilter::from_default_env()))
         .with(tracing_subscriber::fmt::layer())
-        .with(otel_layer)
-        .with(loki_layer)
+        // .with(otel_layer)
+        // .with(loki_layer)
         .init();
 
-    if let Err(error) = init_otel_metrics(instance, cx) {
-        error!("failed to initialize otel metrics: {}", error);
-    }
+    // if let Err(error) = init_otel_metrics(instance, cx) {
+    //     error!("failed to initialize otel metrics: {}", error);
+    // }
 
-    cx.meter()
-        .u64_counter("startup")
-        .build()
-        .add(1, &[KeyValue::new("instance", instance.to_string())]);
+    // cx.meter()
+    //     .u64_counter("startup")
+    //     .build()
+    //     .add(1, &[KeyValue::new("instance", instance.to_string())]);
     info!(?instance, "Observability initialized");
 }
 

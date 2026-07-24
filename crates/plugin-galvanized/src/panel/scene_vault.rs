@@ -5,7 +5,7 @@ use gpui::{
     ParentElement as _, StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div,
     px, rgba,
 };
-use gpui_component::alert::Alert;
+use gpui_component::{alert::Alert, input::Input};
 use tracing::info;
 use zed_ui::{ActiveTheme as _, Color, Icon, IconName, IconSize, Tooltip, h_flex, v_flex};
 
@@ -330,7 +330,7 @@ impl GalvanizedPanel {
                                                 Icon::new(IconName::Info).size(IconSize::XSmall),
                                             ),
                                     )
-                                    .child(self.vault_name_input.clone()),
+                                    .child(Input::new(&self.vault_name_input)),
                             )
                             .child(
                                 div()
@@ -576,18 +576,21 @@ impl GalvanizedPanel {
     }
 
     fn submit_create_vault(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        let vault_name = self.vault_name_input.read(cx).text(cx);
+        let vault_name = self.vault_name_input.read(cx).value();
         if vault_name.is_empty() {
             return;
         }
 
-        let profile_name = self.profile_name_input.read(cx).text(cx);
+        let profile_name = self.profile_name_input.read(cx).value();
         if profile_name.is_empty() {
             return;
         }
 
-        let password = self.create_password_input.read(cx).text(cx);
-        let password_confirm = self.create_password_confirmation_input.read(cx).text(cx);
+        let password = self.create_password_input.read(cx).value();
+        if password.is_empty() {
+            return;
+        }
+        let password_confirm = self.create_password_confirmation_input.read(cx).value();
         if password.is_empty() || password_confirm.is_empty() {
             return;
         }
@@ -599,7 +602,9 @@ impl GalvanizedPanel {
         info!("Creating vault: {}", vault_name);
         cx.spawn(async move |this, cx| {
             let galvanized = this.read_with(cx, |this, _cx| this.galvanized.clone())?;
-            let vault = galvanized.create_vault(vault_name, password, cx).await?;
+            let vault = galvanized
+                .create_vault(vault_name.to_string(), password.to_string(), cx)
+                .await?;
             galvanized.set_active_vault(vault.clone(), cx);
             vault
                 .update(cx, |vault, cx| {
@@ -621,8 +626,8 @@ impl GalvanizedPanel {
         cx: &mut Context<Self>,
     ) {
         let input = self.unlock_password_input.clone();
-        let password = input.read(cx).text(cx);
-        input.update(cx, |input, cx| input.clear(window, cx));
+        let password = input.read(cx).value();
+        input.update(cx, |input, cx| input.set_value("", window, cx));
         if password.trim().is_empty() {
             return;
         }
@@ -630,7 +635,7 @@ impl GalvanizedPanel {
         info!("Unlock clicked");
         let vault = vault.clone();
         cx.spawn(async move |this, cx| {
-            vault.unlock(cx, password).await?;
+            vault.unlock(cx, password.to_string()).await?;
             this.update(cx, |this, cx| {
                 this.galvanized.set_active_vault(vault, cx);
             })?;

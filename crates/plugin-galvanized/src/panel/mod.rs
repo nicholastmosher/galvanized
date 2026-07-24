@@ -1,5 +1,6 @@
 use std::sync::LazyLock;
 
+use galvanized_core::{GalvanizedHandle as _, Workspace};
 use gpui::{
     self, Anchor, App, AppContext as _, Context, DismissEvent, Div, ElementId, Entity, FocusHandle,
     Focusable, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton, MouseDownEvent,
@@ -7,6 +8,8 @@ use gpui::{
     StatefulInteractiveElement as _, Styled, Subscription, Window, actions, anchored, deferred,
     div, linear_color_stop, linear_gradient, px, rgba,
 };
+use gpui_component::input::InputState;
+use gpui_util::ResultExt as _;
 use tracing::info;
 use zed_ui::{ActiveTheme as _, ContextMenu, FluentBuilder as _, Tooltip, h_flex, v_flex};
 use zed_ui_input::InputField;
@@ -46,16 +49,16 @@ pub struct GalvanizedPanel {
     galvanized: Entity<Galvanized>,
 
     pub(crate) vault_scene: VaultScene,
-    pub(crate) vault_name_input: Entity<InputField>,
-    pub(crate) profile_name_input: Entity<InputField>,
-    pub(crate) create_password_input: Entity<InputField>,
-    pub(crate) create_password_confirmation_input: Entity<InputField>,
-    pub(crate) unlock_password_input: Entity<InputField>,
-    pub(crate) space_name_input: Entity<InputField>,
+    pub(crate) vault_name_input: Entity<InputState>,
+    pub(crate) profile_name_input: Entity<InputState>,
+    pub(crate) create_password_input: Entity<InputState>,
+    pub(crate) create_password_confirmation_input: Entity<InputState>,
+    pub(crate) unlock_password_input: Entity<InputState>,
+    pub(crate) space_name_input: Entity<InputState>,
 
     // Sidebar UI state
     active_app: Option<Box<dyn AppHandle>>,
-    search_input: Entity<InputField>,
+    search_input: Entity<InputState>,
     space_filters: Vec<SharedString>,
     profile_filters: Vec<SharedString>,
 
@@ -96,29 +99,41 @@ impl CreateSpaceKind {
 
 impl GalvanizedPanel {
     pub fn new(
+        workspace: Entity<Workspace>,
         galvanized: Entity<Galvanized>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let vault_name_input = cx.new(|cx| InputField::new(window, cx, "Vault name"));
-        let profile_name_input = cx.new(|cx| InputField::new(window, cx, "Profile name"));
-        let create_password_input =
-            cx.new(|cx| InputField::new(window, cx, "Create Password").masked(true));
-        let create_password_confirmation_input =
-            cx.new(|cx| InputField::new(window, cx, "Confirm Password").masked(true));
-        let unlock_password_input =
-            cx.new(|cx| InputField::new(window, cx, "Password").masked(true));
-        let space_name_input = cx.new(|cx| InputField::new(window, cx, "Space name"));
-        let search_input = cx.new(|cx| InputField::new(window, cx, "Search your data..."));
+        let vault_name_input = cx.new(|cx| InputState::new(window, cx).placeholder("Vault name"));
+        let profile_name_input =
+            cx.new(|cx| InputState::new(window, cx).placeholder("Profile name"));
+        let create_password_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("Create Password")
+                .masked(true)
+        });
+        let create_password_confirmation_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("Confirm Password")
+                .masked(true)
+        });
+        let unlock_password_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("Password")
+                .masked(true)
+        });
+        let space_name_input = cx.new(|cx| InputState::new(window, cx).placeholder("Space name"));
+        let search_input =
+            cx.new(|cx| InputState::new(window, cx).placeholder("Search your data..."));
 
         // Galvanized entity has refcount 0 on init, so we defer until it's done initializing
         let weak_panel = cx.weak_entity();
         cx.defer({
-            let galvanized = galvanized.clone();
+            let workspace = workspace.clone();
             move |cx| {
-                galvanized.register_action(cx, {
+                workspace.register_action(cx, {
                     let weak_panel = weak_panel.clone();
-                    move |_galvanized, _workspace, _: &CreateProfile, _window, cx| {
+                    move |_galvanized, _: &CreateProfile, _window, cx| {
                         weak_panel
                             .update(cx, |panel, _cx| {
                                 panel.scene = PanelScene::CreatingProfile;
@@ -126,16 +141,13 @@ impl GalvanizedPanel {
                             .log_err();
                     }
                 });
-                galvanized.register_action(
-                    cx,
-                    move |_galvanized, _workspace, _: &CreateSpace, _window, cx| {
-                        weak_panel
-                            .update(cx, |panel, _cx| {
-                                panel.scene = PanelScene::CreatingSpace;
-                            })
-                            .log_err();
-                    },
-                );
+                workspace.register_action(cx, move |_galvanized, _: &CreateSpace, _window, cx| {
+                    weak_panel
+                        .update(cx, |panel, _cx| {
+                            panel.scene = PanelScene::CreatingSpace;
+                        })
+                        .log_err();
+                });
             }
         });
 

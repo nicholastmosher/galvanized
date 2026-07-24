@@ -20,6 +20,8 @@ use autosurgeon::{Hydrate, Reconcile};
 use chrono::{DateTime, TimeDelta, Utc};
 use dashmap::DashMap;
 use futures::{SinkExt, Stream, TryStreamExt as _};
+use gpui::{AppContext, Entity, SharedString};
+use gpui_util::ResultExt as _;
 use iroh::{
     Endpoint,
     endpoint::{Connection, SendStream},
@@ -41,11 +43,6 @@ use tokio_util::{
 use tracing::info;
 use ufotofu::{IntoConsumer as _, IntoProducer as _, codec::Decodable as _};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
-use zed::unstable::{
-    gpui::{AppContext, Entity},
-    ui::SharedString,
-    util::ResultExt as _,
-};
 
 use crate::{ContactName, ContactTicket};
 

@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 
 use anyhow::{Context as _, Result};
+use galvanized_core::Workspace;
 use gpui::{Action, App, AppContext, Context, Entity, Task, Window};
+use gpui_util::ResultExt as _;
 use plugin_vault::{VaultsExt as _, vault_db::VaultId};
 use tracing::info;
 
@@ -19,7 +21,7 @@ pub mod domain;
 pub mod panel;
 
 pub fn init(cx: &mut App) {
-    gpui_component::init(cx);
+    // gpui_component::init(cx);
 
     // cx.observe_new::<Workspace>(|workspace, window, cx| {
     //     let Some(window) = window else { return };
@@ -33,6 +35,16 @@ pub fn init(cx: &mut App) {
     //     });
     // })
     // .detach();
+
+    cx.observe_new::<Workspace>(|workspace, window, cx| {
+        let Some(window) = window else { return };
+        info!("Observed new Workspace");
+        let workspace_entity = cx.entity();
+        let galvanized = cx.new(|cx| Galvanized::new(workspace_entity.clone(), window, cx));
+        let panel = galvanized.read(cx).panel();
+        workspace.add_panel(panel, window, cx);
+    })
+    .detach();
 }
 
 /// Top-level entity for shared Galvanized state and plugins
@@ -44,14 +56,16 @@ pub struct Galvanized {
     // p2p: Entity<P2p>,
     panel: Entity<GalvanizedPanel>,
     vaults: BTreeMap<VaultId, Entity<Vault>>,
-    // workspace: Entity<Workspace>,
+    workspace: Entity<Workspace>,
 }
 
 impl Galvanized {
-    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let galvanized = cx.entity();
+    pub fn new(workspace: Entity<Workspace>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let galvanized_entity = cx.entity();
         // let p2p = cx.new(|cx| P2p::new(cx));
-        let panel = cx.new(|cx| GalvanizedPanel::new(galvanized, window, cx));
+        let panel = cx.new(|cx| {
+            GalvanizedPanel::new(workspace.clone(), galvanized_entity.clone(), window, cx)
+        });
 
         let mut this = Self {
             active_vault: Default::default(),
@@ -61,7 +75,7 @@ impl Galvanized {
             // p2p,
             panel,
             vaults: Default::default(),
-            // workspace,
+            workspace,
         };
         this.load_vaults(cx);
         this
@@ -78,16 +92,16 @@ impl Galvanized {
     pub fn register_action<A: Action>(
         &mut self,
         cx: &mut Context<Self>,
-        action: impl 'static + Fn(&mut Self, &A, &mut Window, &mut Context<Self>),
+        action: impl 'static + Fn(&mut Self, &mut Workspace, &A, &mut Window, &mut Context<Self>),
     ) {
-        // let weak_self = cx.weak_entity();
-        // self.workspace.update(cx, |workspace, _cx| {
-        //     workspace.register_action(move |workspace, a, window, cx| {
-        //         weak_self
-        //             .update(cx, |this, cx| (action)(this, workspace, a, window, cx))
-        //             .log_err();
-        //     });
-        // })
+        let weak_self = cx.weak_entity();
+        self.workspace.update(cx, |workspace, _cx| {
+            workspace.register_action(move |workspace, a, window, cx| {
+                weak_self
+                    .update(cx, |this, cx| (action)(this, workspace, a, window, cx))
+                    .log_err();
+            });
+        })
     }
 
     /// Returns the panel view displaying Galvanized navigation
@@ -243,7 +257,8 @@ pub trait GalvanizedHandle {
     fn register_action<A: Action>(
         &self,
         cx: &mut App,
-        action: impl 'static + Fn(&mut Galvanized, &A, &mut Window, &mut Context<Galvanized>),
+        action: impl 'static
+        + Fn(&mut Galvanized, &mut Workspace, &A, &mut Window, &mut Context<Galvanized>),
     );
 
     fn create_vault<C: AppContext>(
@@ -260,7 +275,8 @@ impl GalvanizedHandle for Entity<Galvanized> {
     fn register_action<A: Action>(
         &self,
         cx: &mut App,
-        action: impl 'static + Fn(&mut Galvanized, &A, &mut Window, &mut Context<Galvanized>),
+        action: impl 'static
+        + Fn(&mut Galvanized, &mut Workspace, &A, &mut Window, &mut Context<Galvanized>),
     ) {
         self.update(cx, move |this, cx| {
             this.register_action(cx, action);

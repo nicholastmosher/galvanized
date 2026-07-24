@@ -94,6 +94,7 @@ zeroize = { version = "1.8.2", features = ["std", "zeroize_derive"] }
 # zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
 gpui = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 gpui_platform = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
+gpui_util = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 zed = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 zed_ui = { package = "ui", git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 zed_ui_input = { package = "ui_input", git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
