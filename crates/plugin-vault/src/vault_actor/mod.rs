@@ -8,6 +8,7 @@ use anyhow::{Context as _, Result};
 use capsec::{CapProvider, SendCap};
 use derive_more::Debug;
 use futures::{Stream, StreamExt as _};
+use gpui_util::ResultExt;
 use strict_cap::{StrictRevoker, StrictSendCap};
 use tracing::{error, info};
 
@@ -81,7 +82,7 @@ impl VaultToken {
 /// External handle API for interacting with the vault actor
 #[derive(Clone)]
 pub struct VaultActorHandle {
-    _join_handle: Arc<tokio::task::JoinHandle<Result<()>>>,
+    _join_handle: Arc<tokio::task::JoinHandle<()>>,
     tx: flume::Sender<VaultActorInput>,
 }
 
@@ -122,6 +123,9 @@ impl VaultActor {
             actor.run().await;
             anyhow::Ok(())
         };
+        let future = async move {
+            future.await.log_err();
+        };
         let join_handle = tokio::spawn(future);
         info!("Spawned Vault Actor");
         Ok(VaultActorHandle {
@@ -160,6 +164,8 @@ impl VaultActor {
     /// errors and continue.
     async fn run(mut self) {
         let mut inputs = self.create_input_stream();
+        info!("Created Vault Actor stream");
+
         loop {
             let result = self.try_run(&mut inputs).await;
             if let Err(error) = result {

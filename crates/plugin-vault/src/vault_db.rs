@@ -112,6 +112,18 @@ impl VaultsDb {
 
         if !db_exists {
             let initial_db = Assets::get("vault.db").expect("embedded initial vault");
+            let parent_path = path.parent().ok_or_else(|| {
+                OpenVaultError::IoWriteInitialDb(
+                    path.into(),
+                    std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "failed to create database parent directory",
+                    ),
+                )
+            })?;
+            tokio::fs::create_dir_all(parent_path)
+                .await
+                .map_err(|error| OpenVaultError::IoWriteInitialDb(path.into(), error))?;
             tokio::fs::write(path, &initial_db.data)
                 .await
                 .map_err(|error| OpenVaultError::IoWriteInitialDb(path.into(), error))?;
