@@ -1,13 +1,13 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use serde_json::{Map, Value, json};
+use serde_json::{json, Map, Value};
 use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, ScrollHandle},
     ui::{
-        ActiveTheme, App, Context, FluentBuilder, IconButton, IconName, InteractiveElement,
+        div, ActiveTheme, App, Context, FluentBuilder, IconButton, IconName, InteractiveElement,
         IntoElement, ParentElement as _, Render, SharedString, StatefulInteractiveElement as _,
-        Styled as _, Window, div,
+        Styled as _, Window,
     },
     workspace::{Item, Workspace},
 };
@@ -91,7 +91,7 @@ impl Render for ObjectCanvas {
             //
             .id("object-canvas")
             .p_4()
-            .bg(cx.theme().colors().editor_background)
+            .bg(cx.theme().colors.background)
             .track_scroll(&self.scroll_handle)
             .overflow_y_scroll()
             .children(self.objects.iter().cloned())
@@ -168,7 +168,7 @@ impl Render for ObjectWidget {
         div()
             //
             .p_2()
-            .bg(cx.theme().colors().panel_background)
+            .bg(cx.theme().colors.sidebar)
             .rounded_lg()
             .child(
                 div()
@@ -262,9 +262,9 @@ impl ObjectWidget {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let active_color = cx.theme().colors().ghost_element_active;
-        let hover_bg_color = cx.theme().colors().ghost_element_hover;
-        let hover_border_color = cx.theme().colors().border.opacity(1.0);
+        let active_color = cx.theme().colors.list_active;
+        let hover_bg_color = cx.theme().colors.list_hover;
+        let hover_border_color = cx.theme().colors.border.opacity(1.0);
 
         div()
             //

@@ -27,14 +27,16 @@ use std::path::PathBuf;
 use crate::protocol::{ContactPeer, ContactsProtocol};
 use anyhow::{Context as _, Result, anyhow, bail};
 use futures::stream::StreamExt as _;
-use galvanized_core::Workspace;
 use gpui::{
     self, Action, App, AppContext as _, ClipboardItem, Context, Entity, EventEmitter, FocusHandle,
     Focusable, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render,
     SharedString, StatefulInteractiveElement as _, Styled as _, Task, TaskExt as _, WeakEntity,
     Window, actions, div,
 };
-use gpui_component::input::{Input, InputState};
+use gpui_component::{
+    ActiveTheme as _,
+    input::{Input, InputState},
+};
 use gpui_util::ResultExt as _;
 use hex::ToHex;
 use iroh::{EndpointAddr, EndpointId};
@@ -58,8 +60,7 @@ use tracing::{info, warn};
 use ufotofu::{IntoConsumer as _, IntoProducer, codec::Decodable};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
 use zed_ui::{
-    ActiveTheme as _, FluentBuilder as _, Icon, IconName, IconSize, ListSeparator, Tooltip, h_flex,
-    v_flex,
+    FluentBuilder as _, Icon, IconName, IconSize, ListSeparator, Tooltip, h_flex, v_flex,
 };
 
 pub mod protocol;
@@ -349,8 +350,8 @@ impl Contacts {
                             .id("copy-profile-id")
                             .gap_2()
                             .text_xs()
-                            .text_color(cx.theme().colors().text_muted)
-                            .hover(|style| style.text_color(cx.theme().colors().text_placeholder))
+                            .text_color(cx.theme().colors.muted_foreground)
+                            .hover(|style| style.text_color(cx.theme().colors.muted_foreground))
                             .tooltip(Tooltip::text("Send this to a friend to paste in their app"))
                             .child(Icon::new(IconName::Copy).size(IconSize::Small))
                             .child("Copy Profile Ticket")
@@ -366,7 +367,7 @@ impl Contacts {
                 h_flex()
                     .flex_grow(1.)
                     .border_1()
-                    .border_color(cx.theme().colors().border)
+                    .border_color(cx.theme().colors.border)
                     .rounded_md()
                     .on_key_down(cx.listener(move |this, e: &KeyDownEvent, window, cx| {
                         if e.keystroke.key != "enter" {
@@ -380,7 +381,7 @@ impl Contacts {
                         div()
                             //
                             .flex_grow_1()
-                            .bg(cx.theme().colors().editor_background)
+                            .bg(cx.theme().colors.background)
                             .px_2()
                             .child(Input::new(&self.input)),
                     ),
@@ -402,7 +403,7 @@ impl Contacts {
                     .when(self.contacts.is_empty(), |el| {
                         el.p_2().child(
                             div()
-                                .text_color(cx.theme().colors().text_muted)
+                                .text_color(cx.theme().colors.muted_foreground)
                                 .child("Paste a Profile ticket to add a contact"),
                         )
                     })
@@ -422,8 +423,8 @@ impl Contacts {
                             .p_2()
                             .gap_2()
                             .rounded_md()
-                            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                            .hover(|style| style.bg(cx.theme().colors.list_hover))
+                            .active(|style| style.bg(cx.theme().colors.list_active))
                             .child(
                                 v_flex()
                                     .child(
@@ -435,7 +436,7 @@ impl Contacts {
                                     .child(
                                         div()
                                             .text_sm()
-                                            .text_color(cx.theme().colors().text_muted)
+                                            .text_color(cx.theme().colors.muted_foreground)
                                             .child(status_text),
                                     ),
                             )

@@ -1,5 +1,16 @@
 use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
 use futures::StreamExt as _;
+use gpui::{
+    self, Action, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render, RenderOnce,
+    SharedString, Styled as _, TaskExt as _, Window, actions, div, rgb,
+};
+use gpui_component::{
+    ActiveTheme as _,
+    input::{Input, InputState},
+    v_flex,
+};
+use gpui_util::{ResultExt as _, TryFutureExt as _};
 use iroh::EndpointId;
 use plugin_galvanized::{
     Galvanized,
@@ -9,19 +20,6 @@ use plugin_galvanized::{
 use samod::DocHandle;
 use tracing::{debug, info, instrument};
 use uuid::Uuid;
-use zed::unstable::{
-    editor::Editor,
-    gpui::{
-        self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
-        TaskExt as _, actions, rgb,
-    },
-    ui::{
-        ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
-        RenderOnce, SharedString, Styled, Window, div, v_flex,
-    },
-    util::{ResultExt, TryFutureExt},
-    workspace::Item,
-};
 
 actions!(
     chat,
@@ -119,7 +117,7 @@ impl RenderOnce for ChatBubble {
         v_flex()
             //
             .p_2()
-            .bg(cx.theme().colors().element_background)
+            .bg(cx.theme().colors.muted)
             .border_1()
             .border_color(rgb(0x7008e7))
             .rounded_lg()
@@ -136,7 +134,7 @@ pub struct ChatUi {
     document: ChatDocument,
     endpoint_id: EndpointId,
     focus_handle: FocusHandle,
-    input_editor: Entity<Editor>,
+    input: Entity<InputState>,
 }
 
 #[derive(Debug, Clone, Hydrate, Reconcile)]
@@ -191,11 +189,7 @@ impl ChatUi {
     ) -> Self {
         let document = ChatDocument::new();
 
-        let input_editor = cx.new(|cx| {
-            let mut editor = Editor::single_line(window, cx);
-            editor.set_placeholder_text("Message", window, cx);
-            editor
-        });
+        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Message"));
 
         cx.spawn({
             let doc_handle = doc_handle.clone();
@@ -246,7 +240,7 @@ impl ChatUi {
             doc_handle,
             endpoint_id: remote_id,
             focus_handle: cx.focus_handle(),
-            input_editor,
+            input,
         }
     }
 }
@@ -256,7 +250,7 @@ impl Render for ChatUi {
         v_flex()
             .size_full()
             //
-            .bg(cx.theme().colors().editor_background)
+            .bg(cx.theme().colors.background)
             // Messages above
             .child(
                 //
@@ -269,7 +263,7 @@ impl Render for ChatUi {
                             //
                             .p_4()
                             .gap_2()
-                            .bg(cx.theme().colors().panel_background)
+                            .bg(cx.theme().colors.sidebar)
                             .child(
                                 //
                                 div()
@@ -284,7 +278,7 @@ impl Render for ChatUi {
                                 //
                                 div()
                                     //
-                                    .text_color(cx.theme().colors().text_muted)
+                                    .text_color(cx.theme().colors.muted_foreground)
                                     .child({
                                         //
                                         let mut id = self.endpoint_id.to_string();
@@ -336,23 +330,22 @@ impl ChatUi {
                     //
                     .p_2()
                     .border_2()
-                    .border_color(cx.theme().colors().border_selected)
+                    .border_color(cx.theme().colors.ring)
                     .rounded_lg()
-                    .child(self.input_editor.clone()),
+                    .child(Input::new(&self.input)),
             )
     }
 
     #[instrument(skip_all)]
     fn send_message(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let text = self.input_editor.read(cx).text(cx);
-        debug!(text, "Begin send_message");
+        let text = self.input.read(cx).value();
+        debug!(%text, "Begin send_message");
         if text.is_empty() {
             return;
         }
         let message = ChatMessage::new("ID", "Name", text);
         self.document.add_message(message);
-        self.input_editor
-            .update(cx, |it, cx| it.set_text("", window, cx));
+        self.input.update(cx, |it, cx| it.set_value("", window, cx));
         debug!("Added new message to local ChatUI");
 
         let document = self.document.clone();
@@ -383,12 +376,12 @@ impl Focusable for ChatUi {
 }
 type ChatEvent = ();
 impl EventEmitter<ChatEvent> for ChatUi {}
-impl Item for ChatUi {
-    type Event = ChatEvent;
+// impl Item for ChatUi {
+//     type Event = ChatEvent;
 
-    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-        let mut string = self.endpoint_id.to_string();
-        let suffix = string.split_off(string.len() - 8);
-        suffix.into()
-    }
-}
+//     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+//         let mut string = self.endpoint_id.to_string();
+//         let suffix = string.split_off(string.len() - 8);
+//         suffix.into()
+//     }
+// }

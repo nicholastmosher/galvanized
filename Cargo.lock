@@ -14574,13 +14574,16 @@ dependencies = [
  "autosurgeon",
  "flume 0.12.0",
  "futures",
+ "galvanized-core",
+ "gpui",
+ "gpui-component",
+ "gpui_util",
  "iroh 1.0.2 (git+https://github.com/nicholastmosher/iroh?branch=galvanized)",
  "plugin-galvanized",
  "plugin-p2p",
  "samod",
  "tracing",
  "uuid",
- "zed",
 ]
 
 [[package]]
@@ -14693,7 +14696,11 @@ dependencies = [
 name = "plugin-theme-palette"
 version = "0.1.0"
 dependencies = [
- "zed",
+ "galvanized-core",
+ "gpui",
+ "gpui-component",
+ "gpui_util",
+ "ui",
 ]
 
 [[package]]
@@ -14711,6 +14718,10 @@ dependencies = [
  "dirs",
  "flume 0.12.0",
  "futures",
+ "galvanized-core",
+ "gpui",
+ "gpui-component",
+ "gpui_util",
  "rand 0.8.5",
  "rand_core 0.6.4",
  "rand_core 0.9.3",
@@ -14723,9 +14734,9 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "ui",
  "uuid",
  "willow25",
- "zed",
  "zeroize",
 ]
 
@@ -14735,7 +14746,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "derive_more",
+ "dirs",
  "futures-concurrency",
+ "galvanized-core",
+ "gpui",
+ "gpui-component",
+ "gpui_util",
  "hex",
  "plugin-vault",
  "rand_core 0.6.4",
@@ -14748,7 +14764,6 @@ dependencies = [
  "tracing",
  "ufotofu",
  "willow25",
- "zed",
 ]
 
 [[package]]

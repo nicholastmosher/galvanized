@@ -3,6 +3,9 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
+use gpui::App;
+use gpui::Task;
+use gpui::{AppContext, Entity, Global};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use ufotofu::IntoConsumer;
@@ -21,20 +24,18 @@ use willow25::{
     prelude::WriteCapability,
     storage::MemoryStore,
 };
-use zed::unstable::gpui::Task;
-use zed::unstable::{
-    gpui::{AppContext, Entity, Global},
-    gpui_tokio::Tokio,
-    ui::App,
-};
 
 pub mod model;
 pub mod ui;
 pub mod willow_serde;
 
 pub fn init(cx: &mut App) {
-    let store_path = zed::unstable::paths::data_dir();
-    let state = cx.new(|_cx| WillowState::new(store_path.to_path_buf()));
+    // let store_path = zed::unstable::paths::data_dir();
+    let store_path = dirs::data_dir()
+        .expect("data dir")
+        .join("galvanized")
+        .join("willow.store");
+    let state = cx.new(|_cx| WillowState::new(store_path));
     cx.set_global(GlobalWillow(state));
 
     ui::init(cx);
@@ -124,7 +125,7 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
     /// of the Namespace's ID who has a subspace key to write with.
     /// No signature is required from a Namespace key to write to it.
     pub async fn create_communal_namespace(&self) -> Result<Namespace> {
-        let (_id, secret) = Tokio::spawn(self.cx, async move {
+        let (_id, secret) = tokio::spawn(async move {
             tokio::task::spawn_blocking(move || {
                 randomly_generate_communal_namespace(&mut rand_core_0_6_4::OsRng)
             })
@@ -141,7 +142,7 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
     /// Owned Namespaces may only be written to by actors with a signed
     /// capability from the Namespace secret key, along with a subspace key.
     pub async fn create_owned_namespace(&self) -> Result<Namespace> {
-        let (_id, secret) = Tokio::spawn(self.cx, async move {
+        let (_id, secret) = tokio::spawn(async move {
             tokio::task::spawn_blocking(move || {
                 randomly_generate_owned_namespace(&mut rand_core_0_6_4::OsRng)
             })
@@ -154,7 +155,7 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
     }
 
     pub async fn create_subspace(&self) -> Result<Subspace> {
-        let (_id, secret) = Tokio::spawn(self.cx, async move {
+        let (_id, secret) = tokio::spawn(async move {
             tokio::task::spawn_blocking(move || {
                 randomly_generate_subspace(&mut rand_core_0_6_4::OsRng)
             })

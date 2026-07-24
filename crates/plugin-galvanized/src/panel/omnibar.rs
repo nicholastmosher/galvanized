@@ -2,7 +2,8 @@ use gpui::{
     Context, Entity, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _,
     SharedString, StatefulInteractiveElement as _, Styled as _, div, rgba,
 };
-use zed_ui::{ActiveTheme as _, FluentBuilder as _, h_flex, v_flex};
+use gpui_component::ActiveTheme as _;
+use zed_ui::{FluentBuilder as _, h_flex, v_flex};
 
 use crate::{domain::vault::Vault, panel::GalvanizedPanel};
 
@@ -26,7 +27,7 @@ impl GalvanizedPanel {
                 div()
                     //
                     .text_xs()
-                    .text_color(cx.theme().colors().text_muted)
+                    .text_color(cx.theme().colors.muted_foreground)
                     .child(format!("Search {user_name}")),
             )
             .child(

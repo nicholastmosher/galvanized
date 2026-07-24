@@ -1,12 +1,9 @@
 use std::any::Any;
 
 use anyhow::Result;
-use zed::unstable::{
-    gpui::{self, AppContext, Entity, Global, Task, actions},
-    paths,
-    ui::App,
-    workspace::Workspace,
-};
+use galvanized_core::Workspace;
+use gpui::{self, App, AppContext, Entity, Global, Task, actions};
+use tracing::info;
 
 use crate::{
     error::VaultError,
@@ -24,19 +21,16 @@ actions!(vault, [Lock, Unlock]);
 
 pub fn init(cx: &mut App) {
     let root = capsec::root();
-    let db_path = paths::data_dir().join("vault.db");
+    // let db_path = paths::data_dir().join("vault.db");
+    let db_path = dirs::data_dir()
+        .expect("data dir")
+        .join("galvanized")
+        .join("vault.db");
     let cap = root.grant::<VaultAccess>().make_send();
     let actor = VaultActor::spawn(db_path, cap).unwrap();
     let state = cx.new(|_cx| VaultsCxState::new(actor));
     cx.set_global(GlobalVault(state.clone()));
-
-    cx.observe_new::<Workspace>(move |workspace, _window, _cx| {
-        workspace.register_action(move |_this, _: &Unlock, _window, _cx| {
-            //
-            todo!()
-        });
-    })
-    .detach();
+    info!("Initialized Vaults");
 }
 
 struct GlobalVault(Entity<VaultsCxState>);

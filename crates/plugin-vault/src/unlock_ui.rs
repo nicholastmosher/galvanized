@@ -1,23 +1,18 @@
 use std::{boxed::Box, pin::Pin};
 
 use anyhow::{Context as _, Result};
+use gpui::{
+    App, AppContext, Bounds, Context, Entity, InteractiveElement as _, IntoElement, KeyDownEvent,
+    ParentElement, Render, StatefulInteractiveElement as _, Styled as _, TitlebarOptions, Window,
+    WindowBounds, WindowHandle, WindowKind, WindowOptions, div, px, size,
+};
+use gpui_component::{ActiveTheme as _, h_flex, input::InputState, v_flex};
+use gpui_util::ResultExt as _;
 use tokio::sync::oneshot;
 use tracing::info;
-use zed::unstable::{
-    gpui::{
-        AppContext, Bounds, Entity, KeyDownEvent, TitlebarOptions, WindowBounds, WindowHandle,
-        WindowKind, WindowOptions,
-    },
-    ui::{
-        ActiveTheme as _, App, Context, FluentBuilder as _, InteractiveElement as _, IntoElement,
-        ParentElement, Render, StatefulInteractiveElement as _, Styled as _, Window, div, h_flex,
-        px, v_flex,
-    },
-    ui_input::InputField,
-    util::ResultExt,
-};
+use zed_ui::FluentBuilder as _;
 
-use crate::{Unlock, VaultsCx, gpui::size, vault_db::VaultId};
+use crate::{Unlock, VaultsCx, vault_db::VaultId};
 
 impl<T: IntoElement> Locked for T {}
 pub trait Locked {
@@ -47,7 +42,7 @@ pub trait Locked {
     /// When the vault is locked, this renders a standard locked element with an unlock button.
     fn locked_prompt<C: 'static>(
         self,
-        password_input: Entity<InputField>,
+        password_input: Entity<InputState>,
         window: &mut Window,
         cx: &mut Context<C>,
         f: impl FnOnce(Self, &mut Window, &mut Context<C>) -> Self,
@@ -69,7 +64,7 @@ pub trait Locked {
 }
 
 fn locked_ui<C: 'static>(
-    password_prompt: Option<Entity<InputField>>,
+    password_prompt: Option<Entity<InputState>>,
     cx: &mut Context<C>,
 ) -> impl IntoElement {
     h_flex()
@@ -88,7 +83,7 @@ fn locked_ui<C: 'static>(
                     //
                     div()
                         //
-                        .text_color(cx.theme().colors().text)
+                        .text_color(cx.theme().colors.foreground)
                         .text_3xl()
                         .child("Locked"),
                 )
@@ -103,14 +98,10 @@ fn locked_ui<C: 'static>(
                                     .id("unlock-button")
                                     .p_2()
                                     .border_1()
-                                    .border_color(cx.theme().colors().border)
+                                    .border_color(cx.theme().colors.border)
                                     .rounded_lg()
-                                    .hover(|style| {
-                                        style.bg(cx.theme().colors().ghost_element_hover)
-                                    })
-                                    .active(|style| {
-                                        style.bg(cx.theme().colors().ghost_element_active)
-                                    })
+                                    .hover(|style| style.bg(cx.theme().colors.list_hover))
+                                    .active(|style| style.bg(cx.theme().colors.list_active))
                                     .on_click(|_e, window, cx| {
                                         window.dispatch_action(Box::new(Unlock), cx);
                                     })
@@ -134,8 +125,10 @@ fn locked_ui<C: 'static>(
                                             return;
                                         }
 
-                                        let text = input.read(cx).text(cx);
-                                        input.update(cx, |input, cx| input.clear(window, cx));
+                                        let text = input.read(cx).value();
+                                        input.update(cx, |input, cx| {
+                                            input.set_value("", window, cx)
+                                        });
                                         // if cx.vault().unlock(&text).is_err() {
                                         //     warn!("Incorrect password");
                                         // }
@@ -388,13 +381,17 @@ where
 /// Top-level UI for the unlock window
 pub struct VaultUnlockUi {
     //
-    input: Entity<InputField>,
+    input: Entity<InputState>,
     tx: Option<oneshot::Sender<String>>,
 }
 
 impl VaultUnlockUi {
     pub fn new(tx: oneshot::Sender<String>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let input = cx.new(|cx| InputField::new(window, cx, "Password").masked(true));
+        let input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("Password")
+                .masked(true)
+        });
         Self {
             input,
             tx: Some(tx),
@@ -415,15 +412,15 @@ impl Render for VaultUnlockUi {
             .size_full()
             //
             .p_6()
-            .bg(cx.theme().colors().editor_background)
+            .bg(cx.theme().colors.background)
             .border_2()
-            .border_color(cx.theme().colors().border_selected)
+            .border_color(cx.theme().colors.ring)
             .rounded_lg()
             .child(
                 //
                 h_flex()
                     .size_full()
-                    .bg(cx.theme().colors().panel_background)
+                    .bg(cx.theme().colors.sidebar)
                     //
                     .rounded_lg()
                     .shadow_lg()
@@ -440,7 +437,7 @@ impl Render for VaultUnlockUi {
                                 div()
                                     //
                                     .text_3xl()
-                                    .text_color(cx.theme().colors().text)
+                                    .text_color(cx.theme().colors.foreground)
                                     .child("Locked"),
                             )
                             .child(
@@ -457,9 +454,9 @@ impl Render for VaultUnlockUi {
                                                 return;
                                             }
 
-                                            let password = this.input.read(cx).text(cx);
+                                            let password = this.input.read(cx).value();
                                             if let Some(tx) = this.tx.take() {
-                                                tx.send(password).log_err();
+                                                tx.send(password.to_string()).log_err();
                                                 window.remove_window();
                                             }
                                         },

@@ -1,13 +1,13 @@
 use anyhow::{Context as _, Result};
 use capsec::{CapSecError, Scope};
 use derive_more::{Debug, Display};
+use gpui_util::ResultExt;
 use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Sqlite, sqlite::SqliteConnectOptions};
 use std::{any::Any, collections::HashMap, path::Path, str::FromStr, sync::Arc};
 use tracing::info;
 use uuid::Uuid;
-use zed::unstable::util::ResultExt;
 use zeroize::Zeroize;
 
 use crate::{

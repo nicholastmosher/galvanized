@@ -58,7 +58,7 @@ impl Render for Contact {
             //
             .p_2()
             .border_1()
-            .border_color(cx.theme().colors().border.opacity(0.6))
+            .border_color(cx.theme().colors.border.opacity(0.6))
             .rounded_md()
             .flex()
             .flex_col()

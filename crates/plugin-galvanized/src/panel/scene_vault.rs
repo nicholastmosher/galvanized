@@ -5,9 +5,9 @@ use gpui::{
     ParentElement as _, StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div,
     px, rgba,
 };
-use gpui_component::{alert::Alert, input::Input};
+use gpui_component::{ActiveTheme as _, alert::Alert, input::Input};
 use tracing::info;
-use zed_ui::{ActiveTheme as _, Color, Icon, IconName, IconSize, Tooltip, h_flex, v_flex};
+use zed_ui::{Color, Icon, IconName, IconSize, Tooltip, h_flex, v_flex};
 
 use crate::{
     GalvanizedHandle as _,
@@ -49,7 +49,7 @@ impl GalvanizedPanel {
         v_flex()
             .id("vault-scene")
             .size_full()
-            .bg(cx.theme().colors().panel_background)
+            .bg(cx.theme().colors.sidebar)
             .child(Alert::info("alert", "This is an information alert"))
             .child(render_scene_header(title.into(), subtitle.into(), cx))
             .child(
@@ -93,7 +93,7 @@ impl GalvanizedPanel {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let colors = cx.theme().colors();
+        let colors = cx.theme().colors;
 
         v_flex()
             .id("scene-picker")
@@ -102,14 +102,14 @@ impl GalvanizedPanel {
                 div()
                     .text_lg()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(colors.text)
+                    .text_color(colors.foreground)
                     .mb_1()
                     .child("Welcome Back"),
             )
             .child(
                 div()
                     .text_xs()
-                    .text_color(colors.text_muted)
+                    .text_color(colors.muted_foreground)
                     .mb_4()
                     .child("Choose a vault to unlock, or create a new one."),
             )
@@ -131,14 +131,10 @@ impl GalvanizedPanel {
                             .gap_3()
                             .p_3()
                             .rounded_xl()
-                            .bg(colors.element_background.opacity(0.5))
+                            .bg(colors.muted.opacity(0.5))
                             .border_1()
                             .border_color(colors.border)
-                            .hover(|style| {
-                                style
-                                    .bg(colors.element_hover)
-                                    .border_color(colors.border_focused)
-                            })
+                            .hover(|style| style.bg(colors.list_hover).border_color(colors.ring))
                             .cursor_pointer()
                             .on_click(cx.listener({
                                 let vault = vault.clone();
@@ -163,7 +159,7 @@ impl GalvanizedPanel {
                                             .mx_auto()
                                             .text_sm()
                                             .font_weight(FontWeight::BOLD)
-                                            .text_color(colors.text)
+                                            .text_color(colors.foreground)
                                             .child(initial),
                                     ),
                             )
@@ -175,20 +171,20 @@ impl GalvanizedPanel {
                                         div()
                                             .text_sm()
                                             .font_weight(FontWeight::SEMIBOLD)
-                                            .text_color(colors.text)
+                                            .text_color(colors.foreground)
                                             .child(name),
                                     )
                                     .child(
                                         div()
                                             .text_xs()
-                                            .text_color(colors.text_placeholder)
+                                            .text_color(colors.muted_foreground)
                                             .child("Vault locked"),
                                     ),
                             )
                             .child(
                                 Icon::new(IconName::ChevronRight)
                                     .size(IconSize::Small)
-                                    .color(Color::Custom(colors.border_variant)),
+                                    .color(Color::Custom(colors.border)),
                             )
                     })),
             )
@@ -206,8 +202,8 @@ impl GalvanizedPanel {
                     .border_color(colors.border)
                     .hover(|style| {
                         style
-                            .border_color(colors.text_accent.opacity(0.6))
-                            .bg(colors.element_background.opacity(0.5))
+                            .border_color(colors.accent.opacity(0.6))
+                            .bg(colors.muted.opacity(0.5))
                     })
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -218,10 +214,10 @@ impl GalvanizedPanel {
                             .id("create-vault-icon")
                             .size(px(40.))
                             .rounded_full()
-                            .bg(colors.border_variant)
+                            .bg(colors.border)
                             .border_2()
                             .border_dashed()
-                            .border_color(colors.border_variant)
+                            .border_color(colors.border)
                             .flex_shrink_0()
                             .items_center()
                             .justify_center()
@@ -230,7 +226,7 @@ impl GalvanizedPanel {
                                     //
                                     .mx_auto()
                                     .text_lg()
-                                    .text_color(colors.text)
+                                    .text_color(colors.foreground)
                                     .child("+"),
                             ),
                     )
@@ -240,13 +236,13 @@ impl GalvanizedPanel {
                                 div()
                                     .text_sm()
                                     .font_weight(FontWeight::MEDIUM)
-                                    .text_color(colors.text)
+                                    .text_color(colors.foreground)
                                     .child("Create new vault"),
                             )
                             .child(
                                 div()
                                     .text_xs()
-                                    .text_color(colors.text_placeholder)
+                                    .text_color(colors.muted_foreground)
                                     .child("Set up a fresh decentralized data space"),
                             ),
                     ),
@@ -258,7 +254,7 @@ impl GalvanizedPanel {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let colors = cx.theme().colors();
+        let colors = cx.theme().colors;
 
         h_flex()
             .size_full()
@@ -275,7 +271,7 @@ impl GalvanizedPanel {
                             .mx_auto()
                             .mb_4()
                             .rounded_full()
-                            .bg(colors.border_variant)
+                            .bg(colors.border)
                             .border_2()
                             .border_color(colors.border)
                             .items_center()
@@ -295,7 +291,7 @@ impl GalvanizedPanel {
                         div()
                             .text_lg()
                             .font_weight(FontWeight::BOLD)
-                            .text_color(colors.text)
+                            .text_color(colors.foreground)
                             .text_center()
                             .mb_1()
                             .child("Create Your Vault"),
@@ -303,7 +299,7 @@ impl GalvanizedPanel {
                     .child(
                         div()
                             .text_xs()
-                            .text_color(colors.text_muted)
+                            .text_color(colors.muted_foreground)
                             .text_center()
                             .mb_5()
                             .child(
@@ -321,7 +317,7 @@ impl GalvanizedPanel {
                                             .id("vault-name-title")
                                             .gap_1()
                                             .text_xs()
-                                            .text_color(colors.text_muted)
+                                            .text_color(colors.muted_foreground)
                                             .tooltip(Tooltip::text(
                                                 "Visible before unlock, only visible to you",
                                             ))
@@ -339,7 +335,7 @@ impl GalvanizedPanel {
                                             .id("profile-name-title")
                                             .gap_1()
                                             .text_xs()
-                                            .text_color(colors.text_muted)
+                                            .text_color(colors.muted_foreground)
                                             .tooltip(Tooltip::text(
                                                 "Visible only after unlock, visible to contacts",
                                             ))
@@ -355,7 +351,7 @@ impl GalvanizedPanel {
                                     .child(
                                         div()
                                             .text_xs()
-                                            .text_color(colors.text_muted)
+                                            .text_color(colors.muted_foreground)
                                             .mb_1()
                                             .child("Master Password"),
                                     )
@@ -374,7 +370,7 @@ impl GalvanizedPanel {
                                     .child(
                                         div()
                                             .text_xs()
-                                            .text_color(colors.text_muted)
+                                            .text_color(colors.muted_foreground)
                                             .mb_1()
                                             .child("Confirm Password"),
                                     )
@@ -393,7 +389,7 @@ impl GalvanizedPanel {
                                     .px_3()
                                     .py_2()
                                     .rounded_lg()
-                                    .bg(colors.border_variant)
+                                    .bg(colors.border)
                                     .hover(|style| style.bg(colors.border))
                                     .border_1()
                                     .border_color(colors.border)
@@ -404,7 +400,7 @@ impl GalvanizedPanel {
                                     .child(
                                         div()
                                             .text_sm()
-                                            .text_color(colors.text_muted)
+                                            .text_color(colors.muted_foreground)
                                             .text_center()
                                             .child("Back"),
                                     ),
@@ -425,7 +421,7 @@ impl GalvanizedPanel {
                                         div()
                                             .text_sm()
                                             .font_weight(FontWeight::SEMIBOLD)
-                                            .text_color(colors.text)
+                                            .text_color(colors.foreground)
                                             .text_center()
                                             .child("Create Vault"),
                                     ),
@@ -464,13 +460,13 @@ impl GalvanizedPanel {
                             .items_center()
                             .justify_center()
                             .border_2()
-                            .border_color(cx.theme().colors().border)
+                            .border_color(cx.theme().colors.border)
                             .child(
                                 div()
                                     .mx_auto()
                                     .text_xl()
                                     .font_weight(FontWeight::BOLD)
-                                    .text_color(cx.theme().colors().text)
+                                    .text_color(cx.theme().colors.foreground)
                                     .child(initial),
                             ),
                     )
@@ -478,21 +474,21 @@ impl GalvanizedPanel {
                         div()
                             .text_lg()
                             .font_weight(FontWeight::BOLD)
-                            .text_color(cx.theme().colors().text)
+                            .text_color(cx.theme().colors.foreground)
                             .mb_1()
                             .child(name.clone()),
                     )
                     .child(
                         div()
                             .text_xs()
-                            .text_color(cx.theme().colors().text_muted)
+                            .text_color(cx.theme().colors.muted_foreground)
                             .mb_1()
                             .child("Enter your vault password to unlock"),
                     )
                     .child(
                         div()
                             .text_xs()
-                            .text_color(cx.theme().colors().text_placeholder)
+                            .text_color(cx.theme().colors.muted_foreground)
                             .mb_5()
                             .child("1 profile"),
                     )
@@ -524,10 +520,10 @@ impl GalvanizedPanel {
                                     .px_3()
                                     .py_2()
                                     .rounded_lg()
-                                    .bg(cx.theme().colors().border_variant)
-                                    .hover(|style| style.bg(cx.theme().colors().border))
+                                    .bg(cx.theme().colors.border)
+                                    .hover(|style| style.bg(cx.theme().colors.border))
                                     .border_1()
-                                    .border_color(cx.theme().colors().border)
+                                    .border_color(cx.theme().colors.border)
                                     .cursor_pointer()
                                     .on_click(cx.listener(|this, _e, _window, _cx| {
                                         this.vault_scene = VaultScene::VaultPicker;
@@ -535,7 +531,7 @@ impl GalvanizedPanel {
                                     .child(
                                         div()
                                             .text_sm()
-                                            .text_color(cx.theme().colors().text_muted)
+                                            .text_color(cx.theme().colors.muted_foreground)
                                             .text_center()
                                             .child("Back"),
                                     ),
@@ -557,7 +553,7 @@ impl GalvanizedPanel {
                                         div()
                                             .text_sm()
                                             .font_weight(FontWeight::SEMIBOLD)
-                                            .text_color(cx.theme().colors().text)
+                                            .text_color(cx.theme().colors.foreground)
                                             .text_center()
                                             .child("Unlock"),
                                     ),

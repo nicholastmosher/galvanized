@@ -3,11 +3,10 @@ use gpui::{
     InteractiveElement as _, IntoElement, ParentElement as _, RenderOnce, Stateful,
     StatefulInteractiveElement as _, Styled as _, Window, div, point, px, rgba,
 };
+use gpui_component::ActiveTheme as _;
 use hex::ToHex as _;
 use tracing::info;
-use zed_ui::{
-    ActiveTheme as _, Clickable, ContextMenu, FluentBuilder as _, PopoverMenu, Toggleable, h_flex,
-};
+use zed_ui::{Clickable, ContextMenu, FluentBuilder as _, PopoverMenu, Toggleable, h_flex};
 
 use crate::{
     domain::{profile::Profile, vault::Vault},
@@ -27,9 +26,9 @@ impl GalvanizedPanel {
             .items_center()
             .p_2()
             .gap_2()
-            .bg(cx.theme().colors().editor_background)
+            .bg(cx.theme().colors.background)
             .border_t_1()
-            .border_color(cx.theme().colors().border)
+            .border_color(cx.theme().colors.border)
             .when_none(&active_profile, |el| {
                 //
                 el.child(render_empty_profile_bar(cx))
@@ -48,17 +47,17 @@ fn render_empty_profile_bar<T: 'static>(cx: &mut Context<T>) -> impl IntoElement
         .w_full()
         .p_2()
         .border_2()
-        .border_color(cx.theme().colors().border.opacity(0.5))
+        .border_color(cx.theme().colors.border.opacity(0.5))
         .border_dashed()
         .rounded_xl()
-        .hover(|style| style.rounded_lg().border_color(cx.theme().colors().border))
+        .hover(|style| style.rounded_lg().border_color(cx.theme().colors.border))
         .on_click(cx.listener(|_this, _e, window, cx| {
             window.dispatch_action(Box::new(CreateProfile), cx);
         }))
         .child(
             div()
                 .font_weight(FontWeight::SEMIBOLD)
-                .text_color(cx.theme().colors().text)
+                .text_color(cx.theme().colors.foreground)
                 .child("+ Create Profile"),
         )
 }
@@ -119,7 +118,7 @@ fn render_profile_popover_bar(
                             div()
                                 .p_2()
                                 .text_sm()
-                                .text_color(cx.theme().colors().text_accent)
+                                .text_color(cx.theme().colors.accent)
                                 .child("+ Create Profile")
                                 .into_any_element()
                         },
@@ -185,9 +184,9 @@ impl RenderOnce for ProfileNugget {
             .rounded_xl()
             .hover(|style| {
                 //
-                style.bg(cx.theme().colors().ghost_element_hover)
+                style.bg(cx.theme().colors.list_hover)
             })
-            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+            .active(|style| style.bg(cx.theme().colors.list_active))
             //
             .child(
                 h_flex()
@@ -215,7 +214,7 @@ impl RenderOnce for ProfileNugget {
                             .rounded_full()
                             .bg(rgba(0x22c55eff))
                             .border_2()
-                            .border_color(cx.theme().colors().editor_background),
+                            .border_color(cx.theme().colors.background),
                     ),
             )
             .child(
@@ -226,13 +225,13 @@ impl RenderOnce for ProfileNugget {
                         div()
                             .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(cx.theme().colors().text)
+                            .text_color(cx.theme().colors.foreground)
                             .child(profile_name),
                     )
                     .child(
                         div()
                             .text_xs()
-                            .text_color(cx.theme().colors().text_muted)
+                            .text_color(cx.theme().colors.muted_foreground)
                             .child({
                                 let profile_string: String =
                                     self.profile.read(cx).id().as_bytes().encode_hex();

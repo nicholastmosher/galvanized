@@ -1,12 +1,12 @@
 use crate::gpui;
 use crate::workspace::ui::{
-    ActiveTheme, Clickable, Color, Icon, IconButton, IconName, IconSize, Label, LabelCommon,
-    LabelSize, ListItem, ListItemSpacing, h_flex, v_flex,
+    h_flex, v_flex, ActiveTheme, Clickable, Color, Icon, IconButton, IconName, IconSize, Label,
+    LabelCommon, LabelSize, ListItem, ListItemSpacing,
 };
 use crate::workspace::{Item, Workspace};
 use gpui::{
-    App, AppContext as _, Context, EventEmitter, FocusHandle, Focusable, ParentElement as _,
-    Render, SharedString, actions, div, *,
+    actions, div, App, AppContext as _, Context, EventEmitter, FocusHandle, Focusable,
+    ParentElement as _, Render, SharedString, *,
 };
 
 actions!(
@@ -154,9 +154,9 @@ impl WillowUi {
             .gap_2()
             .items_center()
             .p_2()
-            .bg(cx.theme().colors().surface_background)
+            .bg(cx.theme().colors.secondary)
             .border_b_1()
-            .border_color(cx.theme().colors().border_variant)
+            .border_color(cx.theme().colors.border)
             .child(
                 Icon::new(IconName::File)
                     .size(IconSize::Small)
@@ -412,8 +412,8 @@ impl WillowUi {
             .justify_between()
             .p_2()
             .border_b_1()
-            .border_color(cx.theme().colors().border_variant)
-            .bg(cx.theme().colors().toolbar_background)
+            .border_color(cx.theme().colors.border)
+            .bg(cx.theme().colors.title_bar)
             .child(
                 Label::new("Willow Filesystem")
                     .size(LabelSize::Default)
@@ -457,7 +457,7 @@ impl Render for WillowUi {
     ) -> impl gpui::IntoElement {
         v_flex()
             .size_full()
-            .bg(cx.theme().colors().panel_background)
+            .bg(cx.theme().colors.sidebar)
             .on_action(
                 cx.listener(|_this, _action: &ToggleNamespace, _window, cx| {
                     // Handle toggle namespace action

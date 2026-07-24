@@ -2,7 +2,8 @@ use gpui::{
     Context, Entity, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
     StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div,
 };
-use zed_ui::{ActiveTheme as _, h_flex, v_flex};
+use gpui_component::ActiveTheme as _;
+use zed_ui::{h_flex, v_flex};
 
 use crate::{
     domain::vault::Vault,
@@ -19,7 +20,7 @@ impl GalvanizedPanel {
         v_flex()
             .id("create-profile-flow")
             .size_full()
-            .bg(cx.theme().colors().panel_background)
+            .bg(cx.theme().colors.sidebar)
             .child(
                 h_flex()
                     .id("flow-header")
@@ -27,7 +28,7 @@ impl GalvanizedPanel {
                     .gap_3()
                     .p_4()
                     .border_b_1()
-                    .border_color(cx.theme().colors().border_variant)
+                    .border_color(cx.theme().colors.border)
                     .child(
                         div()
                             .id("flow-back-btn")
@@ -42,7 +43,7 @@ impl GalvanizedPanel {
                             .flex_1()
                             .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(cx.theme().colors().text)
+                            .text_color(cx.theme().colors.foreground)
                             .child("Create Profile"),
                     ),
             )
@@ -59,7 +60,7 @@ impl GalvanizedPanel {
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(cx.theme().colors().text_muted)
+                                    .text_color(cx.theme().colors.muted_foreground)
                                     .child("Create a new profile within your vault:"),
                             )
                             .child(
@@ -67,7 +68,7 @@ impl GalvanizedPanel {
                                     .child(
                                         div()
                                             .text_xs()
-                                            .text_color(cx.theme().colors().text_muted)
+                                            .text_color(cx.theme().colors.muted_foreground)
                                             .mb_1()
                                             .child("Display Name"),
                                     )
@@ -99,7 +100,7 @@ impl GalvanizedPanel {
                                         div()
                                             .text_sm()
                                             .font_weight(FontWeight::SEMIBOLD)
-                                            .text_color(cx.theme().colors().text)
+                                            .text_color(cx.theme().colors.foreground)
                                             .text_center()
                                             .child("Create Profile"),
                                     ),

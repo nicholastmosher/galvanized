@@ -6,8 +6,6 @@ pub fn init(cx: &mut App) {
     observability::init(cx);
     // zed::init(cx);
     gpui_component::init(cx);
-    plugin_galvanized::init(cx);
-    galvanized_core::init(cx);
 
     plugin_vault::init(cx);
     plugin_p2p::init(cx);
@@ -19,4 +17,7 @@ pub fn init(cx: &mut App) {
     plugin_files::init(cx);
 
     plugin_theme_palette::init(cx);
+
+    plugin_galvanized::init(cx);
+    galvanized_core::init(cx);
 }

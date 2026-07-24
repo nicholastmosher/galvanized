@@ -1,10 +1,7 @@
+use gpui::{AppContext, Entity, Subscription};
 use schemars::{JsonSchema, schema_for};
 use serde::{Deserialize, Serialize};
 use willow25::{entry::Entry, path, prelude::WriteCapability};
-use zed::unstable::{
-    gpui::{AppContext, Entity, Subscription},
-    ui::App,
-};
 
 use crate::WillowExt;
 

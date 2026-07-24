@@ -1,16 +1,12 @@
 use std::time::Duration;
 
-use zed::unstable::{
-    gpui::{
-        self, Animation, AnimationExt, AppContext as _, EventEmitter, FocusHandle, Focusable,
-        actions, linear_color_stop, linear_gradient, rgb,
-    },
-    ui::{
-        ActiveTheme, App, Context, IntoElement, ParentElement as _, Render, SharedString, Styled,
-        Window, div, h_flex, px, v_flex,
-    },
-    workspace::{Item, Workspace},
+use galvanized_core::Workspace;
+use gpui::{
+    self, Animation, AnimationExt, App, AppContext as _, Context, EventEmitter, FocusHandle,
+    Focusable, IntoElement, ParentElement as _, Render, Styled as _, Window, actions, div,
+    linear_color_stop, linear_gradient, px, rgb,
 };
+use gpui_component::{ActiveTheme as _, h_flex, v_flex};
 
 const WILLOW_GREEN_RGB: u32 = 0x27E53B;
 const WILLOW_YELLOW_RGB: u32 = 0xF5DF48;
@@ -66,13 +62,13 @@ impl Focusable for WillowUi {
 }
 
 impl EventEmitter<()> for WillowUi {}
-impl Item for WillowUi {
-    type Event = ();
+// impl Item for WillowUi {
+//     type Event = ();
 
-    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-        "Willow".into()
-    }
-}
+//     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+//         "Willow".into()
+//     }
+// }
 
 impl Render for WillowUi {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -80,7 +76,7 @@ impl Render for WillowUi {
             .size_full()
             //
             .p_2()
-            .bg(cx.theme().colors().editor_background)
+            .bg(cx.theme().colors.background)
             .child(
                 //
                 v_flex()
@@ -93,7 +89,7 @@ impl Render for WillowUi {
                         div()
                             .size_full()
                             //
-                            .bg(cx.theme().colors().panel_background)
+                            .bg(cx.theme().colors.sidebar)
                             .rounded_lg()
                             .size_full()
                             .child(self.render_panel(window, cx)),

@@ -9,6 +9,7 @@ use capsec::{CapProvider, SendCap};
 use derive_more::Debug;
 use futures::{Stream, StreamExt as _};
 use strict_cap::{StrictRevoker, StrictSendCap};
+use tracing::{error, info};
 
 use crate::{
     vault_actor::{
@@ -122,6 +123,7 @@ impl VaultActor {
             anyhow::Ok(())
         };
         let join_handle = tokio::spawn(future);
+        info!("Spawned Vault Actor");
         Ok(VaultActorHandle {
             _join_handle: Arc::new(join_handle),
             tx: actor_tx,

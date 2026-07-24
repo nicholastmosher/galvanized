@@ -8,10 +8,10 @@ use gpui::{
     StatefulInteractiveElement as _, Styled, Subscription, Window, actions, anchored, deferred,
     div, linear_color_stop, linear_gradient, px, rgba,
 };
-use gpui_component::input::InputState;
+use gpui_component::{ActiveTheme as _, input::InputState};
 use gpui_util::ResultExt as _;
 use tracing::info;
-use zed_ui::{ActiveTheme as _, ContextMenu, FluentBuilder as _, Tooltip, h_flex, v_flex};
+use zed_ui::{ContextMenu, FluentBuilder as _, Tooltip, h_flex, v_flex};
 
 use crate::{
     Galvanized,
@@ -243,7 +243,7 @@ impl GalvanizedPanel {
                     .p_2()
                     .gap_2()
                     .border_b_1()
-                    .border_color(cx.theme().colors().border)
+                    .border_color(cx.theme().colors.border)
                     .child(render_vault_menu(
                         self.galvanized.clone(),
                         user.clone(),
@@ -270,13 +270,13 @@ impl GalvanizedPanel {
 
         v_flex()
             .id("left-rail")
-            .bg(cx.theme().colors().editor_background)
+            .bg(cx.theme().colors.background)
             .h_full()
             .flex_shrink_0()
             .p_2()
             .gap_2()
             .border_r_1()
-            .border_color(cx.theme().colors().border)
+            .border_color(cx.theme().colors.border)
             .items_center()
             .children(
                 spaces
@@ -341,12 +341,12 @@ impl GalvanizedPanel {
                             .size(px(48.))
                             .border_2()
                             .border_dashed()
-                            .border_color(cx.theme().colors().border.opacity(0.5))
+                            .border_color(cx.theme().colors.border.opacity(0.5))
                             .rounded_xl()
                             .hover(|style| {
-                                style.rounded_lg().border_color(cx.theme().colors().border)
+                                style.rounded_lg().border_color(cx.theme().colors.border)
                             })
-                            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                            .active(|style| style.bg(cx.theme().colors.list_active))
                             .on_click(cx.listener(|_this, _e, window, cx| {
                                 window.dispatch_action(Box::new(CreateSpace), cx);
                             }))
@@ -426,7 +426,7 @@ impl GalvanizedPanel {
     ) -> impl IntoElement {
         v_flex()
             .id("app-sidebar")
-            .bg(cx.theme().colors().panel_background)
+            .bg(cx.theme().colors.sidebar)
             .size_full()
             .when_some(self.active_app.as_ref(), |el, app| {
                 //
@@ -550,7 +550,7 @@ pub fn render_scene_header(
         .gap_3()
         .p_4()
         .border_b_1()
-        .border_color(cx.theme().colors().border_variant)
+        .border_color(cx.theme().colors.border)
         .child(
             gzed_icon("gzed-onboarding-header", cx)
                 //
@@ -567,7 +567,7 @@ pub fn render_scene_header(
                         .id("panel-title")
                         .text_sm()
                         .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(cx.theme().colors().text)
+                        .text_color(cx.theme().colors.foreground)
                         .truncate()
                         .child(title),
                 )
@@ -575,7 +575,7 @@ pub fn render_scene_header(
                     div()
                         .id("panel-subtitle")
                         .text_xs()
-                        .text_color(cx.theme().colors().text_placeholder)
+                        .text_color(cx.theme().colors.muted_foreground)
                         .child(subtitle),
                 ),
         )

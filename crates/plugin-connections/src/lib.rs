@@ -121,9 +121,9 @@ impl ConnectionsUi {
                                             //
                                             h_flex()
                                                 .id("local-endpoint-id")
-                                                .text_color(cx.theme().colors().text_muted)
+                                                .text_color(cx.theme().colors.muted_foreground)
                                                 .hover(|style| {
-                                                    style.text_color(cx.theme().colors().text)
+                                                    style.text_color(cx.theme().colors.foreground)
                                                 })
                                                 .tooltip(Tooltip::text("Copy peer ticket"))
                                                 .on_click(cx.listener(
@@ -169,7 +169,7 @@ impl ConnectionsUi {
                     // .debug()
                     //
                     .border_1()
-                    .border_color(cx.theme().colors().border)
+                    .border_color(cx.theme().colors.border)
                     .rounded_md()
                     .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
                         if e.keystroke.key != "enter" {
@@ -220,12 +220,12 @@ impl ConnectionsUi {
                                     .hover(|style| {
                                         style
                                             //
-                                            .bg(cx.theme().colors().ghost_element_hover)
+                                            .bg(cx.theme().colors.list_hover)
                                     })
                                     .active(|style| {
                                         style
                                             //
-                                            .bg(cx.theme().colors().ghost_element_active)
+                                            .bg(cx.theme().colors.list_active)
                                     })
                                     .on_click({
                                         let remote_id = *remote_id;

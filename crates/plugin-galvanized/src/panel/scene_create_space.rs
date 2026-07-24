@@ -3,9 +3,8 @@ use gpui::{
     StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div, linear_color_stop,
     linear_gradient, px,
 };
-use zed_ui::{
-    ActiveTheme as _, Color, FluentBuilder as _, Icon, IconName, IconSize, h_flex, v_flex,
-};
+use gpui_component::ActiveTheme as _;
+use zed_ui::{Color, FluentBuilder as _, Icon, IconName, IconSize, h_flex, v_flex};
 
 use crate::panel::{
     CreateSpaceKind, GalvanizedPanel, PanelScene, PrimaryButton as _, render_scene_header,
@@ -22,7 +21,7 @@ impl GalvanizedPanel {
             .size_full()
             // .h_full()
             // .w(panel_width)
-            .bg(cx.theme().colors().panel_background)
+            .bg(cx.theme().colors.sidebar)
             .child(
                 render_scene_header("Create Space".into(), "Spaces may be private or shared with others".into(), cx)
             )
@@ -38,8 +37,8 @@ impl GalvanizedPanel {
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(cx.theme().colors().text_muted)
-                                    .child("Choose the type of space to create:"),
+                                    .text_color(cx.theme().colors.muted_foreground)
+                                    .child("Choose the type of space to create:")
                             )
                             .child(
                                 // Personal Space card
@@ -51,15 +50,15 @@ impl GalvanizedPanel {
                                     .p_3()
                                     .rounded_xl()
                                     .border_2()
-                                    .border_color(cx.theme().colors().border)
+                                    .border_color(cx.theme().colors.border)
                                     .when(self.create_space_kind.is_owned(), |el| {
                                         el
                                             .border_2()
-                                            .border_color(cx.theme().colors().text_accent.opacity(0.7))
+                                            .border_color(cx.theme().colors.accent.opacity(0.7))
                                     })
-                                    .bg(cx.theme().colors().element_background.opacity(0.5))
+                                    .bg(cx.theme().colors.muted.opacity(0.5))
                                     .cursor_pointer()
-                                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                                    .hover(|style| style.bg(cx.theme().colors.list_hover))
                                     .on_click(cx.listener(|this, _e, _window, _cx| {
                                         this.create_space_kind = CreateSpaceKind::Owned;
                                     }))
@@ -69,15 +68,15 @@ impl GalvanizedPanel {
                                             .rounded_xl()
                                             .bg(linear_gradient(
                                                 135.,
-                                                linear_color_stop(cx.theme().colors().border, 0.0),
-                                                linear_color_stop(cx.theme().colors().panel_background, 1.0),
+                                                linear_color_stop(cx.theme().colors.border, 0.0),
+                                                linear_color_stop(cx.theme().colors.sidebar, 1.0),
                                             ))
                                             .flex_shrink_0()
                                             .border_1()
-                                            .border_color(cx.theme().colors().border_variant)
+                                            .border_color(cx.theme().colors.border)
                                             .items_center()
                                             .justify_center()
-                                            .child(Icon::new(IconName::Lock).size(IconSize::Medium).color(Color::Custom(cx.theme().colors().text_muted))),
+                                            .child(Icon::new(IconName::Lock).size(IconSize::Medium).color(Color::Custom(cx.theme().colors.muted_foreground))),
                                     )
                                     .child(
                                         div()
@@ -87,10 +86,10 @@ impl GalvanizedPanel {
                                                 div()
                                                     .text_sm()
                                                     .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_color(cx.theme().colors().text)
+                                                    .text_color(cx.theme().colors.foreground)
                                                     .child("Personal Space (Owned)"),
                                             )
-                                            .child(div().text_xs().text_color(cx.theme().colors().text_muted).child(
+                                            .child(div().text_xs().text_color(cx.theme().colors.muted_foreground).child(
                                                 "Private by default. You control access and delegate capabilities.",
                                             )),
                                     ),
@@ -105,15 +104,15 @@ impl GalvanizedPanel {
                                     .p_3()
                                     .rounded_xl()
                                     .border_2()
-                                    .border_color(cx.theme().colors().border)
+                                    .border_color(cx.theme().colors.border)
                                     .when(self.create_space_kind.is_communal(), |el| {
                                         el
                                             .border_2()
-                                            .border_color(cx.theme().colors().text_accent.opacity(0.7))
+                                            .border_color(cx.theme().colors.accent.opacity(0.7))
                                     })
-                                    .bg(cx.theme().colors().element_background.opacity(0.5))
+                                    .bg(cx.theme().colors.muted.opacity(0.5))
                                     .cursor_pointer()
-                                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                                    .hover(|style| style.bg(cx.theme().colors.list_hover))
                                     .on_click(cx.listener(|this, _e, _window, _cx| {
                                         this.create_space_kind = CreateSpaceKind::Communal;
                                     }))
@@ -123,15 +122,15 @@ impl GalvanizedPanel {
                                             .rounded_xl()
                                             .bg(linear_gradient(
                                                 135.,
-                                                linear_color_stop(cx.theme().colors().border, 0.0),
-                                                linear_color_stop(cx.theme().colors().panel_background, 1.0),
+                                                linear_color_stop(cx.theme().colors.border, 0.0),
+                                                linear_color_stop(cx.theme().colors.sidebar, 1.0),
                                             ))
                                             .flex_shrink_0()
                                             .border_1()
-                                            .border_color(cx.theme().colors().border_variant)
+                                            .border_color(cx.theme().colors.border)
                                             .items_center()
                                             .justify_center()
-                                            .child(Icon::new(IconName::Person).size(IconSize::Medium).color(Color::Custom(cx.theme().colors().text_muted))),
+                                            .child(Icon::new(IconName::Person).size(IconSize::Medium).color(Color::Custom(cx.theme().colors.muted_foreground))),
                                     )
                                     .child(
                                         div()
@@ -141,10 +140,10 @@ impl GalvanizedPanel {
                                                 div()
                                                     .text_sm()
                                                     .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_color(cx.theme().colors().text)
+                                                    .text_color(cx.theme().colors.foreground)
                                                     .child("Community Space (Communal)"),
                                             )
-                                            .child(div().text_xs().text_color(cx.theme().colors().text_muted).child(
+                                            .child(div().text_xs().text_color(cx.theme().colors.muted_foreground).child(
                                                 "Open to anyone. Any subspace can write.",
                                             )),
                                     ),
@@ -155,7 +154,7 @@ impl GalvanizedPanel {
                                     .child(
                                         div()
                                             .text_xs()
-                                            .text_color(cx.theme().colors().text_muted)
+                                            .text_color(cx.theme().colors.muted_foreground)
                                             .mb_1()
                                             .child("Space Name"),
                                     )
@@ -173,9 +172,9 @@ impl GalvanizedPanel {
                                             .px_4()
                                             .py_2()
                                             .rounded_lg()
-                                            .bg(cx.theme().colors().border_variant)
+                                            .bg(cx.theme().colors.border)
                                             .cursor_pointer()
-                                            .hover(|style| style.bg(cx.theme().colors().border))
+                                            .hover(|style| style.bg(cx.theme().colors.border))
                                             .on_click(cx.listener(|this, _e, _window, _cx| {
                                                 this.scene = PanelScene::Home;
                                             }))
@@ -183,7 +182,7 @@ impl GalvanizedPanel {
                                                 div()
                                                     .text_sm()
                                                     .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_color(cx.theme().colors().text)
+                                                    .text_color(cx.theme().colors.foreground)
                                                     .text_center()
                                                     .child("Back"),
                                             ),
@@ -220,7 +219,7 @@ impl GalvanizedPanel {
                                                 div()
                                                     .text_sm()
                                                     .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_color(cx.theme().colors().text)
+                                                    .text_color(cx.theme().colors.foreground)
                                                     .text_center()
                                                     .child("Create Space"),
                                             ),

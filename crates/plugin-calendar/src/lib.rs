@@ -21,11 +21,17 @@ pub fn init(cx: &mut App) {
         let calendar = calendar.clone();
 
         // For demo purposes we'll open the calendar item pane right away
-        workspace.add_item_to_active_pane(calendar.clone(), Some(0), true, window, cx);
+        workspace.add_item_to_active_pane(Box::new(calendar.clone()), Some(0), true, window, cx);
 
         // We'll also register the OpenCalendar action to re-open/re-focus the calendar item
         workspace.register_action(move |workspace, _: &OpenCalendar, window, cx| {
-            workspace.add_item_to_active_pane(calendar.clone(), Some(0), true, window, cx);
+            workspace.add_item_to_active_pane(
+                Box::new(calendar.clone()),
+                Some(0),
+                true,
+                window,
+                cx,
+            );
         });
     })
     .detach();
@@ -69,7 +75,7 @@ impl Render for CalendarItem {
             .min_h_80()
             .min_w_80()
             //
-            // .bg(cx.theme().colors().editor_background)
+            // .bg(cx.theme().colors.editor_background)
             .bg(cx.theme().colors.background)
             .p_4()
             .child(

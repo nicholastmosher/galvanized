@@ -10,9 +10,8 @@ use gpui::{
     ParentElement as _, Render, RenderOnce, Stateful, StatefulInteractiveElement as _, Styled as _,
     Window, div, linear_color_stop, linear_gradient, point, px, rgba,
 };
-use zed_ui::{
-    ActiveTheme as _, Clickable, Icon, IconName, PopoverMenu, Toggleable, Tooltip, h_flex, v_flex,
-};
+use gpui_component::ActiveTheme as _;
+use zed_ui::{Clickable, Icon, IconName, PopoverMenu, Toggleable, Tooltip, h_flex, v_flex};
 
 use crate::{Galvanized, domain::vault::Vault};
 
@@ -76,7 +75,7 @@ impl RenderOnce for VaultButton {
             .size(px(48.))
             .rounded_2xl()
             .hover(|style| style.rounded_xl().opacity(0.6))
-            .active(|style| style.bg(cx.theme().colors().ghost_element_hover))
+            .active(|style| style.bg(cx.theme().colors.list_hover))
             .child(
                 h_flex()
                     .mx_auto()
@@ -138,10 +137,10 @@ impl Render for VaultMenu {
             .collect::<Vec<_>>();
 
         v_flex()
-            .bg(cx.theme().colors().background)
+            .bg(cx.theme().colors.background)
             .size_full()
             .border_1()
-            .border_color(cx.theme().colors().border)
+            .border_color(cx.theme().colors.border)
             .rounded_md()
             .on_mouse_down_out(cx.listener(|_this, _e, _window, cx| {
                 cx.emit(DismissEvent);
@@ -157,7 +156,7 @@ impl Render for VaultMenu {
                     .size_full()
                     .p_2()
                     .gap_2()
-                    .hover(|style| style.bg(cx.theme().colors().element_hover))
+                    .hover(|style| style.bg(cx.theme().colors.list_hover))
                     .on_click(cx.listener({
                         let app = app.boxed_clone();
                         move |_this, _e, window, cx| {
@@ -184,7 +183,7 @@ fn render_menu_header<T: EventEmitter<DismissEvent>>(
         .p_2()
         .gap_2()
         .border_b_1()
-        .border_color(cx.theme().colors().border)
+        .border_color(cx.theme().colors.border)
         .child(
             h_flex()
                 .size_8()
@@ -210,13 +209,13 @@ fn render_menu_header<T: EventEmitter<DismissEvent>>(
                     div()
                         .text_sm()
                         .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .text_color(cx.theme().colors().text)
+                        .text_color(cx.theme().colors.foreground)
                         .child(user_name),
                 )
                 .child(
                     div()
                         .text_xs()
-                        .text_color(cx.theme().colors().text_muted)
+                        .text_color(cx.theme().colors.muted_foreground)
                         .child("Vault unlocked"),
                 ),
         )
@@ -227,9 +226,9 @@ fn render_menu_header<T: EventEmitter<DismissEvent>>(
                 .p_2()
                 .gap_2()
                 .border_1()
-                .border_color(cx.theme().colors().border)
+                .border_color(cx.theme().colors.border)
                 .rounded_md()
-                .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
+                .hover(|style| style.bg(cx.theme().colors.list_hover))
                 .cursor_pointer()
                 .on_click(cx.listener(move |_this, _e, _window, cx| {
                     galvanized.update(cx, |it, _cx| it.active_vault = None);

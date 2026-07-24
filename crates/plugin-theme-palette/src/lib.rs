@@ -1,12 +1,11 @@
-use zed::unstable::{
-    gpui::{self, AppContext as _, EventEmitter, FocusHandle, Focusable, actions},
-    ui::{
-        ActiveTheme as _, App, Context, InteractiveElement as _, IntoElement, ParentElement as _,
-        Render, SharedString, StatefulInteractiveElement as _, Styled, Tooltip, Window, div,
-        h_flex, v_flex,
-    },
-    workspace::{Item, Workspace},
+use galvanized_core::Workspace;
+use gpui::{
+    self, App, AppContext as _, Context, EventEmitter, FocusHandle, Focusable,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render,
+    StatefulInteractiveElement as _, Styled as _, Window, actions, div,
 };
+use gpui_component::{ActiveTheme as _, h_flex, v_flex};
+use zed_ui::Tooltip;
 
 actions!(palette, [OpenPalette]);
 
@@ -45,7 +44,7 @@ impl Render for PaletteItem {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             //
-            .bg(cx.theme().colors().background)
+            .bg(cx.theme().colors.background)
             .p_2()
             .child(
                 //
@@ -68,7 +67,7 @@ impl Render for PaletteItem {
                                             .id("status-bar-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().status_bar_background)
+                                            .bg(cx.theme().colors.status_bar)
                                             .tooltip(Tooltip::text("status_bar_background")),
                                     )
                                     .child(
@@ -76,7 +75,7 @@ impl Render for PaletteItem {
                                             .id("title-bar-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().title_bar_background)
+                                            .bg(cx.theme().colors.title_bar)
                                             .tooltip(Tooltip::text("title_bar_background")),
                                     )
                                     .child(
@@ -84,7 +83,7 @@ impl Render for PaletteItem {
                                             .id("title-bar-inactive-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().title_bar_inactive_background)
+                                            .bg(cx.theme().colors.title_bar)
                                             .tooltip(Tooltip::text(
                                                 "title_bar_inactive_background",
                                             )),
@@ -94,7 +93,7 @@ impl Render for PaletteItem {
                                             .id("toolbar-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().toolbar_background)
+                                            .bg(cx.theme().colors.title_bar)
                                             .tooltip(Tooltip::text("toolbar_background")),
                                     )
                                     .child(
@@ -102,7 +101,7 @@ impl Render for PaletteItem {
                                             .id("tab-bar-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().tab_bar_background)
+                                            .bg(cx.theme().colors.tab_bar)
                                             .tooltip(Tooltip::text("tab_bar_background")),
                                     )
                                     .child(
@@ -110,7 +109,7 @@ impl Render for PaletteItem {
                                             .id("tab-inactive-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().tab_inactive_background)
+                                            .bg(cx.theme().colors.tab)
                                             .tooltip(Tooltip::text("tab_inactive_background")),
                                     )
                                     .child(
@@ -118,7 +117,7 @@ impl Render for PaletteItem {
                                             .id("tab-active-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().tab_active_background)
+                                            .bg(cx.theme().colors.tab_active)
                                             .tooltip(Tooltip::text("tab_active_background")),
                                     )
                                     .child(
@@ -126,7 +125,7 @@ impl Render for PaletteItem {
                                             .id("panel-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().panel_background)
+                                            .bg(cx.theme().colors.sidebar)
                                             .tooltip(Tooltip::text("panel_background")),
                                     )
                                     .child(
@@ -134,7 +133,7 @@ impl Render for PaletteItem {
                                             .id("panel-overlay-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().panel_overlay_background)
+                                            .bg(cx.theme().colors.overlay)
                                             .tooltip(Tooltip::text("panel_overlay_background")),
                                     )
                                     .child(
@@ -142,7 +141,7 @@ impl Render for PaletteItem {
                                             .id("panel-overlay-hover-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().panel_overlay_hover)
+                                            .bg(cx.theme().colors.overlay)
                                             .tooltip(Tooltip::text("panel_overlay_hover")),
                                     )
                                     .child(
@@ -150,7 +149,7 @@ impl Render for PaletteItem {
                                             .id("pane-focused-border-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().pane_focused_border)
+                                            .bg(cx.theme().colors.ring)
                                             .tooltip(Tooltip::text("pane_focused_border")),
                                     )
                                     .child(
@@ -158,7 +157,7 @@ impl Render for PaletteItem {
                                             .id("pane-group-border-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().pane_group_border)
+                                            .bg(cx.theme().colors.border)
                                             .tooltip(Tooltip::text("pane_group_border")),
                                     ),
                             ),
@@ -179,7 +178,7 @@ impl Render for PaletteItem {
                                             .id("editor-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().editor_background)
+                                            .bg(cx.theme().colors.background)
                                             .tooltip(Tooltip::text("editor_background")),
                                     )
                                     .child(
@@ -187,7 +186,7 @@ impl Render for PaletteItem {
                                             .id("editor-gutter-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().editor_gutter_background)
+                                            .bg(cx.theme().colors.sidebar)
                                             .tooltip(Tooltip::text("editor_gutter_background")),
                                     )
                                     .child(
@@ -195,7 +194,7 @@ impl Render for PaletteItem {
                                             .id("editor-subheader-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().editor_subheader_background)
+                                            .bg(cx.theme().colors.sidebar)
                                             .tooltip(Tooltip::text("editor_subheader_background")),
                                     )
                                     .child(
@@ -203,20 +202,9 @@ impl Render for PaletteItem {
                                             .id("editor-active-line-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().editor_active_line_background)
-                                            .tooltip(Tooltip::text("editor_active_line_background")),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("editor-highlighted-line-background-square")
-                                            .w_8()
-                                            .h_8()
-                                            .bg(cx
-                                                .theme()
-                                                .colors()
-                                                .editor_highlighted_line_background)
+                                            .bg(cx.theme().colors.list_active)
                                             .tooltip(Tooltip::text(
-                                                "editor_highlighted_line_background",
+                                                "editor_active_line_background",
                                             )),
                                     )
                                     .child(
@@ -224,7 +212,7 @@ impl Render for PaletteItem {
                                             .id("editor-line-number-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().editor_line_number)
+                                            .bg(cx.theme().colors.muted_foreground)
                                             .tooltip(Tooltip::text("editor_line_number")),
                                     )
                                     .child(
@@ -232,7 +220,7 @@ impl Render for PaletteItem {
                                             .id("editor-active-line-number-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().editor_active_line_number)
+                                            .bg(cx.theme().colors.foreground)
                                             .tooltip(Tooltip::text("editor_active_line_number")),
                                     )
                                     .child(
@@ -240,7 +228,7 @@ impl Render for PaletteItem {
                                             .id("editor-hover-line-number-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().editor_hover_line_number)
+                                            .bg(cx.theme().colors.muted_foreground)
                                             .tooltip(Tooltip::text("editor_hover_line_number")),
                                     )
                                     .child(
@@ -248,7 +236,7 @@ impl Render for PaletteItem {
                                             .id("editor-invisible-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().editor_invisible)
+                                            .bg(cx.theme().colors.muted)
                                             .tooltip(Tooltip::text("editor_invisible")),
                                     )
                                     .child(
@@ -256,7 +244,7 @@ impl Render for PaletteItem {
                                             .id("editor-wrap-guide-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().editor_wrap_guide)
+                                            .bg(cx.theme().colors.border)
                                             .tooltip(Tooltip::text("editor_wrap_guide")),
                                     )
                                     .child(
@@ -264,7 +252,7 @@ impl Render for PaletteItem {
                                             .id("editor-active-wrap-guide-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().editor_active_wrap_guide)
+                                            .bg(cx.theme().colors.border)
                                             .tooltip(Tooltip::text("editor_active_wrap_guide")),
                                     )
                                     .child(
@@ -272,55 +260,8 @@ impl Render for PaletteItem {
                                             .id("editor-indent-guide-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().editor_indent_guide)
+                                            .bg(cx.theme().colors.border)
                                             .tooltip(Tooltip::text("editor_indent_guide")),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("editor-indent-guide-active-square")
-                                            .w_8()
-                                            .h_8()
-                                            .bg(cx.theme().colors().editor_indent_guide_active)
-                                            .tooltip(Tooltip::text("editor_indent_guide_active")),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("editor-document-highlight-read-background-square")
-                                            .w_8()
-                                            .h_8()
-                                            .bg(cx
-                                                .theme()
-                                                .colors()
-                                                .editor_document_highlight_read_background)
-                                            .tooltip(Tooltip::text(
-                                                "editor_document_highlight_read_background",
-                                            )),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("editor-document-highlight-write-background-square")
-                                            .w_8()
-                                            .h_8()
-                                            .bg(cx
-                                                .theme()
-                                                .colors()
-                                                .editor_document_highlight_write_background)
-                                            .tooltip(Tooltip::text(
-                                                "editor_document_highlight_write_background",
-                                            )),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("editor-document-highlight-bracket-background-square")
-                                            .w_8()
-                                            .h_8()
-                                            .bg(cx
-                                                .theme()
-                                                .colors()
-                                                .editor_document_highlight_bracket_background)
-                                            .tooltip(Tooltip::text(
-                                                "editor_document_highlight_bracket_background",
-                                            )),
                                     ),
                             ),
                     )
@@ -340,7 +281,7 @@ impl Render for PaletteItem {
                                             .id("text-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().text)
+                                            .bg(cx.theme().colors.foreground)
                                             .tooltip(Tooltip::text("text")),
                                     )
                                     .child(
@@ -348,7 +289,7 @@ impl Render for PaletteItem {
                                             .id("text-muted-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().text_muted)
+                                            .bg(cx.theme().colors.muted_foreground)
                                             .tooltip(Tooltip::text("text_muted")),
                                     )
                                     .child(
@@ -356,7 +297,7 @@ impl Render for PaletteItem {
                                             .id("text-placeholder-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().text_placeholder)
+                                            .bg(cx.theme().colors.muted_foreground)
                                             .tooltip(Tooltip::text("text_placeholder")),
                                     )
                                     .child(
@@ -364,7 +305,7 @@ impl Render for PaletteItem {
                                             .id("text-disabled-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().text_disabled)
+                                            .bg(cx.theme().colors.muted_foreground)
                                             .tooltip(Tooltip::text("text_disabled")),
                                     )
                                     .child(
@@ -372,7 +313,7 @@ impl Render for PaletteItem {
                                             .id("text-accent-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().text_accent)
+                                            .bg(cx.theme().colors.accent)
                                             .tooltip(Tooltip::text("text_accent")),
                                     ),
                             ),
@@ -393,7 +334,7 @@ impl Render for PaletteItem {
                                             .id("icon-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().icon)
+                                            .bg(cx.theme().colors.foreground)
                                             .tooltip(Tooltip::text("icon")),
                                     )
                                     .child(
@@ -401,7 +342,7 @@ impl Render for PaletteItem {
                                             .id("icon-muted-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().icon_muted)
+                                            .bg(cx.theme().colors.muted_foreground)
                                             .tooltip(Tooltip::text("icon_muted")),
                                     )
                                     .child(
@@ -409,7 +350,7 @@ impl Render for PaletteItem {
                                             .id("icon-disabled-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().icon_disabled)
+                                            .bg(cx.theme().colors.muted_foreground)
                                             .tooltip(Tooltip::text("icon_disabled")),
                                     )
                                     .child(
@@ -417,7 +358,7 @@ impl Render for PaletteItem {
                                             .id("icon-placeholder-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().icon_placeholder)
+                                            .bg(cx.theme().colors.muted_foreground)
                                             .tooltip(Tooltip::text("icon_placeholder")),
                                     )
                                     .child(
@@ -425,7 +366,7 @@ impl Render for PaletteItem {
                                             .id("icon-accent-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().icon_accent)
+                                            .bg(cx.theme().colors.accent)
                                             .tooltip(Tooltip::text("icon_accent")),
                                     ),
                             ),
@@ -446,7 +387,7 @@ impl Render for PaletteItem {
                                             .id("border-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().border)
+                                            .bg(cx.theme().colors.border)
                                             .tooltip(Tooltip::text("border")),
                                     )
                                     .child(
@@ -454,7 +395,7 @@ impl Render for PaletteItem {
                                             .id("border-variant-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().border_variant)
+                                            .bg(cx.theme().colors.border)
                                             .tooltip(Tooltip::text("border_variant")),
                                     )
                                     .child(
@@ -462,7 +403,7 @@ impl Render for PaletteItem {
                                             .id("border-focused-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().border_focused)
+                                            .bg(cx.theme().colors.ring)
                                             .tooltip(Tooltip::text("border_focused")),
                                     )
                                     .child(
@@ -470,7 +411,7 @@ impl Render for PaletteItem {
                                             .id("border-selected-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().border_selected)
+                                            .bg(cx.theme().colors.ring)
                                             .tooltip(Tooltip::text("border_selected")),
                                     )
                                     .child(
@@ -478,7 +419,7 @@ impl Render for PaletteItem {
                                             .id("border-transparent-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().border_transparent)
+                                            .bg(cx.theme().colors.border)
                                             .tooltip(Tooltip::text("border_transparent")),
                                     )
                                     .child(
@@ -486,7 +427,7 @@ impl Render for PaletteItem {
                                             .id("border-disabled-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().border_disabled)
+                                            .bg(cx.theme().colors.muted)
                                             .tooltip(Tooltip::text("border_disabled")),
                                     ),
                             ),
@@ -507,7 +448,7 @@ impl Render for PaletteItem {
                                             .id("elevated-surface-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().elevated_surface_background)
+                                            .bg(cx.theme().colors.popover)
                                             .tooltip(Tooltip::text("elevated_surface_background")),
                                     )
                                     .child(
@@ -515,7 +456,7 @@ impl Render for PaletteItem {
                                             .id("surface-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().surface_background)
+                                            .bg(cx.theme().colors.secondary)
                                             .tooltip(Tooltip::text("surface_background")),
                                     )
                                     .child(
@@ -523,7 +464,7 @@ impl Render for PaletteItem {
                                             .id("element-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().element_background)
+                                            .bg(cx.theme().colors.muted)
                                             .tooltip(Tooltip::text("element_background")),
                                     )
                                     .child(
@@ -531,7 +472,7 @@ impl Render for PaletteItem {
                                             .id("element-hover-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().element_hover)
+                                            .bg(cx.theme().colors.list_hover)
                                             .tooltip(Tooltip::text("element_hover")),
                                     )
                                     .child(
@@ -539,7 +480,7 @@ impl Render for PaletteItem {
                                             .id("element-active-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().element_active)
+                                            .bg(cx.theme().colors.list_active)
                                             .tooltip(Tooltip::text("element_active")),
                                     )
                                     .child(
@@ -547,7 +488,7 @@ impl Render for PaletteItem {
                                             .id("element-selected-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().element_selected)
+                                            .bg(cx.theme().colors.list_active)
                                             .tooltip(Tooltip::text("element_selected")),
                                     )
                                     .child(
@@ -555,7 +496,7 @@ impl Render for PaletteItem {
                                             .id("element-selection-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().element_selection_background)
+                                            .bg(cx.theme().colors.selection)
                                             .tooltip(Tooltip::text("element_selection_background")),
                                     )
                                     .child(
@@ -563,7 +504,7 @@ impl Render for PaletteItem {
                                             .id("element-disabled-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().element_disabled)
+                                            .bg(cx.theme().colors.muted)
                                             .tooltip(Tooltip::text("element_disabled")),
                                     )
                                     .child(
@@ -571,7 +512,7 @@ impl Render for PaletteItem {
                                             .id("drop-target-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().drop_target_background)
+                                            .bg(cx.theme().colors.drop_target)
                                             .tooltip(Tooltip::text("drop_target_background")),
                                     )
                                     .child(
@@ -579,7 +520,7 @@ impl Render for PaletteItem {
                                             .id("drop-target-border-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().drop_target_border)
+                                            .bg(cx.theme().colors.drag_border)
                                             .tooltip(Tooltip::text("drop_target_border")),
                                     )
                                     .child(
@@ -587,7 +528,7 @@ impl Render for PaletteItem {
                                             .id("ghost-element-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().ghost_element_background)
+                                            .bg(cx.theme().colors.muted)
                                             .tooltip(Tooltip::text("ghost_element_background")),
                                     )
                                     .child(
@@ -595,7 +536,7 @@ impl Render for PaletteItem {
                                             .id("ghost-element-hover-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().ghost_element_hover)
+                                            .bg(cx.theme().colors.list_hover)
                                             .tooltip(Tooltip::text("ghost_element_hover")),
                                     )
                                     .child(
@@ -603,7 +544,7 @@ impl Render for PaletteItem {
                                             .id("ghost-element-active-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().ghost_element_active)
+                                            .bg(cx.theme().colors.list_active)
                                             .tooltip(Tooltip::text("ghost_element_active")),
                                     )
                                     .child(
@@ -611,7 +552,7 @@ impl Render for PaletteItem {
                                             .id("ghost-element-selected-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().ghost_element_selected)
+                                            .bg(cx.theme().colors.list_active)
                                             .tooltip(Tooltip::text("ghost_element_selected")),
                                     )
                                     .child(
@@ -619,7 +560,7 @@ impl Render for PaletteItem {
                                             .id("ghost-element-disabled-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().ghost_element_disabled)
+                                            .bg(cx.theme().colors.muted)
                                             .tooltip(Tooltip::text("ghost_element_disabled")),
                                     ),
                             ),
@@ -640,7 +581,7 @@ impl Render for PaletteItem {
                                             .id("terminal-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_background)
+                                            .bg(cx.theme().colors.background)
                                             .tooltip(Tooltip::text("terminal_background")),
                                     )
                                     .child(
@@ -648,7 +589,7 @@ impl Render for PaletteItem {
                                             .id("terminal-foreground-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_foreground)
+                                            .bg(cx.theme().colors.foreground)
                                             .tooltip(Tooltip::text("terminal_foreground")),
                                     )
                                     .child(
@@ -656,7 +597,7 @@ impl Render for PaletteItem {
                                             .id("terminal-bright-foreground-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_bright_foreground)
+                                            .bg(cx.theme().colors.foreground)
                                             .tooltip(Tooltip::text("terminal_bright_foreground")),
                                     )
                                     .child(
@@ -664,7 +605,7 @@ impl Render for PaletteItem {
                                             .id("terminal-dim-foreground-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_dim_foreground)
+                                            .bg(cx.theme().colors.muted_foreground)
                                             .tooltip(Tooltip::text("terminal_dim_foreground")),
                                     )
                                     .child(
@@ -672,7 +613,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-background-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_background)
+                                            .bg(cx.theme().colors.background)
                                             .tooltip(Tooltip::text("terminal_ansi_background")),
                                     )
                                     .child(
@@ -680,7 +621,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-black-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_black)
+                                            .bg(cx.theme().colors.muted)
                                             .tooltip(Tooltip::text("terminal_ansi_black")),
                                     )
                                     .child(
@@ -688,7 +629,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-bright-black-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_bright_black)
+                                            .bg(cx.theme().colors.muted)
                                             .tooltip(Tooltip::text("terminal_ansi_bright_black")),
                                     )
                                     .child(
@@ -696,7 +637,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-dim-black-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_dim_black)
+                                            .bg(cx.theme().colors.muted)
                                             .tooltip(Tooltip::text("terminal_ansi_dim_black")),
                                     )
                                     .child(
@@ -704,7 +645,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-red-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_red)
+                                            .bg(cx.theme().colors.red)
                                             .tooltip(Tooltip::text("terminal_ansi_red")),
                                     )
                                     .child(
@@ -712,7 +653,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-bright-red-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_bright_red)
+                                            .bg(cx.theme().colors.red_light)
                                             .tooltip(Tooltip::text("terminal_ansi_bright_red")),
                                     )
                                     .child(
@@ -720,7 +661,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-dim-red-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_dim_red)
+                                            .bg(cx.theme().colors.red)
                                             .tooltip(Tooltip::text("terminal_ansi_dim_red")),
                                     )
                                     .child(
@@ -728,7 +669,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-green-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_green)
+                                            .bg(cx.theme().colors.green)
                                             .tooltip(Tooltip::text("terminal_ansi_green")),
                                     )
                                     .child(
@@ -736,7 +677,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-bright-green-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_bright_green)
+                                            .bg(cx.theme().colors.green_light)
                                             .tooltip(Tooltip::text("terminal_ansi_bright_green")),
                                     )
                                     .child(
@@ -744,7 +685,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-dim-green-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_dim_green)
+                                            .bg(cx.theme().colors.green)
                                             .tooltip(Tooltip::text("terminal_ansi_dim_green")),
                                     )
                                     .child(
@@ -752,7 +693,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-yellow-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_yellow)
+                                            .bg(cx.theme().colors.yellow)
                                             .tooltip(Tooltip::text("terminal_ansi_yellow")),
                                     )
                                     .child(
@@ -760,7 +701,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-bright-yellow-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_bright_yellow)
+                                            .bg(cx.theme().colors.yellow_light)
                                             .tooltip(Tooltip::text("terminal_ansi_bright_yellow")),
                                     )
                                     .child(
@@ -768,7 +709,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-dim-yellow-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_dim_yellow)
+                                            .bg(cx.theme().colors.yellow)
                                             .tooltip(Tooltip::text("terminal_ansi_dim_yellow")),
                                     )
                                     .child(
@@ -776,7 +717,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-blue-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_blue)
+                                            .bg(cx.theme().colors.blue)
                                             .tooltip(Tooltip::text("terminal_ansi_blue")),
                                     )
                                     .child(
@@ -784,7 +725,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-bright-blue-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_bright_blue)
+                                            .bg(cx.theme().colors.blue_light)
                                             .tooltip(Tooltip::text("terminal_ansi_bright_blue")),
                                     )
                                     .child(
@@ -792,7 +733,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-dim-blue-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_dim_blue)
+                                            .bg(cx.theme().colors.blue)
                                             .tooltip(Tooltip::text("terminal_ansi_dim_blue")),
                                     )
                                     .child(
@@ -800,7 +741,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-magenta-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_magenta)
+                                            .bg(cx.theme().colors.magenta)
                                             .tooltip(Tooltip::text("terminal_ansi_magenta")),
                                     )
                                     .child(
@@ -808,7 +749,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-bright-magenta-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_bright_magenta)
+                                            .bg(cx.theme().colors.magenta_light)
                                             .tooltip(Tooltip::text("terminal_ansi_bright_magenta")),
                                     )
                                     .child(
@@ -816,7 +757,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-dim-magenta-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_dim_magenta)
+                                            .bg(cx.theme().colors.magenta)
                                             .tooltip(Tooltip::text("terminal_ansi_dim_magenta")),
                                     )
                                     .child(
@@ -824,7 +765,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-cyan-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_cyan)
+                                            .bg(cx.theme().colors.cyan)
                                             .tooltip(Tooltip::text("terminal_ansi_cyan")),
                                     )
                                     .child(
@@ -832,7 +773,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-bright-cyan-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_bright_cyan)
+                                            .bg(cx.theme().colors.cyan_light)
                                             .tooltip(Tooltip::text("terminal_ansi_bright_cyan")),
                                     )
                                     .child(
@@ -840,7 +781,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-dim-cyan-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_dim_cyan)
+                                            .bg(cx.theme().colors.cyan)
                                             .tooltip(Tooltip::text("terminal_ansi_dim_cyan")),
                                     )
                                     .child(
@@ -848,7 +789,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-white-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_white)
+                                            .bg(cx.theme().colors.foreground)
                                             .tooltip(Tooltip::text("terminal_ansi_white")),
                                     )
                                     .child(
@@ -856,7 +797,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-bright-white-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_bright_white)
+                                            .bg(cx.theme().colors.foreground)
                                             .tooltip(Tooltip::text("terminal_ansi_bright_white")),
                                     )
                                     .child(
@@ -864,7 +805,7 @@ impl Render for PaletteItem {
                                             .id("terminal-ansi-dim-white-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().terminal_ansi_dim_white)
+                                            .bg(cx.theme().colors.muted_foreground)
                                             .tooltip(Tooltip::text("terminal_ansi_dim_white")),
                                     ),
                             ),
@@ -885,7 +826,7 @@ impl Render for PaletteItem {
                                             .id("version-control-added-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().version_control_added)
+                                            .bg(cx.theme().colors.green)
                                             .tooltip(Tooltip::text("version_control_added")),
                                     )
                                     .child(
@@ -893,7 +834,7 @@ impl Render for PaletteItem {
                                             .id("version-control-deleted-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().version_control_deleted)
+                                            .bg(cx.theme().colors.red)
                                             .tooltip(Tooltip::text("version_control_deleted")),
                                     )
                                     .child(
@@ -901,7 +842,7 @@ impl Render for PaletteItem {
                                             .id("version-control-modified-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().version_control_modified)
+                                            .bg(cx.theme().colors.yellow)
                                             .tooltip(Tooltip::text("version_control_modified")),
                                     )
                                     .child(
@@ -909,7 +850,7 @@ impl Render for PaletteItem {
                                             .id("version-control-renamed-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().version_control_renamed)
+                                            .bg(cx.theme().colors.blue)
                                             .tooltip(Tooltip::text("version_control_renamed")),
                                     )
                                     .child(
@@ -917,7 +858,7 @@ impl Render for PaletteItem {
                                             .id("version-control-conflict-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().version_control_conflict)
+                                            .bg(cx.theme().colors.red)
                                             .tooltip(Tooltip::text("version_control_conflict")),
                                     )
                                     .child(
@@ -925,7 +866,7 @@ impl Render for PaletteItem {
                                             .id("version-control-ignored-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().version_control_ignored)
+                                            .bg(cx.theme().colors.muted)
                                             .tooltip(Tooltip::text("version_control_ignored")),
                                     )
                                     .child(
@@ -933,7 +874,7 @@ impl Render for PaletteItem {
                                             .id("version-control-word-added-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().version_control_word_added)
+                                            .bg(cx.theme().colors.green)
                                             .tooltip(Tooltip::text("version_control_word_added")),
                                     )
                                     .child(
@@ -941,34 +882,8 @@ impl Render for PaletteItem {
                                             .id("version-control-word-deleted-square")
                                             .w_8()
                                             .h_8()
-                                            .bg(cx.theme().colors().version_control_word_deleted)
+                                            .bg(cx.theme().colors.red)
                                             .tooltip(Tooltip::text("version_control_word_deleted")),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("version-control-conflict-marker-ours-square")
-                                            .w_8()
-                                            .h_8()
-                                            .bg(cx
-                                                .theme()
-                                                .colors()
-                                                .version_control_conflict_marker_ours)
-                                            .tooltip(Tooltip::text(
-                                                "version_control_conflict_marker_ours",
-                                            )),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("version-control-conflict-marker-theirs-square")
-                                            .w_8()
-                                            .h_8()
-                                            .bg(cx
-                                                .theme()
-                                                .colors()
-                                                .version_control_conflict_marker_theirs)
-                                            .tooltip(Tooltip::text(
-                                                "version_control_conflict_marker_theirs",
-                                            )),
                                     ),
                             ),
                     ),
@@ -984,10 +899,10 @@ impl Focusable for PaletteItem {
     }
 }
 
-impl Item for PaletteItem {
-    type Event = PaletteEvent;
+// impl Item for PaletteItem {
+//     type Event = PaletteEvent;
 
-    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-        "Theme Palette".into()
-    }
-}
+//     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+//         "Theme Palette".into()
+//     }
+// }

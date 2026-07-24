@@ -26,7 +26,7 @@ pub fn init(cx: &mut App) {
 pub struct Workspace {
     //
     left_panel: Option<AnyView>,
-    main_content: Option<AnyView>,
+    main_content: Option<Box<AnyView>>,
     actions: Vec<Box<dyn Fn(Div, &Workspace, &mut Window, &mut Context<Self>) -> Div>>,
 }
 
@@ -67,13 +67,15 @@ impl Workspace {
 
     pub fn add_item_to_active_pane(
         &mut self,
-        item: impl Into<AnyView>,
+        item: Box<impl Into<AnyView>>,
         destination_index: Option<usize>,
         focus_item: bool,
         window: &mut Window,
         cx: &mut App,
     ) {
-        self.main_content = Some(item.into());
+        let item = *item;
+        let view = item.into();
+        self.main_content = Some(Box::new(view));
     }
 }
 
@@ -122,7 +124,7 @@ impl Render for Workspace {
                     })
                     .when_some(self.main_content.clone(), |el, content| {
                         //
-                        el.child(resizable_panel().child(content))
+                        el.child(resizable_panel().child(*content))
                     })
                     .when_none(&self.main_content, |el| {
                         //
