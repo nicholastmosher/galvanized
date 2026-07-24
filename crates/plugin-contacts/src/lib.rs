@@ -59,7 +59,7 @@ use signature::SignerMut as _;
 use tracing::{info, warn};
 use ufotofu::{IntoConsumer as _, IntoProducer, codec::Decodable};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
-use zed_ui::{FluentBuilder as _, Icon, IconName, IconSize, Tooltip, h_flex, v_flex};
+use zed_ui::{FluentBuilder as _, Tooltip, h_flex, v_flex};
 
 pub mod protocol;
 
@@ -238,7 +238,6 @@ impl Render for Contacts {
             .when_some(active_profile.as_ref(), |el, profile| {
                 //
                 el.child(self.render_header(profile.clone(), window, cx))
-                    // .child(ListSeparator)
                     .child(self.render_contact_list(profile.clone(), window, cx))
             })
     }
@@ -351,7 +350,6 @@ impl Contacts {
                             .text_color(cx.theme().colors.muted_foreground)
                             .hover(|style| style.text_color(cx.theme().colors.muted_foreground))
                             .tooltip(Tooltip::text("Send this to a friend to paste in their app"))
-                            // .child(Icon::new(IconName::Copy).size(IconSize::Small))
                             .child("Copy Profile Ticket")
                             .on_click(cx.listener({
                                 let profile = profile.clone();

@@ -11,7 +11,7 @@ use gpui::{
     Window, div, linear_color_stop, linear_gradient, point, px, rgba,
 };
 use gpui_component::ActiveTheme as _;
-use zed_ui::{Clickable, Icon, IconName, PopoverMenu, Toggleable, Tooltip, h_flex, v_flex};
+use zed_ui::{Clickable, PopoverMenu, Toggleable, Tooltip, h_flex, v_flex};
 
 use crate::{Galvanized, domain::vault::Vault};
 
@@ -234,6 +234,6 @@ fn render_menu_header<T: EventEmitter<DismissEvent>>(
                     galvanized.update(cx, |it, _cx| it.active_vault = None);
                     cx.emit(DismissEvent);
                 }))
-                .tooltip(Tooltip::text("Lock Vault")), // .child(Icon::new(IconName::Lock)),
+                .tooltip(Tooltip::text("Lock Vault")),
         )
 }

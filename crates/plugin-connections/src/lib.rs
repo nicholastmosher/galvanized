@@ -16,7 +16,7 @@ use zed::unstable::{
     editor::Editor,
     gpui::{AppContext as _, ClickEvent, ClipboardItem, Entity, Global, KeyDownEvent, img},
     ui::{
-        ActiveTheme as _, App, Context, FluentBuilder, Icon, IconName, IconSize,
+        ActiveTheme as _, App, Context, FluentBuilder,
         InteractiveElement as _, IntoElement, ParentElement as _, Render,
         SharedString, StatefulInteractiveElement as _, Styled, Tooltip, Window, div, h_flex, px,
         v_flex,
@@ -75,7 +75,6 @@ impl Render for ConnectionsUi {
             .p_2()
             .gap_2()
             .child(self.render_connection_header(window, cx))
-            // .child(ListSeparator)
             .child(self.render_connected_peers(window, cx))
     }
 }
@@ -140,10 +139,6 @@ impl ConnectionsUi {
                                                         );
                                                     },
                                                 ))
-                                                // .child(
-                                                //     Icon::new(IconName::Copy)
-                                                //         .size(IconSize::Medium),
-                                                // )
                                                 .child(div().px_1())
                                                 .child(
                                                     //

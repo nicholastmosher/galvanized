@@ -4,7 +4,7 @@ use gpui::{
     linear_gradient, px,
 };
 use gpui_component::ActiveTheme as _;
-use zed_ui::{Color, FluentBuilder as _, Icon, IconName, IconSize, h_flex, v_flex};
+use zed_ui::{FluentBuilder as _, h_flex, v_flex};
 
 use crate::panel::{
     CreateSpaceKind, GalvanizedPanel, PanelScene, PrimaryButton as _, render_scene_header,
@@ -76,7 +76,6 @@ impl GalvanizedPanel {
                                             .border_color(cx.theme().colors.border)
                                             .items_center()
                                             .justify_center()
-                                            // .child(Icon::new(IconName::Lock).size(IconSize::Medium).color(Color::Custom(cx.theme().colors.muted_foreground))),
                                     )
                                     .child(
                                         div()
@@ -130,7 +129,6 @@ impl GalvanizedPanel {
                                             .border_color(cx.theme().colors.border)
                                             .items_center()
                                             .justify_center()
-                                            .child(Icon::new(IconName::Person).size(IconSize::Medium).color(Color::Custom(cx.theme().colors.muted_foreground))),
                                     )
                                     .child(
                                         div()

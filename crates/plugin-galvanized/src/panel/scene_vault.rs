@@ -181,11 +181,6 @@ impl GalvanizedPanel {
                                             .child("Vault locked"),
                                     ),
                             )
-                        // .child(
-                        //     Icon::new(IconName::ChevronRight)
-                        //         .size(IconSize::Small)
-                        //         .color(Color::Custom(colors.border)),
-                        // )
                     })),
             )
             .child(
@@ -261,167 +256,147 @@ impl GalvanizedPanel {
             //
             .justify_center()
             .child(
+                v_flex().id("scene-create-vault").w_full().child(
+                    h_flex()
+                        .id("vault-icon")
+                        .size(px(48.))
+                        .mx_auto()
+                        .mb_4()
+                        .rounded_full()
+                        .bg(colors.border)
+                        .border_2()
+                        .border_color(colors.border)
+                        .items_center()
+                        .justify_center(),
+                ),
+            )
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::BOLD)
+                    .text_color(colors.foreground)
+                    .text_center()
+                    .mb_1()
+                    .child("Create Your Vault"),
+            )
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(colors.muted_foreground)
+                    .text_center()
+                    .mb_5()
+                    .child("One master password unlocks all your profiles, keys, and data."),
+            )
+            .child(
                 v_flex()
-                    .id("scene-create-vault")
-                    .w_full()
-                    .child(
-                        h_flex()
-                            .id("vault-icon")
-                            .size(px(48.))
-                            .mx_auto()
-                            .mb_4()
-                            .rounded_full()
-                            .bg(colors.border)
-                            .border_2()
-                            .border_color(colors.border)
-                            .items_center()
-                            .justify_center(), // .child(
-                                               //     div()
-                                               //         //
-                                               //         .mx_auto()
-                                               //         .child(
-                                               //             Icon::new(IconName::Lock)
-                                               //                 .size(IconSize::Medium)
-                                               //                 .color(Color::Custom(*GZED_ORANGE)),
-                                               //         ),
-                                               // ),
-                    )
+                    .flex_col()
+                    .gap_2()
                     .child(
                         div()
-                            .text_lg()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(colors.foreground)
-                            .text_center()
-                            .mb_1()
-                            .child("Create Your Vault"),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(colors.muted_foreground)
-                            .text_center()
-                            .mb_5()
                             .child(
-                                "One master password unlocks all your profiles, keys, and data.",
-                            ),
-                    )
-                    .child(
-                        v_flex()
-                            .flex_col()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .child(
-                                        h_flex()
-                                            .id("vault-name-title")
-                                            .gap_1()
-                                            .text_xs()
-                                            .text_color(colors.muted_foreground)
-                                            .tooltip(Tooltip::text(
-                                                "Visible before unlock, only visible to you",
-                                            ))
-                                            .child("Vault Name"), // .child(
-                                                                  //     Icon::new(IconName::Info).size(IconSize::XSmall),
-                                                                  // ),
-                                    )
-                                    .child(Input::new(&self.vault_name_input)),
-                            )
-                            .child(
-                                div()
-                                    .child(
-                                        h_flex()
-                                            .id("profile-name-title")
-                                            .gap_1()
-                                            .text_xs()
-                                            .text_color(colors.muted_foreground)
-                                            .tooltip(Tooltip::text(
-                                                "Visible only after unlock, visible to contacts",
-                                            ))
-                                            .child("Profile Name"), // .child(
-                                                                    //     Icon::new(IconName::Info).size(IconSize::XSmall),
-                                                                    // ),
-                                    )
-                                    .child(Input::new(&self.profile_name_input)),
-                            )
-                            .child(
-                                div()
-                                    .child(
-                                        div()
-                                            .text_xs()
-                                            .text_color(colors.muted_foreground)
-                                            .mb_1()
-                                            .child("Master Password"),
-                                    )
-                                    .child(Input::new(&self.create_password_input)),
-                            )
-                            .child(
-                                div()
-                                    .id("vault-create-confirm-password")
-                                    .on_key_down(cx.listener(
-                                        |this, e: &KeyDownEvent, window, cx| {
-                                            if e.keystroke.key == "enter" {
-                                                this.submit_create_vault(window, cx);
-                                            }
-                                        },
+                                h_flex()
+                                    .id("vault-name-title")
+                                    .gap_1()
+                                    .text_xs()
+                                    .text_color(colors.muted_foreground)
+                                    .tooltip(Tooltip::text(
+                                        "Visible before unlock, only visible to you",
                                     ))
-                                    .child(
-                                        div()
-                                            .text_xs()
-                                            .text_color(colors.muted_foreground)
-                                            .mb_1()
-                                            .child("Confirm Password"),
-                                    )
-                                    .child(Input::new(&self.create_password_confirmation_input)),
+                                    .child("Vault Name"),
+                            )
+                            .child(Input::new(&self.vault_name_input)),
+                    )
+                    .child(
+                        div()
+                            .child(
+                                h_flex()
+                                    .id("profile-name-title")
+                                    .gap_1()
+                                    .text_xs()
+                                    .text_color(colors.muted_foreground)
+                                    .tooltip(Tooltip::text(
+                                        "Visible only after unlock, visible to contacts",
+                                    ))
+                                    .child("Profile Name"),
+                            )
+                            .child(Input::new(&self.profile_name_input)),
+                    )
+                    .child(
+                        div()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(colors.muted_foreground)
+                                    .mb_1()
+                                    .child("Master Password"),
+                            )
+                            .child(Input::new(&self.create_password_input)),
+                    )
+                    .child(
+                        div()
+                            .id("vault-create-confirm-password")
+                            .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                                if e.keystroke.key == "enter" {
+                                    this.submit_create_vault(window, cx);
+                                }
+                            }))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(colors.muted_foreground)
+                                    .mb_1()
+                                    .child("Confirm Password"),
+                            )
+                            .child(Input::new(&self.create_password_confirmation_input)),
+                    ),
+            )
+            .child(
+                h_flex()
+                    .id("vault-actions")
+                    .gap_2()
+                    .mt_6()
+                    .child(
+                        div()
+                            .id("vault-back")
+                            .flex_1()
+                            .px_3()
+                            .py_2()
+                            .rounded_lg()
+                            .bg(colors.border)
+                            .hover(|style| style.bg(colors.border))
+                            .border_1()
+                            .border_color(colors.border)
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _e, _window, _cx| {
+                                this.vault_scene = VaultScene::VaultPicker;
+                            }))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(colors.muted_foreground)
+                                    .text_center()
+                                    .child("Back"),
                             ),
                     )
                     .child(
-                        h_flex()
-                            .id("vault-actions")
-                            .gap_2()
-                            .mt_6()
+                        div()
+                            .id("vault-create")
+                            .flex_1()
+                            .px_3()
+                            .py_2()
+                            .primary_button()
+                            .shadow_lg()
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _e, window, cx| {
+                                this.submit_create_vault(window, cx);
+                            }))
                             .child(
                                 div()
-                                    .id("vault-back")
-                                    .flex_1()
-                                    .px_3()
-                                    .py_2()
-                                    .rounded_lg()
-                                    .bg(colors.border)
-                                    .hover(|style| style.bg(colors.border))
-                                    .border_1()
-                                    .border_color(colors.border)
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _e, _window, _cx| {
-                                        this.vault_scene = VaultScene::VaultPicker;
-                                    }))
-                                    .child(
-                                        div()
-                                            .text_sm()
-                                            .text_color(colors.muted_foreground)
-                                            .text_center()
-                                            .child("Back"),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .id("vault-create")
-                                    .flex_1()
-                                    .px_3()
-                                    .py_2()
-                                    .primary_button()
-                                    .shadow_lg()
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _e, window, cx| {
-                                        this.submit_create_vault(window, cx);
-                                    }))
-                                    .child(
-                                        div()
-                                            .text_sm()
-                                            .font_weight(FontWeight::SEMIBOLD)
-                                            .text_color(colors.foreground)
-                                            .text_center()
-                                            .child("Create Vault"),
-                                    ),
+                                    .text_sm()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(colors.foreground)
+                                    .text_center()
+                                    .child("Create Vault"),
                             ),
                     ),
             )
