@@ -234,7 +234,6 @@ fn render_menu_header<T: EventEmitter<DismissEvent>>(
                     galvanized.update(cx, |it, _cx| it.active_vault = None);
                     cx.emit(DismissEvent);
                 }))
-                .tooltip(Tooltip::text("Lock Vault"))
-                .child(Icon::new(IconName::Lock)),
+                .tooltip(Tooltip::text("Lock Vault")), // .child(Icon::new(IconName::Lock)),
         )
 }

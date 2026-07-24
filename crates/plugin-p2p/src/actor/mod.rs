@@ -47,7 +47,7 @@ impl Actor {
         protocols: Protocols,
         cx: &mut App,
     ) -> Self {
-        let tokio_handle = Tokio::handle(cx);
+        let tokio_handle = tokio::runtime::Handle::current();
         let (tx, rx) = flume::bounded(10);
         let future = {
             let endpoint = endpoint.clone();

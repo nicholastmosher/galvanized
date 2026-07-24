@@ -5,7 +5,10 @@ use gpui::{
     IntoElement, ParentElement as _, Render, Styled, Window, WindowBounds, WindowOptions, div,
     prelude::FluentBuilder, px, rgb, size,
 };
-use gpui_component::resizable::{h_resizable, resizable_panel};
+use gpui_component::{
+    Root,
+    resizable::{h_resizable, resizable_panel},
+};
 use tracing::info;
 
 pub fn init(cx: &mut App) {
@@ -15,9 +18,10 @@ pub fn init(cx: &mut App) {
     };
 
     let _window_handle = cx
-        .open_window(options, |_window, cx| {
-            //
-            cx.new(|cx| Workspace::new(cx))
+        .open_window(options, |window, cx| {
+            let workspace = cx.new(|cx| Workspace::new(cx));
+            let root = cx.new(|cx| Root::new(workspace, window, cx));
+            root
         })
         .expect("should open main Galvanized window");
 }

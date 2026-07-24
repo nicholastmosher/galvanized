@@ -76,7 +76,7 @@ impl GalvanizedPanel {
                                             .border_color(cx.theme().colors.border)
                                             .items_center()
                                             .justify_center()
-                                            .child(Icon::new(IconName::Lock).size(IconSize::Medium).color(Color::Custom(cx.theme().colors.muted_foreground))),
+                                            // .child(Icon::new(IconName::Lock).size(IconSize::Medium).color(Color::Custom(cx.theme().colors.muted_foreground))),
                                     )
                                     .child(
                                         div()

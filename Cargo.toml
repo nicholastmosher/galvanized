@@ -1,7 +1,8 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/app-galvanized", "crates/galvanized-core",
+    "crates/app-galvanized",
+    "crates/galvanized-core",
     "crates/plugin-automerge",
     "crates/plugin-calendar",
     "crates/plugin-chat",

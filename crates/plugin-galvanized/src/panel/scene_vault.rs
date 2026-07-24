@@ -7,7 +7,7 @@ use gpui::{
 };
 use gpui_component::{ActiveTheme as _, alert::Alert, input::Input};
 use tracing::info;
-use zed_ui::{Color, Icon, IconName, IconSize, Tooltip, h_flex, v_flex};
+use zed_ui::{Tooltip, h_flex, v_flex};
 
 use crate::{
     GalvanizedHandle as _,
@@ -181,11 +181,11 @@ impl GalvanizedPanel {
                                             .child("Vault locked"),
                                     ),
                             )
-                            .child(
-                                Icon::new(IconName::ChevronRight)
-                                    .size(IconSize::Small)
-                                    .color(Color::Custom(colors.border)),
-                            )
+                        // .child(
+                        //     Icon::new(IconName::ChevronRight)
+                        //         .size(IconSize::Small)
+                        //         .color(Color::Custom(colors.border)),
+                        // )
                     })),
             )
             .child(
@@ -275,17 +275,16 @@ impl GalvanizedPanel {
                             .border_2()
                             .border_color(colors.border)
                             .items_center()
-                            .justify_center()
-                            .child(
-                                div()
-                                    //
-                                    .mx_auto()
-                                    .child(
-                                        Icon::new(IconName::Lock)
-                                            .size(IconSize::Medium)
-                                            .color(Color::Custom(*GZED_ORANGE)),
-                                    ),
-                            ),
+                            .justify_center(), // .child(
+                                               //     div()
+                                               //         //
+                                               //         .mx_auto()
+                                               //         .child(
+                                               //             Icon::new(IconName::Lock)
+                                               //                 .size(IconSize::Medium)
+                                               //                 .color(Color::Custom(*GZED_ORANGE)),
+                                               //         ),
+                                               // ),
                     )
                     .child(
                         div()
@@ -321,10 +320,9 @@ impl GalvanizedPanel {
                                             .tooltip(Tooltip::text(
                                                 "Visible before unlock, only visible to you",
                                             ))
-                                            .child("Vault Name")
-                                            .child(
-                                                Icon::new(IconName::Info).size(IconSize::XSmall),
-                                            ),
+                                            .child("Vault Name"), // .child(
+                                                                  //     Icon::new(IconName::Info).size(IconSize::XSmall),
+                                                                  // ),
                                     )
                                     .child(Input::new(&self.vault_name_input)),
                             )
@@ -339,12 +337,11 @@ impl GalvanizedPanel {
                                             .tooltip(Tooltip::text(
                                                 "Visible only after unlock, visible to contacts",
                                             ))
-                                            .child("Profile Name")
-                                            .child(
-                                                Icon::new(IconName::Info).size(IconSize::XSmall),
-                                            ),
+                                            .child("Profile Name"), // .child(
+                                                                    //     Icon::new(IconName::Info).size(IconSize::XSmall),
+                                                                    // ),
                                     )
-                                    .child(self.profile_name_input.clone()),
+                                    .child(Input::new(&self.profile_name_input)),
                             )
                             .child(
                                 div()
@@ -355,7 +352,7 @@ impl GalvanizedPanel {
                                             .mb_1()
                                             .child("Master Password"),
                                     )
-                                    .child(self.create_password_input.clone()),
+                                    .child(Input::new(&self.create_password_input)),
                             )
                             .child(
                                 div()
@@ -374,7 +371,7 @@ impl GalvanizedPanel {
                                             .mb_1()
                                             .child("Confirm Password"),
                                     )
-                                    .child(self.create_password_confirmation_input.clone()),
+                                    .child(Input::new(&self.create_password_confirmation_input)),
                             ),
                     )
                     .child(
@@ -505,7 +502,7 @@ impl GalvanizedPanel {
                                         }
                                     }
                                 }))
-                                .child(self.unlock_password_input.clone()),
+                                .child(Input::new(&self.unlock_password_input)),
                         ),
                     )
                     .child(
