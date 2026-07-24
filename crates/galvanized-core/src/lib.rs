@@ -9,8 +9,6 @@ use gpui_component::resizable::{h_resizable, resizable_panel};
 use tracing::info;
 
 pub fn init(cx: &mut App) {
-    gpui_component::init(cx);
-
     let options = WindowOptions {
         window_bounds: Some(WindowBounds::centered(size(px(600.), px(400.)), cx)),
         ..Default::default()
@@ -28,6 +26,7 @@ pub fn init(cx: &mut App) {
 pub struct Workspace {
     //
     left_panel: Option<AnyView>,
+    main_content: Option<AnyView>,
     actions: Vec<Box<dyn Fn(Div, &Workspace, &mut Window, &mut Context<Self>) -> Div>>,
 }
 
@@ -35,6 +34,7 @@ impl Workspace {
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
             left_panel: None,
+            main_content: None,
             actions: Default::default(),
         }
     }
@@ -63,6 +63,17 @@ impl Workspace {
         info!("Adding panel");
         self.left_panel = Some(panel.into());
         cx.notify();
+    }
+
+    pub fn add_item_to_active_pane(
+        &mut self,
+        item: impl Into<AnyView>,
+        destination_index: Option<usize>,
+        focus_item: bool,
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.main_content = Some(item.into());
     }
 }
 
@@ -109,13 +120,14 @@ impl Render for Workspace {
                                 ),
                         )
                     })
-                    .child(
-                        div()
-                            //
-                            .size_full()
-                            .child("Main View")
-                            .into_any_element(),
-                    ),
+                    .when_some(self.main_content.clone(), |el, content| {
+                        //
+                        el.child(resizable_panel().child(content))
+                    })
+                    .when_none(&self.main_content, |el| {
+                        //
+                        el.child(resizable_panel().child(div().size_full().child("Main View")))
+                    }),
             )
     }
 }

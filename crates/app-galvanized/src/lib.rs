@@ -5,6 +5,7 @@ pub mod observability;
 pub fn init(cx: &mut App) {
     observability::init(cx);
     // zed::init(cx);
+    gpui_component::init(cx);
     plugin_galvanized::init(cx);
     galvanized_core::init(cx);
 

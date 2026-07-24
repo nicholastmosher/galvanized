@@ -4,4 +4,7 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
-zed.workspace = true
+galvanized-core.workspace = true
+gpui.workspace = true
+gpui-component.workspace = true
+# zed.workspace = true

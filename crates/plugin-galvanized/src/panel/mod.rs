@@ -12,10 +12,9 @@ use gpui_component::input::InputState;
 use gpui_util::ResultExt as _;
 use tracing::info;
 use zed_ui::{ActiveTheme as _, ContextMenu, FluentBuilder as _, Tooltip, h_flex, v_flex};
-use zed_ui_input::InputField;
 
 use crate::{
-    Galvanized, GalvanizedHandle as _,
+    Galvanized,
     app_behavior::AppHandle,
     domain::{space::Space, vault::Vault},
     panel::{scene_vault::VaultScene, vault_menu::render_vault_menu},

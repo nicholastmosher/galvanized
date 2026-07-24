@@ -1,16 +1,13 @@
 use std::time::Duration;
 
-use zed::unstable::{
-    gpui::{
-        self, Animation, AnimationExt, AppContext as _, EventEmitter, FocusHandle, Focusable,
-        SharedString, actions, linear_color_stop, linear_gradient, rgb, white,
-    },
-    ui::{
-        ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement as _,
-        Render, StatefulInteractiveElement as _, Styled as _, Window, div, px, v_flex,
-    },
-    workspace::{Item, Workspace},
+use galvanized_core::Workspace;
+use gpui::{
+    self, Animation, AnimationExt, App, AppContext as _, Context, EventEmitter, FocusHandle,
+    Focusable, InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Window, actions, div, linear_color_stop,
+    linear_gradient, px, rgb, white,
 };
+use gpui_component::{ActiveTheme as _, v_flex};
 
 actions!(calendar, [OpenCalendar]);
 
@@ -24,17 +21,11 @@ pub fn init(cx: &mut App) {
         let calendar = calendar.clone();
 
         // For demo purposes we'll open the calendar item pane right away
-        workspace.add_item_to_active_pane(Box::new(calendar.clone()), Some(0), true, window, cx);
+        workspace.add_item_to_active_pane(calendar.clone(), Some(0), true, window, cx);
 
         // We'll also register the OpenCalendar action to re-open/re-focus the calendar item
         workspace.register_action(move |workspace, _: &OpenCalendar, window, cx| {
-            workspace.add_item_to_active_pane(
-                Box::new(calendar.clone()),
-                Some(0),
-                true,
-                window,
-                cx,
-            );
+            workspace.add_item_to_active_pane(calendar.clone(), Some(0), true, window, cx);
         });
     })
     .detach();
@@ -63,13 +54,13 @@ impl Focusable for CalendarItem {
 #[non_exhaustive]
 pub enum CalendarEvent {}
 impl EventEmitter<CalendarEvent> for CalendarItem {}
-impl Item for CalendarItem {
-    type Event = CalendarEvent;
+// impl Item for CalendarItem {
+//     type Event = CalendarEvent;
 
-    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-        "Calendar".into()
-    }
-}
+//     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+//         "Calendar".into()
+//     }
+// }
 
 impl Render for CalendarItem {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -78,7 +69,8 @@ impl Render for CalendarItem {
             .min_h_80()
             .min_w_80()
             //
-            .bg(cx.theme().colors().editor_background)
+            // .bg(cx.theme().colors().editor_background)
+            .bg(cx.theme().colors.background)
             .p_4()
             .child(
                 //
@@ -109,7 +101,7 @@ impl Render for CalendarItem {
                         v_flex()
                             .flex_grow_1()
                             //
-                            .bg(cx.theme().colors().panel_background)
+                            .bg(cx.theme().colors.background)
                             .p_2()
                             .rounded_xl()
                             .child(
@@ -128,14 +120,14 @@ impl Render for CalendarItem {
                                             .hover(|style| {
                                                 style
                                                     //
-                                                    .bg(cx.theme().colors().ghost_element_hover)
+                                                    .bg(cx.theme().colors.button_hover)
                                             })
                                             .active(|style| {
                                                 style
                                                     //
-                                                    .bg(cx.theme().colors().ghost_element_active)
+                                                    .bg(cx.theme().colors.button_active)
                                             })
-                                            .bg(cx.theme().colors().element_selected)
+                                            .bg(cx.theme().colors.background)
                                             //
                                             .p_2()
                                             .rounded_lg()

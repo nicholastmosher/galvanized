@@ -1,4 +1,4 @@
-use std::{any::Any, sync::Arc};
+use std::any::Any;
 
 use anyhow::Result;
 use zed::unstable::{
@@ -10,7 +10,6 @@ use zed::unstable::{
 
 use crate::{
     error::VaultError,
-    unlock_ui::UnlockPrompt,
     vault_actor::{VaultActor, VaultActorHandle, VaultToken},
     vault_db::{VaultAccess, VaultId, VaultMetadataRef, VaultMut, VaultRef},
 };
