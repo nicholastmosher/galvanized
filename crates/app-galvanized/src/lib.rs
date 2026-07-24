@@ -16,7 +16,7 @@ pub fn init(cx: &mut App) {
     plugin_contacts::init(cx);
     plugin_files::init(cx);
 
-    plugin_theme_palette::init(cx);
+    // plugin_theme_palette::init(cx);
 
     plugin_galvanized::init(cx);
     galvanized_core::init(cx);

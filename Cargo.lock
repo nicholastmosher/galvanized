@@ -6965,7 +6965,6 @@ dependencies = [
  "plugin-files",
  "plugin-galvanized",
  "plugin-p2p",
- "plugin-theme-palette",
  "plugin-vault",
  "plugin-willow",
  "rand 0.9.2",
