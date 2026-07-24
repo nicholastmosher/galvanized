@@ -1,21 +1,17 @@
-use std::sync::LazyLock;
-
 use gpui::{
-    Context, Entity, FontWeight, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent,
+    Context, Entity, FontWeight, InteractiveElement as _, IntoElement, KeyDownEvent,
     ParentElement as _, StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div,
-    px, rgba,
+    px,
 };
-use gpui_component::{ActiveTheme as _, alert::Alert, input::Input};
+use gpui_component::{ActiveTheme as _, h_flex, input::Input, v_flex};
 use tracing::info;
-use zed_ui::{Tooltip, h_flex, v_flex};
+use zed_ui::Tooltip;
 
 use crate::{
     GalvanizedHandle as _,
     domain::vault::{Vault, VaultHandle as _},
     panel::{GalvanizedPanel, PrimaryButton as _, render_scene_header},
 };
-
-static GZED_ORANGE: LazyLock<Hsla> = LazyLock::new(|| Hsla::from(rgba(0xff6600ff)).opacity(0.8));
 
 /// States for the onboarding flow.
 ///
@@ -50,7 +46,6 @@ impl GalvanizedPanel {
             .id("vault-scene")
             .size_full()
             .bg(cx.theme().colors.sidebar)
-            .child(Alert::info("alert", "This is an information alert"))
             .child(render_scene_header(title.into(), subtitle.into(), cx))
             .child(
                 div()
@@ -150,7 +145,7 @@ impl GalvanizedPanel {
                                     .id(format!("user-avatar-{}", name))
                                     .size(px(40.))
                                     .rounded_full()
-                                    .bg(*GZED_ORANGE)
+                                    .bg(*crate::panel::GZED_ORANGE)
                                     .flex_shrink_0()
                                     .items_center()
                                     .justify_center()
@@ -251,24 +246,28 @@ impl GalvanizedPanel {
     ) -> impl IntoElement {
         let colors = cx.theme().colors;
 
-        h_flex()
+        v_flex()
             .size_full()
             //
             .justify_center()
             .child(
-                v_flex().id("scene-create-vault").w_full().child(
-                    h_flex()
-                        .id("vault-icon")
-                        .size(px(48.))
-                        .mx_auto()
-                        .mb_4()
-                        .rounded_full()
-                        .bg(colors.border)
-                        .border_2()
-                        .border_color(colors.border)
-                        .items_center()
-                        .justify_center(),
-                ),
+                v_flex()
+                    //
+                    .id("scene-create-vault")
+                    .w_full()
+                    .child(
+                        h_flex()
+                            .id("vault-icon")
+                            .size(px(48.))
+                            .mx_auto()
+                            .mb_4()
+                            .rounded_full()
+                            .bg(colors.border)
+                            .border_2()
+                            .border_color(colors.border)
+                            .items_center()
+                            .justify_center(),
+                    ),
             )
             .child(
                 div()
@@ -427,7 +426,7 @@ impl GalvanizedPanel {
                             .mx_auto()
                             .mb_3()
                             .rounded_full()
-                            .bg(*GZED_ORANGE)
+                            .bg(*crate::panel::GZED_ORANGE)
                             .flex_shrink_0()
                             .items_center()
                             .justify_center()
@@ -492,8 +491,8 @@ impl GalvanizedPanel {
                                     .px_3()
                                     .py_2()
                                     .rounded_lg()
-                                    .bg(cx.theme().colors.border)
-                                    .hover(|style| style.bg(cx.theme().colors.border))
+                                    .bg(cx.theme().colors.muted)
+                                    .hover(|style| style.bg(cx.theme().colors.list_hover))
                                     .border_1()
                                     .border_color(cx.theme().colors.border)
                                     .cursor_pointer()
@@ -503,7 +502,7 @@ impl GalvanizedPanel {
                                     .child(
                                         div()
                                             .text_sm()
-                                            .text_color(cx.theme().colors.muted_foreground)
+                                            .text_color(cx.theme().colors.foreground)
                                             .text_center()
                                             .child("Back"),
                                     ),

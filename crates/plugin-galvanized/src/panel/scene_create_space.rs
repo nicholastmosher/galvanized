@@ -1,10 +1,10 @@
+use gpui::prelude::FluentBuilder as _;
 use gpui::{
     Context, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
     StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div, linear_color_stop,
     linear_gradient, px,
 };
-use gpui_component::ActiveTheme as _;
-use zed_ui::{FluentBuilder as _, h_flex, v_flex};
+use gpui_component::{ActiveTheme as _, h_flex, v_flex};
 
 use crate::panel::{
     CreateSpaceKind, GalvanizedPanel, PanelScene, PrimaryButton as _, render_scene_header,
@@ -170,9 +170,9 @@ impl GalvanizedPanel {
                                             .px_4()
                                             .py_2()
                                             .rounded_lg()
-                                            .bg(cx.theme().colors.border)
+                                            .bg(cx.theme().colors.muted)
                                             .cursor_pointer()
-                                            .hover(|style| style.bg(cx.theme().colors.border))
+                                            .hover(|style| style.bg(cx.theme().colors.list_hover))
                                             .on_click(cx.listener(|this, _e, _window, _cx| {
                                                 this.scene = PanelScene::Home;
                                             }))

@@ -6,12 +6,12 @@ use gpui::{
     Focusable, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton, MouseDownEvent,
     ParentElement as _, Pixels, Point, Render, SharedString, Stateful,
     StatefulInteractiveElement as _, Styled, Subscription, Window, actions, anchored, deferred,
-    div, linear_color_stop, linear_gradient, px, rgba,
+    div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, rgba,
 };
-use gpui_component::{ActiveTheme as _, input::InputState};
+use gpui_component::{ActiveTheme as _, h_flex, input::InputState, v_flex};
 use gpui_util::ResultExt as _;
 use tracing::info;
-use zed_ui::{ContextMenu, FluentBuilder as _, Tooltip, h_flex, v_flex};
+use zed_ui::{ContextMenu, Tooltip};
 
 use crate::{
     Galvanized,
@@ -287,8 +287,8 @@ impl GalvanizedPanel {
 
                         let gradient = linear_gradient(
                             135.,
-                            linear_color_stop(rgba(0x3b82f6ff), 0.0),
-                            linear_color_stop(rgba(0x1d4ed8ff), 1.0),
+                            linear_color_stop(cx.theme().colors.accent.opacity(0.8), 0.0),
+                            linear_color_stop(cx.theme().colors.accent.opacity(0.4), 1.0),
                         );
 
                         h_flex()
@@ -432,7 +432,6 @@ impl GalvanizedPanel {
                 //
                 el
                     //
-                    .debug()
                     .size_full()
                     .child(app.to_any_view())
             })
@@ -511,7 +510,7 @@ impl<S: Styled + InteractiveElement> PrimaryButton for S {
     }
 }
 
-pub fn gzed_icon(id: impl Into<ElementId>, _cx: &mut App) -> Stateful<Div> {
+pub fn gzed_icon(id: impl Into<ElementId>, cx: &mut App) -> Stateful<Div> {
     div()
         //
         .id(id)
@@ -524,8 +523,8 @@ pub fn gzed_icon(id: impl Into<ElementId>, _cx: &mut App) -> Stateful<Div> {
                 .rounded_2xl()
                 .bg(linear_gradient(
                     30. + 180.,
-                    linear_color_stop(rgba(0xff6600ff), 0.0),
-                    linear_color_stop(rgba(0x00002bff), 1.0),
+                    linear_color_stop(*GZED_ORANGE, 0.0),
+                    linear_color_stop(cx.theme().colors.sidebar.opacity(0.8), 1.0),
                 ))
                 .items_center()
                 .justify_center()

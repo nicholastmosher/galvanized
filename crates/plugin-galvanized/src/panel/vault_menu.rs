@@ -8,10 +8,10 @@ use gpui::{
     self, Anchor, App, AppContext as _, ClickEvent, Context, CursorStyle, DismissEvent, Div,
     ElementId, Entity, EventEmitter, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, RenderOnce, Stateful, StatefulInteractiveElement as _, Styled as _,
-    Window, div, linear_color_stop, linear_gradient, point, px, rgba,
+    Window, div, linear_color_stop, linear_gradient, point, px,
 };
-use gpui_component::ActiveTheme as _;
-use zed_ui::{Clickable, PopoverMenu, Toggleable, Tooltip, h_flex, v_flex};
+use gpui_component::{ActiveTheme as _, h_flex, v_flex};
+use zed_ui::{Clickable, PopoverMenu, Toggleable, Tooltip};
 
 use crate::{Galvanized, domain::vault::Vault};
 
@@ -83,8 +83,8 @@ impl RenderOnce for VaultButton {
                     .rounded_2xl()
                     .bg(linear_gradient(
                         30. + 180.,
-                        linear_color_stop(rgba(0xff6600ff), 0.0),
-                        linear_color_stop(rgba(0x00002bff), 1.0),
+                        linear_color_stop(*crate::panel::GZED_ORANGE, 0.0),
+                        linear_color_stop(cx.theme().colors.sidebar.opacity(0.8), 1.0),
                     ))
                     .items_center()
                     .justify_center()
@@ -188,7 +188,7 @@ fn render_menu_header<T: EventEmitter<DismissEvent>>(
             h_flex()
                 .size_8()
                 .rounded_full()
-                .bg(rgba(0xea580cff))
+                .bg(*crate::panel::GZED_ORANGE)
                 .flex_shrink_0()
                 .items_center()
                 .justify_center()
@@ -197,7 +197,7 @@ fn render_menu_header<T: EventEmitter<DismissEvent>>(
                         .mx_auto()
                         .text_xs()
                         .font_weight(gpui::FontWeight::BOLD)
-                        .text_color(rgba(0xffffffff))
+                        .text_color(cx.theme().colors.foreground)
                         .child(initial),
                 ),
         )

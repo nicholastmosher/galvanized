@@ -1,9 +1,9 @@
+use gpui::prelude::FluentBuilder as _;
 use gpui::{
     Context, Entity, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _,
-    SharedString, StatefulInteractiveElement as _, Styled as _, div, rgba,
+    SharedString, StatefulInteractiveElement as _, Styled as _, div,
 };
-use gpui_component::ActiveTheme as _;
-use zed_ui::{FluentBuilder as _, h_flex, v_flex};
+use gpui_component::{ActiveTheme as _, h_flex, v_flex};
 
 use crate::{domain::vault::Vault, panel::GalvanizedPanel};
 
@@ -87,10 +87,10 @@ impl GalvanizedPanel {
             .gap_1()
             .rounded_sm()
             .text_xs()
-            .bg(rgba(0x3b82f620))
-            .text_color(rgba(0x93c5fdff))
+            .bg(cx.theme().colors.accent.opacity(0.15))
+            .text_color(cx.theme().colors.accent)
             .border_1()
-            .border_color(rgba(0x3b82f640))
+            .border_color(cx.theme().colors.accent.opacity(0.3))
             .child(SharedString::from(format!("Space: {filter_id}")))
             .child(
                 div()
@@ -122,10 +122,10 @@ impl GalvanizedPanel {
             .gap_1()
             .rounded_sm()
             .text_xs()
-            .bg(rgba(0xea580c20))
-            .text_color(rgba(0xfdba74ff))
+            .bg(crate::panel::GZED_ORANGE.opacity(0.15))
+            .text_color(cx.theme().colors.danger)
             .border_1()
-            .border_color(rgba(0xea580c40))
+            .border_color(crate::panel::GZED_ORANGE.opacity(0.3))
             .child(SharedString::from(format!("Profile: {filter_id}")))
             .child(
                 div()

@@ -1,12 +1,13 @@
+use gpui::prelude::FluentBuilder as _;
 use gpui::{
     self, Anchor, App, ClickEvent, Context, CursorStyle, Div, ElementId, Entity, FontWeight,
     InteractiveElement as _, IntoElement, ParentElement as _, RenderOnce, Stateful,
-    StatefulInteractiveElement as _, Styled as _, Window, div, point, px, rgba,
+    StatefulInteractiveElement as _, Styled as _, Window, div, point, px,
 };
-use gpui_component::ActiveTheme as _;
+use gpui_component::{ActiveTheme as _, h_flex};
 use hex::ToHex as _;
 use tracing::info;
-use zed_ui::{Clickable, ContextMenu, FluentBuilder as _, PopoverMenu, Toggleable, h_flex};
+use zed_ui::{Clickable, ContextMenu, PopoverMenu, Toggleable};
 
 use crate::{
     domain::{profile::Profile, vault::Vault},
@@ -192,7 +193,7 @@ impl RenderOnce for ProfileNugget {
                 h_flex()
                     .size_10()
                     .rounded_full()
-                    .bg(rgba(0xea580cff))
+                    .bg(*crate::panel::GZED_ORANGE)
                     .flex_shrink_0()
                     .items_center()
                     .justify_center()
@@ -201,7 +202,7 @@ impl RenderOnce for ProfileNugget {
                             .mx_auto()
                             .text_xs()
                             .font_weight(FontWeight::BOLD)
-                            .text_color(rgba(0xffffffff))
+                            .text_color(cx.theme().colors.foreground)
                             .child(initial),
                     )
                     .child(
@@ -212,7 +213,7 @@ impl RenderOnce for ProfileNugget {
                             .right(px(0.))
                             .size(px(10.))
                             .rounded_full()
-                            .bg(rgba(0x22c55eff))
+                            .bg(cx.theme().colors.accent)
                             .border_2()
                             .border_color(cx.theme().colors.background),
                     ),

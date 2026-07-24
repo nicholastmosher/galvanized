@@ -2,8 +2,7 @@ use gpui::{
     Context, Entity, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
     StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div,
 };
-use gpui_component::ActiveTheme as _;
-use zed_ui::{h_flex, v_flex};
+use gpui_component::{ActiveTheme as _, h_flex, v_flex};
 
 use crate::{
     domain::vault::Vault,
