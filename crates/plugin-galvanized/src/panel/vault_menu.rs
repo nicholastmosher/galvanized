@@ -5,13 +5,13 @@
 //! This mod contains both pieces used in a `PopoverMenu` to allow full customizability.
 
 use gpui::{
-    self, Anchor, App, AppContext as _, ClickEvent, Context, CursorStyle, DismissEvent, Div,
-    ElementId, Entity, EventEmitter, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
-    ParentElement as _, Render, RenderOnce, Stateful, StatefulInteractiveElement as _, Styled as _,
-    Window, div, linear_color_stop, linear_gradient, point, px,
+    self, Anchor, App, AppContext as _, Context, DismissEvent, Div, ElementId, Entity,
+    EventEmitter, FocusHandle, Focusable, InteractiveElement as _, IntoElement, ParentElement as _,
+    Render, RenderOnce, Stateful, StatefulInteractiveElement as _, Styled as _, Window, div,
+    linear_color_stop, linear_gradient, px,
 };
-use gpui_component::{ActiveTheme as _, h_flex, v_flex};
-use zed_ui::{Clickable, PopoverMenu, Toggleable, Tooltip};
+use gpui_component::{ActiveTheme as _, Selectable, h_flex, popover::Popover, v_flex};
+use zed_ui::Tooltip;
 
 use crate::{Galvanized, domain::vault::Vault};
 
@@ -19,19 +19,27 @@ pub fn render_vault_menu<T>(
     galvanized: Entity<Galvanized>,
     user: Entity<Vault>,
     _window: &mut Window,
-    _cx: &mut Context<T>,
+    cx: &mut Context<T>,
 ) -> impl IntoElement {
-    PopoverMenu::new("start-menu")
+    let menu = cx.new(|cx| VaultMenu::new(galvanized.clone(), user.clone(), cx));
+
+    Popover::new("start-menu")
         .anchor(Anchor::TopLeft)
-        .attach(Anchor::TopRight)
-        .offset(point(px(6.), px(0.)))
         .trigger(VaultButton::new("vault-button"))
-        .menu(move |_window, cx| {
-            let user = user.clone();
-            let galvanized = galvanized.clone();
-            let menu = cx.new(move |cx| VaultMenu::new(user.clone(), galvanized.clone(), cx));
-            Some(menu)
-        })
+        .p_0()
+        .child(menu)
+
+    // PopoverMenu::new("start-menu")
+    //     .anchor(Anchor::TopLeft)
+    //     .attach(Anchor::TopRight)
+    //     .offset(point(px(6.), px(0.)))
+    //     .trigger(VaultButton::new("vault-button"))
+    //     .menu(move |_window, cx| {
+    //         let user = user.clone();
+    //         let galvanized = galvanized.clone();
+    //         let menu = cx.new(move |cx| VaultMenu::new(user.clone(), galvanized.clone(), cx));
+    //         Some(menu)
+    //     })
 }
 
 /// Vault menu button, like a start menu, to open the vault-scope context menu
@@ -50,22 +58,33 @@ impl VaultButton {
     }
 }
 
-impl Clickable for VaultButton {
-    fn on_click(mut self, handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
-        self.base = self.base.on_click(handler);
-        self
-    }
+// impl Clickable for VaultButton {
+//     fn on_click(mut self, handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
+//         self.base = self.base.on_click(handler);
+//         self
+//     }
 
-    fn cursor_style(mut self, cursor_style: CursorStyle) -> Self {
-        self.base = self.base.cursor(cursor_style);
-        self
-    }
-}
+//     fn cursor_style(mut self, cursor_style: CursorStyle) -> Self {
+//         self.base = self.base.cursor(cursor_style);
+//         self
+//     }
+// }
 
-impl Toggleable for VaultButton {
-    fn toggle_state(mut self, selected: bool) -> Self {
+// impl Toggleable for VaultButton {
+//     fn toggle_state(mut self, selected: bool) -> Self {
+//         self.selected = selected;
+//         self
+//     }
+// }
+
+impl Selectable for VaultButton {
+    fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
         self
+    }
+
+    fn is_selected(&self) -> bool {
+        self.selected
     }
 }
 
@@ -91,7 +110,7 @@ impl RenderOnce for VaultButton {
                     .child(
                         div()
                             //
-                            .mx_auto()
+                            // .mx_auto()
                             .child("G"),
                     ),
             )
@@ -107,8 +126,8 @@ pub struct VaultMenu {
 
 impl VaultMenu {
     pub fn new(
-        user: Entity<Vault>,
         galvanized: Entity<Galvanized>,
+        user: Entity<Vault>,
         cx: &mut Context<Self>,
     ) -> Self {
         Self {
@@ -139,9 +158,9 @@ impl Render for VaultMenu {
         v_flex()
             .bg(cx.theme().colors.background)
             .size_full()
-            .border_1()
-            .border_color(cx.theme().colors.border)
-            .rounded_md()
+            // .border_1()
+            // .border_color(cx.theme().colors.border)
+            // .rounded_md()
             .on_mouse_down_out(cx.listener(|_this, _e, _window, cx| {
                 cx.emit(DismissEvent);
             }))
@@ -184,6 +203,7 @@ fn render_menu_header<T: EventEmitter<DismissEvent>>(
         .gap_2()
         .border_b_1()
         .border_color(cx.theme().colors.border)
+        .rounded_md()
         .child(
             h_flex()
                 .size_8()
@@ -194,7 +214,7 @@ fn render_menu_header<T: EventEmitter<DismissEvent>>(
                 .justify_center()
                 .child(
                     div()
-                        .mx_auto()
+                        // .mx_auto()
                         .text_xs()
                         .font_weight(gpui::FontWeight::BOLD)
                         .text_color(cx.theme().colors.foreground)

@@ -1,17 +1,16 @@
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
-    self, Anchor, App, ClickEvent, Context, CursorStyle, Div, ElementId, Entity, FontWeight,
-    InteractiveElement as _, IntoElement, ParentElement as _, RenderOnce, Stateful,
-    StatefulInteractiveElement as _, Styled as _, Window, div, point, px,
+    self, Anchor, App, Context, Div, ElementId, Entity, FontWeight, InteractiveElement as _,
+    IntoElement, ParentElement as _, RenderOnce, Stateful, StatefulInteractiveElement as _,
+    Styled as _, Window, div, px,
 };
-use gpui_component::{ActiveTheme as _, h_flex};
+use gpui_component::popover::Popover;
+use gpui_component::{ActiveTheme as _, Selectable, h_flex};
 use hex::ToHex as _;
-use tracing::info;
-use zed_ui::{Clickable, ContextMenu, PopoverMenu, Toggleable};
 
 use crate::{
     domain::{profile::Profile, vault::Vault},
-    panel::{CreateProfile, GalvanizedPanel, PanelScene},
+    panel::{CreateProfile, GalvanizedPanel},
 };
 
 impl GalvanizedPanel {
@@ -69,71 +68,99 @@ fn render_profile_popover_bar(
     profile: Entity<Profile>,
     cx: &mut Context<GalvanizedPanel>,
 ) -> impl IntoElement {
-    let panel = cx.entity();
-    PopoverMenu::new("popover")
-        .full_width(true)
+    Popover::new("profile-bar")
         .anchor(Anchor::BottomLeft)
-        .attach(Anchor::TopLeft)
-        .offset(point(px(0.), px(-4.)))
         .trigger(ProfileNugget::new("profile-nugget", profile.clone()))
-        .menu({
-            move |window, cx| {
-                let panel = panel.clone();
-                let vault = vault.clone();
-                let profiles = vault.read(cx).profiles();
-                Some(ContextMenu::build(window, cx, move |menu, _window, _cx| {
-                    let mut menu = menu.header("Profiles");
-                    for saved_profile in profiles {
-                        menu = menu.custom_entry(
-                            {
-                                let saved_profile = saved_profile.clone();
-                                move |_window, cx| {
-                                    //
-                                    div()
-                                        //
-                                        .p_2()
-                                        .child(saved_profile.read(cx).name())
-                                        .into_any_element()
-                                }
-                            },
-                            {
-                                let clicked_profile = saved_profile.clone();
-                                let vault = vault.clone();
-                                move |_window, cx| {
-                                    //
-                                    info!(
-                                        name = &*clicked_profile.read(cx).name(),
-                                        "Clicked profile"
-                                    );
-                                    vault.update(cx, |vault, cx| {
-                                        //
-                                        vault.set_active_profile(clicked_profile.clone(), cx);
-                                    });
-                                }
-                            },
-                        );
-                    }
+        .children(
+            vault
+                .read(cx)
+                .profiles()
+                .iter()
+                .cloned()
+                .map(|saved_profile| {
+                    //
+                    div()
+                        //
+                        .id(format!("profile-{}", saved_profile.read(cx).name()))
+                        .p_2()
+                        .on_click(cx.listener({
+                            let saved_profile = saved_profile.clone();
+                            let vault = vault.clone();
+                            move |_this, _e, _window, cx| {
+                                vault.update(cx, |vault, cx| {
+                                    vault.set_active_profile(saved_profile.clone(), cx);
+                                })
+                            }
+                        }))
+                        .child(saved_profile.read(cx).name())
+                }),
+        )
+        .child(div().p_2().child("Create Profile"))
 
-                    menu = menu.separator().custom_entry(
-                        |_window, cx| {
-                            div()
-                                .p_2()
-                                .text_sm()
-                                .text_color(cx.theme().colors.accent)
-                                .child("+ Create Profile")
-                                .into_any_element()
-                        },
-                        move |_window, cx| {
-                            panel.update(cx, |this, _cx| {
-                                this.scene = PanelScene::CreatingProfile;
-                            });
-                        },
-                    );
+    // PopoverMenu::new("popover")
+    //     .full_width(true)
+    //     .anchor(Anchor::BottomLeft)
+    //     .attach(Anchor::TopLeft)
+    //     .offset(point(px(0.), px(-4.)))
+    //     .trigger(ProfileNugget::new("profile-nugget", profile.clone()))
+    //     .menu({
+    //         move |window, cx| {
+    //             let panel = panel.clone();
+    //             let vault = vault.clone();
+    //             let profiles = vault.read(cx).profiles();
+    //             Some(ContextMenu::build(window, cx, move |menu, _window, _cx| {
+    //                 let mut menu = menu.header("Profiles");
+    //                 for saved_profile in profiles {
+    //                     menu = menu.custom_entry(
+    //                         {
+    //                             let saved_profile = saved_profile.clone();
+    //                             move |_window, cx| {
+    //                                 //
+    //                                 div()
+    //                                     //
+    //                                     .p_2()
+    //                                     .child(saved_profile.read(cx).name())
+    //                                     .into_any_element()
+    //                             }
+    //                         },
+    //                         {
+    //                             let clicked_profile = saved_profile.clone();
+    //                             let vault = vault.clone();
+    //                             move |_window, cx| {
+    //                                 //
+    //                                 info!(
+    //                                     name = &*clicked_profile.read(cx).name(),
+    //                                     "Clicked profile"
+    //                                 );
+    //                                 vault.update(cx, |vault, cx| {
+    //                                     //
+    //                                     vault.set_active_profile(clicked_profile.clone(), cx);
+    //                                 });
+    //                             }
+    //                         },
+    //                     );
+    //                 }
 
-                    menu
-                }))
-            }
-        })
+    //                 menu = menu.separator().custom_entry(
+    //                     |_window, cx| {
+    //                         div()
+    //                             .p_2()
+    //                             .text_sm()
+    //                             .text_color(cx.theme().colors.accent)
+    //                             .child("+ Create Profile")
+    //                             .into_any_element()
+    //                     },
+    //                     move |_window, cx| {
+    //                         panel.update(cx, |this, _cx| {
+    //                             this.scene = PanelScene::CreatingProfile;
+    //                         });
+    //                     },
+    //                 );
+
+    //                 menu
+    //             }))
+    //         }
+    //     })
 }
 
 /// Clickable profile element that opens the profile selector
@@ -154,22 +181,33 @@ impl ProfileNugget {
     }
 }
 
-impl Clickable for ProfileNugget {
-    fn on_click(mut self, handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
-        self.base = self.base.on_click(handler);
-        self
-    }
+// impl Clickable for ProfileNugget {
+//     fn on_click(mut self, handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
+//         self.base = self.base.on_click(handler);
+//         self
+//     }
 
-    fn cursor_style(mut self, cursor_style: CursorStyle) -> Self {
-        self.base = self.base.cursor(cursor_style);
-        self
-    }
-}
+//     fn cursor_style(mut self, cursor_style: CursorStyle) -> Self {
+//         self.base = self.base.cursor(cursor_style);
+//         self
+//     }
+// }
 
-impl Toggleable for ProfileNugget {
-    fn toggle_state(mut self, selected: bool) -> Self {
+// impl Toggleable for ProfileNugget {
+//     fn toggle_state(mut self, selected: bool) -> Self {
+//         self.selected = selected;
+//         self
+//     }
+// }
+
+impl Selectable for ProfileNugget {
+    fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
         self
+    }
+
+    fn is_selected(&self) -> bool {
+        self.selected
     }
 }
 

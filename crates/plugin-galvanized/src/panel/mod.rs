@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use galvanized_core::{GalvanizedHandle as _, Workspace};
 use gpui::{
-    self, Anchor, App, AppContext as _, Context, DismissEvent, Div, ElementId, Entity, FocusHandle,
+    self, Anchor, App, AppContext, Context, DismissEvent, Div, ElementId, Entity, FocusHandle,
     Focusable, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton, MouseDownEvent,
     ParentElement as _, Pixels, Point, Render, SharedString, Stateful,
     StatefulInteractiveElement as _, Styled, Subscription, Window, actions, anchored, deferred,
@@ -236,6 +236,7 @@ impl GalvanizedPanel {
         v_flex()
             //
             .size_full()
+            .bg(cx.theme().colors.sidebar)
             .child(
                 h_flex()
                     //
@@ -322,7 +323,7 @@ impl GalvanizedPanel {
                                 //
                                 div()
                                     //
-                                    .mx_auto()
+                                    // .mx_auto()
                                     .text_lg()
                                     .child("🔒")
                                     .into_any_element(),
@@ -356,7 +357,7 @@ impl GalvanizedPanel {
                                 //
                                 div()
                                     //
-                                    .mx_auto()
+                                    // .mx_auto()
                                     .text_3xl()
                                     .child("+"),
                             ),
@@ -506,34 +507,45 @@ impl<S: Styled + InteractiveElement> PrimaryButton for S {
         self.border_1()
             .border_color(*GZED_ORANGE)
             .rounded_lg()
+            .cursor_pointer()
             .hover(|style| style.bg(*GZED_ORANGE))
     }
 }
 
+pub trait BackButton {
+    fn back_button(self, cx: &mut App) -> Self;
+}
+
+impl<S: Styled + InteractiveElement> BackButton for S {
+    fn back_button(self, cx: &mut App) -> Self {
+        self
+            //
+            .rounded_lg()
+            .bg(cx.theme().colors.muted)
+            .border_1()
+            .border_color(cx.theme().colors.border)
+            .cursor_pointer()
+            .hover(|style| style.border_color(cx.theme().colors.ring))
+    }
+}
+
 pub fn gzed_icon(id: impl Into<ElementId>, cx: &mut App) -> Stateful<Div> {
-    div()
+    h_flex()
         //
         .id(id)
         .size(px(48.))
         .rounded_2xl()
+        .justify_center()
+        .bg(linear_gradient(
+            30. + 180.,
+            linear_color_stop(*GZED_ORANGE, 0.0),
+            linear_color_stop(cx.theme().colors.sidebar.opacity(0.8), 1.0),
+        ))
         .child(
-            h_flex()
-                .mx_auto()
-                .size_full()
-                .rounded_2xl()
-                .bg(linear_gradient(
-                    30. + 180.,
-                    linear_color_stop(*GZED_ORANGE, 0.0),
-                    linear_color_stop(cx.theme().colors.sidebar.opacity(0.8), 1.0),
-                ))
-                .items_center()
-                .justify_center()
-                .child(
-                    div()
-                        //
-                        .mx_auto()
-                        .child("G"),
-                ),
+            //
+            div()
+                //
+                .child("G"),
         )
 }
 

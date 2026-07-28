@@ -3,6 +3,7 @@ use gpui::{
     Context, Entity, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _,
     SharedString, StatefulInteractiveElement as _, Styled as _, div,
 };
+use gpui_component::input::Input;
 use gpui_component::{ActiveTheme as _, h_flex, v_flex};
 
 use crate::{domain::vault::Vault, panel::GalvanizedPanel};
@@ -10,10 +11,10 @@ use crate::{domain::vault::Vault, panel::GalvanizedPanel};
 impl GalvanizedPanel {
     pub fn render_omnibar(
         &mut self,
-        user: Entity<Vault>,
+        vault: Entity<Vault>,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let user_name = user.read(cx).name();
+        let vault_name = vault.read(cx).name();
 
         // Search bar with filter badges
         v_flex()
@@ -28,7 +29,7 @@ impl GalvanizedPanel {
                     //
                     .text_xs()
                     .text_color(cx.theme().colors.muted_foreground)
-                    .child(format!("Search {user_name}")),
+                    .child(format!("Search {vault_name}")),
             )
             .child(
                 h_flex()
@@ -50,7 +51,7 @@ impl GalvanizedPanel {
                         this.search_input
                             .update(cx, |it, cx| it.set_value("", window, cx));
                     }))
-                    .child(self.search_input.clone()),
+                    .child(Input::new(&self.search_input)),
             )
     }
 

@@ -21,6 +21,7 @@ pub fn init(cx: &mut App) {
         .open_window(options, |window, cx| {
             let workspace = cx.new(|cx| Workspace::new(cx));
             let root = cx.new(|cx| Root::new(workspace, window, cx));
+            window.activate_window();
             root
         })
         .expect("should open main Galvanized window");

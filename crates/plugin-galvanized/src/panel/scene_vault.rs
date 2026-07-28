@@ -10,7 +10,7 @@ use zed_ui::Tooltip;
 use crate::{
     GalvanizedHandle as _,
     domain::vault::{Vault, VaultHandle as _},
-    panel::{GalvanizedPanel, PrimaryButton as _, render_scene_header},
+    panel::{BackButton, GalvanizedPanel, PrimaryButton as _, render_scene_header},
 };
 
 /// States for the onboarding flow.
@@ -151,7 +151,7 @@ impl GalvanizedPanel {
                                     .justify_center()
                                     .child(
                                         div()
-                                            .mx_auto()
+                                            // .mx_auto()
                                             .text_sm()
                                             .font_weight(FontWeight::BOLD)
                                             .text_color(colors.foreground)
@@ -192,8 +192,10 @@ impl GalvanizedPanel {
                     .border_color(colors.border)
                     .hover(|style| {
                         style
-                            .border_color(colors.accent.opacity(0.6))
-                            .bg(colors.muted.opacity(0.5))
+                            // .bg(colors.muted.opacity(0.5))
+                            // .border_color(colors.accent.opacity(0.6))
+                            .bg(colors.list_hover)
+                            .border_color(colors.ring)
                     })
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _e, _window, _cx| {
@@ -214,7 +216,7 @@ impl GalvanizedPanel {
                             .child(
                                 div()
                                     //
-                                    .mx_auto()
+                                    // .mx_auto()
                                     .text_lg()
                                     .text_color(colors.foreground)
                                     .child("+"),
@@ -222,6 +224,8 @@ impl GalvanizedPanel {
                     )
                     .child(
                         div()
+                            .flex_1()
+                            .min_w_0()
                             .child(
                                 div()
                                     .text_sm()
@@ -360,12 +364,7 @@ impl GalvanizedPanel {
                             .flex_1()
                             .px_3()
                             .py_2()
-                            .rounded_lg()
-                            .bg(colors.border)
-                            .hover(|style| style.bg(colors.border))
-                            .border_1()
-                            .border_color(colors.border)
-                            .cursor_pointer()
+                            .back_button(cx)
                             .on_click(cx.listener(|this, _e, _window, _cx| {
                                 this.vault_scene = VaultScene::VaultPicker;
                             }))
@@ -384,8 +383,6 @@ impl GalvanizedPanel {
                             .px_3()
                             .py_2()
                             .primary_button()
-                            .shadow_lg()
-                            .cursor_pointer()
                             .on_click(cx.listener(|this, _e, window, cx| {
                                 this.submit_create_vault(window, cx);
                             }))
@@ -490,12 +487,7 @@ impl GalvanizedPanel {
                                     .flex_1()
                                     .px_3()
                                     .py_2()
-                                    .rounded_lg()
-                                    .bg(cx.theme().colors.muted)
-                                    .hover(|style| style.bg(cx.theme().colors.list_hover))
-                                    .border_1()
-                                    .border_color(cx.theme().colors.border)
-                                    .cursor_pointer()
+                                    .back_button(cx)
                                     .on_click(cx.listener(|this, _e, _window, _cx| {
                                         this.vault_scene = VaultScene::VaultPicker;
                                     }))
@@ -514,8 +506,6 @@ impl GalvanizedPanel {
                                     .px_3()
                                     .py_2()
                                     .primary_button()
-                                    .shadow_lg()
-                                    .cursor_pointer()
                                     .on_click(cx.listener(move |this, _e, window, cx| {
                                         //
                                         this.submit_unlock_vault(vault.clone(), window, cx);
