@@ -1,8 +1,9 @@
 use gpui::{
     AnyElement, App, Context, Element, EventEmitter, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, ParentElement, Render, Styled, Window, div, prelude::FluentBuilder,
+    IntoElement, ParentElement, Render, StatefulInteractiveElement, Styled, Window, div,
+    prelude::FluentBuilder,
 };
-use gpui_component::StyledExt;
+use gpui_component::{ActiveTheme, StyledExt};
 
 use crate::item::ItemHandle;
 use crate::pane_group::SplitDirection;
@@ -123,26 +124,44 @@ impl Render for Pane {
 }
 
 impl Pane {
-    fn render_tab_bar(&self, _window: &mut Window, _cx: &mut Context<Self>) -> AnyElement {
+    fn render_tab_bar(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         if self.items.is_empty() {
             return div().id("tab-bar-empty").into_any();
         }
 
-        let mut tab_bar = div().id("tab-bar").h_flex().w_full();
+        let colors = &cx.theme().colors;
+
+        let mut tab_bar = div()
+            .id("tab-bar")
+            .h_flex()
+            .w_full()
+            .bg(colors.muted)
+            .gap_1()
+            .px_1();
 
         for (index, item) in self.items.iter().enumerate() {
             let is_active = index == self.active_item_index;
-            let label = item.tab_content_text(0, _cx);
+            let label = item.tab_content_text(0, cx);
 
-            tab_bar = tab_bar.child(
-                div()
-                    .id(("tab", index))
-                    .px_2()
-                    .py_1()
-                    .cursor_pointer()
-                    .child(label)
-                    .when(is_active, |this| this),
-            );
+            let tab = div()
+                .id(("tab", index))
+                .px_3()
+                .py_1()
+                .cursor_pointer()
+                .rounded_t_md()
+                .child(label)
+                .when(is_active, |tab| {
+                    tab.bg(colors.background).text_color(colors.foreground)
+                })
+                .when(!is_active, |tab| {
+                    tab.text_color(colors.muted_foreground)
+                        .hover(|tab| tab.bg(colors.list_hover))
+                })
+                .on_click(cx.listener(move |this, _, _window, cx| {
+                    this.activate_item(index, cx);
+                }));
+
+            tab_bar = tab_bar.child(tab);
         }
 
         tab_bar.into_any()
