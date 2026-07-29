@@ -2,7 +2,7 @@ use gpui::{
     Context, Entity, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
     StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div,
 };
-use gpui_component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_component::{ActiveTheme as _, h_flex, input::Input, v_flex};
 
 use crate::{
     domain::vault::Vault,
@@ -71,7 +71,7 @@ impl GalvanizedPanel {
                                             .mb_1()
                                             .child("Display Name"),
                                     )
-                                    .child(self.vault_name_input.clone()),
+                                    .child(Input::new(&self.vault_name_input)),
                             )
                             .child(
                                 div()
@@ -80,8 +80,6 @@ impl GalvanizedPanel {
                                     .px_4()
                                     .py_2()
                                     .primary_button()
-                                    .shadow_lg()
-                                    .cursor_pointer()
                                     .on_click(cx.listener(move |this, _e, _window, cx| {
                                         let name = this.vault_name_input.read(cx).value();
                                         if name.is_empty() {

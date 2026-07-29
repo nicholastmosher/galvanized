@@ -82,6 +82,13 @@ impl Workspace {
         let view = item.into();
         self.main_content = Some(Box::new(view));
     }
+
+    fn actions(&self, mut div: Div, window: &mut Window, cx: &mut Context<Self>) -> Div {
+        for action in self.actions.iter() {
+            div = (action)(div, self, window, cx)
+        }
+        div
+    }
 }
 
 pub trait GalvanizedHandle {
@@ -105,10 +112,9 @@ impl GalvanizedHandle for Entity<Workspace> {
 }
 
 impl Render for Workspace {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.actions(div(), window, cx)
             //
-            .debug()
             .bg(rgb(0xaaaaaa))
             .size_full()
             .child(

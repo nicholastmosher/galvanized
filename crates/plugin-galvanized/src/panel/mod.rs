@@ -130,9 +130,11 @@ impl GalvanizedPanel {
         cx.defer({
             let workspace = workspace.clone();
             move |cx| {
+                info!("Registering CreateProfile action");
                 workspace.register_action(cx, {
                     let weak_panel = weak_panel.clone();
                     move |_galvanized, _: &CreateProfile, _window, cx| {
+                        info!("Invoking CreateProfile action");
                         weak_panel
                             .update(cx, |panel, _cx| {
                                 panel.scene = PanelScene::CreatingProfile;
@@ -190,6 +192,7 @@ impl Render for GalvanizedPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // let panel_width = self.width.unwrap_or(DEFAULT_WIDTH) - px(1.);
         div()
+            .track_focus(&self.focus_handle)
             // .w(panel_width)
             .size_full()
             .child(self.render_root(window, cx))

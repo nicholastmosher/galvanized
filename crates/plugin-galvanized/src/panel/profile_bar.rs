@@ -7,6 +7,7 @@ use gpui::{
 use gpui_component::popover::Popover;
 use gpui_component::{ActiveTheme as _, Selectable, h_flex};
 use hex::ToHex as _;
+use tracing::info;
 
 use crate::{
     domain::{profile::Profile, vault::Vault},
@@ -52,6 +53,7 @@ fn render_empty_profile_bar<T: 'static>(cx: &mut Context<T>) -> impl IntoElement
         .rounded_xl()
         .hover(|style| style.rounded_lg().border_color(cx.theme().colors.border))
         .on_click(cx.listener(|_this, _e, window, cx| {
+            info!("Clicked Create Profile");
             window.dispatch_action(Box::new(CreateProfile), cx);
         }))
         .child(
