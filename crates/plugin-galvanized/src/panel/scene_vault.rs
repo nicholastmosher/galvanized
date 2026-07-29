@@ -3,9 +3,8 @@ use gpui::{
     ParentElement as _, StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div,
     px,
 };
-use gpui_component::{ActiveTheme as _, h_flex, input::Input, v_flex};
+use gpui_component::{ActiveTheme as _, h_flex, input::Input, tooltip::Tooltip, v_flex};
 use tracing::info;
-use zed_ui::Tooltip;
 
 use crate::{
     GalvanizedHandle as _,
@@ -302,9 +301,10 @@ impl GalvanizedPanel {
                                     .gap_1()
                                     .text_xs()
                                     .text_color(colors.muted_foreground)
-                                    .tooltip(Tooltip::text(
-                                        "Visible before unlock, only visible to you",
-                                    ))
+                                    .tooltip(|window, cx| {
+                                        Tooltip::new("Visible before unlock, only visible to you")
+                                            .build(window, cx)
+                                    })
                                     .child("Vault Name"),
                             )
                             .child(Input::new(&self.vault_name_input)),
@@ -317,9 +317,12 @@ impl GalvanizedPanel {
                                     .gap_1()
                                     .text_xs()
                                     .text_color(colors.muted_foreground)
-                                    .tooltip(Tooltip::text(
-                                        "Visible only after unlock, visible to contacts",
-                                    ))
+                                    .tooltip(|window, cx| {
+                                        Tooltip::new(
+                                            "Visible only after unlock, visible to contacts",
+                                        )
+                                        .build(window, cx)
+                                    })
                                     .child("Profile Name"),
                             )
                             .child(Input::new(&self.profile_name_input)),

@@ -8,10 +8,10 @@ use gpui::{
     StatefulInteractiveElement as _, Styled, Subscription, Window, actions, anchored, deferred,
     div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, rgba,
 };
-use gpui_component::{ActiveTheme as _, h_flex, input::InputState, v_flex};
+use gpui_component::{ActiveTheme as _, h_flex, input::InputState, tooltip::Tooltip, v_flex};
 use gpui_util::ResultExt as _;
 use tracing::info;
-use zed_ui::{ContextMenu, Tooltip};
+use zed_ui::ContextMenu;
 
 use crate::{
     Galvanized,
@@ -302,7 +302,7 @@ impl GalvanizedPanel {
                             .bg(gradient)
                             .hover(|style| style.rounded_xl())
                             .active(|style| style.opacity(0.8))
-                            .tooltip(Tooltip::text(name))
+                            .tooltip(move |window, cx| Tooltip::new(name.clone()).build(window, cx))
                             .on_click(cx.listener(move |_this, _e, _window, _cx| {
                                 // TODO: toggle space filter
                                 info!("Clicked namespace icon {i}");

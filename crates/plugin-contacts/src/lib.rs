@@ -36,6 +36,7 @@ use gpui::{
 use gpui_component::{
     ActiveTheme as _,
     input::{Input, InputState},
+    tooltip::Tooltip,
 };
 use gpui_util::ResultExt as _;
 use hex::ToHex;
@@ -59,7 +60,7 @@ use signature::SignerMut as _;
 use tracing::{info, warn};
 use ufotofu::{IntoConsumer as _, IntoProducer, codec::Decodable};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
-use zed_ui::{FluentBuilder as _, Tooltip, h_flex, v_flex};
+use zed_ui::{FluentBuilder as _, h_flex, v_flex};
 
 pub mod protocol;
 
@@ -349,7 +350,10 @@ impl Contacts {
                             .text_xs()
                             .text_color(cx.theme().colors.muted_foreground)
                             .hover(|style| style.text_color(cx.theme().colors.muted_foreground))
-                            .tooltip(Tooltip::text("Send this to a friend to paste in their app"))
+                            .tooltip(|window, cx| {
+                                Tooltip::new("Send this to a friend to paste in their app")
+                                    .build(window, cx)
+                            })
                             .child("Copy Profile Ticket")
                             .on_click(cx.listener({
                                 let profile = profile.clone();
@@ -361,10 +365,6 @@ impl Contacts {
             )
             .child(
                 h_flex()
-                    .flex_grow(1.)
-                    .border_1()
-                    .border_color(cx.theme().colors.border)
-                    .rounded_md()
                     .on_key_down(cx.listener(move |this, e: &KeyDownEvent, window, cx| {
                         if e.keystroke.key != "enter" {
                             return;
@@ -378,7 +378,6 @@ impl Contacts {
                             //
                             .flex_grow_1()
                             .bg(cx.theme().colors.background)
-                            .px_2()
                             .child(Input::new(&self.input)),
                     ),
             )
