@@ -19,7 +19,7 @@ impl EventEmitter<Event> for Pane {}
 
 /// A single pane that holds items and displays them with a tab bar.
 pub struct Pane {
-    items: Vec<ItemHandle>,
+    items: Vec<Box<dyn ItemHandle>>,
     active_item_index: usize,
     focus_handle: FocusHandle,
 }
@@ -33,7 +33,7 @@ impl Pane {
         }
     }
 
-    pub fn add_item(&mut self, item: ItemHandle, cx: &mut Context<Self>) {
+    pub fn add_item(&mut self, item: Box<dyn ItemHandle>, cx: &mut Context<Self>) {
         self.items.push(item);
         self.active_item_index = self.items.len().saturating_sub(1);
         cx.notify();
@@ -55,11 +55,13 @@ impl Pane {
         }
     }
 
-    pub fn active_item(&self) -> Option<&ItemHandle> {
-        self.items.get(self.active_item_index)
+    pub fn active_item(&self) -> Option<&dyn ItemHandle> {
+        self.items
+            .get(self.active_item_index)
+            .map(|item| item.as_ref())
     }
 
-    pub fn items(&self) -> &[ItemHandle] {
+    pub fn items(&self) -> &[Box<dyn ItemHandle>] {
         &self.items
     }
 
@@ -106,7 +108,7 @@ impl Render for Pane {
                     .size_full()
                     .overflow_hidden()
                     .child(if let Some(item) = self.active_item() {
-                        item.view.clone().into_any_element()
+                        item.to_any_view().into_any_element()
                     } else {
                         div()
                             .id("pane-placeholder")
@@ -130,7 +132,7 @@ impl Pane {
 
         for (index, item) in self.items.iter().enumerate() {
             let is_active = index == self.active_item_index;
-            let label = item.tab_label.clone();
+            let label = item.tab_content_text(0, _cx);
 
             tab_bar = tab_bar.child(
                 div()

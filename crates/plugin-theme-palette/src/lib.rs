@@ -1,7 +1,7 @@
-use galvanized_core::Workspace;
+use galvanized_core::{Workspace, item::Item};
 use gpui::{
     self, App, AppContext as _, Context, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, Render,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString,
     StatefulInteractiveElement as _, Styled as _, Window, actions, div,
 };
 use gpui_component::{ActiveTheme as _, h_flex, tooltip::Tooltip, v_flex};
@@ -1133,10 +1133,10 @@ impl Focusable for PaletteItem {
     }
 }
 
-// impl Item for PaletteItem {
-//     type Event = PaletteEvent;
+impl Item for PaletteItem {
+    type Event = PaletteEvent;
 
-//     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-//         "Theme Palette".into()
-//     }
-// }
+    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+        "Theme Palette".into()
+    }
+}

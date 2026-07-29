@@ -1,5 +1,6 @@
 use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
 use futures::StreamExt as _;
+use galvanized_core::item::Item;
 use gpui::{
     self, Action, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render, RenderOnce,
@@ -376,12 +377,12 @@ impl Focusable for ChatUi {
 }
 type ChatEvent = ();
 impl EventEmitter<ChatEvent> for ChatUi {}
-// impl Item for ChatUi {
-//     type Event = ChatEvent;
+impl Item for ChatUi {
+    type Event = ChatEvent;
 
-//     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-//         let mut string = self.endpoint_id.to_string();
-//         let suffix = string.split_off(string.len() - 8);
-//         suffix.into()
-//     }
-// }
+    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+        let mut string = self.endpoint_id.to_string();
+        let suffix = string.split_off(string.len() - 8);
+        format!("Chat ({suffix})").into()
+    }
+}

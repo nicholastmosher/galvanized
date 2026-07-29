@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use galvanized_core::Workspace;
+use galvanized_core::{Workspace, item::Item};
 use gpui::{
     self, Animation, AnimationExt, App, AppContext as _, Context, EventEmitter, FocusHandle,
     Focusable, InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString,
@@ -60,13 +60,13 @@ impl Focusable for CalendarItem {
 #[non_exhaustive]
 pub enum CalendarEvent {}
 impl EventEmitter<CalendarEvent> for CalendarItem {}
-// impl Item for CalendarItem {
-//     type Event = CalendarEvent;
+impl Item for CalendarItem {
+    type Event = CalendarEvent;
 
-//     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-//         "Calendar".into()
-//     }
-// }
+    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+        "Calendar".into()
+    }
+}
 
 impl Render for CalendarItem {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

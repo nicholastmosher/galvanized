@@ -15,6 +15,7 @@ pub mod item;
 pub mod pane;
 pub mod pane_group;
 
+use item::ItemHandle;
 use pane::{Event as PaneEvent, Pane};
 use pane_group::PaneGroup;
 
@@ -115,17 +116,15 @@ impl Workspace {
 
     pub fn add_item_to_active_pane(
         &mut self,
-        item: Box<impl Into<AnyView>>,
+        item: Box<dyn ItemHandle>,
         _destination_index: Option<usize>,
         _focus_item: bool,
         _window: &mut Window,
         cx: &mut App,
     ) {
-        let item = *item;
-        let view: AnyView = item.into();
         let first_pane = self.pane_group.first_pane();
         first_pane.update(cx, |pane, cx| {
-            pane.add_item(crate::item::ItemHandle::new(view, "Item"), cx);
+            pane.add_item(item, cx);
         });
     }
 

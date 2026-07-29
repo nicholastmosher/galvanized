@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use galvanized_core::Workspace;
+use galvanized_core::{Workspace, item::Item};
 use gpui::{
     self, Animation, AnimationExt, App, AppContext as _, Context, EventEmitter, FocusHandle,
-    Focusable, IntoElement, ParentElement as _, Render, Styled as _, Window, actions, div,
-    linear_color_stop, linear_gradient, px, rgb,
+    Focusable, IntoElement, ParentElement as _, Render, SharedString, Styled as _, Window, actions,
+    div, linear_color_stop, linear_gradient, px, rgb,
 };
 use gpui_component::{ActiveTheme as _, h_flex, v_flex};
 
@@ -62,13 +62,13 @@ impl Focusable for WillowUi {
 }
 
 impl EventEmitter<()> for WillowUi {}
-// impl Item for WillowUi {
-//     type Event = ();
+impl Item for WillowUi {
+    type Event = ();
 
-//     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-//         "Willow".into()
-//     }
-// }
+    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+        "Willow".into()
+    }
+}
 
 impl Render for WillowUi {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
