@@ -184,6 +184,22 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 July 29
+
+Pretty big changes happening, over the last week or so I've been moving Galvanized off of Zed.
+
+- Previously, I was integrating with Zed's Workspace via Panels and Items, and Galvanized was
+  running as a plugin directly inside the Zed editor.
+  - Now Galvanized is it's own independent application, built on gpui-component
+- I've created a minimal reproduction of Workspace with a resizable left panel and main view
+- I'd like to try to recreate Zed's Panes, which are the tabbed views that can be split, and
+  which can host arbitrary items.
+- I've been porting some components from Zed's UI crate to use gpui-component equivalents
+  - Zed provided an ActiveTheme trait and a global value with the themes registry
+  - Without Zed, Zed UI components that relied on ActiveTheme cause a panic because of the missing global
+  - gpui-component provides an alternate ActiveTheme, and I've been porting theme usages to that
+  - Remaining components to port I think include ContextMenus and PopoverMenus, maybe more
+
 # 2026 July 11
 
 - Need to create a parallel between capabilities as signed objects and type-level capabilities
