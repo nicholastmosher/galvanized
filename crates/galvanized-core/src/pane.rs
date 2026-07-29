@@ -1,0 +1,148 @@
+use gpui::{
+    AnyElement, App, Context, Element, EventEmitter, FocusHandle, Focusable, InteractiveElement,
+    IntoElement, ParentElement, Render, Styled, Window, div, prelude::FluentBuilder,
+};
+use gpui_component::StyledExt;
+
+use crate::item::ItemHandle;
+use crate::pane_group::SplitDirection;
+
+/// Events emitted by a Pane.
+pub enum Event {
+    /// The pane should be split in the given direction.
+    Split { direction: SplitDirection },
+    /// The pane should be removed from its group.
+    Remove,
+}
+
+impl EventEmitter<Event> for Pane {}
+
+/// A single pane that holds items and displays them with a tab bar.
+pub struct Pane {
+    items: Vec<ItemHandle>,
+    active_item_index: usize,
+    focus_handle: FocusHandle,
+}
+
+impl Pane {
+    pub fn new(_window: &mut Window, cx: &mut Context<Self>) -> Self {
+        Self {
+            items: Vec::new(),
+            active_item_index: 0,
+            focus_handle: cx.focus_handle(),
+        }
+    }
+
+    pub fn add_item(&mut self, item: ItemHandle, cx: &mut Context<Self>) {
+        self.items.push(item);
+        self.active_item_index = self.items.len().saturating_sub(1);
+        cx.notify();
+    }
+
+    pub fn remove_item(&mut self, index: usize) {
+        if index < self.items.len() {
+            self.items.remove(index);
+            if self.active_item_index >= self.items.len() && !self.items.is_empty() {
+                self.active_item_index = self.items.len() - 1;
+            }
+        }
+    }
+
+    pub fn activate_item(&mut self, index: usize, cx: &mut Context<Self>) {
+        if index < self.items.len() {
+            self.active_item_index = index;
+            cx.notify();
+        }
+    }
+
+    pub fn active_item(&self) -> Option<&ItemHandle> {
+        self.items.get(self.active_item_index)
+    }
+
+    pub fn items(&self) -> &[ItemHandle] {
+        &self.items
+    }
+
+    pub fn items_len(&self) -> usize {
+        self.items.len()
+    }
+
+    pub fn active_item_index(&self) -> usize {
+        self.active_item_index
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    pub fn split(
+        &mut self,
+        direction: SplitDirection,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        cx.emit(Event::Split { direction });
+    }
+}
+
+impl Focusable for Pane {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+
+impl Render for Pane {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .id("pane")
+            .size_full()
+            .v_flex()
+            .overflow_hidden()
+            .child(self.render_tab_bar(window, cx))
+            .child(
+                div()
+                    .id("pane-content")
+                    .flex_1()
+                    .size_full()
+                    .overflow_hidden()
+                    .child(if let Some(item) = self.active_item() {
+                        item.view.clone().into_any_element()
+                    } else {
+                        div()
+                            .id("pane-placeholder")
+                            .size_full()
+                            .h_flex()
+                            .justify_center()
+                            .child("No items")
+                            .into_any_element()
+                    }),
+            )
+    }
+}
+
+impl Pane {
+    fn render_tab_bar(&self, _window: &mut Window, _cx: &mut Context<Self>) -> AnyElement {
+        if self.items.is_empty() {
+            return div().id("tab-bar-empty").into_any();
+        }
+
+        let mut tab_bar = div().id("tab-bar").h_flex().w_full();
+
+        for (index, item) in self.items.iter().enumerate() {
+            let is_active = index == self.active_item_index;
+            let label = item.tab_label.clone();
+
+            tab_bar = tab_bar.child(
+                div()
+                    .id(("tab", index))
+                    .px_2()
+                    .py_1()
+                    .cursor_pointer()
+                    .child(label)
+                    .when(is_active, |this| this),
+            );
+        }
+
+        tab_bar.into_any()
+    }
+}

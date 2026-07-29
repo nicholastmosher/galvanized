@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use gpui::{
-    Action, AnyView, App, AppContext as _, Context, Div, Entity, InteractiveElement as _,
-    IntoElement, ParentElement as _, Render, Styled, Window, WindowBounds, WindowOptions, div,
+    Action, AnyView, App, AppContext as _, Context, Div, Entity, InteractiveElement, IntoElement,
+    ParentElement as _, Render, Styled, Subscription, Window, WindowBounds, WindowOptions, div,
     prelude::FluentBuilder, px, rgb, size,
 };
 use gpui_component::{
@@ -10,6 +10,13 @@ use gpui_component::{
     resizable::{h_resizable, resizable_panel},
 };
 use tracing::info;
+
+pub mod item;
+pub mod pane;
+pub mod pane_group;
+
+use pane::{Event as PaneEvent, Pane};
+use pane_group::PaneGroup;
 
 pub fn init(cx: &mut App) {
     let options = WindowOptions {
@@ -19,7 +26,7 @@ pub fn init(cx: &mut App) {
 
     let _window_handle = cx
         .open_window(options, |window, cx| {
-            let workspace = cx.new(|cx| Workspace::new(cx));
+            let workspace = cx.new(|cx| Workspace::new(window, cx));
             let root = cx.new(|cx| Root::new(workspace, window, cx));
             window.activate_window();
             root
@@ -29,18 +36,54 @@ pub fn init(cx: &mut App) {
 
 /// Minimal reproduction of Zed's Workspace entity, serves as the top-level view
 pub struct Workspace {
-    //
     left_panel: Option<AnyView>,
-    main_content: Option<Box<AnyView>>,
+    pane_group: PaneGroup,
     actions: Vec<Box<dyn Fn(Div, &Workspace, &mut Window, &mut Context<Self>) -> Div>>,
+    _subscriptions: Vec<Subscription>,
 }
 
 impl Workspace {
-    pub fn new(_cx: &mut Context<Self>) -> Self {
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let pane = cx.new(|cx| Pane::new(window, cx));
+        let pane_group = PaneGroup::new(pane.clone());
+
+        let _subscriptions =
+            vec![
+                cx.subscribe_in(&pane, window, |workspace, pane, event, window, cx| {
+                    workspace.handle_pane_event(pane, event, window, cx)
+                }),
+            ];
+
         Self {
             left_panel: None,
-            main_content: None,
+            pane_group,
             actions: Default::default(),
+            _subscriptions,
+        }
+    }
+
+    fn handle_pane_event(
+        &mut self,
+        pane: &Entity<Pane>,
+        event: &PaneEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match event {
+            PaneEvent::Split { direction } => {
+                let new_pane = cx.new(|cx| Pane::new(window, cx));
+                let subscription =
+                    cx.subscribe_in(&new_pane, window, |workspace, pane, event, window, cx| {
+                        workspace.handle_pane_event(pane, event, window, cx);
+                    });
+                self._subscriptions.push(subscription);
+                self.pane_group.split(pane, &new_pane, *direction);
+                cx.notify();
+            }
+            PaneEvent::Remove => {
+                self.pane_group.remove(pane);
+                cx.notify();
+            }
         }
     }
 
@@ -76,11 +119,14 @@ impl Workspace {
         _destination_index: Option<usize>,
         _focus_item: bool,
         _window: &mut Window,
-        _cx: &mut App,
+        cx: &mut App,
     ) {
         let item = *item;
-        let view = item.into();
-        self.main_content = Some(Box::new(view));
+        let view: AnyView = item.into();
+        let first_pane = self.pane_group.first_pane();
+        first_pane.update(cx, |pane, cx| {
+            pane.add_item(crate::item::ItemHandle::new(view, "Item"), cx);
+        });
     }
 
     fn actions(&self, mut div: Div, window: &mut Window, cx: &mut Context<Self>) -> Div {
@@ -114,29 +160,14 @@ impl GalvanizedHandle for Entity<Workspace> {
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.actions(div(), window, cx)
-            //
             .bg(rgb(0xaaaaaa))
             .size_full()
             .child(
-                //
                 h_resizable("resizable")
                     .when_some(self.left_panel.clone(), |el, panel| {
-                        //
-                        el.child(
-                            resizable_panel()
-                                .size(300.)
-                                //
-                                .child(panel),
-                        )
+                        el.child(resizable_panel().size(300.).child(panel))
                     })
-                    .when_some(self.main_content.clone(), |el, content| {
-                        //
-                        el.child(content.into_any_element())
-                    })
-                    .when_none(&self.main_content, |el| {
-                        //
-                        el.child("Main view".into_any_element())
-                    }),
+                    .child(self.pane_group.render(window, cx)),
             )
     }
 }
@@ -153,10 +184,6 @@ impl Panel {
 
 impl Render for Panel {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            //
-            .size_full()
-            .debug()
-            .child("Panel!")
+        div().size_full().debug().child("Panel!")
     }
 }
