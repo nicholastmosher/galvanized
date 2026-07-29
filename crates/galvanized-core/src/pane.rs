@@ -1,17 +1,47 @@
 use gpui::{
-    AnyElement, App, Context, Element, EventEmitter, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, ParentElement, Render, StatefulInteractiveElement, Styled, Window, div,
-    prelude::FluentBuilder,
+    AnyElement, App, AppContext as _, ClickEvent, Context, DragMoveEvent, Element, Entity,
+    EventEmitter, FocusHandle, Focusable, InteractiveElement, IntoElement, ParentElement, Render,
+    StatefulInteractiveElement, Styled, Window, div, point, prelude::FluentBuilder, px,
 };
 use gpui_component::{ActiveTheme, StyledExt};
 
 use crate::item::ItemHandle;
 use crate::pane_group::SplitDirection;
 
+/// Payload carried when a tab is dragged.
+#[derive(Clone)]
+pub struct DraggedTab {
+    pub pane: Entity<Pane>,
+    pub item_index: usize,
+}
+
+impl Render for DraggedTab {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .px_3()
+            .py_1()
+            .bg(cx.theme().colors.accent)
+            .text_color(cx.theme().colors.accent_foreground)
+            .rounded_md()
+            .child("Tab")
+    }
+}
+
 /// Events emitted by a Pane.
 pub enum Event {
     /// The pane should be split in the given direction.
     Split { direction: SplitDirection },
+    /// A tab was dropped on the edge of this pane to create a split.
+    SplitWithItem {
+        direction: SplitDirection,
+        source_pane: Entity<Pane>,
+        item_index: usize,
+    },
+    /// A tab was dropped on this pane's tab bar to merge it in.
+    MoveItem {
+        source_pane: Entity<Pane>,
+        item_index: usize,
+    },
     /// The pane should be removed from its group.
     Remove,
 }
@@ -23,6 +53,7 @@ pub struct Pane {
     items: Vec<Box<dyn ItemHandle>>,
     active_item_index: usize,
     focus_handle: FocusHandle,
+    drag_split_direction: Option<SplitDirection>,
 }
 
 impl Pane {
@@ -31,6 +62,7 @@ impl Pane {
             items: Vec::new(),
             active_item_index: 0,
             focus_handle: cx.focus_handle(),
+            drag_split_direction: None,
         }
     }
 
@@ -40,12 +72,42 @@ impl Pane {
         cx.notify();
     }
 
-    pub fn remove_item(&mut self, index: usize) {
+    pub fn insert_item_at(
+        &mut self,
+        index: usize,
+        item: Box<dyn ItemHandle>,
+        cx: &mut Context<Self>,
+    ) {
+        let index = index.min(self.items.len());
+        self.items.insert(index, item);
+        if self.active_item_index >= index {
+            self.active_item_index += 1;
+        }
+        cx.notify();
+    }
+
+    pub fn remove_item(&mut self, index: usize) -> Option<Box<dyn ItemHandle>> {
+        if index < self.items.len() {
+            let item = self.items.remove(index);
+            if self.active_item_index >= self.items.len() && !self.items.is_empty() {
+                self.active_item_index = self.items.len() - 1;
+            }
+            Some(item)
+        } else {
+            None
+        }
+    }
+
+    pub fn close_item(&mut self, index: usize, cx: &mut Context<Self>) {
         if index < self.items.len() {
             self.items.remove(index);
             if self.active_item_index >= self.items.len() && !self.items.is_empty() {
                 self.active_item_index = self.items.len() - 1;
             }
+            if self.items.is_empty() {
+                cx.emit(Event::Remove);
+            }
+            cx.notify();
         }
     }
 
@@ -86,6 +148,76 @@ impl Pane {
     ) {
         cx.emit(Event::Split { direction });
     }
+
+    fn handle_drag_move(
+        &mut self,
+        event: &DragMoveEvent<DraggedTab>,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let rect = event.bounds.size;
+        let drop_target_size = px(40.0);
+        let relative_cursor = point(
+            event.event.position.x - event.bounds.left(),
+            event.event.position.y - event.bounds.top(),
+        );
+
+        let direction = if relative_cursor.x < drop_target_size
+            || relative_cursor.x > rect.width - drop_target_size
+            || relative_cursor.y < drop_target_size
+            || relative_cursor.y > rect.height - drop_target_size
+        {
+            [
+                SplitDirection::Up,
+                SplitDirection::Right,
+                SplitDirection::Down,
+                SplitDirection::Left,
+            ]
+            .iter()
+            .min_by_key(|side| match side {
+                SplitDirection::Up => relative_cursor.y,
+                SplitDirection::Right => rect.width - relative_cursor.x,
+                SplitDirection::Down => rect.height - relative_cursor.y,
+                SplitDirection::Left => relative_cursor.x,
+            })
+            .cloned()
+        } else {
+            None
+        };
+
+        if direction != self.drag_split_direction {
+            self.drag_split_direction = direction;
+            cx.notify();
+        }
+    }
+
+    fn handle_tab_drop(
+        &mut self,
+        dragged_tab: &DraggedTab,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(direction) = self.drag_split_direction.take() {
+            cx.emit(Event::SplitWithItem {
+                direction,
+                source_pane: dragged_tab.pane.clone(),
+                item_index: dragged_tab.item_index,
+            });
+        }
+        cx.notify();
+    }
+
+    fn handle_tab_bar_drop(
+        &mut self,
+        dragged_tab: &DraggedTab,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        cx.emit(Event::MoveItem {
+            source_pane: dragged_tab.pane.clone(),
+            item_index: dragged_tab.item_index,
+        });
+    }
 }
 
 impl Focusable for Pane {
@@ -108,6 +240,7 @@ impl Render for Pane {
                     .flex_1()
                     .size_full()
                     .overflow_hidden()
+                    .on_drag_move::<DraggedTab>(cx.listener(Self::handle_drag_move))
                     .child(if let Some(item) = self.active_item() {
                         item.to_any_view().into_any_element()
                     } else {
@@ -118,7 +251,8 @@ impl Render for Pane {
                             .justify_center()
                             .child("No items")
                             .into_any_element()
-                    }),
+                    })
+                    .child(self.render_drop_target(cx)),
             )
     }
 }
@@ -137,7 +271,8 @@ impl Pane {
             .w_full()
             .bg(colors.muted)
             .gap_1()
-            .px_1();
+            .px_1()
+            .on_drop::<DraggedTab>(cx.listener(Self::handle_tab_bar_drop));
 
         for (index, item) in self.items.iter().enumerate() {
             let is_active = index == self.active_item_index;
@@ -148,7 +283,7 @@ impl Pane {
                 .px_3()
                 .py_1()
                 .cursor_pointer()
-                .rounded_t_md()
+                .rounded_md()
                 .child(label)
                 .when(is_active, |tab| {
                     tab.bg(colors.background).text_color(colors.foreground)
@@ -159,11 +294,81 @@ impl Pane {
                 })
                 .on_click(cx.listener(move |this, _, _window, cx| {
                     this.activate_item(index, cx);
-                }));
+                }))
+                .on_drag(
+                    DraggedTab {
+                        pane: cx.entity(),
+                        item_index: index,
+                    },
+                    |tab, _, _, cx| cx.new(|_| tab.clone()),
+                )
+                .child(
+                    div()
+                        .id(("tab-close", index))
+                        .ml_2()
+                        .px_1()
+                        .cursor_pointer()
+                        .rounded_sm()
+                        .text_color(colors.muted_foreground)
+                        .hover(|btn| btn.bg(colors.list_hover).text_color(colors.foreground))
+                        .child("×")
+                        .on_click(cx.listener(move |this, _event: &ClickEvent, _window, cx| {
+                            this.close_item(index, cx);
+                            cx.stop_propagation();
+                        })),
+                );
 
             tab_bar = tab_bar.child(tab);
         }
 
         tab_bar.into_any()
+    }
+
+    fn render_drop_target(&self, cx: &mut Context<Self>) -> AnyElement {
+        let colors = &cx.theme().colors;
+
+        let target = div()
+            .id("drop-target")
+            .absolute()
+            .size_full()
+            .top_0()
+            .left_0()
+            .invisible()
+            .group_drag_over::<DraggedTab>("", |style| style.visible())
+            .on_drop::<DraggedTab>(cx.listener(Self::handle_tab_drop));
+
+        let target = match self.drag_split_direction {
+            None => target,
+            Some(SplitDirection::Up) => target
+                .top_0()
+                .left_0()
+                .right_0()
+                .h(px(40.))
+                .bg(colors.accent)
+                .visible(),
+            Some(SplitDirection::Down) => target
+                .left_0()
+                .bottom_0()
+                .right_0()
+                .h(px(40.))
+                .bg(colors.accent)
+                .visible(),
+            Some(SplitDirection::Left) => target
+                .top_0()
+                .left_0()
+                .bottom_0()
+                .w(px(40.))
+                .bg(colors.accent)
+                .visible(),
+            Some(SplitDirection::Right) => target
+                .top_0()
+                .bottom_0()
+                .right_0()
+                .w(px(40.))
+                .bg(colors.accent)
+                .visible(),
+        };
+
+        target.into_any()
     }
 }

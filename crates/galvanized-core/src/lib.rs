@@ -81,6 +81,64 @@ impl Workspace {
                 self.pane_group.split(pane, &new_pane, *direction);
                 cx.notify();
             }
+            PaneEvent::SplitWithItem {
+                direction,
+                source_pane,
+                item_index,
+            } => {
+                let new_pane = cx.new(|cx| Pane::new(window, cx));
+                let subscription =
+                    cx.subscribe_in(&new_pane, window, |workspace, pane, event, window, cx| {
+                        workspace.handle_pane_event(pane, event, window, cx);
+                    });
+                self._subscriptions.push(subscription);
+
+                // Move the item from the source pane to the new pane
+                source_pane.update(cx, |source_pane, cx| {
+                    if let Some(item) = source_pane.remove_item(*item_index) {
+                        new_pane.update(cx, |new_pane, cx| {
+                            new_pane.add_item(item, cx);
+                        });
+                    }
+                });
+
+                // Remove the source pane if it became empty
+                if source_pane.read(cx).is_empty() {
+                    self.pane_group.remove(source_pane);
+                }
+
+                self.pane_group.split(pane, &new_pane, *direction);
+                cx.notify();
+            }
+            PaneEvent::MoveItem {
+                source_pane,
+                item_index,
+            } => {
+                if source_pane.entity_id() == pane.entity_id() {
+                    // Reorder within the same pane
+                    pane.update(cx, |pane, cx| {
+                        if let Some(item) = pane.remove_item(*item_index) {
+                            pane.add_item(item, cx);
+                        }
+                    });
+                } else {
+                    // Move the item from the source pane to this pane
+                    source_pane.update(cx, |source_pane, cx| {
+                        if let Some(item) = source_pane.remove_item(*item_index) {
+                            pane.update(cx, |target_pane, cx| {
+                                target_pane.add_item(item, cx);
+                            });
+                        }
+                    });
+
+                    // Remove the source pane if it became empty
+                    if source_pane.read(cx).is_empty() {
+                        self.pane_group.remove(source_pane);
+                    }
+                }
+
+                cx.notify();
+            }
             PaneEvent::Remove => {
                 self.pane_group.remove(pane);
                 cx.notify();
