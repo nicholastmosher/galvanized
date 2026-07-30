@@ -7,8 +7,8 @@
 
 **Working on:** _(one line — what this session is actually doing)_
 
-**Started from:** _(what you read to boot: AGENTS.md, .rules, STATE.md,
-DECISIONS tail, OPEN_QUESTIONS, KNOWN_TRAPS)_
+**Started from:** _(what you read to boot: AGENTS.md, docs/ai/RUST_GPUI.md,
+STATE.md, DECISIONS tail, OPEN_QUESTIONS, KNOWN_TRAPS)_
 
 **Live tree state:**
 - `git log --oneline -5`: _(paste)_

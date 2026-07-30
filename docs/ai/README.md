@@ -1,13 +1,16 @@
 # AI guidance for Galvanized
 
 Start at the root [`AGENTS.md`](../../AGENTS.md) — it's the boot file and points
-here. Everything in this folder is layered on top of [`.rules`](../../.rules),
-which holds the Rust + GPUI coding core.
+here. The Rust + GPUI coding core lives in [`RUST_GPUI.md`](RUST_GPUI.md);
+everything else in this folder is layered on top of it.
 
 ## Files
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — the code, anchored with file:line.
   Read this to know the real shape of the project before changing anything.
+- [`RUST_GPUI.md`](RUST_GPUI.md) — the Rust + GPUI coding core (the Rust
+  guidelines + the GPUI framework primer). Moved here from the repo-root
+  `.rules`, which is now just a pointer to `AGENTS.md`.
 - [`CONVENTIONS.md`](CONVENTIONS.md) — Galvanized-specific conventions
   (plugin composition, `cx.willow()`/`cx.vaults()`, theming, the `//`
   placeholder trick, async/foreground-background split, security stance).
@@ -31,7 +34,7 @@ for the read/write rules.
 
 ## One-line summary
 
-`AGENTS.md` (who you are + hard rules + boot) → `.rules` (Rust/GPUI) →
+`AGENTS.md` (who you are + hard rules + boot) → `RUST_GPUI.md` (Rust/GPUI) →
 `ARCHITECTURE.md` (the code) → `CONVENTIONS.md` (how to write it here) →
 `PLUGIN_RECIPE.md` (how to add an app) → `memory/` (what's been decided, what's
 open, what's broken, what's next).

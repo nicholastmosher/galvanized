@@ -1,15 +1,16 @@
 # Conventions
 
-Galvanized-specific coding conventions, layered on top of [`.rules`](../../.rules)
-(Rust + GPUI core). Where this doc and `.rules` disagree on a GPUI mechanic,
-trust `.rules`; where `.rules` references a Zed-only script, trust this doc.
+Galvanized-specific coding conventions, layered on top of
+[`RUST_GPUI.md`](RUST_GPUI.md) (Rust + GPUI core). Where this doc and
+`RUST_GPUI.md` disagree on a GPUI mechanic, trust `RUST_GPUI.md`; where
+`RUST_GPUI.md` references a Zed-only script, trust this doc.
 
 ## Rust (project specifics)
 
-- `.rules` already covers: no `unwrap()`/`expect()` outside tests, no silent
-  `let _ =` on fallible calls, propagate with `?`, `foo.rs` over `foo/mod.rs`,
-  full-word variable names, variable shadowing to scope clones in async
-  blocks. **Follow it.**
+- `RUST_GPUI.md` already covers: no `unwrap()`/`expect()` outside tests, no
+  silent `let _ =` on fallible calls, propagate with `?`, `foo.rs` over
+  `foo/mod.rs`, full-word variable names, variable shadowing to scope clones in
+  async blocks. **Follow it.**
 - **No `mod.rs`.** Use `src/foo.rs` (and `src/foo/sub.rs` + `pub mod sub;` in
   `foo.rs`). The crates follow this.
 - **Crates prefer a named lib root.** When creating a crate, set
@@ -27,12 +28,12 @@ trust `.rules`; where `.rules` references a Zed-only script, trust this doc.
 
 ## GPUI (Galvanized flavor)
 
-- Use the **new APIs** from `.rules`: `Entity<T>` (never `Model`/`View`), `App`
-  (never `AppContext`), `Context<T>` (never `ModelContext`), explicit `Window`
-  passed before `cx`, `*_in` variants when plumbing `Window`.
+- Use the **new APIs** from `RUST_GPUI.md`: `Entity<T>` (never `Model`/`View`),
+  `App` (never `AppContext`), `Context<T>` (never `ModelContext`), explicit
+  `Window` passed before `cx`, `*_in` variants when plumbing `Window`.
 - `spawn` takes an `async` closure: `cx.spawn(async move |this, cx| …)` for an
   entity (where `this: WeakEntity<T>`), `cx.spawn(async move |cx| …)` for `App`.
-  Confirm against `.rules` if unsure — the old forms are gone.
+  Confirm against `RUST_GPUI.md` if unsure — the old forms are gone.
 - All entity/UI work is on the single foreground thread. Heavy work →
   `cx.background_spawn(...)` returning a `Task`, awaited on the foreground to
   update state. See `cx.vaults()` / `cx.willow()` for the pattern.
@@ -104,5 +105,5 @@ trust `.rules`; where `.rules` references a Zed-only script, trust this doc.
 - **Honest empty states.** "No items" placeholders (see
   `crates/galvanized-core/src/pane.rs`) are fine; lying placeholders that imply
   work that isn't done are not.
-- **No creative additions unless asked.** (`.rules`.) Implement the task; raise
-  adjacent ideas as proposals, not as silent scope creep.
+- **No creative additions unless asked.** (`RUST_GPUI.md`.) Implement the
+  task; raise adjacent ideas as proposals, not as silent scope creep.

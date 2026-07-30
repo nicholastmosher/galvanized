@@ -89,5 +89,15 @@ missing global). (README 2026-07-29.)
 
 ---
 
+## 2026-07-30 — RATIFIED
+Dropped the `./script/clippy` line from the Rust/GPUI coding core. Nick's
+ruling (chat, 2026-07-30): "drop the suggestion about ./script/clippy, that
+is left over from a direct copy/paste from zed and we don't need it."
+Galvanized has no `script/` dir; use `cargo clippy` directly. The line was
+inherited verbatim from Zed's `.rules`; same session also moved the whole
+Rust+GPUI core from repo-root `.rules` into `docs/ai/RUST_GPUI.md` (`.rules` is
+now a pointer to `AGENTS.md`). Resolves the former "Stale `./script/clippy`"
+open question.
+
 <!-- Append new rulings below this line, at the true tail. Mark RATIFIED with
      a quote, or PROPOSED/INFERRED until confirmed. -->

@@ -3,8 +3,12 @@
 > This is the boot file. Read it in full before touching code. It points at the
 > rest of the AI guidance under [`docs/ai/`](docs/ai/) and the long-term memory
 > under [`docs/ai/memory/`](docs/ai/memory/). The coding + GPUI core lives in
-> [`.rules`](.rules); this file does not duplicate it — it layers Galvanized-
-> specific guidance on top.
+> [`docs/ai/RUST_GPUI.md`](docs/ai/RUST_GPUI.md); this file does not duplicate
+> it — it layers Galvanized-specific guidance on top.
+>
+> The repo-root [`.rules`](.rules) is now just a pointer back to this file; the
+> Rust + GPUI core that used to live there moved to
+> [`docs/ai/RUST_GPUI.md`](docs/ai/RUST_GPUI.md).
 
 ## What Galvanized is
 
@@ -78,9 +82,10 @@ surfaces gets **fixed**, not filed.
   vibecoded"* — the human touch matters.)
 - **Error visibility.** Every failure produces a visible artifact (a UI state,
   a notification, a structured refusal) — never a `continue`-and-log-to-console,
-  never a silent `let _ =` on a fallible call. Per [`.rules`](.rules): propagate
-  with `?`, use `.log_err()` only when you genuinely need to ignore with
-  visibility, never `unwrap()`/`expect()` outside tests.
+  never a silent `let _ =` on a fallible call. Per
+  [`docs/ai/RUST_GPUI.md`](docs/ai/RUST_GPUI.md): propagate with `?`, use
+  `.log_err()` only when you genuinely need to ignore with visibility, never
+  `unwrap()`/`expect()` outside tests.
 - **AI honesty / attribution.** Mark AI-generated portions when you submit work
   (Nick does this in the wild; the project's integrity depends on it). Never
   claim to have built, run, or verified something you didn't. State
@@ -137,7 +142,7 @@ scaled to a solo project):
 ## How to boot (every session)
 
 1. Read this file in full.
-2. Read [`.rules`](.rules) (Rust + GPUI core — auto-read anyway).
+2. Read [`docs/ai/RUST_GPUI.md`](docs/ai/RUST_GPUI.md) (Rust + GPUI core).
 3. Skim [`docs/ai/ARCHITECTURE.md`](docs/ai/ARCHITECTURE.md) for the real shape
    of the code (it has file:line anchors).
 4. Read [`docs/ai/memory/STATE.md`](docs/ai/memory/STATE.md) (what's in flight
@@ -152,10 +157,9 @@ scaled to a solo project):
 ## Build, run, verify
 
 - **Run the app:** `cargo run` (binary is `gzed`; entry `crates/app-galvanized/src/bin/main.rs`).
-- **Format / lint:** `cargo fmt` and `cargo clippy`. (`.rules` says
-  `./script/clippy` — that line is inherited from Zed and **stale for
-  Galvanized**; there is no `script/` dir here. Flagged in
-  [`memory/OPEN_QUESTIONS.md`](docs/ai/memory/OPEN_QUESTIONS.md) for cleanup.)
+- **Format / lint:** `cargo fmt` and `cargo clippy`. (Galvanized has no
+  `script/` dir — use `cargo clippy` directly, not Zed's `./script/clippy`
+  wrapper.)
 - **Tests:** `cargo test`. There is no separate harness today; tests live
   alongside code where they exist.
 - **Observability:** `(cd containers/observability; docker compose up)` →
@@ -183,7 +187,7 @@ verify any load-bearing claim before folding it. Never let a sub-agent's
 
 - [`docs/ai/ARCHITECTURE.md`](docs/ai/ARCHITECTURE.md) — the code, anchored.
 - [`docs/ai/CONVENTIONS.md`](docs/ai/CONVENTIONS.md) — Galvanized-specific
-  coding conventions (on top of `.rules`).
+  coding conventions (on top of `docs/ai/RUST_GPUI.md`).
 - [`docs/ai/PLUGIN_RECIPE.md`](docs/ai/PLUGIN_RECIPE.md) — the vertical slice
   for adding a new app plugin.
 - [`docs/ai/memory/README.md`](docs/ai/memory/README.md) — how the memory

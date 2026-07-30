@@ -7,13 +7,21 @@ bring it to Nick as a question with a recommendation.
 When one is resolved, move the ruling to `DECISIONS.md` and strike it through
 here (don't delete — the history of "what was open" is useful).
 
-## Stale `.rules` line
-`.rules` says "Use `./script/clippy` instead of `cargo clippy`" — inherited
-from Zed. Galvanized has no `script/` dir. Options: (a) drop the line from
-`.rules`, (b) add a `script/clippy` shim that matches Zed's. Recommendation:
-drop the line; document `cargo fmt` / `cargo clippy` in
-[`CONVENTIONS.md`](../CONVENTIONS.md) (already done) and leave `.rules` to the
-Rust+GPUI core. — **awaiting Nick.**
+## ~~Stale `./script/clippy` line~~ — RESOLVED 2026-07-30
+~~`docs/ai/RUST_GPUI.md` says "Use `./script/clippy` instead of `cargo clippy`" —
+inherited from Zed. Galvanized has no `script/` dir. Options: (a) drop the line
+from `RUST_GPUI.md`, (b) add a `script/clippy` shim that matches Zed's.
+Recommendation: drop the line; document `cargo fmt` / `cargo clippy` in
+[`CONVENTIONS.md`](../CONVENTIONS.md) (already done). — **awaiting Nick.**~~
+
+**Resolved:** Nick ruled (2026-07-30) to drop the line — it was a leftover
+copy/paste from Zed. Done: the line is removed from `RUST_GPUI.md` and the
+ruling is recorded in [`DECISIONS.md`](DECISIONS.md) (2026-07-30, RATIFIED).
+
+> The line used to live in the repo-root `.rules`; on 2026-07-30 `.rules` was
+> reduced to a pointer to `AGENTS.md` and its Rust+GPUI content moved to
+> `RUST_GPUI.md`. The question is unchanged — it's about the line, wherever it
+> lives.
 
 ## Willow persistence
 `plugin-willow` builds a store path (`dirs::data_dir()/galvanized/willow.store`)
