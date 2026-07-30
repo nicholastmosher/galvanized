@@ -386,6 +386,7 @@ impl GalvanizedPanel {
     ) -> impl IntoElement {
         v_flex()
             .id("app-sidebar")
+            .min_w_0()
             .bg(cx.theme().colors.sidebar)
             .size_full()
             .when_some(self.active_app.as_ref(), |el, app| {

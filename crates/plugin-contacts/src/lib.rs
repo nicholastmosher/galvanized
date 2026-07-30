@@ -27,6 +27,7 @@ use std::path::PathBuf;
 use crate::protocol::{ContactPeer, ContactsProtocol};
 use anyhow::{Context as _, Result, anyhow, bail};
 use futures::stream::StreamExt as _;
+use gpui::prelude::FluentBuilder as _;
 use gpui::{
     self, Action, App, AppContext as _, ClipboardItem, Context, Entity, EventEmitter, FocusHandle,
     Focusable, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render,
@@ -61,7 +62,6 @@ use signature::SignerMut as _;
 use tracing::{info, warn};
 use ufotofu::{IntoConsumer as _, IntoProducer, codec::Decodable};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
-use gpui::prelude::FluentBuilder as _;
 
 pub mod protocol;
 
@@ -331,10 +331,14 @@ impl Contacts {
     ) -> impl IntoElement {
         v_flex()
             //
+            .min_w_0()
             .px_2()
             .gap_2()
             .child(
+                //
                 h_flex()
+                    .min_w_0()
+                    .flex_wrap()
                     .gap_2()
                     .child(
                         //
@@ -347,6 +351,7 @@ impl Contacts {
                         //
                         h_flex()
                             .id("copy-profile-id")
+                            .min_w_0()
                             .gap_2()
                             .text_xs()
                             .text_color(cx.theme().colors.muted_foreground)
@@ -366,6 +371,7 @@ impl Contacts {
             )
             .child(
                 h_flex()
+                    .min_w_0()
                     .on_key_down(cx.listener(move |this, e: &KeyDownEvent, window, cx| {
                         if e.keystroke.key != "enter" {
                             return;
@@ -377,6 +383,7 @@ impl Contacts {
                         //
                         div()
                             //
+                            .min_w_0()
                             .flex_grow_1()
                             .bg(cx.theme().colors.background)
                             .child(Input::new(&self.input)),
@@ -393,9 +400,11 @@ impl Contacts {
         div()
             .id("contacts-list")
             .size_full()
+            .min_w_0()
             .overflow_y_scroll()
             .child(
                 div()
+                    .min_w_0()
                     .when(self.contacts.is_empty(), |el| {
                         el.p_2().child(
                             div()
@@ -418,11 +427,13 @@ impl Contacts {
                             .id(SharedString::from(format!("contact-{i}")))
                             .p_2()
                             .gap_2()
+                            .min_w_0()
                             .rounded_md()
                             .hover(|style| style.bg(cx.theme().colors.list_hover))
                             .active(|style| style.bg(cx.theme().colors.list_active))
                             .child(
                                 v_flex()
+                                    .min_w_0()
                                     .child(
                                         h_flex()
                                             .gap_1()
