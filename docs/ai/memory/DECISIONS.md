@@ -101,3 +101,16 @@ open question.
 
 <!-- Append new rulings below this line, at the true tail. Mark RATIFIED with
      a quote, or PROPOSED/INFERRED until confirmed. -->
+
+## 2026-07-30 — RATIFIED
+**Don't run clippy unless Nick specifically asks.** Nick's ruling (chat,
+2026-07-30): "Add a directive to AI memory not to worry about clippy unless I
+specifically ask."
+
+This supersedes the "run `cargo fmt`, `cargo clippy`, and `cargo test`" step in
+`AGENTS.md` ("Build, run, verify") and the equivalent in
+`docs/ai/RUST_GPUI.md` for the clippy portion only — `cargo fmt` and `cargo test`
+for touched crates still apply. Agents should not invoke `cargo clippy` (or
+Zed's `./script/clippy`) as part of normal verification; only when Nick asks
+for it explicitly. Warnings surfaced incidentally (e.g. from `cargo build`) can
+be noted, but don't gate work on them.

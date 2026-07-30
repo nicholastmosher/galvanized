@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use gpui::prelude::FluentBuilder as _;
 use gpui::{
     Action, App, AppContext as _, Context, Div, Entity, InteractiveElement, IntoElement,
     ParentElement as _, Pixels, Render, Styled, Subscription, Window, WindowBounds, WindowOptions,
@@ -7,15 +8,19 @@ use gpui::{
 };
 use gpui_component::Root;
 
+pub mod command_palette;
 pub mod item;
 pub mod pane;
 pub mod pane_group;
 
+use command_palette::{CommandPaletteHandle, Toggle};
 use item::ItemHandle;
 use pane::{Event as PaneEvent, Pane};
 use pane_group::{PaneGroup, SplitDirection};
 
 pub fn init(cx: &mut App) {
+    command_palette::init(cx);
+
     let options = WindowOptions {
         window_bounds: Some(WindowBounds::centered(size(px(1000.), px(800.)), cx)),
         ..Default::default()
@@ -36,6 +41,7 @@ pub struct Workspace {
     main_pane: Entity<Pane>,
     pane_group: PaneGroup,
     actions: Vec<Box<dyn Fn(Div, &Workspace, &mut Window, &mut Context<Self>) -> Div>>,
+    command_palette: Option<CommandPaletteHandle>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -51,12 +57,22 @@ impl Workspace {
                 }),
             ];
 
-        Self {
+        let mut this = Self {
             main_pane,
             pane_group,
             actions: Default::default(),
+            command_palette: None,
             _subscriptions,
-        }
+        };
+        this.register_action(|workspace, _: &Toggle, window, cx| {
+            command_palette::toggle(workspace, window, cx);
+        });
+        this
+    }
+
+    pub(crate) fn close_command_palette(&mut self, cx: &mut Context<Self>) {
+        self.command_palette = None;
+        cx.notify();
     }
 
     fn handle_pane_event(
@@ -224,6 +240,9 @@ impl Render for Workspace {
             .bg(rgb(0xaaaaaa))
             .size_full()
             .child(self.pane_group.render(window, cx))
+            .when_some(self.command_palette.as_ref(), |element, palette| {
+                element.child(palette.entity.clone())
+            })
     }
 }
 
