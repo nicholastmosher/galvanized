@@ -1,4 +1,7 @@
-use gpui::{AnyElement, App, Axis, Entity, IntoElement, ParentElement, Window};
+use gpui::{
+    AnyElement, App, Axis, Entity, IntoElement, ParentElement, Pixels, Window,
+    prelude::FluentBuilder,
+};
 use gpui_component::resizable::{h_resizable, resizable_panel, v_resizable};
 
 use crate::pane::Pane;
@@ -31,20 +34,42 @@ impl SplitDirection {
 /// A member of a PaneGroup tree: either a single Pane or a nested Axis split.
 #[derive(Clone)]
 pub enum Member {
-    Pane(Entity<Pane>),
+    Pane {
+        pane: Entity<Pane>,
+        size: Option<Pixels>,
+    },
     Axis(PaneAxis),
 }
 
 impl Member {
-    fn new_axis(old_pane: Entity<Pane>, new_pane: Entity<Pane>, direction: SplitDirection) -> Self {
+    fn new_axis(
+        old_pane: Entity<Pane>,
+        new_pane: Entity<Pane>,
+        direction: SplitDirection,
+        new_pane_size: Option<Pixels>,
+    ) -> Self {
         let axis = direction.axis();
         let members = match direction {
-            SplitDirection::Up | SplitDirection::Left => {
-                vec![Member::Pane(new_pane), Member::Pane(old_pane)]
-            }
-            SplitDirection::Down | SplitDirection::Right => {
-                vec![Member::Pane(old_pane), Member::Pane(new_pane)]
-            }
+            SplitDirection::Up | SplitDirection::Left => vec![
+                Member::Pane {
+                    pane: new_pane,
+                    size: new_pane_size,
+                },
+                Member::Pane {
+                    pane: old_pane,
+                    size: None,
+                },
+            ],
+            SplitDirection::Down | SplitDirection::Right => vec![
+                Member::Pane {
+                    pane: old_pane,
+                    size: None,
+                },
+                Member::Pane {
+                    pane: new_pane,
+                    size: new_pane_size,
+                },
+            ],
         };
         Member::Axis(PaneAxis::new(axis, members))
     }
@@ -52,7 +77,7 @@ impl Member {
     fn first_pane(&self) -> Entity<Pane> {
         match self {
             Member::Axis(axis) => axis.members[0].first_pane(),
-            Member::Pane(pane) => pane.clone(),
+            Member::Pane { pane, .. } => pane.clone(),
         }
     }
 
@@ -63,13 +88,20 @@ impl Member {
                     member.collect_panes(panes);
                 }
             }
-            Member::Pane(pane) => panes.push(pane),
+            Member::Pane { pane, .. } => panes.push(pane),
+        }
+    }
+
+    fn initial_size(&self) -> Option<Pixels> {
+        match self {
+            Member::Pane { size, .. } => *size,
+            Member::Axis(_) => None,
         }
     }
 
     fn render(&self, _basis: usize, window: &mut Window, cx: &mut App) -> AnyElement {
         match self {
-            Member::Pane(pane) => pane.clone().into_any_element(),
+            Member::Pane { pane, .. } => pane.clone().into_any_element(),
             Member::Axis(axis) => axis.render(window, cx),
         }
     }
@@ -92,24 +124,35 @@ impl PaneAxis {
         old_pane: &Entity<Pane>,
         new_pane: &Entity<Pane>,
         direction: SplitDirection,
+        new_pane_size: Option<Pixels>,
     ) -> bool {
         for (mut idx, member) in self.members.iter_mut().enumerate() {
             match member {
                 Member::Axis(axis) => {
-                    if axis.split(old_pane, new_pane, direction) {
+                    if axis.split(old_pane, new_pane, direction, new_pane_size) {
                         return true;
                     }
                 }
-                Member::Pane(pane) => {
+                Member::Pane { pane, .. } => {
                     if pane == old_pane {
                         if direction.axis() == self.axis {
                             if direction.increasing() {
                                 idx += 1;
                             }
-                            self.members.insert(idx, Member::Pane(new_pane.clone()));
+                            self.members.insert(
+                                idx,
+                                Member::Pane {
+                                    pane: new_pane.clone(),
+                                    size: new_pane_size,
+                                },
+                            );
                         } else {
-                            *member =
-                                Member::new_axis(old_pane.clone(), new_pane.clone(), direction);
+                            *member = Member::new_axis(
+                                old_pane.clone(),
+                                new_pane.clone(),
+                                direction,
+                                new_pane_size,
+                            );
                         }
                         return true;
                     }
@@ -132,7 +175,7 @@ impl PaneAxis {
                         break;
                     }
                 }
-                Member::Pane(pane) => {
+                Member::Pane { pane, .. } => {
                     if pane == pane_to_remove {
                         found = true;
                         remove_idx = Some(idx);
@@ -168,7 +211,9 @@ impl PaneAxis {
 
         for member in &self.members {
             let child = member.render(0, window, cx);
-            group = group.child(resizable_panel().child(child));
+            let panel =
+                resizable_panel().when_some(member.initial_size(), |panel, size| panel.size(size));
+            group = group.child(panel.child(child));
         }
 
         group.into_any_element()
@@ -183,7 +228,7 @@ pub struct PaneGroup {
 impl PaneGroup {
     pub fn new(pane: Entity<Pane>) -> Self {
         Self {
-            root: Member::Pane(pane),
+            root: Member::Pane { pane, size: None },
         }
     }
 
@@ -192,27 +237,34 @@ impl PaneGroup {
         old_pane: &Entity<Pane>,
         new_pane: &Entity<Pane>,
         direction: SplitDirection,
+        new_pane_size: Option<Pixels>,
     ) {
         let found = match &mut self.root {
-            Member::Pane(pane) => {
+            Member::Pane { pane, .. } => {
                 if pane == old_pane {
-                    self.root = Member::new_axis(old_pane.clone(), new_pane.clone(), direction);
+                    self.root = Member::new_axis(
+                        old_pane.clone(),
+                        new_pane.clone(),
+                        direction,
+                        new_pane_size,
+                    );
                     true
                 } else {
                     false
                 }
             }
-            Member::Axis(axis) => axis.split(old_pane, new_pane, direction),
+            Member::Axis(axis) => axis.split(old_pane, new_pane, direction, new_pane_size),
         };
 
         if !found {
             let first_pane = self.root.first_pane();
             match &mut self.root {
-                Member::Pane(_) => {
-                    self.root = Member::new_axis(first_pane, new_pane.clone(), direction);
+                Member::Pane { .. } => {
+                    self.root =
+                        Member::new_axis(first_pane, new_pane.clone(), direction, new_pane_size);
                 }
                 Member::Axis(axis) => {
-                    let _ = axis.split(&first_pane, new_pane, direction);
+                    let _ = axis.split(&first_pane, new_pane, direction, new_pane_size);
                 }
             }
         }
@@ -220,7 +272,7 @@ impl PaneGroup {
 
     pub fn remove(&mut self, pane: &Entity<Pane>) {
         match &mut self.root {
-            Member::Pane(_) => {}
+            Member::Pane { .. } => {}
             Member::Axis(axis) => {
                 if let Some(last_pane) = axis.remove(pane) {
                     self.root = last_pane;

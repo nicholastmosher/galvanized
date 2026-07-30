@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use anyhow::{Context as _, Result};
-use galvanized_core::Workspace;
-use gpui::{Action, App, AppContext, Context, Entity, Task, Window};
+use galvanized_core::{Workspace, pane_group::SplitDirection};
+use gpui::{Action, App, AppContext, Context, Entity, Task, Window, px};
 use gpui_util::ResultExt as _;
 use plugin_vault::{VaultsExt as _, vault_db::VaultId};
 use tracing::info;
@@ -42,7 +42,13 @@ pub fn init(cx: &mut App) {
         let workspace_entity = cx.entity();
         let galvanized = cx.new(|cx| Galvanized::new(workspace_entity.clone(), window, cx));
         let panel = galvanized.read(cx).panel();
-        workspace.add_panel(panel, window, cx);
+        workspace.add_item_in_split(
+            Box::new(panel),
+            SplitDirection::Left,
+            Some(px(300.)),
+            window,
+            cx,
+        );
     })
     .detach();
 }

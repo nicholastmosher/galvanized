@@ -1,15 +1,11 @@
 use std::sync::Arc;
 
 use gpui::{
-    Action, AnyView, App, AppContext as _, Context, Div, Entity, InteractiveElement, IntoElement,
-    ParentElement as _, Render, Styled, Subscription, Window, WindowBounds, WindowOptions, div,
-    prelude::FluentBuilder, px, rgb, size,
+    Action, App, AppContext as _, Context, Div, Entity, InteractiveElement, IntoElement,
+    ParentElement as _, Pixels, Render, Styled, Subscription, Window, WindowBounds, WindowOptions,
+    div, px, rgb, size,
 };
-use gpui_component::{
-    Root,
-    resizable::{h_resizable, resizable_panel},
-};
-use tracing::info;
+use gpui_component::Root;
 
 pub mod item;
 pub mod pane;
@@ -17,7 +13,7 @@ pub mod pane_group;
 
 use item::ItemHandle;
 use pane::{Event as PaneEvent, Pane};
-use pane_group::PaneGroup;
+use pane_group::{PaneGroup, SplitDirection};
 
 pub fn init(cx: &mut App) {
     let options = WindowOptions {
@@ -37,7 +33,7 @@ pub fn init(cx: &mut App) {
 
 /// Minimal reproduction of Zed's Workspace entity, serves as the top-level view
 pub struct Workspace {
-    left_panel: Option<AnyView>,
+    main_pane: Entity<Pane>,
     pane_group: PaneGroup,
     actions: Vec<Box<dyn Fn(Div, &Workspace, &mut Window, &mut Context<Self>) -> Div>>,
     _subscriptions: Vec<Subscription>,
@@ -45,18 +41,18 @@ pub struct Workspace {
 
 impl Workspace {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let pane = cx.new(|cx| Pane::new(window, cx));
-        let pane_group = PaneGroup::new(pane.clone());
+        let main_pane = cx.new(|cx| Pane::new(window, cx));
+        let pane_group = PaneGroup::new(main_pane.clone());
 
         let _subscriptions =
             vec![
-                cx.subscribe_in(&pane, window, |workspace, pane, event, window, cx| {
+                cx.subscribe_in(&main_pane, window, |workspace, pane, event, window, cx| {
                     workspace.handle_pane_event(pane, event, window, cx)
                 }),
             ];
 
         Self {
-            left_panel: None,
+            main_pane,
             pane_group,
             actions: Default::default(),
             _subscriptions,
@@ -78,7 +74,7 @@ impl Workspace {
                         workspace.handle_pane_event(pane, event, window, cx);
                     });
                 self._subscriptions.push(subscription);
-                self.pane_group.split(pane, &new_pane, *direction);
+                self.pane_group.split(pane, &new_pane, *direction, None);
                 cx.notify();
             }
             PaneEvent::SplitWithItem {
@@ -107,7 +103,7 @@ impl Workspace {
                     self.pane_group.remove(source_pane);
                 }
 
-                self.pane_group.split(pane, &new_pane, *direction);
+                self.pane_group.split(pane, &new_pane, *direction, None);
                 cx.notify();
             }
             PaneEvent::MoveItem {
@@ -159,14 +155,25 @@ impl Workspace {
         self
     }
 
-    pub fn add_panel(
+    pub fn add_item_in_split(
         &mut self,
-        panel: impl Into<AnyView>,
-        _window: &mut Window,
+        item: Box<dyn ItemHandle>,
+        direction: SplitDirection,
+        size: Option<Pixels>,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        info!("Adding panel");
-        self.left_panel = Some(panel.into());
+        let new_pane = cx.new(|cx| Pane::new(window, cx));
+        new_pane.update(cx, |pane, cx| {
+            pane.add_item(item, cx);
+        });
+        let subscription =
+            cx.subscribe_in(&new_pane, window, |workspace, pane, event, window, cx| {
+                workspace.handle_pane_event(pane, event, window, cx);
+            });
+        self._subscriptions.push(subscription);
+        self.pane_group
+            .split(&self.main_pane, &new_pane, direction, size);
         cx.notify();
     }
 
@@ -178,8 +185,7 @@ impl Workspace {
         _window: &mut Window,
         cx: &mut App,
     ) {
-        let first_pane = self.pane_group.first_pane();
-        first_pane.update(cx, |pane, cx| {
+        self.main_pane.update(cx, |pane, cx| {
             pane.add_item(item, cx);
         });
     }
@@ -217,13 +223,7 @@ impl Render for Workspace {
         self.actions(div(), window, cx)
             .bg(rgb(0xaaaaaa))
             .size_full()
-            .child(
-                h_resizable("resizable")
-                    .when_some(self.left_panel.clone(), |el, panel| {
-                        el.child(resizable_panel().size(300.).child(panel))
-                    })
-                    .child(self.pane_group.render(window, cx)),
-            )
+            .child(self.pane_group.render(window, cx))
     }
 }
 

@@ -1,10 +1,10 @@
 use std::sync::LazyLock;
 
-use galvanized_core::{GalvanizedHandle as _, Workspace};
+use galvanized_core::{GalvanizedHandle as _, Workspace, item::Item};
 use gpui::{
-    self, Anchor, App, AppContext, Context, DismissEvent, Div, ElementId, Entity, FocusHandle,
-    Focusable, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton, MouseDownEvent,
-    ParentElement as _, Pixels, Point, Render, SharedString, Stateful,
+    self, Anchor, App, AppContext, Context, DismissEvent, Div, ElementId, Entity, EventEmitter,
+    FocusHandle, Focusable, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton,
+    MouseDownEvent, ParentElement as _, Pixels, Point, Render, SharedString, Stateful,
     StatefulInteractiveElement as _, Styled, Subscription, Window, actions, anchored, deferred,
     div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, rgba,
 };
@@ -449,6 +449,23 @@ impl GalvanizedPanel {
 }
 
 // impl EventEmitter<PanelEvent> for GalvanizedPanel {}
+
+/// Events emitted by the Galvanized panel.
+///
+/// The panel currently has no events of its own, but [`Item`] requires an
+/// associated event type so that panes can subscribe to item-side changes.
+pub enum PanelEvent {}
+
+impl EventEmitter<PanelEvent> for GalvanizedPanel {}
+
+impl Item for GalvanizedPanel {
+    type Event = PanelEvent;
+
+    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+        "Galvanized".into()
+    }
+}
+
 impl Focusable for GalvanizedPanel {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
