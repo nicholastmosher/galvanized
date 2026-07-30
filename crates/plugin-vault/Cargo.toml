@@ -33,7 +33,6 @@ tracing.workspace = true
 uuid = { workspace = true, features = ["v4", "serde"] }
 willow25.workspace = true
 # zed.workspace = true
-zed_ui.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]

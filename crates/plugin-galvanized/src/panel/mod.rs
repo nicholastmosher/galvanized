@@ -2,20 +2,24 @@ use std::sync::LazyLock;
 
 use galvanized_core::{GalvanizedHandle as _, Workspace, item::Item};
 use gpui::{
-    self, Anchor, App, AppContext, Context, DismissEvent, Div, ElementId, Entity, EventEmitter,
-    FocusHandle, Focusable, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton,
-    MouseDownEvent, ParentElement as _, Pixels, Point, Render, SharedString, Stateful,
-    StatefulInteractiveElement as _, Styled, Subscription, Window, actions, anchored, deferred,
-    div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, rgba,
+    self, App, AppContext, Context, Div, ElementId, Entity, EventEmitter, FocusHandle, Focusable,
+    FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement as _, Render, SharedString,
+    Stateful, StatefulInteractiveElement as _, Styled, Window, actions, div, linear_color_stop,
+    linear_gradient, prelude::FluentBuilder as _, px, rgba,
 };
-use gpui_component::{ActiveTheme as _, h_flex, input::InputState, tooltip::Tooltip, v_flex};
+use gpui_component::{
+    ActiveTheme as _, h_flex,
+    input::InputState,
+    menu::{ContextMenuExt as _, PopupMenuItem},
+    tooltip::Tooltip,
+    v_flex,
+};
 use gpui_util::ResultExt as _;
 use tracing::info;
-use zed_ui::ContextMenu;
 
 use crate::{
     Galvanized,
-    app_behavior::AppHandle,
+    app_behavior::{AppHandle, SpaceContextMenuItem},
     domain::{space::Space, vault::Vault},
     panel::{scene_vault::VaultScene, vault_menu::render_vault_menu},
 };
@@ -64,9 +68,6 @@ pub struct GalvanizedPanel {
     // Panel scene
     scene: PanelScene,
     create_space_kind: CreateSpaceKind,
-
-    // Context menu state
-    context_menu: Option<(Entity<ContextMenu>, Point<Pixels>, Subscription)>,
 }
 
 /// Post-onboarding flows that take over the panel.
@@ -172,8 +173,6 @@ impl GalvanizedPanel {
 
             scene: PanelScene::Home,
             create_space_kind: Default::default(),
-
-            context_menu: None,
         }
     }
 
@@ -307,19 +306,30 @@ impl GalvanizedPanel {
                                 // TODO: toggle space filter
                                 info!("Clicked namespace icon {i}");
                             }))
-                            .on_mouse_down(
-                                MouseButton::Right,
-                                cx.listener({
-                                    move |this, event: &MouseDownEvent, window, cx| {
-                                        this.deploy_space_context_menu(
-                                            space.clone(),
-                                            event.position,
-                                            window,
-                                            cx,
-                                        );
+                            .context_menu({
+                                let galvanized = self.galvanized.clone();
+                                move |menu, _window, cx| {
+                                    let apps = galvanized
+                                        .read(cx)
+                                        .apps
+                                        .iter()
+                                        .map(|(id, app)| (*id, app.boxed_clone()))
+                                        .collect::<Vec<_>>();
+                                    let mut menu = menu.label("Space Actions");
+                                    for (_id, app) in &apps {
+                                        for item in app.space_context_menu_items(space.clone(), cx)
+                                        {
+                                            let SpaceContextMenuItem { label, handler } = item;
+                                            menu = menu.item(PopupMenuItem::new(label).on_click(
+                                                move |_event, window, cx| {
+                                                    handler(window, cx);
+                                                },
+                                            ));
+                                        }
                                     }
-                                }),
-                            )
+                                    menu
+                                }
+                            })
                             .items_center()
                             .justify_center()
                             .child(
@@ -366,60 +376,6 @@ impl GalvanizedPanel {
                             ),
                     ),
             )
-            .children(self.context_menu.as_ref().map(|(menu, position, _)| {
-                deferred(
-                    anchored()
-                        .position(*position)
-                        .anchor(Anchor::TopLeft)
-                        .child(menu.clone()),
-                )
-                .with_priority(3)
-            }))
-    }
-
-    fn deploy_space_context_menu(
-        &mut self,
-        space: Entity<Space>,
-        position: Point<Pixels>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let apps = self
-            .galvanized
-            .read(cx)
-            .apps
-            .iter()
-            .map(|(id, app)| (*id, app.boxed_clone()))
-            .collect::<Vec<_>>();
-
-        let context_menu = ContextMenu::build(window, cx, move |menu, _window, cx| {
-            let mut menu = menu.header("Space Actions");
-            for (_id, app) in &apps {
-                let actions = app.space_context_menu_items(space.clone(), cx);
-                for action in actions {
-                    menu = menu.custom_entry(
-                        move |_window, _cx| {
-                            div().p_2().child(action.label.clone()).into_any_element()
-                        },
-                        move |window, cx| {
-                            (action.handler)(window, cx);
-                        },
-                    );
-                }
-            }
-            menu
-        });
-
-        window.focus(&context_menu.focus_handle(cx), cx);
-        let subscription = cx.subscribe(
-            &context_menu,
-            |this: &mut GalvanizedPanel, _, _: &DismissEvent, cx| {
-                this.context_menu.take();
-                cx.notify();
-            },
-        );
-        self.context_menu = Some((context_menu, position, subscription));
-        cx.notify();
     }
 
     fn render_app_content(

@@ -34,9 +34,10 @@ use gpui::{
     Window, actions, div,
 };
 use gpui_component::{
-    ActiveTheme as _,
+    ActiveTheme as _, h_flex,
     input::{Input, InputState},
     tooltip::Tooltip,
+    v_flex,
 };
 use gpui_util::ResultExt as _;
 use hex::ToHex;
@@ -60,7 +61,7 @@ use signature::SignerMut as _;
 use tracing::{info, warn};
 use ufotofu::{IntoConsumer as _, IntoProducer, codec::Decodable};
 use willow25::entry::{SubspaceId, SubspaceSecret, SubspaceSignature};
-use zed_ui::{FluentBuilder as _, h_flex, v_flex};
+use gpui::prelude::FluentBuilder as _;
 
 pub mod protocol;
 

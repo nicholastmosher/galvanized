@@ -14621,8 +14621,6 @@ dependencies = [
  "tokio-util",
  "tracing",
  "ufotofu",
- "ui",
- "ui_input",
  "uuid",
  "willow25",
 ]
@@ -14658,8 +14656,6 @@ dependencies = [
  "serde_json",
  "serde_with",
  "tracing",
- "ui",
- "ui_input",
  "uuid",
  "willow25",
 ]
@@ -14699,7 +14695,6 @@ dependencies = [
  "gpui",
  "gpui-component",
  "gpui_util",
- "ui",
 ]
 
 [[package]]
@@ -14733,7 +14728,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
- "ui",
  "uuid",
  "willow25",
  "zeroize",

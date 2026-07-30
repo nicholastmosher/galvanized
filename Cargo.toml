@@ -97,8 +97,6 @@ gpui = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 gpui_platform = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 gpui_util = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 zed = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
-zed_ui = { package = "ui", git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
-zed_ui_input = { package = "ui_input", git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 # gpui = { path = "../zed/crates/gpui" }
 # zed = { path = "../zed/crates/zed" }
 

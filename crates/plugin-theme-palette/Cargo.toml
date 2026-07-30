@@ -8,5 +8,4 @@ galvanized-core.workspace = true
 gpui.workspace = true
 gpui-component.workspace = true
 gpui_util.workspace = true
-zed_ui.workspace = true
 # zed.workspace = true

@@ -1,6 +1,7 @@
 use std::{boxed::Box, pin::Pin};
 
 use anyhow::{Context as _, Result};
+use gpui::prelude::FluentBuilder as _;
 use gpui::{
     App, AppContext, Bounds, Context, Entity, InteractiveElement as _, IntoElement, KeyDownEvent,
     ParentElement, Render, StatefulInteractiveElement as _, Styled as _, TitlebarOptions, Window,
@@ -10,7 +11,6 @@ use gpui_component::{ActiveTheme as _, h_flex, input::InputState, v_flex};
 use gpui_util::ResultExt as _;
 use tokio::sync::oneshot;
 use tracing::info;
-use zed_ui::FluentBuilder as _;
 
 use crate::{Unlock, VaultsCx, vault_db::VaultId};
 
