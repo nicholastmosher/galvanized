@@ -38,13 +38,14 @@ pub(crate) struct CommandPaletteHandle {
 
 pub struct CommandPalette {
     list: Entity<ListState<CommandPaletteDelegate>>,
+    previous_focus_handle: Option<FocusHandle>,
 }
 
 impl EventEmitter<DismissEvent> for CommandPalette {}
 
 impl CommandPalette {
     fn new(
-        previous_focus_handle: FocusHandle,
+        previous_focus_handle: Option<FocusHandle>,
         commands: Vec<Command>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -53,7 +54,7 @@ impl CommandPalette {
         let all_len = commands.len();
         let delegate = CommandPaletteDelegate {
             command_palette,
-            previous_focus_handle,
+            previous_focus_handle: previous_focus_handle.clone(),
             all_commands: commands,
             matches: (0..all_len).collect(),
             selected_index: None,
@@ -62,10 +63,21 @@ impl CommandPalette {
         let list = cx.new(|cx| ListState::new(delegate, window, cx).searchable(true));
         list.focus_handle(cx).focus(window, cx);
 
-        Self { list }
+        Self {
+            list,
+            previous_focus_handle,
+        }
     }
 
     fn dismiss(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        // Restore focus before tearing the palette down, so the backdrop-click
+        // dismiss path leaves focus on a valid handle (the search input we
+        // focused on open is about to be dropped). Without this, clicking the
+        // backdrop to dismiss would leave `window.focused` pointing at a dead
+        // handle, and the next `Toggle` would bail.
+        if let Some(previous_focus_handle) = self.previous_focus_handle.as_ref() {
+            _window.focus(previous_focus_handle, cx);
+        }
         cx.emit(DismissEvent);
     }
 }
@@ -90,7 +102,6 @@ impl Render for CommandPalette {
                 div()
                     .id("command-palette")
                     .w(px(640.))
-                    .max_h(px(400.))
                     .bg(colors.popover)
                     .text_color(colors.popover_foreground)
                     .border_1()
@@ -101,7 +112,15 @@ impl Render for CommandPalette {
                     // Keep clicks on the palette from bubbling to the backdrop
                     // (which would dismiss it).
                     .on_click(|_event, _window, cx| cx.stop_propagation())
-                    .child(List::new(&self.list).search_placeholder("Execute a command...")),
+                    // The `List` carries its own `max_h`: gpui-component transfers
+                    // it to the inner virtual list and switches to `Infer` sizing,
+                    // so the list grows with its content up to the cap. Without it
+                    // the virtual list has no viewport height and renders nothing.
+                    .child(
+                        List::new(&self.list)
+                            .search_placeholder("Execute a command...")
+                            .max_h(px(400.)),
+                    ),
             )
     }
 }
@@ -113,12 +132,19 @@ pub(crate) fn toggle(workspace: &mut Workspace, window: &mut Window, cx: &mut Co
         return;
     }
 
-    let Some(previous_focus_handle) = window.focused(cx) else {
-        return;
-    };
+    // Capture where focus is now so the palette can restore it on dismiss.
+    // This is `Option`: after a previous palette dismissed via a path that
+    // didn't restore focus, `window.focused` can be `None`. We must not bail in
+    // that case — the palette still needs to open. `available_actions` and
+    // `window.dispatch_action` both fall back to the window's root dispatch
+    // node when focus is `None`/unresolved, so the workspace's actions stay
+    // reachable and re-openable.
+    let previous_focus_handle = window.focused(cx);
 
     // Capture the actions available at the current focus before the palette
-    // takes focus, so the list reflects what the user could act on.
+    // takes focus, so the list reflects what the user could act on. When focus
+    // is `None`, this resolves to the root node and yields the workspace's
+    // actions (the Open apps, Toggle, etc.).
     let commands = window
         .available_actions(cx)
         .into_iter()
@@ -143,7 +169,7 @@ pub(crate) fn toggle(workspace: &mut Workspace, window: &mut Window, cx: &mut Co
 
 pub struct CommandPaletteDelegate {
     command_palette: WeakEntity<CommandPalette>,
-    previous_focus_handle: FocusHandle,
+    previous_focus_handle: Option<FocusHandle>,
     all_commands: Vec<Command>,
     matches: Vec<usize>,
     selected_index: Option<IndexPath>,
@@ -156,7 +182,7 @@ impl ListDelegate for CommandPaletteDelegate {
         &mut self,
         query: &str,
         _window: &mut Window,
-        _cx: &mut Context<ListState<Self>>,
+        cx: &mut Context<ListState<Self>>,
     ) -> Task<()> {
         let normalized = normalize_action_query(query);
         if normalized.is_empty() {
@@ -172,6 +198,12 @@ impl ListDelegate for CommandPaletteDelegate {
                 })
                 .collect();
         }
+
+        // The list's rows cache is only rebuilt during render, and the list
+        // base only notifies on a query change when its cache is non-empty.
+        // When a prior query matched nothing the cache is empty, so without
+        // this notify the list would never re-render to show the new matches.
+        cx.notify();
         Task::ready(())
     }
 
@@ -218,9 +250,13 @@ impl ListDelegate for CommandPaletteDelegate {
         };
         let action = self.all_commands[command_index].action.boxed_clone();
 
-        // Dispatch on the element the user had focused before opening the
-        // palette, so the action reaches the same handler a keybinding would.
-        window.focus(&self.previous_focus_handle, cx);
+        // Restore focus to where the palette was invoked from, so the action
+        // dispatches to the same node a keybinding would reach. When there was
+        // no prior focus, `window.dispatch_action` below falls back to the
+        // window's root node, where the workspace's action handlers live.
+        if let Some(previous_focus_handle) = self.previous_focus_handle.as_ref() {
+            window.focus(previous_focus_handle, cx);
+        }
         let _ = self
             .command_palette
             .update(cx, |_, cx| cx.emit(DismissEvent));
@@ -228,7 +264,9 @@ impl ListDelegate for CommandPaletteDelegate {
     }
 
     fn cancel(&mut self, window: &mut Window, cx: &mut Context<ListState<Self>>) {
-        window.focus(&self.previous_focus_handle, cx);
+        if let Some(previous_focus_handle) = self.previous_focus_handle.as_ref() {
+            window.focus(previous_focus_handle, cx);
+        }
         let _ = self
             .command_palette
             .update(cx, |_, cx| cx.emit(DismissEvent));
