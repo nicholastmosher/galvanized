@@ -360,15 +360,12 @@ impl Pane {
         let target = div()
             .id("drop-target")
             .absolute()
-            .size_full()
-            .top_0()
-            .left_0()
             .invisible()
             .group_drag_over::<DraggedTab>("", |style| style.visible())
             .on_drop::<DraggedTab>(cx.listener(Self::handle_tab_drop));
 
         let target = match self.drag_split_direction {
-            None => target,
+            None => target.top_0().left_0().right_0().bottom_0(),
             Some(SplitDirection::Up) => target
                 .top_0()
                 .left_0()
@@ -376,8 +373,8 @@ impl Pane {
                 .h(px(40.))
                 .bg(colors.accent),
             Some(SplitDirection::Down) => target
-                .left_0()
                 .bottom_0()
+                .left_0()
                 .right_0()
                 .h(px(40.))
                 .bg(colors.accent),
