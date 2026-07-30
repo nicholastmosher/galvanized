@@ -3,7 +3,7 @@ use gpui::{
     EventEmitter, FocusHandle, Focusable, InteractiveElement, IntoElement, ParentElement, Render,
     StatefulInteractiveElement, Styled, Window, div, point, prelude::FluentBuilder, px,
 };
-use gpui_component::{ActiveTheme, StyledExt};
+use gpui_component::{ActiveTheme, StyledExt, h_flex};
 
 use crate::item::ItemHandle;
 use crate::pane_group::SplitDirection;
@@ -174,7 +174,7 @@ impl Pane {
         cx: &mut Context<Self>,
     ) {
         let rect = event.bounds.size;
-        let drop_target_size = px(40.0);
+        let drop_target_size = px(80.0);
         let relative_cursor = point(
             event.event.position.x - event.bounds.left(),
             event.event.position.y - event.bounds.top(),
@@ -304,12 +304,12 @@ impl Pane {
             let is_active = index == self.active_item_index;
             let label = item.tab_content_text(0, cx);
 
-            let tab = div()
+            let tab = h_flex()
                 .id(("tab", index))
                 .px_3()
                 .py_1()
                 .cursor_pointer()
-                .rounded_md()
+                .rounded_t_md()
                 .child(label)
                 .when(is_active, |tab| {
                     tab.bg(colors.background).text_color(colors.foreground)
@@ -370,26 +370,26 @@ impl Pane {
                 .top_0()
                 .left_0()
                 .right_0()
-                .h(px(40.))
-                .bg(colors.accent),
+                .h(px(80.))
+                .bg(colors.accent.opacity(0.7)),
             Some(SplitDirection::Down) => target
                 .bottom_0()
                 .left_0()
                 .right_0()
-                .h(px(40.))
-                .bg(colors.accent),
+                .h(px(80.))
+                .bg(colors.accent.opacity(0.7)),
             Some(SplitDirection::Left) => target
                 .top_0()
                 .left_0()
                 .bottom_0()
-                .w(px(40.))
-                .bg(colors.accent),
+                .w(px(80.))
+                .bg(colors.accent.opacity(0.7)),
             Some(SplitDirection::Right) => target
                 .top_0()
                 .bottom_0()
                 .right_0()
-                .w(px(40.))
-                .bg(colors.accent),
+                .w(px(80.))
+                .bg(colors.accent.opacity(0.7)),
         };
 
         target.into_any()
