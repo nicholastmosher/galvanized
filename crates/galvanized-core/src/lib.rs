@@ -113,25 +113,23 @@ impl Workspace {
             PaneEvent::MoveItem {
                 source_pane,
                 item_index,
+                target_index,
             } => {
                 if source_pane.entity_id() == pane.entity_id() {
-                    // Reorder within the same pane
                     pane.update(cx, |pane, cx| {
-                        if let Some(item) = pane.remove_item(*item_index) {
-                            pane.add_item(item, cx);
-                        }
+                        pane.move_item(*item_index, *target_index, cx);
                     });
                 } else {
-                    // Move the item from the source pane to this pane
                     source_pane.update(cx, |source_pane, cx| {
                         if let Some(item) = source_pane.remove_item(*item_index) {
                             pane.update(cx, |target_pane, cx| {
-                                target_pane.add_item(item, cx);
+                                let insert_index = target_pane.items_len().min(*target_index);
+                                target_pane.insert_item_at(insert_index, item, cx);
+                                target_pane.activate_item(insert_index, cx);
                             });
                         }
                     });
 
-                    // Remove the source pane if it became empty
                     if source_pane.read(cx).is_empty() {
                         self.pane_group.remove(source_pane);
                     }

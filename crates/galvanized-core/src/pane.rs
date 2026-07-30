@@ -41,6 +41,7 @@ pub enum Event {
     MoveItem {
         source_pane: Entity<Pane>,
         item_index: usize,
+        target_index: usize,
     },
     /// The pane should be removed from its group.
     Remove,
@@ -81,6 +82,23 @@ impl Pane {
         let index = index.min(self.items.len());
         self.items.insert(index, item);
         if self.active_item_index >= index {
+            self.active_item_index += 1;
+        }
+        cx.notify();
+    }
+
+    pub fn move_item(&mut self, from: usize, to: usize, cx: &mut Context<Self>) {
+        if from >= self.items.len() || from == to {
+            return;
+        }
+        let item = self.items.remove(from);
+        let to = to.min(self.items.len());
+        self.items.insert(to, item);
+        if self.active_item_index == from {
+            self.active_item_index = to;
+        } else if from < self.active_item_index && to >= self.active_item_index {
+            self.active_item_index -= 1;
+        } else if from > self.active_item_index && to <= self.active_item_index {
             self.active_item_index += 1;
         }
         cx.notify();
@@ -207,16 +225,20 @@ impl Pane {
         cx.notify();
     }
 
-    fn handle_tab_bar_drop(
+    fn handle_drop_at_index(
         &mut self,
         dragged_tab: &DraggedTab,
+        target_index: usize,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.drag_split_direction = None;
         cx.emit(Event::MoveItem {
             source_pane: dragged_tab.pane.clone(),
             item_index: dragged_tab.item_index,
+            target_index,
         });
+        cx.notify();
     }
 }
 
@@ -239,6 +261,8 @@ impl Render for Pane {
                     .id("pane-content")
                     .flex_1()
                     .size_full()
+                    .relative()
+                    .group("")
                     .overflow_hidden()
                     .on_drag_move::<DraggedTab>(cx.listener(Self::handle_drag_move))
                     .child(if let Some(item) = self.active_item() {
@@ -272,7 +296,9 @@ impl Pane {
             .bg(colors.muted)
             .gap_1()
             .px_1()
-            .on_drop::<DraggedTab>(cx.listener(Self::handle_tab_bar_drop));
+            .on_drop::<DraggedTab>(cx.listener(move |this, dragged_tab, window, cx| {
+                this.handle_drop_at_index(dragged_tab, this.items.len(), window, cx);
+            }));
 
         for (index, item) in self.items.iter().enumerate() {
             let is_active = index == self.active_item_index;
@@ -302,6 +328,10 @@ impl Pane {
                     },
                     |tab, _, _, cx| cx.new(|_| tab.clone()),
                 )
+                .on_drop::<DraggedTab>(cx.listener(move |this, dragged_tab, window, cx| {
+                    this.handle_drop_at_index(dragged_tab, index, window, cx);
+                }))
+                .drag_over::<DraggedTab>(|tab, _, _, cx| tab.bg(cx.theme().colors.drop_target))
                 .child(
                     div()
                         .id(("tab-close", index))
@@ -344,29 +374,25 @@ impl Pane {
                 .left_0()
                 .right_0()
                 .h(px(40.))
-                .bg(colors.accent)
-                .visible(),
+                .bg(colors.accent),
             Some(SplitDirection::Down) => target
                 .left_0()
                 .bottom_0()
                 .right_0()
                 .h(px(40.))
-                .bg(colors.accent)
-                .visible(),
+                .bg(colors.accent),
             Some(SplitDirection::Left) => target
                 .top_0()
                 .left_0()
                 .bottom_0()
                 .w(px(40.))
-                .bg(colors.accent)
-                .visible(),
+                .bg(colors.accent),
             Some(SplitDirection::Right) => target
                 .top_0()
                 .bottom_0()
                 .right_0()
                 .w(px(40.))
-                .bg(colors.accent)
-                .visible(),
+                .bg(colors.accent),
         };
 
         target.into_any()
