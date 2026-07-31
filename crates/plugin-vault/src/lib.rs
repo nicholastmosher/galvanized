@@ -7,7 +7,7 @@ use tracing::info;
 
 use crate::{
     error::VaultError,
-    vault_actor::{VaultActor, VaultActorHandle, VaultToken},
+    vault_actor::{VaultActor, VaultActorHandle, VaultToken, VaultUnlock},
     vault_db::{VaultAccess, VaultId, VaultMetadataRef, VaultMut, VaultRef},
 };
 
@@ -20,14 +20,16 @@ pub mod vault_db;
 actions!(vault, [Lock, Unlock]);
 
 pub fn init(cx: &mut App) {
-    let root = capsec::root();
+    // The capability root is intentionally NOT created here. Per T1 §4/§5,
+    // `capsec::root()` is only invoked on the password-unlock path (the
+    // VaultActor obtains it lazily on first unlock), so no other code path can
+    // mint a top-level capability.
     // let db_path = paths::data_dir().join("vault.db");
     let db_path = dirs::data_dir()
         .expect("data dir")
         .join("galvanized")
         .join("vault.db");
-    let cap = root.grant::<VaultAccess>().make_send();
-    let actor = VaultActor::spawn(db_path, cap).unwrap();
+    let actor = VaultActor::spawn(db_path).unwrap();
     let state = cx.new(|_cx| VaultsCxState::new(actor));
     cx.set_global(GlobalVault(state.clone()));
     info!("Initialized Vaults");
@@ -139,12 +141,14 @@ impl<C: AppContext> VaultsCx<'_, C> {
         })
     }
 
-    /// Unlock the vault with the given ID and password, returning a [`VaultHandle`].
+    /// Unlock the vault with the given ID and password, returning a
+    /// [`VaultUnlock`] — the vault-access token plus the Willow session
+    /// capabilities minted on unlock.
     pub fn unlock(
         &self,
         vault_id: &VaultId,
         password: String,
-    ) -> Task<Result<VaultToken, VaultError>> {
+    ) -> Task<Result<VaultUnlock, VaultError>> {
         let actor = self.actor();
         let vault_id = vault_id.clone();
         self.cx.background_spawn(async move {

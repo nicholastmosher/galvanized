@@ -1,9 +1,14 @@
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context as _, Result, bail};
+use galvanized_cap::{
+    CapCell, StrictSendCap, WillowKeyStore, WillowRead, WillowScope, WillowWrite,
+};
 use gpui::{AppContext, Context, Entity, IntoElement, SharedString, Task};
 use iroh::{Endpoint, endpoint::presets::N0};
-use plugin_vault::{VaultsExt as _, vault_actor::VaultToken, vault_db::VaultId};
+use plugin_vault::{
+    VaultsExt as _, vault_actor::VaultToken, vault_actor::VaultUnlock, vault_db::VaultId,
+};
 use plugin_willow::WillowExt;
 use plugin_willow::willow_serde::SubspaceIdSerde;
 use serde::{Deserialize, Serialize};
@@ -22,8 +27,9 @@ use crate::domain::{
 /// to Willow Namespaces and Subspaces, respectively.
 ///
 /// A Vault also provides protected access to the Willow data it owns.
-/// Willow data access is gated behind the User's vault being unlocked.
-#[derive(derive_more::Debug)]
+/// Willow data access is gated behind the vault being unlocked, and the
+/// unlocked content is held behind a capability ([`CapCell`]) that blanks on
+/// lock or timeout.
 pub struct Vault {
     /// Public metadata about the user, visible while the vault is locked.
     metadata: VaultMetadata,
@@ -38,12 +44,34 @@ pub struct Vault {
     /// over time or be revoked.
     vault_token: Option<VaultToken>,
 
-    // TODO: Create a capability-powered caching wrapper, with timeout and revoke {
-    unlocked_vault: Option<VaultContent>,
+    // ── T1 capability session state ───────────────────────────────────────
+    /// The Willow *write* session capability, minted on unlock and revoked on
+    /// lock. App plugins present this to the [`WillowKeyStore`] to gate Willow
+    /// writes and "sign as Profile".
+    willow_write: Option<StrictSendCap<WillowWrite, WillowScope>>,
+    /// The Willow *read* session capability, held transiently between unlock
+    /// and `load_content`, then moved into the [`CapCell`] gating the content.
+    willow_read: Option<StrictSendCap<WillowRead, WillowScope>>,
+    /// Revokers for the read/write session capabilities; the lock action
+    /// revokes both, blanking every [`CapCell`] (and making the key store
+    /// inert) in one step.
+    read_revoker: Option<galvanized_cap::StrictRevoker>,
+    write_revoker: Option<galvanized_cap::StrictRevoker>,
+    /// The cap-gated secret custodian. `None` when locked.
+    key_store: Option<WillowKeyStore>,
+
+    /// The vault's unlocked content, gated behind the read session capability.
+    /// Yields `None` once the capability is revoked (lock) or expired
+    /// (timeout) — the `vault.rs:41` TODO, now built.
+    unlocked_content:
+        Option<CapCell<VaultContent, StrictSendCap<WillowRead, WillowScope>, WillowRead>>,
+
+    // Entity caches for rendering. Cleared on lock (defense-in-depth: their
+    // private secrets are already unreachable, but clearing them on lock is
+    // the doctrine — capability expiry *and* in-memory unavailability).
     unlocked_spaces: BTreeMap<NamespaceId, Entity<Space>>,
     unlocked_active_profile: Option<Entity<Profile>>,
     unlocked_profiles: BTreeMap<SubspaceId, Entity<Profile>>,
-    // } END TODO: capability-powered caching
     unlock_task: Option<Task<Result<()>>>,
 }
 
@@ -66,7 +94,12 @@ impl Vault {
             metadata,
             vault_id,
             vault_token: None,
-            unlocked_vault: None,
+            willow_write: None,
+            willow_read: None,
+            read_revoker: None,
+            write_revoker: None,
+            key_store: None,
+            unlocked_content: None,
             unlocked_spaces: Default::default(),
             unlocked_active_profile: Default::default(),
             unlocked_profiles: Default::default(),
@@ -81,14 +114,19 @@ impl Vault {
         self.metadata.user_name.clone()
     }
 
+    /// Returns `true` when the vault is locked (no active session).
+    pub fn is_locked(&self) -> bool {
+        self.vault_token.is_none()
+    }
+
     /// Attempts to unlock this User by unlocking its underlying Vault
     pub fn unlock(&mut self, password: String, cx: &mut Context<Self>) -> Task<Result<()>> {
         let vault_id = self.vault_id.clone();
         cx.spawn(async move |this, cx| {
-            let vault_handle = cx.vaults().unlock(&vault_id, password).await?;
+            let session = cx.vaults().unlock(&vault_id, password).await?;
 
             this.update(cx, |this, cx| {
-                this.vault_token = Some(vault_handle);
+                this.apply_unlock_session(session);
                 this.load_content(cx)
             })?
             .await?;
@@ -98,8 +136,63 @@ impl Vault {
         })
     }
 
+    /// Stores the capabilities minted on unlock (vault-access token plus the
+    /// Willow session caps and their revokers). The read cap is stashed for
+    /// [`load_content`] to wrap the content in a [`CapCell`].
+    pub fn apply_unlock_session(&mut self, session: VaultUnlock) {
+        let VaultUnlock {
+            token,
+            willow_read,
+            willow_write,
+            read_revoker,
+            write_revoker,
+        } = session;
+        self.vault_token = Some(token);
+        self.willow_read = Some(willow_read);
+        self.willow_write = Some(willow_write);
+        self.read_revoker = Some(read_revoker);
+        self.write_revoker = Some(write_revoker);
+    }
+
+    /// Compatibility shim retained for callers that hand back a bare token.
     pub fn set_unlock_token(&mut self, token: VaultToken) {
         self.vault_token = Some(token);
+    }
+
+    /// The Willow write session capability, if the vault is unlocked. App
+    /// plugins present this to the key store to gate Willow writes.
+    pub fn willow_write_cap(&self) -> Option<StrictSendCap<WillowWrite, WillowScope>> {
+        self.willow_write.clone()
+    }
+
+    /// The cap-gated secret custodian, if the vault is unlocked.
+    pub fn key_store(&self) -> Option<WillowKeyStore> {
+        self.key_store.clone()
+    }
+
+    /// Locks the vault: revokes every session capability (read + write),
+    /// dropping the gated content and making the key store inert, and clears
+    /// the in-memory entity caches. After this, gated content is inaccessible
+    /// through the public API.
+    pub fn lock(&mut self, cx: &mut Context<Self>) {
+        if let Some(revoker) = self.read_revoker.take() {
+            revoker.revoke();
+        }
+        if let Some(revoker) = self.write_revoker.take() {
+            revoker.revoke();
+        }
+        self.willow_read = None;
+        self.willow_write = None;
+        self.key_store = None;
+        self.unlocked_content = None;
+        self.unlocked_spaces.clear();
+        self.unlocked_profiles.clear();
+        self.unlocked_active_profile = None;
+        if let Some(token) = self.vault_token.take() {
+            token.lock();
+        }
+        self.unlock_task = None;
+        cx.notify();
     }
 
     /// If the given [`Vault`] is unlocked, fetch its content and store it in the entity
@@ -107,11 +200,9 @@ impl Vault {
     /// This function is async because it drives IO to fetch and decrypt the vault's
     /// content from the underlying database. Be sure to cache any retrieved data
     /// to store in UI entities.
-    ///
-    // TODO: Create capability-powered caching mechanism that automatically invalidates
-    // fetched cached data on lock.
     pub fn load_content(&mut self, cx: &mut Context<Self>) -> Task<Result<()>> {
         let vault_handle = self.vault_token.clone().context("vault is not unlocked");
+        let willow_read = self.willow_read.take();
 
         cx.spawn(async move |this, cx| {
             let vault_handle = vault_handle?;
@@ -142,6 +233,23 @@ impl Vault {
                 .collect::<Result<HashMap<_, _>, _>>()?;
 
             this.update(cx, |this, cx| {
+                // Build the cap-gated key store from the content's namespace/subspace
+                // secrets only on first load (e.g. right after unlock). On reload
+                // we keep the existing store so secrets added via `extend_key_store`
+                // (newly created Spaces/Profiles) survive. The secrets move into
+                // the store and are thereafter only accessible via a valid
+                // WillowWrite cap.
+                if this.key_store.is_none() {
+                    let key_store = plugin_willow::extract_key_store(
+                        vault_content.spaces.iter().map(|s| s.namespace()),
+                        vault_content.profiles.iter().map(|p| p.subspace()),
+                    );
+                    this.key_store = Some(key_store.clone());
+                }
+                let key_store = this.key_store.clone();
+
+                let write_cap = this.willow_write.clone();
+
                 for space_data in &vault_content.spaces {
                     if !this.unlocked_spaces.contains_key(&space_data.id()) {
                         let space_entity = cx.new(|cx| Space::from_data(space_data.clone(), cx));
@@ -162,7 +270,14 @@ impl Vault {
                         };
                         let profile_id = profile.id();
                         let profile = cx.new(|cx| {
-                            Profile::from_parts(endpoint, profile.clone(), home_space.clone(), cx)
+                            Profile::from_parts(
+                                endpoint,
+                                profile.clone(),
+                                home_space.clone(),
+                                write_cap.clone(),
+                                key_store.clone(),
+                                cx,
+                            )
                         });
 
                         this.unlocked_profiles.insert(profile_id, profile);
@@ -177,7 +292,29 @@ impl Vault {
                         .map(|(_, profile)| profile.clone());
                     this.unlocked_active_profile = active_profile;
                 }
-                this.unlocked_vault = Some(vault_content);
+
+                // Gate the content behind the read cap (CapCell). On first load after
+                // unlock, `willow_read` builds the cell; on reload, the existing cell's
+                // inner is refreshed.
+                match (willow_read, this.unlocked_content.take()) {
+                    (Some(cap), _) => {
+                        this.unlocked_content =
+                            Some(CapCell::new(cap, galvanized_cap::wildcard_target(), vault_content));
+                    }
+                    (None, Some(mut cell)) => {
+                        cell.replace_inner(vault_content);
+                        this.unlocked_content = Some(cell);
+                    }
+                    (None, None) => {
+                        // No read capability available and no existing cell: the
+                        // content must not be held ungated. This happens only if
+                        // load_content is called on a vault whose session caps are
+                        // gone (e.g. locked with a stale token); the read on the
+                        // vault handle would already have failed above. Refuse to
+                        // hold ungated content and surface it.
+                        warn!("load_content: no read capability; refusing to hold ungated content");
+                    }
+                }
             })?;
 
             anyhow::Ok(())
@@ -200,14 +337,19 @@ impl Vault {
 
             let vault_content_bytes = this
                 .update(cx, |this, _cx| {
-                    let vault = this.unlocked_vault.as_mut()?;
+                    let Some(cell) = this.unlocked_content.as_mut() else {
+                        return None;
+                    };
+                    let Some(vault) = cell.get_mut() else {
+                        return None;
+                    };
                     update_fn(vault);
                     let vault_bytes =
                         serde_json::to_vec(vault).context("failed to serialize VaultContent");
                     Some(vault_bytes)
                 })?
                 .transpose()?
-                .context("cannot update VaultContent, not loaded")?;
+                .context("cannot update VaultContent, not loaded or locked")?;
 
             cx.vaults()
                 .update(vault_handle, |mut vault| {
@@ -228,11 +370,12 @@ impl Vault {
         cx: &mut Context<Self>,
         f: impl FnOnce(&mut VaultAccess),
     ) -> Result<()> {
-        if let Some(mut vault) = self.unlocked_vault.take() {
-            let mut content = VaultAccess::new(&mut vault);
-            f(&mut content);
-            self.unlocked_vault = Some(vault);
-            return Ok(());
+        if let Some(cell) = self.unlocked_content.as_mut() {
+            if let Some(vault) = cell.get_mut() {
+                let mut content = VaultAccess::new(vault);
+                f(&mut content);
+                return Ok(());
+            }
         }
 
         let task = cx.spawn(async move |this, cx| {
@@ -283,11 +426,15 @@ impl Vault {
             } else {
                 cx.willow().create_communal_namespace().await?
             };
-            let space = cx.new(|cx| Space::new(name, namespace, cx));
+            let space = cx.new(|cx| Space::new(name, namespace.clone(), cx));
 
             this.update(cx, {
                 let space = space.clone();
                 move |this, cx| {
+                    // Gate the new namespace's secret behind the same capability surface.
+                    if let Some(key_store) = this.key_store.as_mut() {
+                        plugin_willow::extend_key_store(key_store, std::iter::once(&namespace), []);
+                    }
                     let key = space.read(cx).id();
                     this.unlocked_spaces.insert(key, space.clone());
                     let space_data = space.read(cx).data().clone();
@@ -341,19 +488,34 @@ impl Vault {
             let home_space = home_space_task.await?;
             let subspace = cx.willow().create_subspace().await?;
             let endpoint = Endpoint::builder(N0).bind().await?;
-            let profile = cx.new(|cx| Profile::new(endpoint, subspace, name, home_space, cx));
 
-            this.update(cx, {
-                move |this, cx| {
-                    let key = profile.read(cx).id();
-                    this.unlocked_profiles.insert(key.clone(), profile.clone());
-                    this.unlocked_active_profile = Some(profile.clone());
-                    let profile_data = profile.read(cx).data().clone();
-                    this.update_content(cx, move |vault| {
-                        vault.active_profile = Some(key);
-                        vault.profiles.push(profile_data);
-                    })
+            this.update(cx, |this, cx| {
+                // Gate the new subspace's secret behind the same capability surface.
+                if let Some(key_store) = this.key_store.as_mut() {
+                    plugin_willow::extend_key_store(key_store, [], std::iter::once(&subspace));
                 }
+                let write_cap = this.willow_write.clone();
+                let key_store = this.key_store.clone();
+                let profile = cx.new(|cx| {
+                    Profile::new(
+                        endpoint,
+                        subspace.clone(),
+                        name,
+                        home_space,
+                        write_cap,
+                        key_store,
+                        cx,
+                    )
+                });
+
+                let key = profile.read(cx).id();
+                this.unlocked_profiles.insert(key.clone(), profile.clone());
+                this.unlocked_active_profile = Some(profile.clone());
+                let profile_data = profile.read(cx).data().clone();
+                this.update_content(cx, move |vault| {
+                    vault.active_profile = Some(key);
+                    vault.profiles.push(profile_data);
+                })
             })?
             .await?;
 
@@ -368,6 +530,9 @@ pub trait VaultHandle {
     fn unlock<C: AppContext>(&self, cx: &mut C, password: String) -> Task<Result<()>>;
 
     fn load_content<C: AppContext>(&self, cx: &mut C) -> Task<Result<()>>;
+
+    /// Locks the vault, revoking its session capabilities (T1).
+    fn lock<C: AppContext>(&self, cx: &mut C);
 
     /// Utility function to provide access to the protected [`UserContent`] for rendering
     /// only when the [`User`] and its underlying Vault are unlocked.
@@ -388,6 +553,10 @@ impl VaultHandle for Entity<Vault> {
         cx.update_entity(self, |this, cx| this.load_content(cx))
     }
 
+    fn lock<C: AppContext>(&self, cx: &mut C) {
+        cx.update_entity(self, |this, cx| this.lock(cx));
+    }
+
     fn when_unlocked<C: AppContext, T>(
         &self,
         item: T,
@@ -395,14 +564,37 @@ impl VaultHandle for Entity<Vault> {
         f: impl for<'a> FnOnce(T, &mut Vault, &mut VaultAccess, &'a mut Context<Vault>) -> T,
     ) -> T {
         cx.update_entity(self, |user, cx| {
-            // If the user is unlocked and the content is cached, pass it to the caller's function
-            //
-            // We take the vault and replace it when we're done to avoid double borrowing
-            if let Some(mut user_vault) = user.unlocked_vault.take() {
-                let mut user_content = VaultAccess::new(&mut user_vault);
-                let item = f(item, user, &mut user_content, cx);
-                user.unlocked_vault = Some(user_vault);
-                return item;
+            // If the user is unlocked and the content is cached, pass it to the caller's function.
+            // We take the CapCell out so `f` can borrow `user` without aliasing the
+            // cell's borrow, then put it back (mirroring the prior `take`/put-back
+            // pattern for `unlocked_vault`). `Result<T, T>` carries `item` through
+            // the cap-invalid path so it is restored for the fall-through.
+            if let Some(mut cell) = user.unlocked_content.take() {
+                let result: Result<T, T> = match cell.get_mut() {
+                    Some(vault) => {
+                        let mut user_content = VaultAccess::new(vault);
+                        Ok(f(item, user, &mut user_content, cx))
+                    }
+                    None => Err(item),
+                };
+                user.unlocked_content = Some(cell);
+                match result {
+                    Ok(new_item) => return new_item,
+                    Err(original) => {
+                        // Capability invalid (locked/expired): spawn a reload,
+                        // which will fail if the vault is locked, surfacing the
+                        // re-lock state, and return the original item.
+                        let task = cx.spawn(async move |this, cx| {
+                            let Some(user) = this.upgrade() else {
+                                bail!("User weak handle has been dropped");
+                            };
+                            user.load_content(cx).await?;
+                            anyhow::Ok(())
+                        });
+                        user.unlock_task = Some(task);
+                        return original;
+                    }
+                }
             }
 
             let task = cx.spawn(async move |this, cx| {

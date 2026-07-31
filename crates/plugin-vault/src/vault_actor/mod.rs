@@ -5,14 +5,16 @@ use std::{
 };
 
 use anyhow::{Context as _, Result};
-use capsec::{CapProvider, SendCap};
+use capsec::{CapProvider, CapRoot, SendCap};
 use derive_more::Debug;
 use futures::{Stream, StreamExt as _};
+use galvanized_cap::{StrictSendCap, WillowRead, WillowScope, WillowWrite};
 use gpui_util::ResultExt;
-use strict_cap::{StrictRevoker, StrictSendCap};
+use strict_cap::StrictRevoker;
 use tracing::{error, info};
 
 use crate::{
+    error::{UnlockError, VaultError},
     vault_actor::{
         create_vault::CreateVaultRequest, list_vaults::ListVaultsRequest,
         lock_vault::LockVaultRequest, read_metadata::ReadVaultMetadataRequest,
@@ -32,6 +34,9 @@ pub mod update_vault;
 
 // TODO: Make configurable
 const DEFAULT_VAULT_TIMEOUT: Duration = Duration::from_secs(60 * 10);
+/// Default TTL for the Willow session capabilities minted on unlock (T1 §5:
+/// 15-minute default, sliding window — refreshed on successful use).
+const DEFAULT_WILLOW_CAP_TIMEOUT: Duration = Duration::from_secs(60 * 15);
 const ACTOR_CHANNEL_CAPACITY: usize = 50;
 
 /// A handle granting access to a particular [`Vault`]
@@ -79,6 +84,28 @@ impl VaultToken {
     }
 }
 
+/// The result of unlocking a vault: the vault-access token plus the Willow
+/// session capabilities (and their revokers) minted on unlock.
+///
+/// The Willow caps are the typed-token authority for Willow reads/writes; the
+/// vault should hold the revokers so its lock action can blank every cap (and
+/// every [`galvanized_cap::CapCell`] holding a clone of them) in one step. The
+/// signed-data Willow `WriteCapability` is still minted on demand from the
+/// vault's secrets (via [`galvanized_cap::WillowKeyStore`]); only the *right*
+/// to mint it is gated by `willow_write`.
+#[derive(derive_more::Debug)]
+pub struct VaultUnlock {
+    pub token: VaultToken,
+    #[debug(skip)]
+    pub willow_read: StrictSendCap<WillowRead, WillowScope>,
+    #[debug(skip)]
+    pub willow_write: StrictSendCap<WillowWrite, WillowScope>,
+    #[debug(skip)]
+    pub read_revoker: StrictRevoker,
+    #[debug(skip)]
+    pub write_revoker: StrictRevoker,
+}
+
 /// External handle API for interacting with the vault actor
 #[derive(Clone)]
 pub struct VaultActorHandle {
@@ -99,8 +126,11 @@ pub enum VaultActorInput {
 
 /// Internal state machine of the vault actor
 pub struct VaultActor {
-    /// Vault capability, used for accessing vaults
-    cap: SendCap<VaultAccess>,
+    /// The device-level capability root, owned by the vault and only exercised
+    /// to mint capabilities when a password unlock is provided. Obtained lazily
+    /// on the first unlock (per T1 §4/§5: `capsec::root()` is only invoked on
+    /// the password-unlock path).
+    root: Option<CapRoot>,
 
     /// Hold a clone of our own event sender, used for dispatched tasks to return
     /// results back to the actor.
@@ -114,12 +144,16 @@ pub struct VaultActor {
 }
 
 impl VaultActor {
-    /// Spawns a new vault actor with the given database path and capability.
-    pub fn spawn(db_path: PathBuf, cap: SendCap<VaultAccess>) -> Result<VaultActorHandle> {
+    /// Spawns a new vault actor with the given database path.
+    ///
+    /// The capability root is *not* created here; it is obtained lazily on the
+    /// first password unlock, so `capsec::root()` is only ever invoked on the
+    /// unlock path.
+    pub fn spawn(db_path: PathBuf) -> Result<VaultActorHandle> {
         let (actor_tx, rx) = flume::bounded(ACTOR_CHANNEL_CAPACITY);
         let tx = actor_tx.clone();
         let future = async move {
-            let actor = VaultActor::new(&db_path, cap, tx, rx).await?;
+            let actor = VaultActor::new(&db_path, tx, rx).await?;
             actor.run().await;
             anyhow::Ok(())
         };
@@ -134,10 +168,9 @@ impl VaultActor {
         })
     }
 
-    /// Initializes a new vault actor with the given database, capability, and channels.
+    /// Initializes a new vault actor with the given database and channels.
     pub async fn new(
         db_path: &Path,
-        cap: SendCap<VaultAccess>,
         tx: flume::Sender<VaultActorInput>,
         rx: flume::Receiver<VaultActorInput>,
     ) -> Result<Self> {
@@ -146,7 +179,7 @@ impl VaultActor {
             .context("failed to open or create vaults database")?;
 
         Ok(Self {
-            cap,
+            root: None,
             _tx: tx,
             rx,
             vaults,
@@ -218,5 +251,21 @@ impl VaultActor {
         }
 
         Ok(())
+    }
+}
+
+impl VaultActor {
+    /// Returns the capability root, obtaining it on first use. Returns an error
+    /// (visible to the caller) if the singleton has already been claimed
+    /// elsewhere — i.e. if `capsec::root()` was invoked outside the unlock
+    /// path, which T1 forbids.
+    fn ensure_root(&mut self) -> Result<&CapRoot, VaultError> {
+        if self.root.is_none() {
+            self.root = capsec::try_root();
+        }
+        match self.root.as_ref() {
+            Some(root) => Ok(root),
+            None => Err(VaultError::UnlockVault(UnlockError::CapabilityRoot)),
+        }
     }
 }

@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/app-galvanized",
+    "crates/galvanized-cap",
     "crates/galvanized-core",
     "crates/plugin-automerge",
     "crates/plugin-calendar",
@@ -102,6 +103,7 @@ zed = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
 
 # Path dependencies
 # csh-demo = { path = "crates/csh-demo" }
+galvanized-cap = { path = "crates/galvanized-cap" }
 galvanized-core = { path = "crates/galvanized-core" }
 plugin-automerge = { path = "crates/plugin-automerge" }
 plugin-calendar = { path = "crates/plugin-calendar" }

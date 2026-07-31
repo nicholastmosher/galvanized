@@ -1,3 +1,4 @@
+use galvanized_cap::{StrictSendCap, WillowKeyStore, WillowScope, WillowWrite};
 use gpui::{AppContext, Context, Entity, SharedString, WeakEntity};
 use iroh::Endpoint;
 use plugin_p2p::P2p;
@@ -14,6 +15,16 @@ pub struct Profile {
     data: ProfileData,
     home: Entity<Space>,
     p2p: Entity<P2p>,
+    /// The Willow write capability for this Profile's subspace, minted on vault
+    /// unlock. `None` when the vault is locked (or the Profile was constructed
+    /// before the session caps were available). Clones share revocation state,
+    /// so locking the vault revokes every clone.
+    write_cap: Option<StrictSendCap<WillowWrite, WillowScope>>,
+    /// The cap-gated secret custodian for the vault. Carried per-Profile so app
+    /// plugins (e.g. Contacts) can retrieve the subspace secret for "sign as
+    /// Profile" through the capability check rather than reaching a plain
+    /// struct field.
+    key_store: Option<WillowKeyStore>,
 }
 
 #[serde_as]
@@ -30,6 +41,10 @@ impl ProfileData {
         self.subspace.id()
     }
 
+    pub fn subspace(&self) -> &Subspace {
+        &self.subspace
+    }
+
     pub fn home_space_id(&self) -> NamespaceId {
         self.home_space.clone()
     }
@@ -41,6 +56,8 @@ impl Profile {
         subspace: Subspace,
         name: SharedString,
         home: Entity<Space>,
+        write_cap: Option<StrictSendCap<WillowWrite, WillowScope>>,
+        key_store: Option<WillowKeyStore>,
         cx: &mut Context<'_, Self>,
     ) -> Self {
         let data = ProfileData {
@@ -48,17 +65,25 @@ impl Profile {
             subspace,
             home_space: home.read(cx).id(),
         };
-        Self::from_parts(endpoint, data, home, cx)
+        Self::from_parts(endpoint, data, home, write_cap, key_store, cx)
     }
 
     pub fn from_parts(
         endpoint: Endpoint,
         data: ProfileData,
         home: Entity<Space>,
+        write_cap: Option<StrictSendCap<WillowWrite, WillowScope>>,
+        key_store: Option<WillowKeyStore>,
         cx: &mut Context<Self>,
     ) -> Self {
         let p2p = cx.new(|cx| P2p::new(endpoint, cx));
-        Self { data, home, p2p }
+        Self {
+            data,
+            home,
+            p2p,
+            write_cap,
+            key_store,
+        }
     }
 
     pub fn data(&self) -> &ProfileData {
@@ -83,6 +108,18 @@ impl Profile {
 
     pub fn p2p(&self) -> Entity<P2p> {
         self.p2p.clone()
+    }
+
+    /// The Willow write capability minted for this Profile's subspace on vault
+    /// unlock, if the vault is currently unlocked. App plugins present this to
+    /// the [`WillowKeyStore`] to gate Willow writes and "sign as Profile".
+    pub fn willow_write_cap(&self) -> Option<StrictSendCap<WillowWrite, WillowScope>> {
+        self.write_cap.clone()
+    }
+
+    /// The cap-gated secret custodian for the vault, if the vault is unlocked.
+    pub fn key_store(&self) -> Option<WillowKeyStore> {
+        self.key_store.clone()
     }
 }
 

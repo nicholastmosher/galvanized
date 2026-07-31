@@ -7,6 +7,7 @@ edition = "2024"
 anyhow.workspace = true
 derive_more = { workspace = true, features = ["display", "debug"] }
 futures-concurrency.workspace = true
+galvanized-cap.workspace = true
 galvanized-core.workspace = true
 gpui.workspace = true
 gpui-component.workspace = true

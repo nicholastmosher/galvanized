@@ -128,7 +128,7 @@ impl Galvanized {
     ) -> Task<Result<Entity<Vault>>> {
         cx.spawn(async move |this, cx| {
             let vault_id = cx.vaults().create(password.to_string()).await?;
-            let vault_token = cx.vaults().unlock(&vault_id, password).await?;
+            let session = cx.vaults().unlock(&vault_id, password).await?;
 
             let vault_metadta = VaultMetadata::new(vault_name.clone());
             let vault_metadata_bytes =
@@ -140,7 +140,7 @@ impl Galvanized {
 
             // Initial vault should be empty, so we just write to the vault buffers
             cx.vaults()
-                .update(vault_token.clone(), |mut vault| {
+                .update(session.token.clone(), |mut vault| {
                     *vault.metadata() = vault_metadata_bytes;
                     *vault.secret() = vault_content_bytes;
                 })
@@ -149,8 +149,15 @@ impl Galvanized {
             info!(?vault_id, ?vault_name, "Wrote user to vault");
 
             let vault = cx.new(|cx| Vault::new(vault_id.clone(), vault_name, cx));
-            // Vault should be unlocked by default immediately after creation
-            vault.update(cx, |vault, _cx| vault.set_unlock_token(vault_token));
+            // Apply the unlock session (caps + token) and load the (empty) content
+            // into the CapCell-gated cache so the vault is consistent with the
+            // unlock path.
+            vault
+                .update(cx, |vault, cx| {
+                    vault.apply_unlock_session(session);
+                    vault.load_content(cx)
+                })
+                .await?;
             this.update(cx, |this, _cx| {
                 this.vaults.insert(vault_id, vault.clone());
             })?;

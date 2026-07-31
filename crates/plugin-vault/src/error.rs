@@ -171,6 +171,11 @@ pub enum UnlockError {
 
     #[error("failed to find vault '{0}'")]
     MissingVault(VaultId),
+
+    #[error(
+        "capability root unavailable; capsec::root() was already claimed outside the unlock path"
+    )]
+    CapabilityRoot,
 }
 
 #[derive(Debug, Error)]

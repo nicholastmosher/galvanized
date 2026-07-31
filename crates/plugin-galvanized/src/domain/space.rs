@@ -18,6 +18,10 @@ impl SpaceData {
     pub fn id(&self) -> NamespaceId {
         self.namespace.id()
     }
+
+    pub fn namespace(&self) -> &Namespace {
+        &self.namespace
+    }
 }
 
 impl Space {

@@ -252,6 +252,9 @@ fn render_menu_header<T: EventEmitter<DismissEvent>>(
                 .hover(|style| style.bg(cx.theme().colors.list_hover))
                 .cursor_pointer()
                 .on_click(cx.listener(move |_this, _e, _window, cx| {
+                    // Real lock: revoke the vault's session capabilities and blank
+                    // its CapCell-gated content (T1).
+                    user.update(cx, |vault, cx| vault.lock(cx));
                     galvanized.update(cx, |it, _cx| it.active_vault = None);
                     cx.emit(DismissEvent);
                 }))

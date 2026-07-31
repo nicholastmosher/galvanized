@@ -1,0 +1,14 @@
+[package]
+name = "galvanized-cap"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+capsec.workspace = true
+capsec-core.workspace = true
+strict-cap.workspace = true
+willow25.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+rand_core_0_6_4 = { workspace = true, features = ["getrandom"] }

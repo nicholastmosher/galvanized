@@ -1,8 +1,10 @@
 use crate::willow_serde::{NamespaceSecretSerde, SubspaceSecretSerde};
+use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
+use galvanized_cap::{StrictSendCap, WillowKeyError, WillowKeyStore, WillowScope, WillowWrite};
 use gpui::App;
 use gpui::Task;
 use gpui::{AppContext, Entity, Global};
@@ -21,7 +23,6 @@ use willow25::{
         randomly_generate_communal_namespace, randomly_generate_owned_namespace,
         randomly_generate_subspace,
     },
-    prelude::WriteCapability,
     storage::MemoryStore,
 };
 
@@ -112,9 +113,47 @@ impl Subspace {
     pub fn id(&self) -> SubspaceId {
         self.secret.corresponding_subspace_id()
     }
+}
 
-    pub fn secret_todo_consider_access_control(&self) -> &SubspaceSecret {
-        &self.secret
+/// Builds a [`WillowKeyStore`] (the cap-gated secret custodian) from the given
+/// namespaces and subspaces.
+///
+/// The secrets move into the key store and are thereafter only accessible via a
+/// valid [`StrictSendCap`]`<WillowWrite, WillowScope>` (for minting write
+/// authority or signing as a Profile). This is the function that closes the
+/// former `secret_todo_consider_access_control` seam: callers route secret
+/// access through the key store's capability checks rather than reaching a
+/// plain struct field.
+pub fn extract_key_store<'a>(
+    namespaces: impl IntoIterator<Item = &'a Namespace>,
+    subspaces: impl IntoIterator<Item = &'a Subspace>,
+) -> WillowKeyStore {
+    let mut namespace_secrets = HashMap::new();
+    for namespace in namespaces {
+        namespace_secrets.insert(namespace.id(), namespace.secret.clone());
+    }
+    let mut subspace_secrets = HashMap::new();
+    for subspace in subspaces {
+        subspace_secrets.insert(subspace.id(), subspace.secret.clone());
+    }
+    WillowKeyStore::new(namespace_secrets, subspace_secrets)
+}
+
+/// Inserts the given namespaces' and subspaces' secrets into an existing
+/// [`WillowKeyStore`]. Used after a vault unlock session has already produced
+/// a key store and a new namespace/subspace is minted (e.g. creating a new
+/// Space or Profile), so the new secret is gated by the same capability surface
+/// without a full reload.
+pub fn extend_key_store<'a>(
+    key_store: &mut WillowKeyStore,
+    namespaces: impl IntoIterator<Item = &'a Namespace>,
+    subspaces: impl IntoIterator<Item = &'a Subspace>,
+) {
+    for namespace in namespaces {
+        key_store.insert_namespace(namespace.id(), namespace.secret.clone());
+    }
+    for subspace in subspaces {
+        key_store.insert_subspace(subspace.id(), subspace.secret.clone());
     }
 }
 
@@ -169,21 +208,33 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
 
     pub async fn create_entry(
         &mut self,
-        namespace: &Namespace,
-        subspace: &Subspace,
+        cap: &StrictSendCap<WillowWrite, WillowScope>,
+        key_store: &WillowKeyStore,
+        namespace_id: &NamespaceId,
+        subspace_id: &SubspaceId,
         path: &Path,
         data: Vec<u8>,
     ) -> Result<Option<AuthorisedEntry>> {
-        let namespace_id = namespace.id();
-        let subspace_id = subspace.id();
-        let path = path.to_willow_path()?;
-
+        let willow_path = path.to_willow_path()?;
         let timestamp = willow25::prelude::Timestamp::now()?;
-        let write_capability = WriteCapability::new_owned(&namespace.secret, subspace.id());
+        let (write_capability, subspace_secret) = key_store
+            .mint_write_authority(cap, namespace_id, subspace_id, &willow_path)
+            .map_err(|err| match err {
+                WillowKeyError::Cap(cap_err) => {
+                    anyhow::anyhow!(cap_err).context("willow write not authorized")
+                }
+                WillowKeyError::UnknownNamespace(id) => {
+                    anyhow::anyhow!("no namespace secret for {id:?}")
+                }
+                WillowKeyError::UnknownSubspace(id) => {
+                    anyhow::anyhow!("no subspace secret for {id:?}")
+                }
+            })?;
+        let namespace_id = namespace_id.clone();
+        let subspace_id = subspace_id.clone();
 
         let task = self.cx.update_entity(&self.state, move |it, cx| {
             let mut store = it.store.clone();
-            let subspace = subspace.clone();
             cx.spawn(async move |_this, _cx| {
                 let payload_length = data.len() as u64;
                 let mut payload_producer = data.into_producer();
@@ -191,12 +242,12 @@ impl<'a, C: AppContext> WillowCx<'a, C> {
                     .create_entry(
                         &namespace_id,
                         &subspace_id,
-                        &path,
+                        &willow_path,
                         timestamp,
                         &mut payload_producer,
                         payload_length,
                         &write_capability,
-                        &subspace.secret,
+                        &subspace_secret,
                     )
                     .await
             })

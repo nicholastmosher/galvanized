@@ -95,12 +95,34 @@ pub fn init(cx: &mut App) {
 
     // Each Profile has its own p2p stack, here we register the Contacts protocol for each
     cx.observe_new::<Profile>(|profile, _window, cx| {
-        let local_key = profile.subspace().secret_todo_consider_access_control();
         let local_display_name = profile.name();
         let endpoint = profile.p2p().endpoint(cx);
         let Some(automerge) = profile.p2p().protocol::<AutomergeProtocol, _>(cx) else {
             warn!("Failed to get AutomergeProtocol for ContactsProtocol");
             return;
+        };
+        // Retrieve the subspace secret through the capability check so the
+        // secret must come from the vault's `WillowKeyStore`, gated by the
+        // Profile's WillowWrite session cap. If the vault is locked (no cap),
+        // the Contacts protocol is not registered for this Profile.
+        let Some(write_cap) = profile.willow_write_cap() else {
+            warn!("No WillowWrite cap for profile; skipping ContactsProtocol");
+            return;
+        };
+        let Some(key_store) = profile.key_store() else {
+            warn!("No WillowKeyStore for profile; skipping ContactsProtocol");
+            return;
+        };
+        let profile_id = profile.id();
+        let local_key = match key_store.subspace_secret_for_signing(&write_cap, &profile_id) {
+            Ok(secret) => secret,
+            Err(error) => {
+                warn!(
+                    ?error,
+                    "subspace_secret_for_signing refused; skipping ContactsProtocol"
+                );
+                return;
+            }
         };
         // AutomergeProtocol is already a shared object with Arc-like semantics
         // So here we escape the Arc by cloning the object so we can use it directly, without Arc
@@ -299,14 +321,19 @@ impl Contacts {
         cx: &mut Context<Self>,
     ) {
         let p2p = profile.p2p(cx);
-        let profile_key = profile
-            .read(cx)
-            .subspace()
-            .secret_todo_consider_access_control()
-            .clone();
+        // Retrieve the subspace secret through the capability check (T1) instead
+        // of the former `secret_todo_consider_access_control` seam.
+        let write_cap = profile.read(cx).willow_write_cap();
+        let key_store = profile.read(cx).key_store();
+        let profile_id = profile.read(cx).id();
         let display_name = profile.read(cx).name();
 
         cx.spawn(async move |this, cx| {
+            let write_cap = write_cap.context("No WillowWrite cap; vault is locked")?;
+            let key_store = key_store.context("No WillowKeyStore; vault is locked")?;
+            let profile_key = key_store
+                .subspace_secret_for_signing(&write_cap, &profile_id)
+                .context("refused to yield subspace secret for signing")?;
             let endpoint_id = p2p.endpoint_id(cx);
             let addr = EndpointAddr {
                 id: endpoint_id,
@@ -632,14 +659,25 @@ impl Contact {
         space: Entity<Space>,
         cx: &mut App,
     ) -> Result<()> {
-        let namespace = space.read(cx).namespace().clone();
-        let subspace = profile.read(cx).subspace().clone();
+        let namespace_id = space.read(cx).id();
+        let subspace_id = profile.read(cx).id();
+        let write_cap = profile.read(cx).willow_write_cap();
+        let key_store = profile.read(cx).key_store();
         let profile_id = self.profile_id().as_bytes().encode_hex::<String>();
         let path = PathBuf::from(format!("/apps/{}/{}", Contacts::id(), profile_id));
         let data = serde_json::to_vec(&self.data).context("failed to serialize ContactData")?;
 
+        let write_cap = write_cap.context("No WillowWrite cap; vault is locked")?;
+        let key_store = key_store.context("No WillowKeyStore; vault is locked")?;
         cx.willow()
-            .create_entry(&namespace, &subspace, &path, data)
+            .create_entry(
+                &write_cap,
+                &key_store,
+                &namespace_id,
+                &subspace_id,
+                &path,
+                data,
+            )
             .await?;
 
         Ok(())

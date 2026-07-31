@@ -1,11 +1,15 @@
 use anyhow::Result;
-use strict_cap::StrictSendCap;
+use galvanized_cap::{StrictSendCap, WillowRead, WillowScope, WillowWrite};
+use strict_cap::StrictSendCap as VaultStrictSendCap;
 use tokio::sync::oneshot;
 
 use crate::{
-    error::VaultError,
-    vault_actor::{DEFAULT_VAULT_TIMEOUT, VaultActor, VaultActorHandle, VaultToken},
-    vault_db::VaultId,
+    error::{UnlockError, VaultError},
+    vault_actor::{
+        DEFAULT_VAULT_TIMEOUT, DEFAULT_WILLOW_CAP_TIMEOUT, VaultActor, VaultActorHandle,
+        VaultToken, VaultUnlock,
+    },
+    vault_db::{VaultAccess, VaultId},
 };
 
 pub struct UnlockVaultRequest {
@@ -22,15 +26,18 @@ pub struct UnlockVaultRequest {
 }
 
 #[derive(Debug)]
-struct UnlockVaultResponse(Result<VaultToken, VaultError>);
+struct UnlockVaultResponse(Result<VaultUnlock, VaultError>);
 
 impl VaultActorHandle {
-    /// Unlock the vault with the given vault ID using the given password
+    /// Unlock the vault with the given vault ID using the given password.
+    ///
+    /// Returns the vault-access token plus the Willow session capabilities
+    /// minted on unlock (see [`VaultUnlock`]).
     pub async fn unlock_vault(
         &self,
         vault_id: VaultId,
         password: String,
-    ) -> Result<VaultToken, VaultError> {
+    ) -> Result<VaultUnlock, VaultError> {
         let (client_tx, rx) = oneshot::channel();
         self.tx
             .send_async(
@@ -65,7 +72,7 @@ impl VaultActor {
     ) -> Result<()> {
         let result = self.vaults.unlock(&vault_id, password).await;
         if result.is_err() {
-            // Coerce Result<(), VaultError> to Result<VaultHandle, VaultError>
+            // Coerce Result<(), VaultError> to Result<VaultUnlock, VaultError>
             let result = result.map(|_| unreachable!());
             client_tx
                 .send(UnlockVaultResponse(result))
@@ -75,14 +82,50 @@ impl VaultActor {
             return Ok(());
         }
 
-        // If the vault was unlocked successfully, mint a new capability and handle
-        let cap = self.cap.clone();
-        let ttl = DEFAULT_VAULT_TIMEOUT;
-        let (cap, revoker) = StrictSendCap::new(cap, ttl, vault_id.clone());
-        let handle = VaultToken::new(vault_id, cap, revoker);
+        // If the vault was unlocked successfully, mint capabilities from the
+        // device root. The root is only exercised here (on the password-unlock
+        // path), so no other code path can mint a top-level capability.
+        let root = match self.ensure_root() {
+            Ok(root) => root,
+            Err(error) => {
+                client_tx
+                    .send(UnlockVaultResponse(Err(error)))
+                    .map_err(|_| panic!("channel error while sending unlock_vault response"));
+                return Ok(());
+            }
+        };
+
+        // Vault-access capability (existing), scoped to this vault id.
+        let vault_send_cap = root.grant::<VaultAccess>().make_send();
+        let (vault_cap, vault_revoker) =
+            VaultStrictSendCap::new(vault_send_cap, DEFAULT_VAULT_TIMEOUT, vault_id.clone());
+        let token = VaultToken::new(vault_id, vault_cap, vault_revoker);
+
+        // Willow session capabilities (T1), wildcard-scoped: their practical
+        // authority is bounded by which secrets the vault's WillowKeyStore
+        // actually holds. Attenuation to narrower (namespace/subspace/path)
+        // scopes happens downstream.
+        let (willow_read, read_revoker) = StrictSendCap::new(
+            root.grant::<WillowRead>().make_send(),
+            DEFAULT_WILLOW_CAP_TIMEOUT,
+            WillowScope::wildcard(),
+        );
+        let (willow_write, write_revoker) = StrictSendCap::new(
+            root.grant::<WillowWrite>().make_send(),
+            DEFAULT_WILLOW_CAP_TIMEOUT,
+            WillowScope::wildcard(),
+        );
+
+        let unlock = VaultUnlock {
+            token,
+            willow_read,
+            willow_write,
+            read_revoker,
+            write_revoker,
+        };
 
         client_tx
-            .send(UnlockVaultResponse(Ok(handle)))
+            .send(UnlockVaultResponse(Ok(unlock)))
             .map_err(|_| panic!("channel error while sending unlock_vault response"));
 
         Ok(())
