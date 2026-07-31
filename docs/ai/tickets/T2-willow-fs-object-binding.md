@@ -1,6 +1,6 @@
 # T2 — Willow FS object binding (`Willowize` / `EntryHandle`)
 
-**Status:** DRAFT
+**Status:** REFINED
 **Depends on:** T1 (capability gate for writes)
 
 ## Why
@@ -42,7 +42,9 @@ all apps (because every save goes through one path).
 
 1. **Settle the `Willowize` / `EntryHandle` API** (open question in
    `OPEN_QUESTIONS.md`: "Is this the intended platform API?"). Build a
-   working `EntryHandle` for `Entity<T: Willowize>`:
+   working `EntryHandle` for `Entity<T: Willowize>`, **1:1 with an
+   entity** (RESOLVED, Nick this session — see Design Q4; an entity
+   needing multiple targets composes multiple handles):
    - `bind(namespace, subspace, path, cx) -> EntryHandle` (or a builder)
      that registers the entity with the Willow store under a path.
    - `load(cx)` — read the entry, deserialize, populate the entity.
@@ -50,15 +52,16 @@ all apps (because every save goes through one path).
      by the T1 capability (`StrictCap<WillowWrite, scope>`).
    - `sync(cx) -> Subscription` — observe the entity and auto-save on
      change (the commented `cx.observe(self, |this, cx| this.save(cx))`
-     pattern). Keep it opt-in so callers control when auto-persist
-     starts.
+     pattern). **Auto-persist is on by default with an opt-out**
+   (RESOLVED, Nick this session): `cx.observe(entity, save)` saves on
+   every field change, fine for low-write domain objects (Contacts);
+   callers who want explicit-save-only pass an opt-out flag/variant.
 
-2. **Resolve the "active context" question** the commented code raises
-   ("Use explicit parameters rather than active context?"). The
-   skeleton reached for `cx.willow().active_profile()` / `active_space()`
-   which don't exist. Decision needed: pass `(namespace, subspace, path)`
-   explicitly at bind time (recommended — no hidden global), or thread
-   an active profile/space. Recommendation: explicit parameters; the
+2. **Resolve the "active context" question.** — RESOLVED (Nick,
+   this session): pass `(namespace, subspace, path)` **explicitly** at
+   bind time; no `active_profile()` / `active_space()` globals. The
+   commented skeleton reached for `cx.willow().active_profile()` /
+   `active_space()` which don't exist; that approach is dropped. The
    binding is a one-time call, not per-save.
 
 3. **Capability integration with T1.** `save` must obtain the
@@ -67,7 +70,14 @@ all apps (because every save goes through one path).
    visibly (per `CONVENTIONS.md` error-visibility doctrine) — not a
    silent drop.
 
-4. **Path & id conventions.** A bound object needs a stable path so
+4. **`JsonSchema` requirement.** — RESOLVED (Nick, this session):
+   keep `JsonSchema` (schemars) on `Willowize` for now as a stand-in for
+   a future schema-management tool. A follow-up ticket (**T8**) is
+   spawned to revisit schema management (the bound on `Willowize`, the
+   schema source, and whether/how schemas drive sync validation). T2
+   keeps `JsonSchema` to avoid blocking on that design.
+
+5. **Path & id conventions.** A bound object needs a stable path so
    reload finds it. Define the convention (e.g. `/apps/<app_id>/<id>`
    used by `Contacts` today) and a way to derive it. Decide whether the
    path is owned by the app (string) or structured
@@ -75,7 +85,7 @@ all apps (because every save goes through one path).
    (`crates/plugin-willow/src/lib.rs:512`) already converts to willow
    paths; lean on it.
 
-5. **Migration of one reference consumer** to the new seam (Contacts
+6. **Migration of one reference consumer** to the new seam (Contacts
    is the obvious candidate — overlaps with T5). Keep the explicit
    `cx.willow()` API available for cases the seam can't express (e.g.
    listing entries).
@@ -91,25 +101,27 @@ all apps (because every save goes through one path).
 
 ## Design questions for Nick
 
-1. **Active-context vs explicit parameters.** Recommendation: explicit
-   `(namespace, subspace, path)` at bind time, no `active_profile()`/
-   `active_space()` globals. Confirm.
+1. **Active-context vs explicit parameters.** — RESOLVED (Nick,
+   this session). Explicit `(namespace, subspace, path)` at bind time;
+   no `active_profile()`/`active_space()` globals. See Scope §2.
 
-2. **Auto-persist trigger.** `cx.observe(entity, save)` is simple but
-   saves on every field change (chatty). Options: (a) save on every
-   change (simplest, fine for low-write objects like Contacts); (b)
-   debounced save; (c) explicit save only. Recommendation: (a) by
-   default with an opt-out, since Willow writes are cheap locally and
-   most domain objects are low-write. Confirm.
+2. **Auto-persist trigger.** — RESOLVED (Nick, this session).
+   `cx.observe(entity, save)` on by default with an opt-out (save on
+   every field change; fine for low-write objects). See Scope §1
+   `sync`.
 
-3. **`JsonSchema` requirement.** `Willowize` currently requires
-   `JsonSchema` (schemars). Is that needed now, or is it aspirational
-   (e.g. for a future schema-validated sync)? If not needed now, drop
-   it to widen the set of bindable types.
+3. **`JsonSchema` requirement.** — RESOLVED (Nick, this session). Keep
+   `JsonSchema` (schemars) for now as a stand-in for a future
+   schema-management tool; **T8** spawned to revisit. See Scope §4.
 
-4. **One entity ↔ one entry, or one entity ↔ many?** Recommendation:
-   one entry per binding (1:1); an entity that needs multiple bindings
-   composes them. Confirm.
+4. **One entity ↔ one entry, or one entity ↔ many?** — RESOLVED
+   (Nick, this session): **1:1 + composition.** The core `EntryHandle`
+   binds one `Entity<T>` to one Willow path. An entity that needs
+   multiple persistence targets holds multiple `EntryHandle`s (e.g. a
+   `Chat` binds `metadata` to one path and `messages` to another via two
+   handles); the entity owns the composition, the platform stays 1:1.
+   No 1:many / fan-out primitive — it would add partial-failure and
+   cross-target consistency complexity with no near-term need.
 
 ## Acceptance criteria
 

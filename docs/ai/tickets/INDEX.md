@@ -19,11 +19,13 @@ graph TD
     T5[T5: Contacts persistence ProfileID + EndpointId]
     T6[T6: Contacts auto-reconnect + ping]
     T7[T7: CapCell-aware view wrapper auto-hide on lock]
+    T8[T8: Revisit schema management for Willowize]
 
     T1 --> T2
     T1 --> T4
     T1 --> T7
     T2 --> T5
+    T2 --> T8
     T3 --> T4
     T3 --> T6
     T5 --> T6
@@ -60,9 +62,10 @@ should move to `DECISIONS.md` once ruled on.
 | ID  | Title                                          | Status   | Depends on     |
 |-----|------------------------------------------------|----------|----------------|
 | T1  | Vault as authority root + capability foundation | DRAFT (Q4 confirmation) | —              |
-| T2  | Willow FS object binding (`Willowize`/`EntryHandle`) | DRAFT  | T1             |
+| T2  | Willow FS object binding (`Willowize`/`EntryHandle`) | REFINED  | T1             |
 | T3  | p2p message-passing framework                  | DRAFT    | T1 (loose)     |
 | T4  | Capability-gated automerge shared objects      | DRAFT    | T1, T3         |
 | T5  | Contacts persistence (ProfileID + last EndpointId) | DRAFT  | T2 (soft)      |
 | T6  | Contacts auto-reconnect + ping display        | DRAFT    | T5, T3         |
 | T7  | `CapCell`-aware view wrapper (auto-hide on lock) | DRAFT   | T1             |
+| T8  | Revisit schema management for `Willowize`      | DRAFT    | T2             |
