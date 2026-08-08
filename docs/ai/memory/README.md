@@ -14,6 +14,7 @@ first-class: a stale or wrong memory propagates into wrong code.
 | `KNOWN_TRAPS.md` | Gotchas with evidence + the fix | Edited in place; add as traps are hit. |
 | `GLOSSARY.md` | Domain terms as they settle | Edited in place. |
 | `HANDOFF.md` | Cross-session continuity scratch | Refreshed each session; overwrite old content. |
+| `GOODIES.md` | Goodie proposal process + registry (scripts under `docs/ai/scripts/`) | Maintained in place (registry is a current view, not a log). |
 
 ## The rules
 
@@ -49,6 +50,9 @@ first-class: a stale or wrong memory propagates into wrong code.
    these without going to Nick).
 4. `KNOWN_TRAPS.md` — don't repeat a caught trap.
 5. `GLOSSARY.md` — only if the work touches domain terms.
+6. `GOODIES.md` — skim the registry to see what Goodies exist (could save
+   work this session) and what's PROPOSED (don't assume a PROPOSED Goodie
+   is available yet).
 
 ## Relationship to the README dev log
 

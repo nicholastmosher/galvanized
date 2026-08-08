@@ -118,7 +118,8 @@ itself" bar the project holds for data, applied to decisions.
 | [`memory/KNOWN_TRAPS.md`](docs/ai/memory/KNOWN_TRAPS.md) | Gotchas with evidence and the fix | Edited in place; add as traps are hit. |
 | [`memory/GLOSSARY.md`](docs/ai/memory/GLOSSARY.md) | Domain terms (Vault/Profile/Space/Subspace/…) | Edited in place as terms settle. |
 | [`memory/HANDOFF.md`](docs/ai/memory/HANDOFF.md) | Cross-session continuity scratch | Refreshed each session; old content overwritten. |
-| [`memory/README.md`](docs/ai/memory/README.md) | The memory system's charter (read/write rules) | Read first. |
+| [`memory/GOODIES.md`](docs/ai/memory/GOODIES.md) | Goodie proposal process + registry; scripts live under `docs/ai/scripts/` | Maintained in place (registry is a current view). |
+| [`memory/README.md`](docs/ai/memory/README.md) | The memory system's charter (read first). |
 
 Discipline (lifted in spirit from the reviewer project's records discipline,
 scaled to a solo project):
@@ -151,8 +152,20 @@ scaled to a solo project):
    supersede earlier).
 5. Scan [`docs/ai/memory/KNOWN_TRAPS.md`](docs/ai/memory/KNOWN_TRAPS.md) and
    [`docs/ai/memory/OPEN_QUESTIONS.md`](docs/ai/memory/OPEN_QUESTIONS.md).
-6. `git log --oneline -10` and `git status --short` for the live tree state.
-7. Only then act.
+6. Skim [`docs/ai/memory/GOODIES.md`](docs/ai/memory/GOODIES.md) — what
+   Goodies exist (could save work this session) and what's PROPOSED.
+7. `git log --oneline -10` and `git status --short` for the live tree state.
+8. Only then act.
+
+### Goodies (a standing instruction)
+
+As part of routine work, keep an eye out for **repetitive, heavy, or
+error-prone** tasks that could be removed by a small script, and
+**propose** a Goodie under [`docs/ai/scripts/`](docs/ai/scripts/) via
+[`docs/ai/memory/GOODIES.md`](docs/ai/memory/GOODIES.md). Propose first;
+build only after Nick approves (a Goodie is a small mechanism-shaped
+call, so it follows the same decide-with-Nick discipline as everything
+else). See the GOODIES charter for the proposal format and the rules.
 
 ## Build, run, verify
 
