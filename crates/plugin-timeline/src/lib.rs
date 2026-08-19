@@ -12,13 +12,13 @@ use std::rc::Rc;
 use chrono::{DateTime, Datelike, NaiveDate, TimeDelta, Timelike, Utc};
 use galvanized_core::{Workspace, item::Item};
 use gpui::{
-    App, AppContext as _, Bounds, ClickEvent, Context, Element, EventEmitter, FocusHandle,
-    Focusable, GlobalElementId, Hitbox, HitboxBehavior, Hsla, InspectorElementId,
+    App, AppContext as _, Bounds, ClickEvent, Context, CursorStyle, Element, EventEmitter,
+    FocusHandle, Focusable, GlobalElementId, Hitbox, HitboxBehavior, Hsla, InspectorElementId,
     InteractiveElement as _, IntoElement, KeyBinding, LayoutId, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, ParentElement as _, Pixels, Point, Refineable as _, Render,
-    ScrollWheelEvent, SharedString, StatefulInteractiveElement as _, Style, StyleRefinement,
-    Styled, TextAlign, TextRun, WeakEntity, Window, actions, div, fill, hsla, point, px, size,
-    white,
+    MouseMoveEvent, MouseUpEvent, ParentElement as _, PinchEvent, Pixels, Point, Refineable as _,
+    Render, ScrollWheelEvent, SharedString, StatefulInteractiveElement as _, Style,
+    StyleRefinement, Styled, TextAlign, TextRun, WeakEntity, Window, actions, div, fill, hsla,
+    point, px, size, white,
 };
 use gpui_component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_util::ResultExt as _;
@@ -37,8 +37,15 @@ const AVG_SECONDS_PER_MONTH: f64 = 2629800.0;
 const AVG_SECONDS_PER_YEAR: f64 = 31557600.0;
 
 const HEADER_HEIGHT: f32 = 28.0;
-const LANE_HEIGHT: f32 = 24.0;
-const BAR_HEIGHT: f32 = 18.0;
+/// Default height of one event lane. Tall enough that the event title reads
+/// comfortably at the default font size.
+const DEFAULT_LANE_HEIGHT: f32 = 32.0;
+const MIN_LANE_HEIGHT: f32 = 20.0;
+const MAX_LANE_HEIGHT: f32 = 96.0;
+/// Top and bottom inset inside a lane; the bar height is `lane_height - 2 * LANE_INSET`.
+const LANE_INSET: f32 = 3.0;
+/// Half-height of the draggable strip over the header divider used to resize lanes.
+const RESIZE_HANDLE_HALF_HEIGHT: f32 = 4.0;
 /// Keep major tick labels at least this far apart so they never collide.
 const MIN_TICK_SPACING_PX: f64 = 70.0;
 
@@ -93,11 +100,22 @@ pub struct TimelineItem {
     left_edge_unix: f64,
     /// Zoom level in pixels per second.
     pixels_per_second: f64,
-    /// Last pointer position while a left-drag pan is in progress.
-    drag_last_x: Option<Pixels>,
+    /// Height of one event lane in pixels. User-resizable by dragging the
+    /// divider beneath the header.
+    lane_height: f32,
+    /// In-progress pointer drag, if any.
+    drag: Option<DragMode>,
     /// The most recent bounds assigned by layout, shared with the element so
     /// action handlers (zoom buttons) can zoom around the viewport center.
     view_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
+}
+
+#[derive(Clone, Copy)]
+enum DragMode {
+    /// Horizontal pan; carries the last pointer x.
+    Pan(Pixels),
+    /// Vertical lane-height resize; carries the last pointer y.
+    ResizeLane(Pixels),
 }
 
 impl TimelineItem {
@@ -108,7 +126,8 @@ impl TimelineItem {
             events: sample_events(now),
             left_edge_unix: now.timestamp() as f64 - 6.0 * SECONDS_PER_DAY,
             pixels_per_second: DEFAULT_PPS,
-            drag_last_x: None,
+            lane_height: DEFAULT_LANE_HEIGHT,
+            drag: None,
             view_bounds: Rc::new(Cell::new(None)),
         }
     }
@@ -120,66 +139,82 @@ impl TimelineItem {
         window: &Window,
         cx: &mut Context<Self>,
     ) {
-        // Use a per-line height so `Lines` deltas (discrete mouse wheels) pan
-        // a sensible amount, matching how the rest of the app scrolls.
+        // `precise` (pixel deltas) = trackpad; `Lines` = a discrete mouse wheel.
+        // Trackpad two-finger scroll pans the time axis; the mouse wheel zooms
+        // (with shift+wheel reserved for panning). Pinch-to-zoom arrives as a
+        // separate `PinchEvent`, handled in [`Self::handle_pinch`].
         let delta = event.delta.pixel_delta(window.line_height());
-        if event.modifiers.control || event.modifiers.platform {
-            // Zoom, keeping the time under the cursor pinned in place.
-            let cursor_x = event.position.x;
-            let cursor_time = x_to_time(
-                bounds,
-                self.left_edge_unix,
-                self.pixels_per_second,
-                cursor_x,
-            );
-            let factor = (-(delta.y.as_f32() as f64) * 0.01).exp();
-            self.pixels_per_second = (self.pixels_per_second * factor).clamp(MIN_PPS, MAX_PPS);
-            let drift_pixels = time_to_x(
-                bounds,
-                self.left_edge_unix,
-                self.pixels_per_second,
-                cursor_time,
-            )
-            .as_f32() as f64
-                - cursor_x.as_f32() as f64;
-            self.left_edge_unix += drift_pixels / self.pixels_per_second;
-        } else {
-            // Pan horizontally. Vertical wheel also pans time (natural for a
-            // horizontal timeline); shift+wheel arrives as delta.x already.
+        if event.delta.precise() || event.modifiers.shift {
+            // Pan. Reverse the sign so a two-finger swipe right (or shift+wheel)
+            // drags the timeline toward the past, i.e. content follows the fingers.
             let pan_pixels = delta.x.as_f32() as f64 + delta.y.as_f32() as f64;
-            self.left_edge_unix += pan_pixels / self.pixels_per_second;
+            self.left_edge_unix -= pan_pixels / self.pixels_per_second;
+        } else {
+            // Discrete wheel: vertical scroll zooms, anchored at the cursor.
+            // Up (negative delta.y) zooms in.
+            let factor = (-(delta.y.as_f32() as f64) * 0.003).exp();
+            self.zoom_around(bounds, event.position.x, factor, cx);
+            return;
         }
         cx.notify();
     }
 
+    fn handle_pinch(&mut self, event: &PinchEvent, bounds: Bounds<Pixels>, cx: &mut Context<Self>) {
+        // `PinchEvent::delta` is a fractional zoom (e.g. 0.1 = +10%). Positive
+        // pinches zoom in, anchored at the pinch center.
+        let factor = (1.0 + event.delta as f64).clamp(0.5, 2.0);
+        self.zoom_around(bounds, event.position.x, factor, cx);
+    }
+
     fn handle_drag_move(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
-        if let Some(last_x) = self.drag_last_x {
-            let delta = event.position.x.as_f32() as f64 - last_x.as_f32() as f64;
-            self.left_edge_unix -= delta / self.pixels_per_second;
-            self.drag_last_x = Some(event.position.x);
-            cx.notify();
+        match self.drag {
+            Some(DragMode::Pan(last_x)) => {
+                let delta = event.position.x.as_f32() as f64 - last_x.as_f32() as f64;
+                self.left_edge_unix -= delta / self.pixels_per_second;
+                self.drag = Some(DragMode::Pan(event.position.x));
+                cx.notify();
+            }
+            Some(DragMode::ResizeLane(last_y)) => {
+                let delta = event.position.y.as_f32() - last_y.as_f32();
+                self.lane_height =
+                    (self.lane_height + delta).clamp(MIN_LANE_HEIGHT, MAX_LANE_HEIGHT);
+                self.drag = Some(DragMode::ResizeLane(event.position.y));
+                cx.notify();
+            }
+            None => {}
         }
     }
 
-    fn zoom_around_center(&mut self, bounds: Bounds<Pixels>, factor: f64, cx: &mut Context<Self>) {
-        let center_x = px(bounds.left().as_f32() + bounds.size.width.as_f32() / 2.0);
-        let center_time = x_to_time(
+    /// Zoom by `factor`, keeping the time under `anchor_x` pinned in place.
+    fn zoom_around(
+        &mut self,
+        bounds: Bounds<Pixels>,
+        anchor_x: Pixels,
+        factor: f64,
+        cx: &mut Context<Self>,
+    ) {
+        let anchor_time = x_to_time(
             bounds,
             self.left_edge_unix,
             self.pixels_per_second,
-            center_x,
+            anchor_x,
         );
         self.pixels_per_second = (self.pixels_per_second * factor).clamp(MIN_PPS, MAX_PPS);
         let drift_pixels = time_to_x(
             bounds,
             self.left_edge_unix,
             self.pixels_per_second,
-            center_time,
+            anchor_time,
         )
         .as_f32() as f64
-            - center_x.as_f32() as f64;
+            - anchor_x.as_f32() as f64;
         self.left_edge_unix += drift_pixels / self.pixels_per_second;
         cx.notify();
+    }
+
+    fn zoom_around_center(&mut self, bounds: Bounds<Pixels>, factor: f64, cx: &mut Context<Self>) {
+        let center_x = px(bounds.left().as_f32() + bounds.size.width.as_f32() / 2.0);
+        self.zoom_around(bounds, center_x, factor, cx);
     }
 
     fn reset_view(&mut self, cx: &mut Context<Self>) {
@@ -266,6 +301,7 @@ impl Render for TimelineItem {
                 events: self.events.clone(),
                 left_edge_unix: self.left_edge_unix,
                 pixels_per_second: self.pixels_per_second,
+                lane_height: self.lane_height,
                 timeline: cx.weak_entity(),
                 view_bounds: self.view_bounds.clone(),
                 style: StyleRefinement::default(),
@@ -284,9 +320,17 @@ pub struct TimelineElement {
     events: Vec<CalendarEvent>,
     left_edge_unix: f64,
     pixels_per_second: f64,
+    lane_height: f32,
     timeline: WeakEntity<TimelineItem>,
     view_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     style: StyleRefinement,
+}
+
+/// Hitboxes created in prepaint and handed to paint. The divider hitbox sits
+/// over the header divider and drives the lane-height resize gesture.
+pub struct TimelinePrepaint {
+    main_hitbox: Hitbox,
+    divider_hitbox: Hitbox,
 }
 
 impl IntoElement for TimelineElement {
@@ -304,7 +348,7 @@ impl Styled for TimelineElement {
 
 impl Element for TimelineElement {
     type RequestLayoutState = Style;
-    type PrepaintState = Hitbox;
+    type PrepaintState = TimelinePrepaint;
 
     fn id(&self) -> Option<gpui::ElementId> {
         None
@@ -335,9 +379,21 @@ impl Element for TimelineElement {
         _request_layout: &mut Style,
         window: &mut Window,
         _cx: &mut App,
-    ) -> Hitbox {
+    ) -> TimelinePrepaint {
         self.view_bounds.set(Some(bounds));
-        window.insert_hitbox(bounds, HitboxBehavior::Normal)
+        // Insert the main hitbox first; the divider hitbox goes on top of it so
+        // the resize gesture takes priority in the strip over the header divider.
+        let main_hitbox = window.insert_hitbox(bounds, HitboxBehavior::Normal);
+        let divider_y = bounds.top().as_f32() + HEADER_HEIGHT;
+        let divider_bounds = Bounds::new(
+            point(bounds.left(), px(divider_y - RESIZE_HANDLE_HALF_HEIGHT)),
+            size(bounds.size.width, px(RESIZE_HANDLE_HALF_HEIGHT * 2.0)),
+        );
+        let divider_hitbox = window.insert_hitbox(divider_bounds, HitboxBehavior::Normal);
+        TimelinePrepaint {
+            main_hitbox,
+            divider_hitbox,
+        }
     }
 
     fn paint(
@@ -346,16 +402,17 @@ impl Element for TimelineElement {
         _inspector_id: Option<&InspectorElementId>,
         bounds: Bounds<Pixels>,
         style: &mut Style,
-        prepaint: &mut Hitbox,
+        prepaint: &mut TimelinePrepaint,
         window: &mut Window,
         cx: &mut App,
     ) where
         Self: Sized,
     {
-        let hitbox = prepaint.clone();
+        let main_hitbox = prepaint.main_hitbox.clone();
+        let divider_hitbox = prepaint.divider_hitbox.clone();
         style.paint(bounds, window, cx, |window, cx| {
             self.draw(bounds, window, cx);
-            self.register_interactions(bounds, hitbox, window);
+            self.register_interactions(bounds, main_hitbox, divider_hitbox, window);
         });
     }
 }
@@ -384,6 +441,12 @@ impl TimelineElement {
         let right_unix =
             self.left_edge_unix + bounds.size.width.as_f32() as f64 / self.pixels_per_second;
         let level = choose_tick_level(self.pixels_per_second);
+        let text_style = window.text_style();
+        let label_font_size = text_style.font_size.to_pixels(window.rem_size());
+        let label_line_height = text_style.line_height_in_pixels(window.rem_size());
+        // Track the right edge of the last drawn label so close-together ticks
+        // don't paint labels that run into each other.
+        let mut last_label_right = f32::NEG_INFINITY;
         for tick in generate_ticks(level, self.left_edge_unix, right_unix) {
             let x = time_to_x(
                 bounds,
@@ -402,13 +465,34 @@ impl TimelineElement {
                 ),
                 border,
             ));
-            paint_text(
+            // Measure the label and skip it if it would overlap the previous one.
+            let run = TextRun {
+                len: tick.label.len(),
+                color: foreground,
+                font: text_style.font(),
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            };
+            let line =
+                window
+                    .text_system()
+                    .shape_line(tick.label.clone(), label_font_size, &[run], None);
+            let label_left = x_val + 4.0;
+            let label_right = label_left + line.width().as_f32();
+            if label_left < last_label_right {
+                continue;
+            }
+            last_label_right = label_right;
+            line.paint(
+                point(px(label_left), px(top + 6.0)),
+                label_line_height,
+                TextAlign::Left,
+                None,
                 window,
                 cx,
-                &tick.label,
-                point(px(x_val + 4.0), px(top + 6.0)),
-                foreground,
-            );
+            )
+            .log_err();
         }
 
         // Axis divider between the header band and the event area.
@@ -444,7 +528,9 @@ impl TimelineElement {
                 window,
                 cx,
                 &now_label,
-                point(px(now_x_val + 4.0), px(top + 6.0)),
+                // Place the "now" label just beneath the header divider so it
+                // can't overprint a tick title at the same x.
+                point(px(now_x_val + 4.0), px(top + HEADER_HEIGHT + 2.0)),
                 accent,
             );
         }
@@ -476,12 +562,15 @@ impl TimelineElement {
 
         let left = bounds.left().as_f32();
         let right = bounds.right().as_f32();
-        let area_top = bounds.top().as_f32() + HEADER_HEIGHT + 6.0;
+        let area_top = bounds.top().as_f32() + HEADER_HEIGHT + LANE_INSET;
         let bottom = bounds.bottom().as_f32();
+        let lane_height = self.lane_height;
+        let bar_height = lane_height - 2.0 * LANE_INSET;
         for (index, event) in self.events.iter().enumerate() {
             let lane = lane_of[index];
-            let y = area_top + lane as f32 * LANE_HEIGHT;
-            if y + BAR_HEIGHT > bottom {
+            let lane_top = area_top + lane as f32 * lane_height;
+            let bar_y = lane_top + LANE_INSET;
+            if bar_y + bar_height > bottom {
                 continue;
             }
             let x_start = time_to_x(
@@ -508,13 +597,13 @@ impl TimelineElement {
                     if clamped_right > clamped_left {
                         window.paint_quad(fill(
                             Bounds::new(
-                                point(px(clamped_left), px(y)),
-                                size(px(clamped_right - clamped_left), px(BAR_HEIGHT)),
+                                point(px(clamped_left), px(bar_y)),
+                                size(px(clamped_right - clamped_left), px(bar_height)),
                             ),
                             event.color,
                         ));
                     }
-                    paint_title(window, cx, &event.title, clamped_left, clamped_right, y);
+                    paint_title(window, cx, &event.title, clamped_left, clamped_right, bar_y);
                 }
                 None => {
                     if x_start < left - 20.0 || x_start > right + 20.0 {
@@ -523,22 +612,70 @@ impl TimelineElement {
                     let half = 5.0_f32;
                     window.paint_quad(fill(
                         Bounds::new(
-                            point(px(x_start - half), px(y)),
-                            size(px(half * 2.0), px(BAR_HEIGHT)),
+                            point(px(x_start - half), px(bar_y)),
+                            size(px(half * 2.0), px(bar_height)),
                         ),
                         event.color,
                     ));
-                    paint_title(window, cx, &event.title, x_start + half + 4.0, right, y);
+                    paint_title(window, cx, &event.title, x_start + half + 4.0, right, bar_y);
                 }
             }
         }
     }
 
-    fn register_interactions(&self, bounds: Bounds<Pixels>, hitbox: Hitbox, window: &mut Window) {
+    fn register_interactions(
+        &self,
+        bounds: Bounds<Pixels>,
+        main_hitbox: Hitbox,
+        divider_hitbox: Hitbox,
+        window: &mut Window,
+    ) {
+        window.set_cursor_style(CursorStyle::ResizeUpDown, &divider_hitbox);
+
+        // Resize: left-drag starting on the header divider adjusts lane height.
         let timeline = self.timeline.clone();
-        let hitbox_for_wheel = hitbox.clone();
+        let divider_for_down = divider_hitbox.clone();
+        window.on_mouse_event(move |event: &MouseDownEvent, phase, window, cx| {
+            if !phase.bubble()
+                || event.button != MouseButton::Left
+                || !divider_for_down.is_hovered(window)
+            {
+                return;
+            }
+            timeline
+                .update(cx, |this, _cx| {
+                    this.drag = Some(DragMode::ResizeLane(event.position.y));
+                })
+                .log_err();
+            cx.stop_propagation();
+        });
+
+        // Pan: left-drag anywhere else scrolls the timeline horizontally.
+        let timeline = self.timeline.clone();
+        let main_for_down = main_hitbox.clone();
+        window.on_mouse_event(move |event: &MouseDownEvent, phase, window, cx| {
+            if !phase.bubble()
+                || event.button != MouseButton::Left
+                || !main_for_down.is_hovered(window)
+            {
+                return;
+            }
+            timeline
+                .update(cx, |this, _cx| {
+                    this.drag = Some(DragMode::Pan(event.position.x));
+                })
+                .log_err();
+            cx.stop_propagation();
+        });
+
+        // Zoom/pan with the scroll wheel, works over either hitbox.
+        let timeline = self.timeline.clone();
+        let main_for_wheel = main_hitbox.clone();
+        let divider_for_wheel = divider_hitbox.clone();
         window.on_mouse_event(move |event: &ScrollWheelEvent, phase, window, cx| {
-            if !phase.bubble() || !hitbox_for_wheel.is_hovered(window) {
+            if !phase.bubble()
+                || (!main_for_wheel.is_hovered(window) && !divider_for_wheel.is_hovered(window))
+            {
                 return;
             }
             timeline
@@ -547,19 +684,18 @@ impl TimelineElement {
             cx.stop_propagation();
         });
 
+        // Pinch-to-zoom (trackpad), works over either hitbox.
         let timeline = self.timeline.clone();
-        let hitbox_for_down = hitbox.clone();
-        window.on_mouse_event(move |event: &MouseDownEvent, phase, window, cx| {
+        let main_for_pinch = main_hitbox.clone();
+        let divider_for_pinch = divider_hitbox.clone();
+        window.on_mouse_event(move |event: &PinchEvent, phase, window, cx| {
             if !phase.bubble()
-                || !hitbox_for_down.is_hovered(window)
-                || event.button != MouseButton::Left
+                || (!main_for_pinch.is_hovered(window) && !divider_for_pinch.is_hovered(window))
             {
                 return;
             }
             timeline
-                .update(cx, |_this, _cx| {
-                    _this.drag_last_x = Some(event.position.x);
-                })
+                .update(cx, |this, cx| this.handle_pinch(event, bounds, cx))
                 .log_err();
             cx.stop_propagation();
         });
@@ -581,7 +717,7 @@ impl TimelineElement {
             }
             timeline
                 .update(cx, |this, cx| {
-                    if this.drag_last_x.take().is_some() {
+                    if this.drag.take().is_some() {
                         cx.notify();
                     }
                 })
@@ -960,6 +1096,32 @@ fn sample_events(now: DateTime<Utc>) -> Vec<CalendarEvent> {
             start: now + TimeDelta::days(20),
             end: None,
             color: hsla(0.12, 0.7, 0.5, 1.0),
+        },
+        // Overlapping events: these must pack into separate vertical lanes
+        // rather than drawing on top of each other.
+        CalendarEvent {
+            title: "Overlap A".into(),
+            start: now + TimeDelta::hours(28),
+            end: Some(now + TimeDelta::hours(40)),
+            color: hsla(0.30, 0.65, 0.5, 1.0),
+        },
+        CalendarEvent {
+            title: "Overlap B".into(),
+            start: now + TimeDelta::hours(30),
+            end: Some(now + TimeDelta::hours(38)),
+            color: hsla(0.50, 0.65, 0.5, 1.0),
+        },
+        CalendarEvent {
+            title: "Overlap C".into(),
+            start: now + TimeDelta::hours(33),
+            end: Some(now + TimeDelta::hours(36)),
+            color: hsla(0.70, 0.65, 0.5, 1.0),
+        },
+        CalendarEvent {
+            title: "Overlap D (point)".into(),
+            start: now + TimeDelta::hours(35),
+            end: None,
+            color: hsla(0.90, 0.65, 0.55, 1.0),
         },
     ]
 }
