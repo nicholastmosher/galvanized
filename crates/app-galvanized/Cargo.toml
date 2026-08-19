@@ -54,6 +54,7 @@ plugin-files.workspace = true
 plugin-galvanized.workspace = true
 plugin-p2p.workspace = true
 # plugin-theme-palette.workspace = true
+plugin-timeline.workspace = true
 plugin-vault.workspace = true
 plugin-willow.workspace = true
 rand.workspace = true

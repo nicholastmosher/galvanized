@@ -11,7 +11,7 @@ members = [
     "crates/plugin-files",
     "crates/plugin-galvanized",
     "crates/plugin-p2p",
-    "crates/plugin-theme-palette",
+    "crates/plugin-theme-palette", "crates/plugin-timeline",
     "crates/plugin-vault",
     "crates/plugin-willow",
     "crates/strict-cap",
@@ -113,6 +113,7 @@ plugin-files = { path = "crates/plugin-files" }
 plugin-galvanized = { path = "crates/plugin-galvanized" }
 plugin-p2p = { path = "crates/plugin-p2p" }
 plugin-theme-palette = { path = "crates/plugin-theme-palette" }
+plugin-timeline = { path = "crates/plugin-timeline" }
 plugin-vault = { path = "crates/plugin-vault" }
 plugin-willow = { path = "crates/plugin-willow" }
 strict-cap = { path = "crates/strict-cap" }

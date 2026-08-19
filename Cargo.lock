@@ -6965,6 +6965,7 @@ dependencies = [
  "plugin-files",
  "plugin-galvanized",
  "plugin-p2p",
+ "plugin-timeline",
  "plugin-vault",
  "plugin-willow",
  "rand 0.9.2",
@@ -14704,6 +14705,17 @@ dependencies = [
 name = "plugin-theme-palette"
 version = "0.1.0"
 dependencies = [
+ "galvanized-core",
+ "gpui",
+ "gpui-component",
+ "gpui_util",
+]
+
+[[package]]
+name = "plugin-timeline"
+version = "0.1.0"
+dependencies = [
+ "chrono",
  "galvanized-core",
  "gpui",
  "gpui-component",
