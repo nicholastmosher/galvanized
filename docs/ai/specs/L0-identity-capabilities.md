@@ -131,3 +131,190 @@ relate without one subsuming the other.
 - The keyring-vs-container question for the vault (does the vault hold only
   keys/caps, or also content?) bears on Q7 and on the sharing model; to be
   settled before or during the custody design.
+
+## Custody brainstorm — the bootstrap admin-secret (PROPOSED)
+
+> Design exploration. The hybrid below is the direction Nick is **leaning**
+> (chat, 2026-09-02) — **PROPOSED, not ratified.** Nothing here is settled policy
+> until Nick rules.
+
+### The problem in detail
+
+The bootstrap namespace is an **owned** Willow namespace with a **namespace
+secret** (root signing key). That secret is the authority to do one thing in
+steady state: **mint new capabilities** (enroll a device, delegate/re-delegate).
+Ordinary sync does not need it (devices use delegated read caps); unlocking a
+vault does not need it (that is the password). So the secret is an
+**enrollment/recovery instrument**, rarely used — but it is needed for **two**
+operations, and the second is security-critical:
+
+1. **Enrollment** — mint a read cap for a new device (routine, friendly).
+2. **Hostile eviction** — revoke a cap held by a *compromised* device you did
+   not delegate to (incident response).
+
+The second case is what raises the stakes: it is not just "how convenient is
+enrollment" but "how **fast** can you exercise the root when a device is
+compromised." A custody scheme cheap at enrollment but slow under incident is
+worse than it looks.
+
+**Tensions:**
+
+- **Availability vs. compromise surface.** Wherever the secret lives *online*,
+  that device is a crown-jewel target: holder of the secret → mint caps → enroll
+  rogue devices → reach every device's bootstrap namespace → attempt offline
+  brute-force on every vault password.
+- **No server** to custody, rate-limit, or recover it.
+- **Revocation asymmetry.** If every device holds the raw secret, you cannot
+  evict a compromised device (it has the root; you must *rotate* — re-enroll
+  everyone, and the rogue keeps its old local ciphertext). If devices hold only
+  delegated caps, eviction is cheap — but somebody must hold the raw secret to
+  mint caps, recreating a privileged custodian.
+- **Bootstrap recursion.** The secret cannot live inside a vault (the vault is
+  unlocked via this namespace). Whatever protects it is the **new root of trust**.
+- **Multi-fleet.** Custody is per bootstrap namespace (compartmentalization),
+  bounding blast radius.
+
+**Threat calibration (precise).** First, two axes must not be conflated:
+
+- A **device** is a physical peer that *syncs* the bootstrap namespace; it needs
+  a **read capability**. "Enrolling a device" = minting a read cap.
+- A **profile** is an identity (a subspace key) stored *inside a vault blob*,
+  protected by the **vault password**. Adding a profile to a vault = modifying a
+  vault blob's contents = decrypting it = needs the vault password. The namespace
+  secret does **not** grant this.
+
+In Willow's model (Meadowcap), the namespace secret is the root authority to **mint
+capabilities** (read *and* write) for that namespace, and to **write** to it. So a
+holder can: enroll devices to sync (get ciphertext + history); and write garbage /
+plant blobs — a *destructive DoS*, mitigated by the static substrate's git-like
+history (originals recoverable; tampered blobs fail to decrypt, so detectable).
+The secret does **not** grant decrypting vault contents, reading Spaces,
+impersonating a profile, or adding profiles.
+
+The namespace secret is **not the final crown jewel** — it protects
+*reachability to ciphertext*; the vault passwords protect the *root keys*. The
+asymmetry across three threats (Alice: bootstrap namespace `B` with two
+password-protected vaults; three devices with read caps; secret on paper):
+
+| Compromise | Yields | Can spread? | Durable fix |
+|---|---|---|---|
+| Namespace secret (T1) | ciphertext + reachability + write/DoS | **yes** (re-mint) | **rotate the secret** |
+| Device stolen (T3) | ciphertext + reachability + maybe live state | no (bounded) | **revoke the cap** |
+| Vault password alone (T2) | nothing (no ciphertext) | n/a | rotate the password (cheap) |
+
+Two consequences:
+
+1. **The secret is persistent/spreading** (attacker re-mints after eviction →
+   rotation required), while **a device is bounded** (revoke the cap). So custody
+   of the secret matters — but the secret is *less immediately catastrophic than
+   a stolen unlocked device*: T1 cannot read contents, T3 possibly can. The
+   bigger practical risk is **device theft while unlocked**, which the custody
+   layer does not address at all — that is the *device/session* layer's job
+   (auto-lock, no persistent vault keys on disk, wipe memory on lock). The custody
+   ceremony's marginal value is bounded by how well that device layer is
+   protected.
+2. **Reachability and readability are independent and both required** — T2 is
+   impotent alone (password but no ciphertext). This is Q5 made concrete at the
+   custody layer: an attacker must compromise *two different things* (a
+   reachability root + a password) to get vault contents, except in the
+   device-theft case where one device holds both reachability and a live copy.
+
+**Rotation is not a nice-to-have technique — it is the mandatory recovery
+operation for namespace-secret compromise (T1).** This raises its priority when
+designing the capability lifecycle.
+
+**Cross-cutting wrinkle — who can revoke?** Revoking a device is a **write**
+(tombstone), and read-only devices cannot write. Eviction needs the root secret
+or a delegated **revocation capability** — but a revocation cap is power: if any
+device can revoke any other, a compromised device can revoke all the good ones
+(a cheap DoS). The clean corner ("a device can only revoke caps *it* delegated")
+handles friendly revocation but **not** hostile eviction. So hostile eviction
+likely requires the root — which is *why* the root's latency-to-exercise matters.
+**Revocation authority and the DoS tradeoff is an open sub-problem across all
+custody schemes; none resolves it alone.**
+
+### Three solutions (three angles: when / where / who the root is)
+
+**Solution A — Cold custody (minimize *when* the root is live).** The root
+exists live as rarely as possible; devices hold only delegated read caps. At
+creation, mint the first device's read cap, then **seal the secret as an offline
+recovery phrase** (BIP-39) — not on any device's disk. Enroll = thaw the phrase,
+mint a cap, drop from memory. Recover from total loss = phrase reconstitutes the
+secret. Threat: device software compromise gets read caps + local ciphertext,
+**not** the secret → cannot enroll rogues; stealing the secret requires physical
+access to the phrase. UX: enrollment needs the phrase (rare, heavier); the phrase
+is a physical SPOF. **Counter:** this *moves* the crown jewel from a device to a
+piece of paper — better (offline, not malware-exfiltrable) but does not
+eliminate the SPOF (lose phrase + all devices = irrecoverable; finder can mint).
+
+**Solution B — Hardware-rooted (make the root unstealable by software; *where*
+the root lives).** The secret is generated inside a hardware token / OS secure
+enclave and is **non-exportable**; the token only signs caps. Enroll = present
+token, authorize, sign. Threat: strongest against remote/software compromise of
+the root — malware cannot exfiltrate a non-exportable key; theft needs the
+physical token + defeating its PIN. UX: a **hardware dependency and cost** — in
+tension with the non-technical-organizer audience. Token loss is a steep cliff
+without a backup (a cloned token, or a one-time paper export at genesis →
+re-introduces A). **Counter:** best against remote attack, weakest against
+physical loss/theft, adds gear the audience may lack, and does not solve
+recovery alone — it composes with A or C, best as a *component* of a hybrid.
+
+**Solution C — Quorum authority (eliminate the single root; *who* holds it).**
+The secret is **Shamir-split** (or **threshold-signed** without reconstruction)
+into N shares held by a mix of the user's offsite devices and/or trusted people;
+k-of-N mint/evict. Devices hold read caps. Every minted cap is recorded as an
+**entry in the bootstrap namespace — an enrollment audit log** visible to all
+synced devices. Threat: no single party is root; one compromised share is
+useless; attacker must compromise k parties across domains. The audit log
+**converts silent compromise into detectable compromise** — the only angle that
+gives detection, not just prevention. UX: the **heaviest ceremony**; re-introduces
+a **social trust assumption**; users may weaken it (k=1). Two sub-variants:
+**social-quorum** (trusted people, slow, trust-dependent) vs **fleet-quorum**
+(your own devices co-approve, faster, trust-free but fails if the fleet is small
+or co-located). **Counter:** most secure against total loss/SPOF, least usable
+for the stated audience.
+
+### Synthesis
+
+| | Live-exposure of root | Remote-attack on root | Physical-loss recovery | Incident latency | Audience fit |
+|---|---|---|---|---|---|
+| A Cold | minimal (rare thaw) | strong | phrase = SPOF | slow (find paper) | good (familiar) |
+| B Hardware | none (non-exportable) | strongest | needs A or C backup | fast (have token) | poor (gear/cost) |
+| C Quorum | distributed | strong (k parties) | best (survives loss) | slow (gather k) | poor (ceremony) |
+
+The three **compose**; the honest answer is a hybrid. Evaluative dimensions that
+actually matter, given the threat calibration: (1) **incident latency** — how
+fast can you evict? (favors B; A/C slow; under-appreciated axis); (2) **SPOF vs
+distributed** — does one loss = catastrophe? (favors C); (3) **audience fit** —
+no gear, minimal ceremony (favors A).
+
+### The leaning direction (PROPOSED — Nick leaning, 2026-09-02)
+
+**A as the baseline + C's audit log always on + B as an opt-in fast path:**
+
+- **A (cold recovery phrase, devices hold read caps)** as the default —
+  familiar, no gear, workable for non-technical organizers.
+- **C's enrollment audit log always on** — nearly free, high value: detection of
+  rogue enrollments across all configurations.
+- **B (hardware token) as an *opt-in* upgrade** for users who have one — fast
+  eviction, and the token can *hold* the recovery phrase, mitigating A's paper
+  SPOF.
+
+This gives a workable default for the non-technical user while letting the
+privacy-power-user upgrade.
+
+### Open sub-problems (not resolved by custody alone)
+
+- **Revocation authority & the DoS tradeoff** — who can write tombstones; can a
+  compromised device DoS the fleet by revoking everyone? Hostile eviction likely
+  requires the root; friendly revocation might be self-service. A capability-
+  delegation-graph design question, not a custody question.
+- **Rotation is a first-class operation, not a technique.** It serves two
+  roles: (a) *proactive* — rotate the namespace secret per enrollment and destroy
+  the old, so a stolen *old* secret cannot mint current caps (limits the value of
+  a past theft); (b) *reactive / mandatory* — it is the **only durable recovery
+  for namespace-secret compromise (T1)**, since the attacker re-mints after any
+  mere eviction. Layers onto any of A/B/C; its cost (re-enroll all surviving
+  devices) drives how cheaply we can afford to do it.
+- **Fleet-quorum vs social-quorum** (within C) — own devices voting vs trusted
+  people voting; different trust and locality assumptions.
