@@ -117,26 +117,37 @@ below is settled.
 ├─────────────────────────────────────────────────────────────┤
 │ Static data substrate  (content-addressed, git-like history)  │  U4
 ├─────────────────────────────────────────────────────────────┤
-│ Encryption at rest  (Willow does not encrypt; we add this)     │  U1
+│ Encryption at rest  (mechanism; KEYS governed by L0 below)    │  U1
 ├─────────────────────────────────────────────────────────────┤
 │ Willow  (namespaces + subspaces = keys; capabilities gate sync)│
 ├─────────────────────────────────────────────────────────────┤
-│ Identity & capability system  ← THE FOUNDATION                │  U1,U2,U3,U7,U9
+│ L0  Identity & capability & KEY system  ← THE FOUNDATION      │  U1,U2,U3,U7,U9
 │   • Profiles = Willow subspaces (identities)                   │
 │   • Namespaces = filesystem-scope + sharability identifiers    │
+│   • All key material governed here: identity + capability +    │
+│     encryption keys share primitives (key synergy)             │
 │   • The vault, implemented on the encrypted Willow FS (U9,U10) │
 │     - bootstrap namespace = purpose-built owned namespace holding │
 │       password-encrypted vault blobs (multiple vaults, own pwds) │
 │     - device secret (reachability) ≠ user password (decryption)    │
-│   • Capability duality (below)                                 │
+│   • Capability duality (serialized objects + type-tokens)      │
+│   • Spec: L0-identity-capabilities.md (problem statement done) │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### L0 — Identity & capability system (the foundation)
+### L0 — Identity, capability & key system (the foundation)
 
-This is where capabilities live, and it sits **below** the data substrates. We
-expound it at length before anything else, because every layer above assumes its
-contracts.
+This is where capabilities *and the cryptographic key layer* live, sitting
+**below** the data substrates. We expound it at length before anything else,
+because every layer above assumes its contracts. The full problem statement is
+in [`L0-identity-capabilities.md`](L0-identity-capabilities.md) (refined;
+solutions to be brainstormed next).
+
+**Key synergy.** Identity keys, capability keys, and encryption keys are all
+*keys*. L0 governs them as one family of key material rather than three separate
+key systems — which is why the encryption-at-rest *key hierarchy* is designed
+here (its *mechanism* is the layer above Willow, but its keys come from L0, and
+the sync-authority/read-authority independence lives here).
 
 **Willow primitives as keys.** Willow **namespaces** and **subspaces** are
 cryptographic keys. Galvanized uses them as:
@@ -149,11 +160,14 @@ cryptographic keys. Galvanized uses them as:
 
 **What Willow does and does not do.** Willow determines, via capabilities,
 which peers may or may not sync particular data to and from one another. It
-does **not** encrypt. Therefore an **encryption-at-rest layer** sits on top of
-Willow (between Willow and the static substrate) so data is encrypted at rest.
+does **not** encrypt. Therefore an **encryption-at-rest *mechanism*** sits on
+top of Willow (between Willow and the static substrate) so data is encrypted at
+rest — but the **encryption *key hierarchy*** is governed by L0 (key synergy):
+"may sync" (a capability) and "may read" (a key) are independent and both
+originate here.
 
-**The capability duality.** Capabilities exist in two layers, deliberately
-linked:
+- **The capability duality.** Capabilities exist in two layers, deliberately
+  linked:
 
 1. **Serialized capability objects** — like Willow's native ones. Serializable,
    usable *by Willow* to determine sync permissions efficiently. Extended with
@@ -199,8 +213,11 @@ We do not spec them until L0–L2 are settled.
   must be settled first.
 - **Willow namespaces/subspaces are keys**; subspaces = Profiles, namespaces =
   filesystem-scope/sharability identifiers.
-- **Willow does not encrypt** — an encryption-at-rest layer is required on top
-  of it.
+- **Willow does not encrypt** — an encryption-at-rest *mechanism* is required
+  on top of it; its **key hierarchy is governed by L0** (key synergy).
+- **Key synergy**: identity, capability, and encryption keys are one governed
+  family of key material in L0, not three separate key systems. Sync-authority
+  (capability) and read-authority (key) are independent and both originate in L0.
 - **Capabilities are dual**: serializable objects (Willow-sync-checked,
   extensible to app-specific) + Rust type-tokens (minted from a serialized
   object, required to call gated APIs).
@@ -213,11 +230,20 @@ We do not spec them until L0–L2 are settled.
 - **Encryption-at-rest is load-bearing** for the content substrates; the
   bootstrap namespace uses per-entry password-encryption over the *same* crypto
   primitives (password-derived KEK).
+- **The developer API must be "baby-dev" simple.** A beginner should be able to
+  customize interfaces and program new data interactions without reasoning about
+  capability plumbing. "No authority, no operation" is carried by the type
+  system, not by convention at each call site. (U6, U8.)
 - **Transport is p2p-only (Iroh); no cloud control plane** (U2/U3). A relay may
   be a transport fallback, never a control plane.
+- **Non-technical end users and baby-dev API consumers are both target
+  audiences.** Custody/enrollment/recovery ceremonies must be usable by community
+  organizers, not just cryptographers.
 
 ## Plan
 
-**Iterate on L0 (the low-level identity & capability system) before spec'ing
-anything else.** No other area files are created until L0 is nailed down. The
-first spec document we write will be the identity & capability layer.
+**Iterate on L0 (the low-level identity, capability & key system) before
+spec'ing anything else.** No other area files are created until L0 is nailed
+down. L0's problem statement is refined in
+[`L0-identity-capabilities.md`](L0-identity-capabilities.md); next we brainstorm
+solutions.
