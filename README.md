@@ -184,6 +184,20 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 Sep 3
+
+To research more later
+
+- Hierarchical key derivation systems
+- Double ratchet encryption
+- Forward and backward security
+- MLS security
+- PKI
+- Key algorithms (RSA/DSA/AES)
+- Modern hashing and encryption schemes, elliptic curve cryptography
+- HMAC
+- Knuv Pratt text layout
+
 # 2026 July 29
 
 Pretty big changes happening, over the last week or so I've been moving Galvanized off of Zed.
