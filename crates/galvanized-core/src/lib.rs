@@ -6,7 +6,7 @@ use gpui::{
     ParentElement as _, Pixels, Render, Styled, Subscription, Window, WindowBounds, WindowOptions,
     div, px, rgb, size,
 };
-use gpui_component::Root;
+use gpui_kit::component::Root;
 
 pub mod command_palette;
 pub mod item;

@@ -34,7 +34,7 @@ use gpui::{
     SharedString, StatefulInteractiveElement as _, Styled as _, Task, TaskExt as _, WeakEntity,
     Window, actions, div,
 };
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, h_flex,
     input::{Input, InputState},
     tooltip::Tooltip,

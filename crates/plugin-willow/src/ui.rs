@@ -6,7 +6,7 @@ use gpui::{
     Focusable, IntoElement, ParentElement as _, Render, SharedString, Styled as _, Window, actions,
     div, linear_color_stop, linear_gradient, px, rgb,
 };
-use gpui_component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 
 const WILLOW_GREEN_RGB: u32 = 0x27E53B;
 const WILLOW_YELLOW_RGB: u32 = 0xF5DF48;

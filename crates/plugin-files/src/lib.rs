@@ -2,6 +2,7 @@ use gpui::{
     self, Action, App, AppContext as _, Context, IntoElement, Render, SharedString, Window,
     actions, div,
 };
+use gpui_kit::component::{ActiveTheme as _, v_flex};
 use plugin_galvanized::{Galvanized, app_behavior::AppBehavior};
 
 actions!(

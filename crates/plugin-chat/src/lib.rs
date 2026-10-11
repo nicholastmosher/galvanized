@@ -6,7 +6,7 @@ use gpui::{
     InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render, RenderOnce,
     SharedString, Styled as _, TaskExt as _, Window, actions, div, rgb,
 };
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _,
     input::{Input, InputState},
     v_flex,

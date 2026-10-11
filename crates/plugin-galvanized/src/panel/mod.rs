@@ -7,7 +7,7 @@ use gpui::{
     Stateful, StatefulInteractiveElement as _, Styled, Window, actions, div, linear_color_stop,
     linear_gradient, prelude::FluentBuilder as _, px, rgba,
 };
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, h_flex,
     input::InputState,
     menu::{ContextMenuExt as _, PopupMenuItem},

@@ -4,7 +4,7 @@ use gpui::{
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString,
     StatefulInteractiveElement as _, Styled as _, Window, actions, div,
 };
-use gpui_component::{ActiveTheme as _, h_flex, tooltip::Tooltip, v_flex};
+use gpui_kit::component::{ActiveTheme as _, h_flex, tooltip::Tooltip, v_flex};
 
 actions!(palette, [OpenPalette]);
 

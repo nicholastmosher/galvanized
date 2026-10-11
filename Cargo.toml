@@ -43,7 +43,7 @@ ed25519-dalek = "2.2.0"
 flume = "0.12.0"
 futures = "0.3.32"
 futures-concurrency = "7.7.1"
-gpui-component = "0.7.1"
+gpui-kit = "0.7.1"
 hex = "0.4.3"
 image = "0.24.9"
 iroh = { git = "https://github.com/nicholastmosher/iroh", branch = "galvanized" }

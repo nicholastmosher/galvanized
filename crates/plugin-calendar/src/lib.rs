@@ -7,7 +7,8 @@ use gpui::{
     StatefulInteractiveElement as _, Styled as _, Window, actions, div, linear_color_stop,
     linear_gradient, px, rgb, white,
 };
-use gpui_component::{ActiveTheme as _, v_flex};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
+use serde_json::json;
 
 actions!(calendar, [OpenCalendar]);
 

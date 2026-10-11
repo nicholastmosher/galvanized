@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 galvanized-core.workspace = true
 gpui.workspace = true
+gpui-kit.workspace = true
 plugin-galvanized.workspace = true
 tracing.workspace = true
 willow25.workspace = true

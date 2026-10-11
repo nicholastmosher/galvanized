@@ -11,8 +11,8 @@ use gpui::{
     InteractiveElement, IntoElement, KeyBinding, ParentElement as _, Render, SharedString,
     StatefulInteractiveElement, Styled, Task, WeakEntity, Window, actions, div, px,
 };
-use gpui_component::list::{List, ListDelegate, ListItem, ListState};
-use gpui_component::{ActiveTheme, IndexPath};
+use gpui_kit::component::list::{List, ListDelegate, ListItem, ListState};
+use gpui_kit::component::{ActiveTheme, IndexPath};
 
 use crate::Workspace;
 

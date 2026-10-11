@@ -3,7 +3,7 @@ use gpui::{
     EventEmitter, FocusHandle, Focusable, InteractiveElement, IntoElement, ParentElement, Render,
     StatefulInteractiveElement, Styled, Window, div, point, prelude::FluentBuilder, px,
 };
-use gpui_component::{ActiveTheme, StyledExt, h_flex};
+use gpui_kit::component::{ActiveTheme, StyledExt, h_flex};
 
 use crate::item::ItemHandle;
 use crate::pane_group::SplitDirection;

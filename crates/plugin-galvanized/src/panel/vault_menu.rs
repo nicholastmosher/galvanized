@@ -10,7 +10,7 @@ use gpui::{
     Render, RenderOnce, Stateful, StatefulInteractiveElement as _, Styled as _, Window, div,
     linear_color_stop, linear_gradient, px,
 };
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, Selectable, h_flex, popover::Popover, tooltip::Tooltip, v_flex,
 };
 

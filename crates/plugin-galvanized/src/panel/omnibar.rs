@@ -3,8 +3,8 @@ use gpui::{
     Context, Entity, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _,
     SharedString, StatefulInteractiveElement as _, Styled as _, div,
 };
-use gpui_component::input::Input;
-use gpui_component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::component::input::Input;
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 
 use crate::{domain::vault::Vault, panel::GalvanizedPanel};
 

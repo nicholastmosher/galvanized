@@ -4,8 +4,8 @@ use gpui::{
     IntoElement, ParentElement as _, RenderOnce, Stateful, StatefulInteractiveElement as _,
     Styled as _, Window, div, px,
 };
-use gpui_component::popover::Popover;
-use gpui_component::{ActiveTheme as _, Selectable, h_flex};
+use gpui_kit::component::popover::Popover;
+use gpui_kit::component::{ActiveTheme as _, Selectable, h_flex};
 use hex::ToHex as _;
 use tracing::info;
 

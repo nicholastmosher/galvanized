@@ -20,7 +20,7 @@ use gpui::{
     StyleRefinement, Styled, TextAlign, TextRun, WeakEntity, Window, actions, div, fill, hsla,
     point, px, size, white,
 };
-use gpui_component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_util::ResultExt as _;
 
 actions!(timeline, [OpenTimeline]);

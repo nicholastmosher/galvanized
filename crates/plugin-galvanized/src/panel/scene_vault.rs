@@ -3,7 +3,7 @@ use gpui::{
     ParentElement as _, StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div,
     px,
 };
-use gpui_component::{ActiveTheme as _, h_flex, input::Input, tooltip::Tooltip, v_flex};
+use gpui_kit::component::{ActiveTheme as _, h_flex, input::Input, tooltip::Tooltip, v_flex};
 use tracing::info;
 
 use crate::{

@@ -4,7 +4,7 @@ use gpui::{
     StatefulInteractiveElement as _, Styled as _, TaskExt as _, Window, div, linear_color_stop,
     linear_gradient, px,
 };
-use gpui_component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 
 use crate::panel::{
     CreateSpaceKind, GalvanizedPanel, PanelScene, PrimaryButton as _, render_scene_header,

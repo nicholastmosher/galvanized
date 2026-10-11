@@ -3102,7 +3102,7 @@ dependencies = [
  "flume 0.12.0",
  "futures-concurrency",
  "galvanized-core",
- "gpui-component",
+ "gpui-kit",
  "gpui-pre",
  "gpui-pre-platform",
  "gpui-pre-util",
@@ -3158,7 +3158,7 @@ dependencies = [
 name = "galvanized-core"
 version = "0.1.0"
 dependencies = [
- "gpui-component",
+ "gpui-kit",
  "gpui-pre",
  "gpui-pre-platform",
  "gpui-pre-util",
@@ -3484,6 +3484,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "gpui-kit"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "684ee523f71c15e23b92b6d04aab46c9a50a679c514ef2b8ebb7eca2ca84233b"
+dependencies = [
+ "gpui-base",
+ "gpui-component",
+ "gpui-kit-assets",
+ "gpui-pre",
+ "gpui-pre-macros",
+ "gpui-pre-platform",
+ "gpui-pre-web",
 ]
 
 [[package]]
@@ -7547,8 +7562,9 @@ name = "plugin-calendar"
 version = "0.0.0"
 dependencies = [
  "galvanized-core",
- "gpui-component",
+ "gpui-kit",
  "gpui-pre",
+ "serde_json",
 ]
 
 [[package]]
@@ -7561,7 +7577,7 @@ dependencies = [
  "flume 0.12.0",
  "futures",
  "galvanized-core",
- "gpui-component",
+ "gpui-kit",
  "gpui-pre",
  "gpui-pre-util",
  "iroh 1.0.2 (git+https://github.com/nicholastmosher/iroh?branch=galvanized)",
@@ -7586,7 +7602,7 @@ dependencies = [
  "futures",
  "futures-concurrency",
  "galvanized-core",
- "gpui-component",
+ "gpui-kit",
  "gpui-pre",
  "gpui-pre-util",
  "hex",
@@ -7617,6 +7633,7 @@ name = "plugin-files"
 version = "0.1.0"
 dependencies = [
  "galvanized-core",
+ "gpui-kit",
  "gpui-pre",
  "plugin-galvanized",
  "tracing",
@@ -7632,7 +7649,7 @@ dependencies = [
  "futures-concurrency",
  "galvanized-cap",
  "galvanized-core",
- "gpui-component",
+ "gpui-kit",
  "gpui-pre",
  "gpui-pre-util",
  "hex",
@@ -7681,7 +7698,7 @@ name = "plugin-theme-palette"
 version = "0.1.0"
 dependencies = [
  "galvanized-core",
- "gpui-component",
+ "gpui-kit",
  "gpui-pre",
  "gpui-pre-util",
 ]
@@ -7692,9 +7709,10 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "galvanized-core",
- "gpui-component",
+ "gpui-kit",
  "gpui-pre",
  "gpui-pre-util",
+ "serde_json",
 ]
 
 [[package]]
@@ -7714,7 +7732,7 @@ dependencies = [
  "futures",
  "galvanized-cap",
  "galvanized-core",
- "gpui-component",
+ "gpui-kit",
  "gpui-pre",
  "gpui-pre-util",
  "rand 0.8.5",
@@ -7744,7 +7762,7 @@ dependencies = [
  "futures-concurrency",
  "galvanized-cap",
  "galvanized-core",
- "gpui-component",
+ "gpui-kit",
  "gpui-pre",
  "gpui-pre-util",
  "hex",

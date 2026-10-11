@@ -7,5 +7,6 @@ edition = "2024"
 chrono.workspace = true
 galvanized-core.workspace = true
 gpui.workspace = true
-gpui-component.workspace = true
+gpui-kit.workspace = true
 gpui_util.workspace = true
+serde_json.workspace = true

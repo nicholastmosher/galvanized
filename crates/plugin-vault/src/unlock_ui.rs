@@ -7,7 +7,7 @@ use gpui::{
     ParentElement, Render, StatefulInteractiveElement as _, Styled as _, TitlebarOptions, Window,
     WindowBounds, WindowHandle, WindowKind, WindowOptions, div, px, size,
 };
-use gpui_component::{ActiveTheme as _, h_flex, input::InputState, v_flex};
+use gpui_kit::component::{ActiveTheme as _, h_flex, input::InputState, v_flex};
 use gpui_util::ResultExt as _;
 use tokio::sync::oneshot;
 use tracing::info;

@@ -2,7 +2,7 @@ use gpui::{
     AnyElement, App, Axis, Entity, IntoElement, ParentElement, Pixels, Window,
     prelude::FluentBuilder,
 };
-use gpui_component::resizable::{h_resizable, resizable_panel, v_resizable};
+use gpui_kit::component::resizable::{h_resizable, resizable_panel, v_resizable};
 
 use crate::pane::Pane;
 
