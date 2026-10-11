@@ -4,8 +4,7 @@ use gpui_platform::application;
 async fn main() {
     dotenvy::dotenv().ok();
 
-    application()
-        //
-        .add_plugin(gzed::init)
-        .run();
+    application().run(move |cx| {
+        gzed::init(cx);
+    });
 }

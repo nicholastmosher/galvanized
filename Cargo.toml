@@ -43,9 +43,7 @@ ed25519-dalek = "2.2.0"
 flume = "0.12.0"
 futures = "0.3.32"
 futures-concurrency = "7.7.1"
-# gpui-component = "0.5.1"
-# gpui-component = { path = "../../longbridge/gpui-component/crates/ui" }
-gpui-component = { git = "https://github.com/nicholastmosher/gpui-component" }
+gpui-component = "0.7.1"
 hex = "0.4.3"
 image = "0.24.9"
 iroh = { git = "https://github.com/nicholastmosher/iroh", branch = "galvanized" }
@@ -90,16 +88,11 @@ uuid = "1.23.1"
 willow25 = "0.5.0"
 zeroize = { version = "1.8.2", features = ["std", "zeroize_derive"] }
 
-# If you run into build errors, make sure this is using the git dep, not path
-# I sometimes switch it to path dep when tweaking Zed itself
-# gpui = { package = "gpui", git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins", features = ["test-support"] }
-# zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
-gpui = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
-gpui_platform = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
-gpui_util = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
-zed = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
-# gpui = { path = "../zed/crates/gpui" }
-# zed = { path = "../zed/crates/zed" }
+# GPUI comes from the gpui-pre-* published snapshots (sourced from upstream Zed).
+# The crate names in Rust code remain gpui, gpui_platform, gpui_util.
+gpui = { package = "gpui-pre", version = "=0.3.8" }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.8", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }
+gpui_util = { package = "gpui-pre-util", version = "=0.3.8" }
 
 # Path dependencies
 # csh-demo = { path = "crates/csh-demo" }
@@ -125,21 +118,4 @@ strict-cap = { path = "crates/strict-cap" }
 # willow-api-derive = { path = "crates/willow-api-derive" }
 # zed = { path = "../../../zed/crates/zed" }
 
-[patch.crates-io]
-async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
-async-task = { git = "https://github.com/smol-rs/async-task.git", rev = "b4486cd71e4e94fbda54ce6302444de14f4d190e" }
-windows-capture = { git = "https://github.com/zed-industries/windows-capture.git", rev = "f0d6c1b6691db75461b732f6d5ff56eed002eeb9" }
-calloop = { git = "https://github.com/zed-industries/calloop" }
-livekit = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev = "d0e27be0cdad89eadab3e36207cda0a2b6e359ee" }
-libwebrtc = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev = "d0e27be0cdad89eadab3e36207cda0a2b6e359ee" }
-notify = { git = "https://github.com/zed-industries/notify", rev = "faecbc33db4f59313e5225ef766bfd9e54a54cfd" }
-notify-types = { git = "https://github.com/zed-industries/notify", rev = "faecbc33db4f59313e5225ef766bfd9e54a54cfd" }
-webrtc-sys = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev = "d0e27be0cdad89eadab3e36207cda0a2b6e359ee" }
 
-[patch."https://github.com/zed-industries/zed"]
-gpui = { version="=0.2.2", git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
-gpui_platform = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
-gpui_web = { git = "https://github.com/nicholastmosher/zed", branch = "galvanized" }
-# gpui = { path = "../zed/crates/gpui" }
-# gpui_platform = { path = "../zed/crates/gpui_platform" }
-# gpui_web = { path = "../zed/crates/gpui_web" }

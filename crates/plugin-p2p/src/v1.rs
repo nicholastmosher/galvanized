@@ -6,6 +6,8 @@ use automerge::Automerge;
 use bytes::BytesMut;
 use dashmap::DashMap;
 use futures::{SinkExt as _, Stream, TryStreamExt as _};
+use gpui::{App, AppContext, Entity, Global, TaskExt};
+use gpui_util::{ResultExt, TryFutureExt};
 use iroh::{
     Endpoint, EndpointAddr, EndpointId,
     endpoint::{Connection, RecvStream, SendStream, presets::N0},
@@ -20,19 +22,13 @@ use tokio::runtime::Handle;
 use tokio_util::codec::{Decoder, Framed, LengthDelimitedCodec};
 use tracing::info;
 use uuid::Uuid;
-use zed::unstable::{
-    gpui::{AppContext, Entity, Global, TaskExt},
-    gpui_tokio::Tokio,
-    ui::App,
-    util::{ResultExt, TryFutureExt},
-};
 
 pub fn init(cx: &mut App) {
     let iroh = P2pCx::new(cx);
     let iroh_entity = iroh.entity.clone();
     cx.set_global(GlobalP2p(iroh_entity.clone()));
 
-    let tokio_handle = Tokio::handle(cx);
+    let tokio_handle = tokio::runtime::Handle::current();
     cx.spawn(async move |cx| {
         let uuid = Uuid::new_v4();
         let base_path = format!("/tmp/iroh-automerge-{uuid}");

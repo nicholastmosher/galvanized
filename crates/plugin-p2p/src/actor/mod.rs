@@ -9,6 +9,8 @@ use async_shutdown::ShutdownManager;
 use culpa::throws;
 use futures::{FutureExt, Stream, StreamExt as _};
 use futures_concurrency::stream::Merge;
+use gpui::App;
+use gpui_util::ResultExt;
 use iroh::{
     Endpoint,
     endpoint::{Incoming, presets::N0},
@@ -19,7 +21,6 @@ use tokio::{
     task::{JoinError, JoinSet},
 };
 use tracing::{Instrument as _, error, field::Empty, info, info_span, trace, warn};
-use zed::unstable::{gpui_tokio::Tokio, ui::App, util::ResultExt};
 
 use protocol::Protocols;
 

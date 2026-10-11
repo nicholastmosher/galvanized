@@ -24,4 +24,5 @@ tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
 uuid.workspace = true
-zed.workspace = true
+gpui.workspace = true
+gpui_util.workspace = true

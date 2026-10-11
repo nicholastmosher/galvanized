@@ -4,12 +4,9 @@ use std::{
 };
 
 use anyhow::Result;
+use gpui::{App, AppContext, Context, Entity, WeakEntity};
 use iroh::{Endpoint, EndpointId, protocol::ProtocolHandler};
 use tracing::info;
-use zed::unstable::{
-    gpui::{AppContext, Entity, WeakEntity},
-    ui::{App, Context},
-};
 
 use crate::actor::{Actor, AnyDynProtocolHandler, protocol::Protocols};
 

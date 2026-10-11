@@ -1,13 +1,10 @@
 use anyhow::Result;
 use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
+use gpui::{App, AppContext, Entity, Task};
 use plugin_galvanized::domain::profile::Profile;
 use plugin_p2p::P2pHandle;
 use samod::{DocHandle, PeerId, storage::InMemoryStorage};
 use tracing::info;
-use zed::unstable::{
-    gpui::{AppContext, Entity, Task},
-    ui::App,
-};
 
 use crate::protocol::AutomergeProtocol;
 
@@ -136,12 +133,8 @@ impl<T: Automergable> AutomergeHandle for Entity<T> {
 #[allow(warnings)]
 mod tests {
     use super::*;
-    use gpui::Context;
+    use gpui::{self, App, Context, Entity};
     use samod::DocHandle;
-    use zed::unstable::{
-        gpui::{self, Entity},
-        ui::App,
-    };
 
     // Compile-only test, can't make #[gpui::test] work yet
     fn test_api(mut _cx: &App) {
