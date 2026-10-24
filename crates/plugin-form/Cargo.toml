@@ -4,14 +4,21 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow.workspace = true
 automerge.workspace = true
 autosurgeon.workspace = true
-anyhow.workspace = true
+data-encoding.workspace = true
+flume.workspace = true
+futures.workspace = true
 galvanized-core.workspace = true
 gpui.workspace = true
 gpui-kit.workspace = true
+gpui_util.workspace = true
 iroh.workspace = true
 plugin-automerge.workspace = true
 plugin-galvanized.workspace = true
 plugin-p2p.workspace = true
 samod.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true

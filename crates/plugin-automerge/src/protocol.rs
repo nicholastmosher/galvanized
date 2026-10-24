@@ -6,11 +6,11 @@ use std::{
     collections::BTreeSet,
     error::Error,
     io::ErrorKind,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex},
 };
 
 use crate::codec::Codec;
-use anyhow::{Result, bail};
+use anyhow::Result;
 use futures::future::BoxFuture;
 use iroh::{
     Endpoint, EndpointAddr,
@@ -57,18 +57,11 @@ impl AutomergeProtocol {
 
     /// Constructs a new [`AutomergeProtocol`].
     pub fn from_repo(endpoint: Endpoint, repo: Repo) -> Self {
-        let protocol = AutomergeProtocol {
+        AutomergeProtocol {
             endpoint,
             repo,
             _peers: Default::default(),
-        };
-        let protocol_clone = protocol.clone();
-        tokio::task::spawn(async move {
-            let repo = repo_builder.await;
-            let mut repo_lock = protocol_clone.repo.write().unwrap();
-            *repo_lock = Some(repo);
-        });
-        protocol
+        }
     }
 
     /// Attempts to continuously sync with a peer at given address.

@@ -133,9 +133,7 @@ impl ContactPeer {
         name: ContactName,
         protocol: ContactsProtocol,
     ) -> Result<Self> {
-        let Some(repo) = protocol.automerge.repo() else {
-            bail!("Automerge repo not initialized")
-        };
+        let repo = protocol.automerge.repo();
         let doc = Automerge::new();
         let doc_handle = repo.create(doc).await?;
 

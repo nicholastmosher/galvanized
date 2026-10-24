@@ -3,7 +3,7 @@ use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
 use gpui::{App, AppContext, Entity, Task, TaskExt};
 use plugin_galvanized::domain::profile::{Profile, ProfileHandle};
 use plugin_p2p::P2pHandle;
-use samod::{DocHandle, PeerId, storage::InMemoryStorage};
+use samod::DocHandle;
 use tracing::info;
 
 use crate::protocol::AutomergeProtocol;
@@ -14,19 +14,21 @@ pub mod ticket;
 
 pub fn init(cx: &mut App) {
     // For each new P2p instance, register the Automerge protocol handler.
-    cx.observe_new::<Profile>(|profile, _window, cx| {
+    cx.observe_new::<Profile>(|_profile, _window, cx| {
         let profile = cx.entity();
-        cx.spawn(async move |cx| {
+        cx.spawn(async move |_this, cx| {
             let endpoint = profile.p2p(cx).endpoint(cx);
             let protocol_automerge = AutomergeProtocol::new(endpoint.clone()).await;
             profile.update(cx, |profile, cx| {
                 profile.p2p().register_protocol(protocol_automerge, cx);
-            })?;
+            });
+            info!(
+                endpoint_id = %endpoint.id(),
+                "Registered AutomergeProtocol with P2p instance"
+            );
             anyhow::Ok(())
         })
         .detach_and_log_err(cx);
-
-        info!(endpoint_id = %endpoint.id(), "Registered AutomergeProtocol with P2p instance");
     })
     .detach();
 }
