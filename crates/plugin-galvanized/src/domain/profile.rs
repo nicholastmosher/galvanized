@@ -76,7 +76,7 @@ impl Profile {
         key_store: Option<WillowKeyStore>,
         cx: &mut Context<Self>,
     ) -> Self {
-        let p2p = cx.new(|cx| P2p::new(endpoint, cx));
+        let p2p = cx.new(|cx| P2p::from_endpoint(endpoint, cx));
         Self {
             data,
             home,

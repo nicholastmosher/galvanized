@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Result;
 use gpui::{App, AppContext, Context, Entity, WeakEntity};
-use iroh::{Endpoint, EndpointId, protocol::ProtocolHandler};
+use iroh::{Endpoint, EndpointId, endpoint::presets::N0, protocol::ProtocolHandler};
 use tracing::info;
 
 use crate::actor::{Actor, AnyDynProtocolHandler, protocol::Protocols};
@@ -29,8 +29,13 @@ pub struct P2p {
 }
 
 impl P2p {
+    pub async fn new(cx: &mut App) -> Result<Self> {
+        let endpoint = Endpoint::builder(N0).bind().await?;
+        Ok(Self::from_endpoint(endpoint, cx))
+    }
+
     /// Create a new `P2p` instance, with an empty protocol stack and spawning a new actor.
-    pub fn new(endpoint: Endpoint, cx: &mut App) -> Self {
+    pub fn from_endpoint(endpoint: Endpoint, cx: &mut App) -> Self {
         let shutdown = async_shutdown::ShutdownManager::new();
         let protocols = Protocols::default();
         let actor = Actor::spawn(shutdown, endpoint, protocols, cx);

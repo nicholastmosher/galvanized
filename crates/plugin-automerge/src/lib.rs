@@ -1,7 +1,7 @@
 use anyhow::Result;
 use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
-use gpui::{App, AppContext, Entity, Task};
-use plugin_galvanized::domain::profile::Profile;
+use gpui::{App, AppContext, Entity, Task, TaskExt};
+use plugin_galvanized::domain::profile::{Profile, ProfileHandle};
 use plugin_p2p::P2pHandle;
 use samod::{DocHandle, PeerId, storage::InMemoryStorage};
 use tracing::info;
@@ -10,31 +10,22 @@ use crate::protocol::AutomergeProtocol;
 
 pub mod codec;
 pub mod protocol;
+pub mod ticket;
 
 pub fn init(cx: &mut App) {
     // For each new P2p instance, register the Automerge protocol handler.
     cx.observe_new::<Profile>(|profile, _window, cx| {
-        let endpoint = profile.p2p().endpoint(cx);
+        let profile = cx.entity();
+        cx.spawn(async move |cx| {
+            let endpoint = profile.p2p(cx).endpoint(cx);
+            let protocol_automerge = AutomergeProtocol::new(endpoint.clone()).await;
+            profile.update(cx, |profile, cx| {
+                profile.p2p().register_protocol(protocol_automerge, cx);
+            })?;
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
 
-        let protocol_automerge = {
-            let endpoint = endpoint.clone();
-            AutomergeProtocol::new(
-                endpoint.clone(),
-                Box::pin(async move {
-                    samod::Repo::build_tokio()
-                        .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
-                        // .with_storage(TokioFilesystemStorage::new(format!(
-                        //     "{}/{}",
-                        //     base_path,
-                        //     endpoint.id(),
-                        // )))
-                        .with_storage(InMemoryStorage::new())
-                        .load()
-                        .await
-                }),
-            )
-        };
-        profile.p2p().register_protocol(protocol_automerge, cx);
         info!(endpoint_id = %endpoint.id(), "Registered AutomergeProtocol with P2p instance");
     })
     .detach();

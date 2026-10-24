@@ -9,6 +9,7 @@ members = [
     "crates/plugin-chat",
     "crates/plugin-contacts",
     "crates/plugin-files",
+    "crates/plugin-form",
     "crates/plugin-galvanized",
     "crates/plugin-p2p",
     "crates/plugin-theme-palette", "crates/plugin-timeline",
@@ -103,6 +104,7 @@ plugin-calendar = { path = "crates/plugin-calendar" }
 plugin-chat = { path = "crates/plugin-chat" }
 plugin-contacts = { path = "crates/plugin-contacts" }
 plugin-files = { path = "crates/plugin-files" }
+plugin-form = { path = "crates/plugin-form" }
 plugin-galvanized = { path = "crates/plugin-galvanized" }
 plugin-p2p = { path = "crates/plugin-p2p" }
 plugin-theme-palette = { path = "crates/plugin-theme-palette" }
@@ -117,5 +119,3 @@ strict-cap = { path = "crates/strict-cap" }
 # willow25 = { path = "../../../codeberg.org/worm-blossom/willow_rs/willow25" }
 # willow-api-derive = { path = "crates/willow-api-derive" }
 # zed = { path = "../../../zed/crates/zed" }
-
-

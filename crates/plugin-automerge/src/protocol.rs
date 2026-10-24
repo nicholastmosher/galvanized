@@ -18,7 +18,9 @@ use iroh::{
     protocol::{AcceptError, ProtocolHandler},
 };
 use plugin_p2p::KeyedProtocolHandler;
-use samod::{BackoffConfig, Dialer, DialerHandle, Repo, Transport, Url};
+use samod::{
+    BackoffConfig, Dialer, DialerHandle, PeerId, Repo, Transport, Url, storage::InMemoryStorage,
+};
 use tokio_util::codec::{FramedRead, FramedWrite};
 use tracing::{debug, info};
 
@@ -29,7 +31,7 @@ use tracing::{debug, info};
 pub struct AutomergeProtocol {
     endpoint: Endpoint,
     #[debug(skip)]
-    repo: Arc<RwLock<Option<Repo>>>,
+    repo: Repo,
     _peers: Arc<Mutex<BTreeSet<iroh::EndpointId>>>,
 }
 
@@ -38,11 +40,26 @@ impl KeyedProtocolHandler for AutomergeProtocol {
 }
 
 impl AutomergeProtocol {
+    pub async fn new(endpoint: Endpoint) -> Self {
+        let repo = samod::Repo::build_tokio()
+            .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
+            // .with_storage(TokioFilesystemStorage::new(format!(
+            //     "{}/{}",
+            //     base_path,
+            //     endpoint.id(),
+            // )))
+            .with_storage(InMemoryStorage::new())
+            .load()
+            .await;
+
+        Self::from_repo(endpoint.clone(), repo)
+    }
+
     /// Constructs a new [`AutomergeProtocol`].
-    pub fn new(endpoint: Endpoint, repo_builder: BoxFuture<'static, Repo>) -> Self {
+    pub fn from_repo(endpoint: Endpoint, repo: Repo) -> Self {
         let protocol = AutomergeProtocol {
             endpoint,
-            repo: Default::default(),
+            repo,
             _peers: Default::default(),
         };
         let protocol_clone = protocol.clone();
@@ -63,20 +80,17 @@ impl AutomergeProtocol {
     /// [`EndpointId`]: iroh::EndpointId
     /// [`PeerId`]: samod::PeerId
     pub async fn dial_peer(&self, addr: impl Into<iroh::EndpointAddr>) -> Result<DialerHandle> {
-        let Some(repo) = self.repo() else {
-            bail!("Automerge repo not initialized");
-        };
         let dialer = Arc::new(IrohDialer::new(self.endpoint.clone(), addr.into()));
         debug!("IrohSamod dial_peer starting");
-        let dialer_handle = repo.dial(BackoffConfig::default(), dialer)?;
+        let dialer_handle = self.repo.dial(BackoffConfig::default(), dialer)?;
         let _peer_info = dialer_handle.established().await?;
         info!("IrohSamod finished dialing");
         Ok(dialer_handle)
     }
 
     /// Returns a reference to the stored [`Repo`] instance inside.
-    pub fn repo(&self) -> Option<Repo> {
-        self.repo.read().unwrap().clone()
+    pub fn repo(&self) -> Repo {
+        self.repo.clone()
     }
 
     /// Returns a reference to the Iroh [`Endpoint`] instance inside.
@@ -87,19 +101,13 @@ impl AutomergeProtocol {
 
 impl ProtocolHandler for AutomergeProtocol {
     async fn accept(&self, connection: Connection) -> Result<(), AcceptError> {
-        let Some(repo) = self.repo() else {
-            return Err(AcceptError::from_err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Automerge repo not initialized",
-            )));
-        };
-
         let url = format!("iroh://{}", connection.remote_id())
             .parse::<Url>()
             .expect("valid URL");
 
         let (send, recv) = connection.accept_bi().await?;
-        let acceptor = repo
+        let acceptor = self
+            .repo
             .make_acceptor(url)
             .map_err(|error| AcceptError::from_err(error))?;
 
@@ -124,9 +132,7 @@ impl ProtocolHandler for AutomergeProtocol {
     }
 
     async fn shutdown(&self) {
-        if let Some(repo) = self.repo() {
-            repo.stop().await
-        }
+        self.repo().stop().await;
     }
 }
 
