@@ -184,6 +184,114 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 Oct 24
+
+```rust
+pub struct FormPage {
+    form: Entity<Form>,
+}
+impl FormPage {
+    pub fn new(cx: &mut Context<Self>, doc: DocHandle) -> Self {
+        let form = cx.new(|cx| Form::new(cx));
+        form.bind(doc, cx);
+        
+        // Nested autosurgeon types can be created as their own entities,
+        // and become views by implementing Render
+        let contact = cx.new(|cx| Contact::new(cx));
+        contact.bind(doc2, cx);
+    }
+}
+#[derive(Debug, Hydrate, Reconcile)]
+pub struct Form {
+    sender: Option<Contact>,
+    receiver: Option<Contact>,
+}
+impl Form {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        Self {
+            sender: None,
+            receiver: None,
+        }
+    }
+}
+#[derive(Debug, Hydrate, Reconcile)]
+pub struct Contact {
+    first_name: String,
+    last_name: String,
+}
+pub trait AutomergableHandle {
+    fn bind(&self, doc: DocHandle, cx: &mut App);
+}
+impl<T: Automgergable> AutomergableHandle for Entity<T> {
+    fn bind(&self, doc: DocHandle, cx: &mut App) {
+        // Set up sync tasks
+    }
+}
+```
+
+- I want to create an object-reference system using either UUIDs or perhaps public keys as identifiers. In an object's metadata section, we maintain
+
+```rust
+/// Metadata document used to share application state with peers
+#[derive(Debug, Hydrate, Reconcile)]
+pub struct ObjectSelf {
+    id: Uuid, // what would be the implications of identifying an object with a public key instead?
+}
+struct ObjectSelf {
+    // Works like `#[serde(rename)]`
+    #[automergable(rename = ".this")]
+    this: String,
+    keys: HashMap<PublicKey, Object>,
+}
+impl ObjectSelf {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        Self {}
+    }
+}
+```
+
+```rust
+// Component root: A GPUI entity, a widget
+#[derive(Automergable)]
+pub struct ContactUi {
+    endpoint_id: EndpointId,
+    // Metadata of this contact, as an entire document
+    // This can include serializable application state, anything
+    // that gets stored here will be live-synced between two connected peers
+    me: ContactObject,
+    endpoint_id: EndpointId,
+}
+impl ContactUi {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        //
+        let me = cx.new(|cx| ContactObject::new(cx))
+        Self { me }
+    }
+}
+impl Render for ContactUi {}
+
+// Domain-specific to Contacts (reference implementor)
+#[derive(Hydrate, Reconcile)]
+pub struct ContactObject {
+    this: ObjectSelf,
+    display_name: String, // bound to sync `Contact`'s `InputState` somehow
+}
+
+// Automergable root of a document, "crdt-serializable"
+// Embeddable in larger objects
+#[derive(Debug, Hydrate, Reconcile)]
+pub struct ObjectSelf {
+    // universally useful state
+}
+
+/// The gpui entity representation of a contact
+/// 
+/// Is somehow bound to fields in the `Automergable` document
+pub struct Contact {
+    display_name: Entity<InputState>,
+}
+```
+
 # 2026 Sep 3
 
 To research more later
