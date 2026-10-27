@@ -15,7 +15,7 @@
 //! and document id). The guest dials the host and opens the same document via
 //! `Repo::find`, then opens a second `FormPage` bound to that shared doc.
 
-use automerge::Automerge;
+use automerge::{Automerge, ROOT};
 use autosurgeon::{
     Doc, Hydrate, Prop, ReadDoc, Reconcile, hydrate, hydrate_prop, reconcile, reconcile_prop,
 };
@@ -23,7 +23,7 @@ use data_encoding::BASE32_NOPAD;
 use futures::StreamExt as _;
 use galvanized_core::{Workspace, item::Item};
 use gpui::{
-    App, AppContext as _, ClipboardItem, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    App, AppContext, ClipboardItem, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render, SharedString,
     StatefulInteractiveElement as _, Styled as _, Task, TaskExt as _, Window, div,
     prelude::FluentBuilder as _,
@@ -538,7 +538,7 @@ where
     fn hydrate_from<'a, D: ReadDoc>(
         &mut self,
         doc: &D,
-        prop: impl Into<Prop<'a>>,
+        prop: impl Into<Prop<'a>> + Clone,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self::Result<()>;
@@ -549,26 +549,12 @@ where
     Self: Sized,
 {
     type Result<R>;
-    fn hydrate_from<'a, D: ReadDoc>(
-        &mut self,
-        doc: &D,
-        prop: impl Into<Prop<'a>>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Self::Result<()>;
-}
-
-pub trait ReconcileAs<R: Reconcile>
-where
-    Self: Sized,
-{
-    type Result<T>;
-    fn reconcile_into<'a, D: Doc>(
+    fn hydrate_from<'a, C: AppContext, D: ReadDoc>(
         &self,
-        doc: &mut D,
-        prop: impl Into<Prop<'a>>,
+        doc: &D,
+        prop: impl Into<Prop<'a>> + Clone,
         window: &mut Window,
-        cx: &mut Context<Self>,
+        cx: &mut C,
     ) -> Self::Result<()>;
 }
 
@@ -589,29 +575,42 @@ impl HydrateAs<String> for InputState {
 
 impl EntityHydrateAs<String> for Entity<InputState> {
     type Result<R> = anyhow::Result<R>;
-    fn hydrate_from<'a, D: ReadDoc>(
-        &mut self,
+    fn hydrate_from<'a, C: AppContext, D: ReadDoc>(
+        &self,
         doc: &D,
-        prop: impl Into<Prop<'a>>,
+        prop: impl Into<Prop<'a>> + Clone,
         window: &mut Window,
-        cx: &mut Context<Self>,
+        cx: &mut C,
     ) -> Self::Result<()> {
-        let value = hydrate_prop::<_, String, _, _>(doc, automerge::ROOT, prop)?;
         self.update(cx, |this, cx| {
-            this.set_value(value, window, cx);
-        });
+            this.hydrate_from(doc, prop.clone(), window, cx)
+        })?;
         Ok(())
     }
 }
 
-impl ReconcileAs<String> for InputState {
-    type Result<T> = anyhow::Result<T>;
-    fn reconcile_into<'a, D: Doc>(
+pub trait ReconcileAs<R: Reconcile>
+where
+    Self: Sized,
+{
+    type Result<T>;
+    fn reconcile_into<'a, C: AppContext, D: Doc>(
         &self,
         doc: &mut D,
         prop: impl Into<Prop<'a>>,
         window: &mut Window,
-        cx: &mut Context<Self>,
+        cx: &mut C,
+    ) -> Self::Result<()>;
+}
+
+impl ReconcileAs<String> for InputState {
+    type Result<T> = anyhow::Result<T>;
+    fn reconcile_into<'a, C: AppContext, D: Doc>(
+        &self,
+        doc: &mut D,
+        prop: impl Into<Prop<'a>>,
+        _window: &mut Window,
+        _cx: &mut C,
     ) -> Self::Result<()> {
         let value = self.value();
         reconcile_prop(doc, automerge::ROOT, prop, value.to_string())?;
@@ -619,18 +618,36 @@ impl ReconcileAs<String> for InputState {
     }
 }
 
-struct ContactUi {
-    contact: Entity<Contact>,
+pub trait EntityReconcileAs<T> {
+    type Result<R>;
+    fn reconcile_into<'a, C: AppContext, D: Doc>(
+        &self,
+        doc: &mut D,
+        prop: impl Into<Prop<'a>>,
+        window: &mut Window,
+        cx: &mut C,
+    ) -> Self::Result<()>;
+}
+
+impl EntityReconcileAs<String> for Entity<InputState> {
+    type Result<R> = anyhow::Result<R>;
+    fn reconcile_into<'a, C: AppContext, D: Doc>(
+        &self,
+        doc: &mut D,
+        prop: impl Into<Prop<'a>>,
+        window: &mut Window,
+        cx: &mut C,
+    ) -> Self::Result<()> {
+        self.update(cx, |this, cx| this.reconcile_into(doc, prop, window, cx))
+    }
 }
 
 struct Contact {
-    //
-    form: ContactForm,
-    data: Entity<ContactFormData>,
+    form: Entity<ContactForm>,
 }
 
 struct ContactForm {
-    display_name: String,
+    display_name: Entity<InputState>,
 }
 
 #[derive(Debug, Hydrate, Reconcile)]
@@ -638,9 +655,77 @@ struct ContactFormData {
     display_name: String,
 }
 
-fn example(doc: DocHandle) {
-    //
-    doc.with_document(|am| {
+impl HydrateAs<ContactFormData> for ContactForm {
+    type Result<R> = anyhow::Result<R>;
+
+    fn hydrate_from<'a, D: ReadDoc>(
+        &mut self,
+        doc: &D,
+        prop: impl Into<Prop<'a>> + Clone,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self::Result<()> {
+        self.display_name.hydrate_from(doc, prop, window, cx)?;
+        Ok(())
+    }
+}
+
+impl EntityHydrateAs<ContactFormData> for Entity<ContactForm> {
+    type Result<R> = anyhow::Result<R>;
+
+    fn hydrate_from<'a, C: AppContext, D: ReadDoc>(
+        &self,
+        doc: &D,
+        prop: impl Into<Prop<'a>> + Clone,
+        window: &mut Window,
+        cx: &mut C,
+    ) -> Self::Result<()> {
+        self.update(cx, |this, cx| this.hydrate_from(doc, prop, window, cx))
+    }
+}
+
+// pub trait AutomergeAs<T> {
+//     //
+//     fn bind_fields<C: AppContext>(&self, cx: &mut C);
+// }
+//
+// impl AutomergeAs<ContactFormData> for Entity<ContactForm>
+// where
+// {
+//     fn bind_fields<C: AppContext>(&self, cx: &mut C) {
+//         todo!()
+//     }
+// }
+
+pub enum AutomergeEvent {
+    HydrateProp(Prop<'static>),
+}
+impl EventEmitter<AutomergeEvent> for ContactForm {}
+
+fn example(
+    cx: &mut App,
+    window: &mut Window,
+    doc: DocHandle,
+    contact: Entity<ContactForm>,
+) -> anyhow::Result<()> {
+    cx.subscribe(&contact, move |this, event: _, cx| {
+        match event {
+            AutomergeEvent::HydrateProp(prop) => {
+                doc.with_document(|doc| {
+                    // this.hydrate_from(doc, *prop, window, cx);
+                });
+            }
+        }
+    })
+    .detach();
+
+    cx.observe(&contact, |this, cx| {
         //
     })
+    .detach();
+
+    //
+    //
+
+    Ok(())
 }
