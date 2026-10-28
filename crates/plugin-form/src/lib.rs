@@ -15,10 +15,9 @@
 //! and document id). The guest dials the host and opens the same document via
 //! `Repo::find`, then opens a second `FormPage` bound to that shared doc.
 
-use automerge::{Automerge, ROOT};
-use autosurgeon::{
-    Doc, Hydrate, Prop, ReadDoc, Reconcile, hydrate, hydrate_prop, reconcile, reconcile_prop,
-};
+use anyhow::Result;
+use automerge::{Automerge, ObjId, ObjType, ROOT, Value};
+use autosurgeon::{Doc, Hydrate, ReadDoc, Reconcile, hydrate, hydrate_prop, reconcile_prop};
 use data_encoding::BASE32_NOPAD;
 use futures::StreamExt as _;
 use galvanized_core::{Workspace, item::Item};
@@ -89,7 +88,7 @@ pub struct FormTicket {
 }
 
 impl FormTicket {
-    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self> {
         serde_json::from_slice(bytes).map_err(Into::into)
     }
 
@@ -286,7 +285,7 @@ impl FormPage {
         field: Field,
         value: String,
         cx: &mut Context<Self>,
-    ) -> Task<anyhow::Result<()>> {
+    ) -> Task<Result<()>> {
         let doc_handle = self.doc_handle.clone();
         cx.background_spawn(async move {
             doc_handle.with_document(|am| {
@@ -523,209 +522,283 @@ impl FormPage {
     }
 }
 
-/// A trait for fields in an `Automergable` struct
+// ============================================================================
+// Widget ↔ CRDT binding traits
+//
+// A *widget* is a GPUI entity that holds UI state (e.g. `Entity<InputState>`).
+// Its *data type* `T` is the autosurgeon `Hydrate` + `Reconcile` value that
+// lives at a path in the Automerge doc (e.g. `String`). These traits bind the
+// two so that:
+//   - remote doc changes hydrate the widget  (`HydrateAs`)
+//   - local widget edits reconcile the doc   (`ReconcileAs`)
+//
+// Both traits take a `path` — a slice of map keys from the document root — and
+// navigate the document themselves. The macro only threads the path through
+// nested composites (extending it by one segment per child); it does not emit
+// any navigation logic. Leaf widgets read/write the prop at `path.last()`;
+// composite widgets delegate to their children with `path + [child_field]`.
+//
+// `T` is the data type (the value at the prop). The doc type parameter on each
+// method is `D`, following autosurgeon's convention; the two never collide
+// because the trait is generic over the data (`T`) and each method is generic
+// over the doc (`D`).
+//
+// Thread model (read this before moving the doc I/O off-thread):
+//   - `hydrate_from` runs on the FOREGROUND. It needs `&mut Window` for
+//     `set_value`, and window mutations can't cross an await. The caller opens
+//     a read transaction and hands `&D: ReadDoc` in.
+//   - `reconcile_into` as written here ALSO runs on the foreground: it reads
+//     the widget via `&App` (foreground-only) and writes via `&mut D: Doc` in
+//     the same call, so the caller opens the transaction on the foreground
+//     and holds the write lock for the duration of navigate + N puts. For a
+//     form this is microseconds; for a very large doc it can stall sync.
+//     If that becomes a problem, split into `read_value(&self, cx) -> T`
+//     (foreground) + a path-aware `reconcile_prop` on a background task, and
+//     drop `&App` from `reconcile_into`. Both directions stay batched in one
+//     transaction either way: automerge no-ops unchanged scalars at the op
+//     layer (`OpsFound::resolve_action`), so reconciling the whole struct on
+//     every keystroke costs nothing for the fields that didn't change.
+//
+// The traits are generic over the doc type, so they are NOT object-safe —
+// the macro emits static, monomorphized calls, which is all we need.
+// ============================================================================
+
+/// A widget that can be pushed from a CRDT prop at `path`.
 ///
-/// This trait binds entities/views to particular data fields in an automerge document
+/// `T` is the data type at that prop (e.g. `String`, or a nested Crdt struct).
+pub trait HydrateAs<T: Hydrate> {
+    /// Read the value at `path` from `doc` and push it into this widget.
+    ///
+    /// Missing intermediate objects are treated as "no value yet" (the
+    /// freshly-created-doc case): the widget is left at its current state and
+    /// `Ok(())` is returned. A present-but-wrong-typed segment is an error.
+    fn hydrate_from<D: ReadDoc>(
+        &self,
+        doc: &D,
+        path: &[&'static str],
+        window: &mut Window,
+        cx: &mut App,
+    ) -> anyhow::Result<()>;
+
+    /// Whether the change-stream dispatcher should hydrate this widget right
+    /// now. Text inputs override this to return `false` while they hold focus,
+    /// so a remote echo doesn't clobber the user's caret. Composites do NOT
+    /// override this; they consult each child's hook before delegating (see
+    /// the `ContactForm` impl below). Default is `true`.
+    ///
+    /// Takes `&Window` because focus is window-scoped (`FocusHandle::is_focused`
+    /// needs the window). The dispatcher (which already has `&mut Window` for
+    /// `hydrate_from`) passes it through.
+    fn accepts_remote_hydrate(&self, _window: &Window, _cx: &App) -> bool {
+        true
+    }
+}
+
+/// A widget that can push its current state into a CRDT prop at `path`.
 ///
-/// The T is for entity/view types
-/// The S is for the data type that can be hydrated/reconciled
-/// Self is the type of the binding between T and S
-pub trait HydrateAs<T: Hydrate>
-where
-    Self: Sized,
-{
-    type Result<R>;
-    fn hydrate_from<'a, D: ReadDoc>(
-        &mut self,
-        doc: &D,
-        prop: impl Into<Prop<'a>> + Clone,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Self::Result<()>;
+/// `T` is the data type at that prop.
+pub trait ReconcileAs<T: Reconcile> {
+    /// Read this widget's current value and write it to `doc` at `path`,
+    /// inside the transaction the caller opened.
+    fn reconcile_into<D: Doc>(
+        &self,
+        doc: &mut D,
+        path: &[&'static str],
+        cx: &App,
+    ) -> anyhow::Result<()>;
 }
 
-pub trait EntityHydrateAs<T: Hydrate>
-where
-    Self: Sized,
-{
-    type Result<R>;
-    fn hydrate_from<'a, C: AppContext, D: ReadDoc>(
+// ----------------------------------------------------------------------------
+// Path navigation. Shared by leaf impls; composites never call these directly
+// — they only extend the path and delegate, so the navigation stays in one
+// place.
+// ----------------------------------------------------------------------------
+
+/// Walk `path` (minus the last segment) from `ROOT`, returning the parent
+/// `ObjId` and the leaf segment. Returns `Ok(None)` if any intermediate map is
+/// missing. Errors on a segment that exists but is not a map.
+fn navigate_for_hydrate<D: ReadDoc>(
+    doc: &D,
+    path: &[&'static str],
+) -> anyhow::Result<Option<(ObjId, &'static str)>> {
+    let n = path.len();
+    if n == 0 {
+        // The root widget itself has no leaf prop. Composites handle the
+        // empty path by delegating to children with non-empty paths; a leaf
+        // with an empty path is a caller bug.
+        return Ok(None);
+    }
+    let mut parent = ROOT.clone();
+    for (i, segment) in path.iter().enumerate() {
+        if i + 1 == n {
+            return Ok(Some((parent, *segment)));
+        }
+        match doc.get(&parent, automerge::Prop::Map((*segment).into()))? {
+            Some((Value::Object(ObjType::Map), id)) => parent = id,
+            Some(_) => anyhow::bail!("path segment {segment:?} is not a map"),
+            None => return Ok(None),
+        }
+    }
+    unreachable!()
+}
+
+/// Walk `path` (minus the last segment) from `ROOT`, creating missing
+/// intermediate maps. Returns the parent `ObjId` and the leaf segment. Used by
+/// reconcile, which must materialize the path before putting into it.
+fn navigate_for_reconcile<D: Doc>(
+    doc: &mut D,
+    path: &[&'static str],
+) -> anyhow::Result<(ObjId, &'static str)> {
+    let n = path.len();
+    if n == 0 {
+        anyhow::bail!("reconcile path must be non-empty");
+    }
+    let mut parent = ROOT.clone();
+    for (i, segment) in path.iter().enumerate() {
+        if i + 1 == n {
+            return Ok((parent, *segment));
+        }
+        // Drop the immutable borrow from `get` before the mutable `put_object`.
+        let existing = match doc.get(&parent, automerge::Prop::Map((*segment).into()))? {
+            Some((Value::Object(ObjType::Map), id)) => Some(id),
+            _ => None,
+        };
+        parent = match existing {
+            Some(id) => id,
+            None => doc.put_object(
+                &parent,
+                automerge::Prop::Map((*segment).into()),
+                ObjType::Map,
+            )?,
+        };
+    }
+    unreachable!()
+}
+
+// ----------------------------------------------------------------------------
+// Leaf binding: `Entity<InputState>` ↔ `String`. Shipped with the framework;
+// the macro generates composite impls that delegate to this (and to other
+// leaf bindings).
+// ----------------------------------------------------------------------------
+
+impl HydrateAs<String> for Entity<InputState> {
+    fn hydrate_from<D: ReadDoc>(
         &self,
         doc: &D,
-        prop: impl Into<Prop<'a>> + Clone,
+        path: &[&'static str],
         window: &mut Window,
-        cx: &mut C,
-    ) -> Self::Result<()>;
+        cx: &mut App,
+    ) -> anyhow::Result<()> {
+        let Some((parent, leaf)) = navigate_for_hydrate(doc, path)? else {
+            return Ok(()); // path missing on a fresh doc; leave widget as-is
+        };
+        let value: String = hydrate_prop(doc, &parent, leaf)?;
+        self.update(cx, |state, cx| state.set_value(&value, window, cx));
+        Ok(())
+    }
+
+    fn accepts_remote_hydrate(&self, window: &Window, cx: &App) -> bool {
+        use gpui::Focusable;
+        // Don't clobber the user's caret while they're typing.
+        !self.read(cx).focus_handle(cx).is_focused(window)
+    }
 }
 
-impl HydrateAs<String> for InputState {
-    type Result<R> = anyhow::Result<R>;
-    fn hydrate_from<'a, D: ReadDoc>(
-        &mut self,
-        doc: &D,
-        prop: impl Into<Prop<'a>>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Self::Result<()> {
-        let value = hydrate_prop::<_, String, _, _>(doc, automerge::ROOT, prop)?;
-        self.set_value(value, window, cx);
+impl ReconcileAs<String> for Entity<InputState> {
+    fn reconcile_into<D: Doc>(
+        &self,
+        doc: &mut D,
+        path: &[&'static str],
+        cx: &App,
+    ) -> anyhow::Result<()> {
+        let (parent, leaf) = navigate_for_reconcile(doc, path)?;
+        let value = self.read(cx).value().to_string();
+        reconcile_prop(doc, &parent, leaf, value)?;
         Ok(())
     }
 }
 
-impl EntityHydrateAs<String> for Entity<InputState> {
-    type Result<R> = anyhow::Result<R>;
-    fn hydrate_from<'a, C: AppContext, D: ReadDoc>(
-        &self,
-        doc: &D,
-        prop: impl Into<Prop<'a>> + Clone,
-        window: &mut Window,
-        cx: &mut C,
-    ) -> Self::Result<()> {
-        self.update(cx, |this, cx| {
-            this.hydrate_from(doc, prop.clone(), window, cx)
-        })?;
-        Ok(())
-    }
-}
-
-pub trait ReconcileAs<R: Reconcile>
-where
-    Self: Sized,
-{
-    type Result<T>;
-    fn reconcile_into<'a, C: AppContext, D: Doc>(
-        &self,
-        doc: &mut D,
-        prop: impl Into<Prop<'a>>,
-        window: &mut Window,
-        cx: &mut C,
-    ) -> Self::Result<()>;
-}
-
-impl ReconcileAs<String> for InputState {
-    type Result<T> = anyhow::Result<T>;
-    fn reconcile_into<'a, C: AppContext, D: Doc>(
-        &self,
-        doc: &mut D,
-        prop: impl Into<Prop<'a>>,
-        _window: &mut Window,
-        _cx: &mut C,
-    ) -> Self::Result<()> {
-        let value = self.value();
-        reconcile_prop(doc, automerge::ROOT, prop, value.to_string())?;
-        Ok(())
-    }
-}
-
-pub trait EntityReconcileAs<T> {
-    type Result<R>;
-    fn reconcile_into<'a, C: AppContext, D: Doc>(
-        &self,
-        doc: &mut D,
-        prop: impl Into<Prop<'a>>,
-        window: &mut Window,
-        cx: &mut C,
-    ) -> Self::Result<()>;
-}
-
-impl EntityReconcileAs<String> for Entity<InputState> {
-    type Result<R> = anyhow::Result<R>;
-    fn reconcile_into<'a, C: AppContext, D: Doc>(
-        &self,
-        doc: &mut D,
-        prop: impl Into<Prop<'a>>,
-        window: &mut Window,
-        cx: &mut C,
-    ) -> Self::Result<()> {
-        self.update(cx, |this, cx| this.reconcile_into(doc, prop, window, cx))
-    }
-}
-
-struct Contact {
-    form: Entity<ContactForm>,
-}
+// ----------------------------------------------------------------------------
+// Composite example. This is the shape the macro will generate for any
+// `Automergable` view that owns child widgets.
+//
+// `ContactForm` is a view with one child (`display_name: Entity<InputState>`).
+// `ContactFormData` is its companion Crdt struct (autosurgeon-derived). The
+// composite impls do NOT read or write the doc directly — they extend the
+// path by one segment per child and delegate. Each leaf does its own
+// `hydrate_prop` / `reconcile_prop`, so all puts land in the single
+// transaction the top-level opened, and unchanged leaves no-op.
+// ----------------------------------------------------------------------------
 
 struct ContactForm {
     display_name: Entity<InputState>,
 }
 
-#[derive(Debug, Hydrate, Reconcile)]
+/// The Crdt mirror of `ContactForm`. The macro emits this with
+/// `#[derive(Hydrate, Reconcile)]` so autosurgeon can hydrate/reconcile the
+/// whole struct at once (used for the initial snapshot and as the fallback
+/// coarse path). The per-field traits below give the fine-grained widget
+/// binding.
+#[derive(Debug, Clone, Default, Hydrate, Reconcile)]
 struct ContactFormData {
     display_name: String,
 }
 
-impl HydrateAs<ContactFormData> for ContactForm {
-    type Result<R> = anyhow::Result<R>;
-
-    fn hydrate_from<'a, D: ReadDoc>(
-        &mut self,
+impl HydrateAs<ContactFormData> for Entity<ContactForm> {
+    fn hydrate_from<D: ReadDoc>(
+        &self,
         doc: &D,
-        prop: impl Into<Prop<'a>> + Clone,
+        path: &[&'static str],
         window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Self::Result<()> {
-        self.display_name.hydrate_from(doc, prop, window, cx)?;
+        cx: &mut App,
+    ) -> anyhow::Result<()> {
+        let mut child_path: Vec<&'static str> = path.to_vec();
+        child_path.push("display_name");
+        let display_name = self.read(cx).display_name.clone();
+        if display_name.accepts_remote_hydrate(window, cx) {
+            display_name.hydrate_from(doc, &child_path, window, cx)?;
+        }
         Ok(())
     }
 }
 
-impl EntityHydrateAs<ContactFormData> for Entity<ContactForm> {
-    type Result<R> = anyhow::Result<R>;
-
-    fn hydrate_from<'a, C: AppContext, D: ReadDoc>(
+impl ReconcileAs<ContactFormData> for Entity<ContactForm> {
+    fn reconcile_into<D: Doc>(
         &self,
-        doc: &D,
-        prop: impl Into<Prop<'a>> + Clone,
-        window: &mut Window,
-        cx: &mut C,
-    ) -> Self::Result<()> {
-        self.update(cx, |this, cx| this.hydrate_from(doc, prop, window, cx))
+        doc: &mut D,
+        path: &[&'static str],
+        cx: &App,
+    ) -> anyhow::Result<()> {
+        let mut child_path: Vec<&'static str> = path.to_vec();
+        child_path.push("display_name");
+        let display_name = self.read(cx).display_name.clone();
+        display_name.reconcile_into(doc, &child_path, cx)?;
+        Ok(())
     }
 }
 
-// pub trait AutomergeAs<T> {
-//     //
-//     fn bind_fields<C: AppContext>(&self, cx: &mut C);
-// }
+// ----------------------------------------------------------------------------
+// Top-level dispatch sketch (macro-generated, not a trait method). Shown here
+// so the thread model and the seam between `Automergable` and the bindings is
+// concrete. The real version lives in the `Entity<T: Automergable>` wrapper
+// and subscribes to each leaf widget's change event.
 //
-// impl AutomergeAs<ContactFormData> for Entity<ContactForm>
-// where
-// {
-//     fn bind_fields<C: AppContext>(&self, cx: &mut C) {
-//         todo!()
-//     }
-// }
-
-pub enum AutomergeEvent {
-    HydrateProp(Prop<'static>),
-}
-impl EventEmitter<AutomergeEvent> for ContactForm {}
-
-fn example(
-    cx: &mut App,
-    window: &mut Window,
-    doc: DocHandle,
-    contact: Entity<ContactForm>,
-) -> anyhow::Result<()> {
-    cx.subscribe(&contact, move |this, event: _, cx| {
-        match event {
-            AutomergeEvent::HydrateProp(prop) => {
-                doc.with_document(|doc| {
-                    // this.hydrate_from(doc, *prop, window, cx);
-                });
-            }
-        }
-    })
-    .detach();
-
-    cx.observe(&contact, |this, cx| {
-        //
-    })
-    .detach();
-
-    //
-    //
-
-    Ok(())
-}
+//   // On a doc-change notification (foreground, inside `update_in`):
+//   doc_handle.with_document(|am| {
+//       root_widget.hydrate_from(am, &[], window, cx)
+//   })?;
+//
+//   // On a leaf widget's `InputEvent::Change` (foreground):
+//   doc_handle.with_document(|am| {
+//       let mut tx = am.transaction();
+//       root_widget.reconcile_into(&mut tx, &[], cx)?;
+//       let (_hash, _patch_log) = tx.commit();
+//       Ok(())
+//   })?;
+//
+// The whole tree is reconciled on every leaf edit. Because automerge no-ops
+// unchanged scalars, only the edited field produces an op. For hydrate, the
+// whole tree is re-read on every doc change; a future optimization is to use
+// the patch log to dispatch only the changed paths, at which point the
+// per-leaf `accepts_remote_hydrate` hook still gates the focused field.
+// ----------------------------------------------------------------------------
