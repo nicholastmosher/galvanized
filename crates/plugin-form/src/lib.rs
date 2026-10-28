@@ -219,41 +219,15 @@ impl FormPage {
             .new(|cx| InputState::new(window, cx).placeholder("Paste remote ticket, press Enter"));
         let form_ui = DoubleFormUi::new(window, cx);
 
-        // Any field edit reconciles the whole `DoubleFormUi` into the doc in
-        // one transaction. automerge no-ops unchanged scalars, so a
-        // keystroke in one leaf produces zero ops for every other leaf.
-        let sub_one_first = cx.subscribe(
-            &form_ui.one.first_name,
-            |this, _input, event: &InputEvent, cx| {
-                if matches!(event, InputEvent::Change) {
-                    this.reconcile_form(cx);
-                }
-            },
-        );
-        let sub_one_last = cx.subscribe(
-            &form_ui.one.last_name,
-            |this, _input, event: &InputEvent, cx| {
-                if matches!(event, InputEvent::Change) {
-                    this.reconcile_form(cx);
-                }
-            },
-        );
-        let sub_two_first = cx.subscribe(
-            &form_ui.two.first_name,
-            |this, _input, event: &InputEvent, cx| {
-                if matches!(event, InputEvent::Change) {
-                    this.reconcile_form(cx);
-                }
-            },
-        );
-        let sub_two_last = cx.subscribe(
-            &form_ui.two.last_name,
-            |this, _input, event: &InputEvent, cx| {
-                if matches!(event, InputEvent::Change) {
-                    this.reconcile_form(cx);
-                }
-            },
-        );
+        // Wire up the forward (widget → doc) direction by asking the binding
+        // tree to subscribe to every leaf change itself. `FormPage` only knows
+        // `DoubleFormUi: ReconcileAs<DoubleForm>` here — it never touches the
+        // shape of `DoubleFormUi` (no `.one.first_name` etc.). Any leaf
+        // edit fires `on_change`, which reconciles the whole tree in one
+        // transaction.
+        let input_subscriptions = form_ui.subscribe_to_changes(cx, |this, cx| {
+            this.reconcile_form(cx);
+        });
 
         // Build this peer's shareable ticket up front so the UI can show it.
         let endpoint_id = p2p.endpoint_id(cx);
@@ -310,9 +284,8 @@ impl FormPage {
             ticket_input,
             ticket: ticket_text,
             connect_error: None,
-            // form: Form::default(),
             form_ui,
-            _input_subscriptions: vec![sub_one_first, sub_one_last, sub_two_first, sub_two_last],
+            _input_subscriptions: input_subscriptions,
             _change_task: change_task,
         }
     }
@@ -625,6 +598,22 @@ pub trait ReconcileAs<T: Reconcile> {
         path: &mut Vec<Prop<'static>>,
         cx: &App,
     ) -> anyhow::Result<()>;
+
+    /// Subscribe to every leaf widget's change events in this subtree, so the
+    /// top-level caller can wire up the forward (widget → doc) direction
+    /// without knowing the binding tree's shape.
+    ///
+    /// `cx` is the subscriber's own context (`&mut Context<S>`), and
+    /// `on_change` is invoked on the subscriber whenever any leaf in this
+    /// subtree emits a change event. The callback is `Clone` so composites
+    /// can fan it out to each child. Returns one `Subscription` per leaf;
+    /// the caller stores them to keep them alive (e.g. in a
+    /// `_input_subscriptions: Vec<Subscription>` field).
+    fn subscribe_to_changes<S: 'static>(
+        &self,
+        cx: &mut gpui::Context<S>,
+        on_change: impl Fn(&mut S, &mut gpui::Context<S>) + Clone + 'static,
+    ) -> Vec<gpui::Subscription>;
 }
 
 // ----------------------------------------------------------------------------
@@ -767,6 +756,20 @@ impl ReconcileAs<String> for Entity<InputState> {
         reconcile_prop(doc, &parent, leaf, value)?;
         Ok(())
     }
+
+    fn subscribe_to_changes<S: 'static>(
+        &self,
+        cx: &mut gpui::Context<S>,
+        on_change: impl Fn(&mut S, &mut gpui::Context<S>) + Clone + 'static,
+    ) -> Vec<gpui::Subscription> {
+        vec![cx.subscribe(
+            self,
+            move |this: &mut S,
+                  _source: Entity<InputState>,
+                  _event: &InputEvent,
+                  cx: &mut gpui::Context<S>| { on_change(this, cx) },
+        )]
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -826,6 +829,15 @@ impl ReconcileAs<ContactFormData> for Entity<ContactForm> {
         path.pop();
         Ok(())
     }
+
+    fn subscribe_to_changes<S: 'static>(
+        &self,
+        cx: &mut gpui::Context<S>,
+        on_change: impl Fn(&mut S, &mut gpui::Context<S>) + Clone + 'static,
+    ) -> Vec<gpui::Subscription> {
+        let display_name = self.read(cx).display_name.clone();
+        display_name.subscribe_to_changes(cx, on_change)
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -876,6 +888,16 @@ impl ReconcileAs<Form> for FormUi {
         self.last_name.reconcile_into(doc, path, cx)?;
         path.pop();
         Ok(())
+    }
+
+    fn subscribe_to_changes<S: 'static>(
+        &self,
+        cx: &mut gpui::Context<S>,
+        on_change: impl Fn(&mut S, &mut gpui::Context<S>) + Clone + 'static,
+    ) -> Vec<gpui::Subscription> {
+        let mut subs = self.first_name.subscribe_to_changes(cx, on_change.clone());
+        subs.extend(self.last_name.subscribe_to_changes(cx, on_change));
+        subs
     }
 }
 
@@ -944,5 +966,15 @@ impl ReconcileAs<DoubleForm> for DoubleFormUi {
         self.two.reconcile_into(doc, path, cx)?;
         path.pop();
         Ok(())
+    }
+
+    fn subscribe_to_changes<S: 'static>(
+        &self,
+        cx: &mut gpui::Context<S>,
+        on_change: impl Fn(&mut S, &mut gpui::Context<S>) + Clone + 'static,
+    ) -> Vec<gpui::Subscription> {
+        let mut subs = self.one.subscribe_to_changes(cx, on_change.clone());
+        subs.extend(self.two.subscribe_to_changes(cx, on_change));
+        subs
     }
 }
