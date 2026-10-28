@@ -8,6 +8,43 @@ Each ticket is a self-contained markdown file. Read the ticket before
 picking up the work; the "Current state" anchors are load-bearing and
 re-derive line numbers before you lean on them.
 
+## Folder convention
+
+Tickets live in **ordered subfolders**, one folder per arc/phase, so the
+full set reads in execution order both across folders and within each:
+
+```
+docs/ai/tickets/
+  000-initial-design/
+    INDEX.md
+    001-vault-capability-foundation.md
+    002-willow-fs-object-binding.md
+    ...
+  001-<next-arc-description>/
+    INDEX.md
+    001-<ticket-name>.md
+    ...
+```
+
+Rules:
+
+- Folder name: `XXX-brief-description/`, where `XXX` is a zero-padded
+  arc sequence number. `000` is the initial design arc; later arcs
+  increment (`001`, `002`, …).
+- Ticket file name: `YYY-<ticket-name>.md`, where `YYY` is a zero-padded
+  **per-arc** sequence that restarts at `001` in each arc folder and gives
+  intra-folder order. The file prefix is independent of the folder prefix —
+  e.g. `000-initial-design/001-vault-capability-foundation.md`.
+- Drop legacy ticket IDs (e.g. `T1`, `T2`) from filenames; the descriptive
+  name plus the `YYY` prefix is the identifier. Existing `T1`…`T8` IDs may
+  still appear inside ticket bodies and the dependency graph as logical
+  references.
+- Each arc folder gets its own `INDEX.md` with the dependency graph and
+  status table for that arc. The top-level `tickets/` directory holds
+  no ticket files directly — only arc folders.
+- When starting a new arc, create `XXX-brief-description/` with an
+  `INDEX.md` and add tickets as `YYY-<ticket-name>.md` starting at `001`.
+
 ## Working order & dependencies
 
 ```mermaid
@@ -54,7 +91,7 @@ graph TD
 Each ticket has a "Design questions for Nick" section. The ones that are
 shape- or security-shaped must go to Nick before implementation per
 `AGENTS.md`. Cross-cutting ones are also tracked in
-[`docs/ai/memory/OPEN_QUESTIONS.md`](../memory/OPEN_QUESTIONS.md) and
+[`docs/ai/memory/OPEN_QUESTIONS.md`](../../memory/OPEN_QUESTIONS.md) and
 should move to `DECISIONS.md` once ruled on.
 
 ## Tickets

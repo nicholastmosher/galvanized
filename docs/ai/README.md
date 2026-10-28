@@ -18,6 +18,16 @@ everything else in this folder is layered on top of it.
   app plugin (crate → `init` → `AppBehavior` → `Item` → data model → verify →
   records).
 
+## Tickets (`tickets/`)
+
+Work units live in [`tickets/`](tickets/), organized into **ordered arc
+folders** named `XXX-brief-description/`. Inside each arc, ticket files are
+named `YYY-<ticket-name>.md` with a per-arc sequence `YYY` that restarts at
+`001` (independent of the folder's `XXX`). Each arc has its own `INDEX.md`
+with the dependency graph and status table. The initial arc is
+[`tickets/000-initial-design/`](tickets/000-initial-design/). See that
+folder's `INDEX.md` for the full convention.
+
 ## Long-term memory (`memory/`)
 
 The part that grows over time. Start at [`memory/README.md`](memory/README.md)

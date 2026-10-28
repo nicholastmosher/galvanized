@@ -100,6 +100,11 @@ surfaces gets **fixed**, not filed.
   <path>` or any git command that mutates shared state; one bad stash can
   delete uncommitted work. Commit only when Nick asks. Leave the tree's git
   state alone.
+- **Worktree confinement.** Galvanized uses [jj](https://github.com/jj-vcs/jj)
+  workspaces (jj calls them *workspaces*, not worktrees). If a session is
+  told to work in a non-default worktree, make edits **only** in that
+  worktree's path — never touch the default worktree or another worktree in
+  the same session. See "Worktrees" below.
 - **Don't edit the dev log uninvited.** `README.md` is Nick's voice and
   history. Never rewrite or "clean up" it. If you have a finding or an open
   question, it goes in the memory files, not the README.
@@ -142,20 +147,26 @@ scaled to a solo project):
 
 ## How to boot (every session)
 
-1. Read this file in full.
-2. Read [`docs/ai/RUST_GPUI.md`](docs/ai/RUST_GPUI.md) (Rust + GPUI core).
-3. Skim [`docs/ai/ARCHITECTURE.md`](docs/ai/ARCHITECTURE.md) for the real shape
+1. **Confirm which worktree you are in.** The default worktree is
+   `~/git/github.com/nicholastmosher/galvanized` (jj workspace `@default`).
+   Unless Nick explicitly directs you to a different worktree, assume the
+   default and make all edits there. If you are directed to another
+   worktree, confine all edits to that worktree only (see "Worktrees").
+2. Read this file in full.
+3. Read [`docs/ai/RUST_GPUI.md`](docs/ai/RUST_GPUI.md) (Rust + GPUI core).
+4. Skim [`docs/ai/ARCHITECTURE.md`](docs/ai/ARCHITECTURE.md) for the real shape
    of the code (it has file:line anchors).
-4. Read [`docs/ai/memory/STATE.md`](docs/ai/memory/STATE.md) (what's in flight
+5. Read [`docs/ai/memory/STATE.md`](docs/ai/memory/STATE.md) (what's in flight
    now) and the tail of
    [`docs/ai/memory/DECISIONS.md`](docs/ai/memory/DECISIONS.md) (latest rulings
    supersede earlier).
-5. Scan [`docs/ai/memory/KNOWN_TRAPS.md`](docs/ai/memory/KNOWN_TRAPS.md) and
+6. Scan [`docs/ai/memory/KNOWN_TRAPS.md`](docs/ai/memory/KNOWN_TRAPS.md) and
    [`docs/ai/memory/OPEN_QUESTIONS.md`](docs/ai/memory/OPEN_QUESTIONS.md).
-6. Skim [`docs/ai/memory/GOODIES.md`](docs/ai/memory/GOODIES.md) — what
+7. Skim [`docs/ai/memory/GOODIES.md`](docs/ai/memory/GOODIES.md) — what
    Goodies exist (could save work this session) and what's PROPOSED.
-7. `git log --oneline -10` and `git status --short` for the live tree state.
-8. Only then act.
+8. `git log --oneline -10` and `git status --short` for the live tree state
+   (run inside the active worktree).
+9. Only then act.
 
 ### Goodies (a standing instruction)
 
@@ -195,6 +206,36 @@ self-contained brief with real file paths and the reading-list rationale (what
 each read is for, not a bare pile of paths). Read its returns whole and re-
 verify any load-bearing claim before folding it. Never let a sub-agent's
 "green" stand unverified.
+
+## Worktrees
+
+Galvanized's repo is managed with [jj](https://github.com/jj-vcs/jj), and
+parallel work happens in **jj workspaces** (jj's name for worktrees). The
+layout is fixed:
+
+- **Default worktree:** `~/git/github.com/nicholastmosher/galvanized` — jj
+  workspace `@default`. **Every session assumes this worktree unless Nick
+  explicitly names another.**
+- **Other worktrees:** `~/git/github.com/nicholastmosher/worktrees/gzedX`
+  (e.g. `worktrees/gzed1`), created via
+  `jj workspace create --name gzedX ../worktrees/gzedX` from the default
+  worktree.
+- List current workspaces from any worktree: `jj workspace list`.
+
+Rules:
+
+- **Default unless told otherwise.** If no worktree is named for the session,
+  work in `@default` (`~/git/github.com/nicholastmosher/galvanized`).
+- **One worktree per session.** If Nick points a session at a specific
+  worktree, that worktree is the **only** path you may edit for the whole
+  session. Do not write to the default worktree, to another worktree, or to
+  any path outside the named worktree — even for "shared" docs. If a change
+  truly needs to land in another worktree, stop and surface it to Nick.
+- **Read across, write within.** Reading other worktrees for context is fine;
+  writes are confined to the session's active worktree.
+- **Verify before you lean on paths.** Re-derive any file:line anchors against
+  the active worktree before relying on them — another worktree may be ahead
+  or behind.
 
 ## Where to look next
 

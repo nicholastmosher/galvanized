@@ -133,7 +133,7 @@ a write without holding (and proving) a capability.
    by the typed token.
 
 7. **Document the dual-form model** in
-   [`docs/ai/memory/GLOSSARY.md`](../memory/GLOSSARY.md) (capability:
+   [`docs/ai/memory/GLOSSARY.md`](../../memory/GLOSSARY.md) (capability:
    signed-data form vs typed-token form; `CapCell` for in-memory
    content) and update `ARCHITECTURE.md`'s "capability flow" section
    once the wiring lands.
