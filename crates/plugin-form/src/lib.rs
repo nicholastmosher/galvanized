@@ -35,7 +35,7 @@
 
 use anyhow::Result;
 use automerge::{Automerge, ObjId, ObjType, ROOT, Value};
-use autosurgeon::{Doc, Hydrate, Prop, ReadDoc, Reconcile, hydrate, hydrate_prop, reconcile_prop};
+use autosurgeon::{Doc, Hydrate, Prop, ReadDoc, Reconcile, hydrate_prop, reconcile_prop};
 use data_encoding::BASE32_NOPAD;
 use futures::StreamExt as _;
 use galvanized_core::{Workspace, item::Item};
@@ -131,6 +131,26 @@ impl std::str::FromStr for FormTicket {
     }
 }
 
+#[derive(Debug, Clone, Default, Hydrate, Reconcile)]
+pub struct DoubleForm {
+    one: Form,
+    two: Form,
+}
+
+pub struct DoubleFormUi {
+    one: FormUi,
+    two: FormUi,
+}
+
+impl DoubleFormUi {
+    fn new(window: &mut Window, cx: &mut Context<FormPage>) -> Self {
+        Self {
+            one: FormUi::new(window, cx),
+            two: FormUi::new(window, cx),
+        }
+    }
+}
+
 /// The CRDT document state. Reconciled into the Automerge root map; hydrated
 /// back out on every `DocHandle::changes` notification. Field props: `first_name`,
 /// `last_name`.
@@ -175,8 +195,12 @@ pub struct FormPage {
     // /// The hydrated doc snapshot, for the "Live snapshot" display. The widgets
     // /// in `form_ui` are the source of truth for editing; this is the doc's view.
     // form: Form,
-    /// The widget tree bound to `Form`. `FormPage` drives two-way sync through it.
-    form_ui: FormUi,
+    /// The widget tree bound to `DoubleForm`. `FormPage` drives two-way sync
+    /// through it. Held by value: the path-based `hydrate_from` needs
+    /// `&mut Window`, and `Context<FormPage>` is not a `VisualContext`, so a
+    /// nested `Entity<FormUi>` could not be driven from here. By-value keeps
+    /// the window context threading through the recursion.
+    form_ui: DoubleFormUi,
 
     _input_subscriptions: Vec<gpui::Subscription>,
     _change_task: Task<()>,
@@ -193,21 +217,37 @@ impl FormPage {
     ) -> Self {
         let ticket_input = cx
             .new(|cx| InputState::new(window, cx).placeholder("Paste remote ticket, press Enter"));
-        let form_ui = FormUi::new(window, cx);
+        let form_ui = DoubleFormUi::new(window, cx);
 
-        // Any field edit reconciles the whole `FormUi` into the doc in one
-        // transaction. automerge no-ops unchanged scalars, so a keystroke in
-        // `first_name` produces zero ops for `last_name`.
-        let sub_first = cx.subscribe(
-            &form_ui.first_name,
+        // Any field edit reconciles the whole `DoubleFormUi` into the doc in
+        // one transaction. automerge no-ops unchanged scalars, so a
+        // keystroke in one leaf produces zero ops for every other leaf.
+        let sub_one_first = cx.subscribe(
+            &form_ui.one.first_name,
             |this, _input, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
                     this.reconcile_form(cx);
                 }
             },
         );
-        let sub_last = cx.subscribe(
-            &form_ui.last_name,
+        let sub_one_last = cx.subscribe(
+            &form_ui.one.last_name,
+            |this, _input, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    this.reconcile_form(cx);
+                }
+            },
+        );
+        let sub_two_first = cx.subscribe(
+            &form_ui.two.first_name,
+            |this, _input, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    this.reconcile_form(cx);
+                }
+            },
+        );
+        let sub_two_last = cx.subscribe(
+            &form_ui.two.last_name,
             |this, _input, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
                     this.reconcile_form(cx);
@@ -272,7 +312,7 @@ impl FormPage {
             connect_error: None,
             // form: Form::default(),
             form_ui,
-            _input_subscriptions: vec![sub_first, sub_last],
+            _input_subscriptions: vec![sub_one_first, sub_one_last, sub_two_first, sub_two_last],
             _change_task: change_task,
         }
     }
@@ -283,9 +323,10 @@ impl FormPage {
     /// doc, switch to the value-based binding shape so this can move off-thread.
     fn reconcile_form(&mut self, cx: &mut Context<Self>) {
         let doc_handle = self.doc_handle.clone();
+        let mut path: Vec<Prop<'static>> = Vec::new();
         let result = doc_handle.with_document(|am| {
             let mut tx = am.transaction();
-            self.form_ui.reconcile_into(&mut tx, &mut Vec::new(), cx)?;
+            self.form_ui.reconcile_into(&mut tx, &mut path, cx)?;
             let (_hash, _patch_log) = tx.commit();
             anyhow::Ok(())
         });
@@ -300,9 +341,9 @@ impl FormPage {
     /// `accepts_remote_hydrate`.
     fn apply_remote(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let doc_handle = self.doc_handle.clone();
+        let mut path: Vec<Prop<'static>> = Vec::new();
         let result = doc_handle.with_document(|am| {
-            // self.form = hydrate::<_, Form>(am)?;
-            self.form_ui.hydrate_from(am, &mut Vec::new(), window, cx)?;
+            self.form_ui.hydrate_from(am, &mut path, window, cx)?;
             anyhow::Ok(())
         });
         if let Err(error) = result {
@@ -370,7 +411,7 @@ impl FormPage {
 }
 
 impl Automergable for FormPage {
-    type Crdt = Form;
+    type Crdt = DoubleForm;
 
     fn doc_handle(&self) -> DocHandle {
         self.doc_handle.clone()
@@ -464,28 +505,30 @@ impl FormPage {
                 .flex_col()
                 .p_2()
                 .gap_2()
-                .child("Form (live-bound to Automerge)")
-                .child(self.render_field("First name", &self.form_ui.first_name))
-                .child(self.render_field("Last name", &self.form_ui.last_name)),
-            // .child(
-            //     div()
-            //         .flex()
-            //         .flex_col()
-            //         .gap_1()
-            //         .p_2()
-            //         .bg(theme.muted)
-            //         .rounded_md()
-            //         .child("Live snapshot:")
-            //         .child(SharedString::from(format!(
-            //             "first_name = {:?}",
-            //             self.form.first_name
-            //         )))
-            //         .child(SharedString::from(format!(
-            //             "last_name = {:?}",
-            //             self.form.last_name
-            //         ))),
-            // ),
+                .child("Double form (live-bound to Automerge)")
+                .child(self.render_sub_form("Form one", &self.form_ui.one, cx))
+                .child(self.render_sub_form("Form two", &self.form_ui.two, cx)),
         )
+    }
+
+    fn render_sub_form(
+        &self,
+        label: &'static str,
+        sub: &FormUi,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.theme();
+        div()
+            .border_1()
+            .border_color(theme.border)
+            .rounded_md()
+            .p_2()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(label)
+            .child(self.render_field("First name", &sub.first_name))
+            .child(self.render_field("Last name", &sub.last_name))
     }
 
     fn render_field(&self, label: &'static str, input: &Entity<InputState>) -> impl IntoElement {
@@ -861,3 +904,45 @@ impl ReconcileAs<Form> for FormUi {
 // the patch log to dispatch only the changed paths, at which point the
 // per-leaf `accepts_remote_hydrate` hook still gates the focused field.
 // ----------------------------------------------------------------------------
+
+impl HydrateAs<DoubleForm> for DoubleFormUi {
+    fn hydrate_from<D: ReadDoc>(
+        &self,
+        doc: &D,
+        path: &mut Vec<Prop<'static>>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> anyhow::Result<()> {
+        path.push(Prop::Key("one".into()));
+        if self.one.accepts_remote_hydrate(window, cx) {
+            self.one.hydrate_from(doc, path, window, cx)?;
+        }
+        path.pop();
+
+        path.push(Prop::Key("two".into()));
+        if self.two.accepts_remote_hydrate(window, cx) {
+            self.two.hydrate_from(doc, path, window, cx)?;
+        }
+        path.pop();
+
+        Ok(())
+    }
+}
+
+impl ReconcileAs<DoubleForm> for DoubleFormUi {
+    fn reconcile_into<D: Doc>(
+        &self,
+        doc: &mut D,
+        path: &mut Vec<Prop<'static>>,
+        cx: &App,
+    ) -> anyhow::Result<()> {
+        path.push(Prop::Key("one".into()));
+        self.one.reconcile_into(doc, path, cx)?;
+        path.pop();
+
+        path.push(Prop::Key("two".into()));
+        self.two.reconcile_into(doc, path, cx)?;
+        path.pop();
+        Ok(())
+    }
+}
