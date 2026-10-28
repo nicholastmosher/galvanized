@@ -1,12 +1,22 @@
 //! Live-bound form prototype.
 //!
 //! A `FormPage` is an `Entity<FormPage>` that implements `Automergable` (so it
-//! owns a `DocHandle` and declares `Crdt = Form`) and `Render`. Each text field
-//! is an `Entity<InputState>` whose `InputEvent::Change` reconciles a single
-//! prop into the Automerge doc via `autosurgeon::reconcile_prop`, and whose
-//! value is pushed back from the doc (via `DocHandle::changes`) whenever a
-//! remote — or local — change lands, except for the field currently holding
-//! focus, so the user's caret is never clobbered by its own echo.
+//! owns a `DocHandle` and declares `Crdt = Form`) and `Render`. The form fields
+//! live on a `FormUi` struct, which holds one `Entity<InputState>` per field of
+//! `Form` and implements `HydrateAs<Form>` / `ReconcileAs<Form>`.
+//!
+//! Two-way sync:
+//!   - remote doc change → change stream signals the foreground →
+//!     `FormPage::apply_remote` opens the doc and calls
+//!     `FormUi::hydrate_from(doc, &[], window, cx)`, which delegates to each
+//!     field's `HydrateAs<String>` impl. The focused field is skipped via
+//!     `accepts_remote_hydrate` so the user's caret is never clobbered.
+//!   - local edit → the field's `InputEvent::Change` fires →
+//!     `FormPage::reconcile_form` opens a transaction and calls
+//!     `FormUi::reconcile_into(&mut tx, &[], cx)`, which delegates to each
+//!     field's `ReconcileAs<String>` impl. The whole struct is reconciled on
+//!     every keystroke; automerge no-ops unchanged scalars, so unchanged fields
+//!     cost nothing.
 //!
 //! The re-entrant loop is broken by `InputState::set_value`, which does not
 //! emit `InputEvent::Change`.
@@ -14,10 +24,18 @@
 //! Two peers collaborate by exchanging a `FormTicket` (the host's endpoint address
 //! and document id). The guest dials the host and opens the same document via
 //! `Repo::find`, then opens a second `FormPage` bound to that shared doc.
+//!
+//! NOTE on threading: both `hydrate_from` and `reconcile_into` need foreground
+//! context (`&mut Window` / `&App`), so `with_document` is called on the
+//! foreground here. `samod`'s `DocHandle` guards the doc with a single `Mutex`
+//! and its docs warn against holding it on the UI thread for long operations.
+//! For a two-field form the hold is microseconds; for a large doc, switch the
+//! bindings to the value-based shape (`read_value`/`apply_value`) so the doc
+//! I/O can move to a background task. See the trait doc below.
 
 use anyhow::Result;
 use automerge::{Automerge, ObjId, ObjType, ROOT, Value};
-use autosurgeon::{Doc, Hydrate, ReadDoc, Reconcile, hydrate, hydrate_prop, reconcile_prop};
+use autosurgeon::{Doc, Hydrate, Prop, ReadDoc, Reconcile, hydrate, hydrate_prop, reconcile_prop};
 use data_encoding::BASE32_NOPAD;
 use futures::StreamExt as _;
 use galvanized_core::{Workspace, item::Item};
@@ -37,7 +55,7 @@ use plugin_automerge::{Automergable, protocol::AutomergeProtocol};
 use plugin_p2p::{P2p, P2pHandle};
 use samod::{DocHandle, DocumentId};
 use serde::{Deserialize, Serialize};
-use tracing::{info, instrument};
+use tracing::info;
 
 pub fn init(cx: &mut App) {
     cx.observe_new::<Workspace>(|_workspace, window, cx| {
@@ -122,13 +140,23 @@ pub struct Form {
     last_name: String,
 }
 
-const PROP_FIRST_NAME: &str = "first_name";
-const PROP_LAST_NAME: &str = "last_name";
+/// The widget tree bound to [`Form`]. One `Entity<InputState>` per field of
+/// `Form`. This is the struct the macro generates for an `Automergable` view:
+/// it holds the leaf widgets and implements `HydrateAs<Form>` / `ReconcileAs<Form>`
+/// by delegating to each leaf's `HydrateAs<String>` / `ReconcileAs<String>` impl,
+/// extending the path by one segment per field.
+pub struct FormUi {
+    first_name: Entity<InputState>,
+    last_name: Entity<InputState>,
+}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Field {
-    FirstName,
-    LastName,
+impl FormUi {
+    fn new(window: &mut Window, cx: &mut Context<FormPage>) -> Self {
+        Self {
+            first_name: cx.new(|cx| InputState::new(window, cx).placeholder("First name")),
+            last_name: cx.new(|cx| InputState::new(window, cx).placeholder("Last name")),
+        }
+    }
 }
 
 pub struct FormPage {
@@ -144,12 +172,11 @@ pub struct FormPage {
     ticket: SharedString,
     connect_error: Option<SharedString>,
 
-    form: Form,
-    form_first_name: Entity<InputState>,
-    form_last_name: Entity<InputState>,
-    /// The field whose `InputState` currently holds focus, so the change-stream
-    /// echo can avoid writing into it and moving the caret.
-    focused_field: Option<Field>,
+    // /// The hydrated doc snapshot, for the "Live snapshot" display. The widgets
+    // /// in `form_ui` are the source of truth for editing; this is the doc's view.
+    // form: Form,
+    /// The widget tree bound to `Form`. `FormPage` drives two-way sync through it.
+    form_ui: FormUi,
 
     _input_subscriptions: Vec<gpui::Subscription>,
     _change_task: Task<()>,
@@ -166,15 +193,27 @@ impl FormPage {
     ) -> Self {
         let ticket_input = cx
             .new(|cx| InputState::new(window, cx).placeholder("Paste remote ticket, press Enter"));
-        let form_first_name = cx.new(|cx| InputState::new(window, cx).placeholder("First name"));
-        let form_last_name = cx.new(|cx| InputState::new(window, cx).placeholder("Last name"));
+        let form_ui = FormUi::new(window, cx);
 
-        let sub_first = cx.subscribe(&form_first_name, |this, input, event: &InputEvent, cx| {
-            this.handle_input_event(Field::FirstName, &input, event, cx);
-        });
-        let sub_last = cx.subscribe(&form_last_name, |this, input, event: &InputEvent, cx| {
-            this.handle_input_event(Field::LastName, &input, event, cx);
-        });
+        // Any field edit reconciles the whole `FormUi` into the doc in one
+        // transaction. automerge no-ops unchanged scalars, so a keystroke in
+        // `first_name` produces zero ops for `last_name`.
+        let sub_first = cx.subscribe(
+            &form_ui.first_name,
+            |this, _input, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    this.reconcile_form(cx);
+                }
+            },
+        );
+        let sub_last = cx.subscribe(
+            &form_ui.last_name,
+            |this, _input, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    this.reconcile_form(cx);
+                }
+            },
+        );
 
         // Build this peer's shareable ticket up front so the UI can show it.
         let endpoint_id = p2p.endpoint_id(cx);
@@ -184,28 +223,20 @@ impl FormPage {
         };
         let ticket_text = SharedString::from(ticket.to_string());
 
-        // One background task watches the doc and re-hydrates on every change;
-        // one foreground task (on the window's executor) pushes snapshots into
-        // the inputs. The foreground task needs `&mut Window` for `set_value`,
-        // so it runs via `spawn_in` and uses `update_in`.
+        // Background: watch the doc and forward a unit signal per change.
+        // Foreground: on signal, re-hydrate the whole widget tree from the
+        // doc. `hydrate_from` needs `&mut Window`, so the apply runs via
+        // `update_in` on the window's executor.
         let change_task = cx.spawn_in(window, {
             let doc_handle = doc_handle.clone();
             async move |this, cx| {
                 let result = async {
-                    let (tx, rx) = flume::bounded::<Form>(16);
+                    let (tx, rx) = flume::bounded::<()>(16);
                     cx.background_spawn(
                         async move {
-                            // Initial snapshot so a freshly-joined doc shows existing
-                            // data, not just subsequent changes.
-                            let initial = doc_handle.with_document(|am| hydrate::<_, Form>(am))?;
-                            if tx.send(initial).is_err() {
-                                return anyhow::Ok(());
-                            }
                             let mut changes = doc_handle.changes();
                             while let Some(_changed) = changes.next().await {
-                                let form = doc_handle.with_document(|am| hydrate::<_, Form>(am))?;
-                                // Receiver gone → the page was dropped; stop listening.
-                                if tx.send(form).is_err() {
+                                if tx.send(()).is_err() {
                                     break;
                                 }
                             }
@@ -216,9 +247,9 @@ impl FormPage {
                     .detach();
 
                     let mut rx_stream = rx.into_stream();
-                    while let Some(form) = rx_stream.next().await {
+                    while let Some(()) = rx_stream.next().await {
                         this.update_in(cx, |page, window, cx| {
-                            page.apply_remote(form, window, cx);
+                            page.apply_remote(window, cx);
                         })?;
                     }
                     anyhow::Ok(())
@@ -239,100 +270,45 @@ impl FormPage {
             ticket_input,
             ticket: ticket_text,
             connect_error: None,
-            form: Form::default(),
-            form_first_name,
-            form_last_name,
-            focused_field: None,
+            // form: Form::default(),
+            form_ui,
             _input_subscriptions: vec![sub_first, sub_last],
             _change_task: change_task,
         }
     }
 
-    fn handle_input_event(
-        &mut self,
-        field: Field,
-        input: &Entity<InputState>,
-        event: &InputEvent,
-        cx: &mut Context<Self>,
-    ) {
-        match event {
-            InputEvent::Change => self.on_change(field, input, cx),
-            InputEvent::Focus => {
-                self.focused_field = Some(field);
-                cx.notify();
-            }
-            InputEvent::Blur => {
-                if self.focused_field == Some(field) {
-                    self.focused_field = None;
-                }
-                cx.notify();
-            }
-            _ => {}
-        }
-    }
-
-    #[instrument(skip_all)]
-    fn on_change(&mut self, field: Field, input: &Entity<InputState>, cx: &mut Context<Self>) {
-        let text = input.read(cx).value().to_string();
-        info!(?field, %text, "Reconciling form field to Automerge");
-        self.reconcile_field(field, text, cx).detach_and_log_err(cx);
-    }
-
-    /// Reconcile a single prop into the root map. Fine-grained: a keystroke in
-    /// `first_name` never re-emits changes for `last_name`.
-    fn reconcile_field(
-        &self,
-        field: Field,
-        value: String,
-        cx: &mut Context<Self>,
-    ) -> Task<Result<()>> {
+    /// Reconcile the whole `FormUi` into the doc in one transaction. Runs on
+    /// the foreground because `ReconcileAs::reconcile_into` reads widget state
+    /// via `&App`. The `Mutex` hold is brief for a two-field form; for a large
+    /// doc, switch to the value-based binding shape so this can move off-thread.
+    fn reconcile_form(&mut self, cx: &mut Context<Self>) {
         let doc_handle = self.doc_handle.clone();
-        cx.background_spawn(async move {
-            doc_handle.with_document(|am| {
-                let mut tx = am.transaction();
-                match field {
-                    Field::FirstName => {
-                        reconcile_prop(&mut tx, automerge::ROOT, PROP_FIRST_NAME, &value)?
-                    }
-                    Field::LastName => {
-                        reconcile_prop(&mut tx, automerge::ROOT, PROP_LAST_NAME, &value)?
-                    }
-                }
-                let (_hash, _patch_log) = tx.commit();
-                info!(?field, "Reconciled form field to Automerge");
-                anyhow::Ok(())
-            })
-        })
+        let result = doc_handle.with_document(|am| {
+            let mut tx = am.transaction();
+            self.form_ui.reconcile_into(&mut tx, &mut Vec::new(), cx)?;
+            let (_hash, _patch_log) = tx.commit();
+            anyhow::Ok(())
+        });
+        if let Err(error) = result {
+            tracing::error!(?error, "reconcile_form failed");
+        }
     }
 
-    /// Apply a freshly-hydrated snapshot from the change stream. Non-focused
-    /// fields are pushed back into their inputs (so remote/echo edits appear
-    /// live); the focused field is left untouched so the caret stays put.
-    fn apply_remote(&mut self, form: Form, window: &mut Window, cx: &mut Context<Self>) {
-        self.form = form;
-        if self.focused_field != Some(Field::FirstName) {
-            self.sync_input(&self.form_first_name, &self.form.first_name, window, cx);
-        }
-        if self.focused_field != Some(Field::LastName) {
-            self.sync_input(&self.form_last_name, &self.form.last_name, window, cx);
+    /// Apply a freshly-hydrated snapshot from the change stream: cache the
+    /// `Form` for the live-snapshot display, then push the doc into the
+    /// widget tree via `hydrate_from`. Focused fields skip themselves via
+    /// `accepts_remote_hydrate`.
+    fn apply_remote(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let doc_handle = self.doc_handle.clone();
+        let result = doc_handle.with_document(|am| {
+            // self.form = hydrate::<_, Form>(am)?;
+            self.form_ui.hydrate_from(am, &mut Vec::new(), window, cx)?;
+            anyhow::Ok(())
+        });
+        if let Err(error) = result {
+            tracing::error!(?error, "apply_remote hydrate failed");
         }
         cx.notify();
-    }
-
-    /// Push `desired` into an input only when it differs. `set_value` clears the
-    /// input's edit history, so calling it every change notification — even
-    /// when the value is identical — would wreck undo for no benefit.
-    fn sync_input(
-        &self,
-        input: &Entity<InputState>,
-        desired: &str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let current = input.read(cx).value();
-        if &*current != desired {
-            input.update(cx, |state, cx| state.set_value(desired, window, cx));
-        }
     }
 
     /// Dial the peer named in the pasted ticket and open a new `FormPage` bound
@@ -489,26 +465,26 @@ impl FormPage {
                 .p_2()
                 .gap_2()
                 .child("Form (live-bound to Automerge)")
-                .child(self.render_field("First name", &self.form_first_name))
-                .child(self.render_field("Last name", &self.form_last_name))
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .p_2()
-                        .bg(theme.muted)
-                        .rounded_md()
-                        .child("Live snapshot:")
-                        .child(SharedString::from(format!(
-                            "first_name = {:?}",
-                            self.form.first_name
-                        )))
-                        .child(SharedString::from(format!(
-                            "last_name = {:?}",
-                            self.form.last_name
-                        ))),
-                ),
+                .child(self.render_field("First name", &self.form_ui.first_name))
+                .child(self.render_field("Last name", &self.form_ui.last_name)),
+            // .child(
+            //     div()
+            //         .flex()
+            //         .flex_col()
+            //         .gap_1()
+            //         .p_2()
+            //         .bg(theme.muted)
+            //         .rounded_md()
+            //         .child("Live snapshot:")
+            //         .child(SharedString::from(format!(
+            //             "first_name = {:?}",
+            //             self.form.first_name
+            //         )))
+            //         .child(SharedString::from(format!(
+            //             "last_name = {:?}",
+            //             self.form.last_name
+            //         ))),
+            // ),
         )
     }
 
@@ -575,7 +551,7 @@ pub trait HydrateAs<T: Hydrate> {
     fn hydrate_from<D: ReadDoc>(
         &self,
         doc: &D,
-        path: &[&'static str],
+        path: &mut Vec<Prop<'static>>,
         window: &mut Window,
         cx: &mut App,
     ) -> anyhow::Result<()>;
@@ -584,7 +560,7 @@ pub trait HydrateAs<T: Hydrate> {
     /// now. Text inputs override this to return `false` while they hold focus,
     /// so a remote echo doesn't clobber the user's caret. Composites do NOT
     /// override this; they consult each child's hook before delegating (see
-    /// the `ContactForm` impl below). Default is `true`.
+    /// the `ContactForm` and `FormUi` impls below). Default is `true`.
     ///
     /// Takes `&Window` because focus is window-scoped (`FocusHandle::is_focused`
     /// needs the window). The dispatcher (which already has `&mut Window` for
@@ -603,7 +579,7 @@ pub trait ReconcileAs<T: Reconcile> {
     fn reconcile_into<D: Doc>(
         &self,
         doc: &mut D,
-        path: &[&'static str],
+        path: &mut Vec<Prop<'static>>,
         cx: &App,
     ) -> anyhow::Result<()>;
 }
@@ -615,12 +591,13 @@ pub trait ReconcileAs<T: Reconcile> {
 // ----------------------------------------------------------------------------
 
 /// Walk `path` (minus the last segment) from `ROOT`, returning the parent
-/// `ObjId` and the leaf segment. Returns `Ok(None)` if any intermediate map is
-/// missing. Errors on a segment that exists but is not a map.
+/// `ObjId` and the leaf segment. Returns `Ok(None)` if any intermediate object
+/// is missing (fresh-doc case). Errors on a segment that exists but is not a
+/// container (map or list).
 fn navigate_for_hydrate<D: ReadDoc>(
     doc: &D,
-    path: &[&'static str],
-) -> anyhow::Result<Option<(ObjId, &'static str)>> {
+    path: &[Prop<'static>],
+) -> anyhow::Result<Option<(ObjId, Prop<'static>)>> {
     let n = path.len();
     if n == 0 {
         // The root widget itself has no leaf prop. Composites handle the
@@ -631,11 +608,12 @@ fn navigate_for_hydrate<D: ReadDoc>(
     let mut parent = ROOT.clone();
     for (i, segment) in path.iter().enumerate() {
         if i + 1 == n {
-            return Ok(Some((parent, *segment)));
+            return Ok(Some((parent, segment.clone())));
         }
-        match doc.get(&parent, automerge::Prop::Map((*segment).into()))? {
+        match doc.get(&parent, segment)? {
             Some((Value::Object(ObjType::Map), id)) => parent = id,
-            Some(_) => anyhow::bail!("path segment {segment:?} is not a map"),
+            Some((Value::Object(ObjType::List), id)) => parent = id,
+            Some(_) => anyhow::bail!("path segment {} is not a container", segment),
             None => return Ok(None),
         }
     }
@@ -643,12 +621,13 @@ fn navigate_for_hydrate<D: ReadDoc>(
 }
 
 /// Walk `path` (minus the last segment) from `ROOT`, creating missing
-/// intermediate maps. Returns the parent `ObjId` and the leaf segment. Used by
-/// reconcile, which must materialize the path before putting into it.
+/// intermediate objects (maps for `Key` segments, list items for `Index`).
+/// Returns the parent `ObjId` and the leaf segment. Used by reconcile, which
+/// must materialize the path before putting into it.
 fn navigate_for_reconcile<D: Doc>(
     doc: &mut D,
-    path: &[&'static str],
-) -> anyhow::Result<(ObjId, &'static str)> {
+    path: &[Prop<'static>],
+) -> anyhow::Result<(ObjId, Prop<'static>)> {
     let n = path.len();
     if n == 0 {
         anyhow::bail!("reconcile path must be non-empty");
@@ -656,23 +635,52 @@ fn navigate_for_reconcile<D: Doc>(
     let mut parent = ROOT.clone();
     for (i, segment) in path.iter().enumerate() {
         if i + 1 == n {
-            return Ok((parent, *segment));
+            return Ok((parent, segment.clone()));
         }
-        // Drop the immutable borrow from `get` before the mutable `put_object`.
-        let existing = match doc.get(&parent, automerge::Prop::Map((*segment).into()))? {
-            Some((Value::Object(ObjType::Map), id)) => Some(id),
-            _ => None,
-        };
-        parent = match existing {
-            Some(id) => id,
-            None => doc.put_object(
-                &parent,
-                automerge::Prop::Map((*segment).into()),
-                ObjType::Map,
-            )?,
-        };
+        parent = ensure_path_segment(doc, &parent, segment)?;
     }
     unreachable!()
+}
+
+/// Materialize the object at `parent[segment]`, returning its `ObjId`. For a
+/// `Key` segment, creates a map if missing. For an `Index` segment, appends a
+/// map at the end when `idx == len`, reuses an existing container at `idx`,
+/// and errors otherwise (out-of-bounds or a non-container scalar in the slot —
+/// never silently overwrites).
+fn ensure_path_segment<D: Doc>(
+    doc: &mut D,
+    parent: &ObjId,
+    segment: &Prop<'static>,
+) -> anyhow::Result<ObjId> {
+    match segment {
+        Prop::Key(_) => {
+            let am_prop = automerge::Prop::from(segment);
+            // Drop the immutable `get` borrow before the mutable `put_object`.
+            let existing = match doc.get(parent, am_prop.clone())? {
+                Some((Value::Object(ObjType::Map), id)) => Some(id),
+                _ => None,
+            };
+            Ok(match existing {
+                Some(id) => id,
+                None => doc.put_object(parent, am_prop, ObjType::Map)?,
+            })
+        }
+        Prop::Index(idx) => {
+            let idx = *idx as usize;
+            let len = doc.length(parent);
+            if idx < len {
+                match doc.get(parent, automerge::Prop::Seq(idx))? {
+                    Some((Value::Object(_), id)) => Ok(id),
+                    Some(_) => anyhow::bail!("list item at index {idx} is not a container"),
+                    None => anyhow::bail!("list item at index {idx} vanished mid-reconcile"),
+                }
+            } else if idx == len {
+                Ok(doc.insert_object(parent, idx, ObjType::Map)?)
+            } else {
+                anyhow::bail!("list index {idx} out of bounds (len {len})");
+            }
+        }
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -685,7 +693,7 @@ impl HydrateAs<String> for Entity<InputState> {
     fn hydrate_from<D: ReadDoc>(
         &self,
         doc: &D,
-        path: &[&'static str],
+        path: &mut Vec<Prop<'static>>,
         window: &mut Window,
         cx: &mut App,
     ) -> anyhow::Result<()> {
@@ -708,7 +716,7 @@ impl ReconcileAs<String> for Entity<InputState> {
     fn reconcile_into<D: Doc>(
         &self,
         doc: &mut D,
-        path: &[&'static str],
+        path: &mut Vec<Prop<'static>>,
         cx: &App,
     ) -> anyhow::Result<()> {
         let (parent, leaf) = navigate_for_reconcile(doc, path)?;
@@ -748,16 +756,16 @@ impl HydrateAs<ContactFormData> for Entity<ContactForm> {
     fn hydrate_from<D: ReadDoc>(
         &self,
         doc: &D,
-        path: &[&'static str],
+        path: &mut Vec<Prop<'static>>,
         window: &mut Window,
         cx: &mut App,
     ) -> anyhow::Result<()> {
-        let mut child_path: Vec<&'static str> = path.to_vec();
-        child_path.push("display_name");
+        path.push(Prop::Key("display_name".into()));
         let display_name = self.read(cx).display_name.clone();
         if display_name.accepts_remote_hydrate(window, cx) {
-            display_name.hydrate_from(doc, &child_path, window, cx)?;
+            display_name.hydrate_from(doc, path, window, cx)?;
         }
+        path.pop();
         Ok(())
     }
 }
@@ -766,13 +774,64 @@ impl ReconcileAs<ContactFormData> for Entity<ContactForm> {
     fn reconcile_into<D: Doc>(
         &self,
         doc: &mut D,
-        path: &[&'static str],
+        path: &mut Vec<Prop<'static>>,
         cx: &App,
     ) -> anyhow::Result<()> {
-        let mut child_path: Vec<&'static str> = path.to_vec();
-        child_path.push("display_name");
+        path.push(Prop::Key("display_name".into()));
         let display_name = self.read(cx).display_name.clone();
-        display_name.reconcile_into(doc, &child_path, cx)?;
+        display_name.reconcile_into(doc, path, cx)?;
+        path.pop();
+        Ok(())
+    }
+}
+
+// ----------------------------------------------------------------------------
+// `FormUi` is the binding struct `FormPage` actually uses. It's a plain struct
+// held by value (not an `Entity`), so the impls take `&self` directly and
+// reach the child entities without a `.read(cx)` indirection. This is the
+// shape the macro emits for an `Automergable` view's own field set, as
+// opposed to a nested composite that lives as its own `Entity` (like
+// `ContactForm` above).
+// ----------------------------------------------------------------------------
+
+impl HydrateAs<Form> for FormUi {
+    fn hydrate_from<D: ReadDoc>(
+        &self,
+        doc: &D,
+        path: &mut Vec<Prop<'static>>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> anyhow::Result<()> {
+        path.push(Prop::Key("first_name".into()));
+        if self.first_name.accepts_remote_hydrate(window, cx) {
+            self.first_name.hydrate_from(doc, path, window, cx)?;
+        }
+        path.pop();
+
+        path.push(Prop::Key("last_name".into()));
+        if self.last_name.accepts_remote_hydrate(window, cx) {
+            self.last_name.hydrate_from(doc, path, window, cx)?;
+        }
+        path.pop();
+
+        Ok(())
+    }
+}
+
+impl ReconcileAs<Form> for FormUi {
+    fn reconcile_into<D: Doc>(
+        &self,
+        doc: &mut D,
+        path: &mut Vec<Prop<'static>>,
+        cx: &App,
+    ) -> anyhow::Result<()> {
+        path.push(Prop::Key("first_name".into()));
+        self.first_name.reconcile_into(doc, path, cx)?;
+        path.pop();
+
+        path.push(Prop::Key("last_name".into()));
+        self.last_name.reconcile_into(doc, path, cx)?;
+        path.pop();
         Ok(())
     }
 }
