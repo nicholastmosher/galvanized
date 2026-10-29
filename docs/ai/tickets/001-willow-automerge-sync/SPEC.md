@@ -2,53 +2,49 @@
 
 > **Target-state specification.** The system we are building *toward*. Where
 > this spec and the current code disagree, the spec is the goal; the code is
-> the present. Rulings are RATIFIED (Nick, this session); sub-decisions still
-> open are PROPOSED and noted as such. Nothing here is implemented yet.
+> the present. Rulings are RATIFIED (Nick); sub-decisions still open are
+> PROPOSED. Nothing here is implemented yet.
 
 ## Purpose
 
-Make automerge document sync **capability-gated**: a document only syncs
-between peers who **hold and prove** a valid signed Willow capability for that
-document, enforced by the sync engine. This is the concrete form of L0's
-"permission without a referee" (Q3) and "two enforcement points, one truth"
-(Q4) applied to the dynamic-data substrate (L2), and it satisfies T4's
-acceptance criteria.
+Build **`galvanized-sync`**: a from-scratch automerge sync engine that only
+syncs documents between peers who **hold and prove** a valid signed Willow
+capability for that document. This is L0's "permission without a referee"
+(Q3) and "two enforcement points, one truth" (Q4) applied to the dynamic-data
+substrate (L2), and it satisfies T4's acceptance criteria.
 
-## The framing
-
-> Willow identity and capability restriction of document sync is **more
-> important** than JS interop. JS interop is for "public" uncontrolled docs;
-> Willow sync is for "private" aka controlled docs. JS compatibility is a
-> potential bonus, not a constraint. (Nick, RATIFIED.)
-
-Two sync modes, one engine:
-
-- **Public / open sync** — the vanilla `automerge-repo` path. No caps, no
-  Willow identity. JS-interop-compatible. The samod-core seams default to
-  this (no-op authenticator/validator).
-- **Private / controlled sync** — the galvanized ALPN. Peers are Willow
-  `SubspaceId`s; every doc sync is capability-gated. This is the priority.
+> **Privacy is the primary case; public sharing is a granted exception.**
+> Every sync requires positive proof of a valid signed capability. There is
+> no ungated path. "Public" is a kind of capability, not a mode of the engine.
 
 ## RATIFIED design decisions
 
-1. **Seam, not fork.** samod-core gains trait seams; the Willow enforcement
-   is a plug-in. If seam and Willow-enforcement conflict, Willow wins (and the
-   conflict is a finding to surface, not a reason to silently weaken either).
+1. **New crate `galvanized-sync`**, from scratch. `samod`/`samod-core` are a
+   reference (sans-IO actor shape, codec ideas), not a dependency or
+   compatibility target. No `automerge-repo`/JS interop. *(Supersedes the
+   earlier "extend samod-core with seams" ruling.)*
 2. **Capabilities are presented in the extended sync handshake.**
-3. **Challenge-response on the subspace key per session** (leaked-token
-   mitigation): the cap names the recipient `SubspaceId`; the peer signs a
-   challenge with that subspace's key. A stolen cap without the key is useless.
-4. **Revocation: re-check on reconnect first.** In-flight revocation is a fast
+3. **Challenge-response per session.** Recipient-specific: prove the *named*
+   `SubspaceId`. Public: prove *some* `SubspaceId` (sybil-resistant identity;
+   the cap doesn't restrict *which*).
+4. **Revocation: re-check on reconnect first;** in-flight teardown is a fast
    follow.
-5. **Write-gate first; read-only sync mode is a fast follow.**
+5. **Write-gate first; read-only `SyncMode` is a fast follow.**
 6. **`DocumentId` and Willow path are independent**, bound by the capability's
-   signed claims. The cap carries both; the link is trusted because the owner
-   signed it.
-7. **Revocation tombstones live under the doc's own namespace**
-   (`/{owner_subspace}/revoked/{cap_nonce}`). Syncing the namespace propagates
-   revocations.
-8. **Separate ALPN** (`iroh/automerge-repo-galvanized/1`, tentative). No
-   in-`Join` negotiation of the extension.
+   signed claims.
+7. **Revocation via the `CapabilityStore` seam** (today: attributable-public
+   tombstones in a per-peer automerge index doc; recipient-specific
+   out-of-band; anonymous-public in a future identity-less store).
+8. **One new protocol + ALPN.** No vanilla ALPN, no `automerge-repo` compat.
+9. **Public caps: read-only, tight TTL, revokable.** Revoking stops *future*
+   sync, not already-synced bytes (stated honestly).
+10. **Both public modes valid:** anonymous-public (hard requirement) and
+    attributable-public.
+11. **Anonymous-public signed by the namespace secret** (owned namespace);
+    attributable-public & recipient-specific signed by the owner's
+    `SubspaceSecret`. Communal namespaces are attributable by nature.
+12. **`CapabilityStore` trait seam, swappable.** Self-sufficient now
+    (automerge index doc + local store); Willow-namespace-path impl later.
 
 ## Architecture
 
@@ -56,155 +52,171 @@ Two sync modes, one engine:
 ┌──────────────────────────────────────────────────────────────┐
 │ Galvanized app plugins (chat, contacts, form, …)               │  above
 ├──────────────────────────────────────────────────────────────┤
-│ plugin-automerge (galvanized ALPN wiring + Automergable seam)  │
+│ plugin-automerge (new-protocol wiring + Automergable seam)     │
 ├──────────────────────────────────────────────────────────────┤
-│ samod-willow  (the Willow enforcement plug-in)                  │
-│  • PeerAuthenticator: SubspaceId + challenge-response + cap     │
-│    presentation/verify                                         │
-│  • CapabilityValidator: per-doc Allow/Deny, consults           │
-│    revocation view                                             │
-│  • AutomergeSyncCapability (from galvanized-cap)               │
+│ galvanized-sync  (the new engine)                              │
+│  • Sans-IO actor core (Hub + DocumentActor) — inspired by samod│
+│  • Peer identity = Willow SubspaceId                           │
+│  • Trait seams (for OUR evolution):                            │
+│      PeerAuthenticator, CapabilityValidator,                   │
+│      CapabilityStore, SyncMode                                 │
+│  • Built-in Willow impls are the defaults (no no-op open path) │
+│  • New wire protocol + ALPN (carries identity + caps natively) │
+│  • Deny-by-default: no valid signed cap → no sync              │
 ├──────────────────────────────────────────────────────────────┤
-│ samod-core  (sans-IO engine, JS-interop-clean)                  │  substrate
-│  • Hub + DocumentActor                                         │
-│  • Trait seams: PeerAuthenticator, CapabilityValidator,        │
-│    SyncMode (default = open / ReadWrite)                       │
-│  • Wire protocol (Join/Peer/Request/Sync)                      │
-│  • Storage + Transport traits                                  │
+│ galvanized-cap  (AutomergeSyncCapability + WillowScope + keys) │
 ├──────────────────────────────────────────────────────────────┤
-│ samod  (async runtime wrapper)                                  │
+│ Willow25 + Iroh (transport: QUIC, hole-punching)               │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-The seams are the contract. samod-core stays substrate; samod-willow is the
-Willow-native enforcement; plugin-automerge wires samod-willow into the
-galvanized ALPN transport.
+The seams exist so we can refine rules and swap implementations (notably the
+`CapabilityStore`) over time. They are **not** for wrapping samod, and the
+defaults are the real Willow implementations, not permissive stubs.
 
 ## Peer identity
 
-- A peer is identified by a **Willow `SubspaceId`** (a public key derived from
-  a `SubspaceSecret`). This **replaces** samod's ephemeral `PeerId` on the
-  galvanized ALPN. (The open path may keep `PeerId` for JS compat.)
+- A peer is a **Willow `SubspaceId`** (public key from a `SubspaceSecret`).
+  This replaces samod's ephemeral `PeerId` entirely.
 - The handshake proves the peer holds the corresponding `SubspaceSecret` by
   signing a challenge (ruling #3).
-- `PeerIdentity` is the post-handshake handle the `Hub` carries per
-  connection: the verified `SubspaceId` plus the set of capabilities the peer
-  presented. It is the input to every per-doc gating decision.
+- `PeerIdentity` is the post-handshake per-connection handle: the verified
+`SubspaceId` plus the granted capability set. It is the input to every
+per-doc gating decision.
 
 ## The capability object
 
-`AutomergeSyncCapability` (in `galvanized-cap`, extending the existing
-`WillowScope` + signed-capability machinery):
+`AutomergeSyncCapability` (in `galvanized-cap`, extending existing
+`WillowScope` + signed-cap machinery):
 
 ```
 AutomergeSyncCapability {
-  owner: SubspaceId,            // doc owner's Profile (minter)
-  recipient: SubspaceId,        // peer's Profile (who it's granted to)
-  document_id: DocumentId,      // the automerge doc being authorized
-  willow_scope: WillowScope,    // (namespace, subspace, path_prefix) binding
-  permission: WillowRead | WillowWrite,
+  signer: Signer,                // Subspace(SubspaceId) | Namespace(NamespaceId)
+  recipient: Recipient,          // Subspace(SubspaceId) | Public
+  document_id: DocumentId,       // the automerge doc authorized
+  willow_scope: WillowScope,     // (namespace, subspace, path_prefix) binding
+  permission: AutomergeSyncPermission,  // Read | Write
   expiry: UnixTimestamp,
-  nonce: [u8; 32],              // revocation tracking id
+  nonce: [u8; 32],               // revocation tracking id
 }
-signed by owner's SubspaceSecret
+signed by the signer's secret
 ```
 
+- **Signer (ruling #11):** `Subspace(SubspaceId)` for recipient-specific &
+  attributable-public (names the owner Profile); `Namespace(NamespaceId)` for
+  anonymous-public (names only the namespace, not a Profile). Validator checks
+  the signature against the carried public key.
+- **Recipient:** `Subspace(SubspaceId)` for private; `Public` for public caps.
+- **Public caps (ruling #9):** `permission = Read`, tight TTL, revokable.
+  No public `Write`.
+- **Binding (ruling #6):** `document_id` and `willow_scope` independent; the
+  signed claims bind them. No external registry.
 - **Dual form (L0):** the serialized object is the sync-checked ground truth;
-  a Rust type-token (`StrictCap<AutomergeSync, …>`) is minted from it to gate
-  the local programming API. You cannot call a gated sync operation without
-  the token; you cannot mint the token without a valid serialized cap.
-- **Binding (ruling #6):** `document_id` and `willow_scope` are independent;
-  the signed claims bind them. No external registry.
-- **Minting:** the owner mints with their `SubspaceSecret`, gated by a
-  `StrictSendCap<WillowWrite, WillowScope>` (reusing `galvanized-cap`'s
-  existing `WillowKeyStore::mint_write_authority` pattern).
+  a Rust type-token is minted from a verified object to gate the local API.
+- **Minting:** gated by `StrictSendCap<WillowWrite, WillowScope>` (reusing
+  `WillowKeyStore`); the signer secret (subspace or namespace) signs.
+- **Honest limit:** revoking a public cap stops future sync, not already-synced
+  bytes.
 
 ## The handshake (connection-level gate)
 
-On the galvanized ALPN, before samod's normal `Join`/`Peer`:
+On the new galvanized ALPN, before normal sync:
 
 1. Exchange `SubspaceId`s + fresh challenge nonces.
-2. Each side signs the other's nonce with its `SubspaceSecret`. Verify →
+2. Each side signs the other's nonce with its `SubspaceSecret`; verify →
    proves key possession (leaked-token mitigation).
-3. Each side presents the `AutomergeSyncCapability` object(s) it holds for
-   docs the other side owns. Each side verifies: signature valid, recipient
-   matches local `SubspaceId`, not expired, not in the revocation view.
-4. On success, the `Hub` records a `PeerIdentity` for the connection and
-   proceeds to normal sync. On failure, refuse with a visible `Error` (per
-   `CONVENTIONS.md` error-visibility doctrine — never a silent drop).
-
-PROPOSED (open, ticket 003): whether the cap exchange rides inside extended
-`Join`/`Peer` CBOR maps or a distinct post-handshake frame.
+3. Each side presents `AutomergeSyncCapability`(s) it holds (sourced via the
+   `CapabilityStore`), for docs the other owns or that are public. Each side
+   verifies: signature valid against the signer's public key, recipient
+   matches the local `SubspaceId` or is `Public`, permission covers the
+   direction, not expired, nonce not revoked.
+4. On success, record a `PeerIdentity` and proceed. On failure, refuse with a
+   visible `Error` (never a silent close). **No fallback to ungated sync.**
 
 ## Per-document gating (message-level gate)
 
-The `Hub`'s `CapabilityValidator` is consulted on every `Request`/`Sync` for a
-document:
+The engine's `CapabilityValidator` is consulted on every `Request`/`Sync`:
 
 - Input: `(peer_identity, document_id, direction)`.
-- Output: `Allow` | `Deny(reason)`.
-- Check: the peer presented a cap whose `document_id` matches, whose
-  `recipient` is the peer, whose `permission` covers the direction
-  (`WillowWrite` for push/`Request`; `WillowRead` or `WillowWrite` for
-  receive), not expired, nonce not in the revocation view.
-- On `Deny`: the `Hub` emits a visible `Error` and refuses that doc's sync
-  (does not tear down the whole connection — other docs may be authorized).
+- Output: `Allow | Deny(reason)`.
+- Check: a presented cap whose `document_id` matches, `recipient` is the peer
+  or `Public`, `permission` covers the direction, not expired, nonce not in
+  the live revocation view.
+- On `Deny`: emit a visible `Error` for that doc and skip its sync. The
+  connection stays up — other docs may be authorized.
+- The validator reads the revocation view **at call time**, so a revocation
+  landing mid-session takes effect at the next message (best-effort, on top
+  of the reconnect re-check floor).
 
-This is the runtime enforcement that complements the handshake's
-identity-establishment. The handshake says *who you are*; the per-doc gate
-says *what you may touch*, re-checked per message against the live revocation
-view.
+## Capability distribution — `CapabilityStore` seam
+
+No syncing Willow store exists yet, so the engine is self-sufficient. The
+`CapabilityStore` trait abstracts where caps live and how they propagate:
+
+- **Attributable-public caps + tombstones:** a per-peer public-read-only
+  automerge index doc, synced by the engine itself. Caps are immutable
+  append-only entries; tombstones revoke. Bootstrap: the index doc id travels
+  out-of-band (contact ticket); thereafter the index is the source of further
+  public caps.
+- **Recipient-specific caps:** out-of-band (contact ticket / direct message /
+  the handshake). Held locally. **Never** in a public index (would publish
+  the sharing graph).
+- **Anonymous-public caps:** need an identity-less store (future Willow
+  namespace path, or travel-with-the-doc). Until then, travel out-of-band like
+  recipient-specific. Behind the same seam.
+
+Swappable: a future Willow-namespace-path `CapabilityStore` impl replaces the
+index-doc impl without touching the engine.
 
 ## Revocation
 
-- Tombstones: `/{owner_subspace}/revoked/{cap_nonce}` entries in the doc's
-  Willow namespace (ruling #7).
-- Propagation: syncing the namespace carries tombstones to all peers — no
-  separate revocation channel.
-- Re-check (ruling #4): on reconnect, sync the revocation view before
-  accepting the peer's caps. Mid-session, the validator consults the
-  revocation view as it updates, so a revocation that lands locally takes
-  effect at the next `Request`/`Sync` even without a reconnect.
-- In-flight teardown (live-session kill on revocation) is a **fast follow**.
+- Tombstones (via the `CapabilityStore`): a revoked cap's `nonce` is recorded
+  so the validator refuses it. For attributable-public, the tombstone is an
+  append to the per-peer index doc (propagates by syncing it). For
+  recipient-specific, a local tombstone + out-of-band notification.
+- **Re-check on reconnect** (ruling #4 floor): sync the revocation view before
+  accepting a peer's caps.
+- **Mid-session best-effort:** the validator's live-view read denies the next
+  message after a tombstone lands locally.
+- **In-flight teardown** (active session kill on revocation) is a fast follow.
+- **Honest limit for public caps:** revocation stops future sync; peers who
+  already synced keep the bytes.
 
 ## Read-only (fast follow, ruling #5)
 
-First deliverable is **write-gated**: no `WillowWrite` cap → no sync. Read-only
-(`WillowRead` = receive but don't push) is ticket 007: a `SyncMode::ReadOnly`
-per connection that `generate_sync_messages` skips and
-`handle_sync_message` drops incoming changes for. Samod has no directional
-control today (`SyncDirection` is stats only), so this is new actor work.
+First deliverable is write-gated: no `Write` cap → no sync. Read-only
+(`Read` = receive but not push) is ticket 008: `SyncMode::ReadOnly` per
+connection, set by the cap permission. The plumbing lands in 001 so 008 is a
+policy activation, not a re-arch.
 
 ## Sync-authority vs read-authority (L0 §5, restated)
 
-Samod governs **propagation** (sync-authority, a capability). **Decryption**
-(read-authority, a key) is a separate layer above Willow and is **not samod's
-concern**. Samod syncs ciphertext to a sync-authorized peer who may lack the
-read key — that is correct and intended. The two authorities are independent
-and both originate in L0.
+The engine governs **propagation** (sync-authority, a capability).
+**Decryption** (read-authority, a key) is a separate layer above Willow and
+is **not the engine's concern**. The engine syncs ciphertext to a
+sync-authorized peer who may lack the read key. The two authorities are
+independent and both originate in L0.
 
 ## Acceptance criteria (carried from T4, distributed across tickets)
 
-- A peer without a valid capability cannot establish an automerge sync for a
-  gated document; the attempt is refused with a visible error. (003, 004)
-- A peer with a `WillowWrite` cap can sync (push + receive). (004)
+- A peer without a valid capability cannot sync a gated document; the attempt
+  is refused with a visible error. (004, 005)
+- A peer with a `Write` cap can sync (push + receive). (005)
 - A peer presenting a cap without proving key possession (stolen token) is
-  refused. (003)
-- Revoking the cap (tombstone in the doc's namespace) prevents future sync
-  after reconnect. (005)
-- The contacts shared-display-name doc (`ContactPeer`) is migrated to the
-  gated path as the reference consumer. (006)
-- The vanilla `automerge-repo` open path still compiles and works (seams
-  default to open). (001)
-- (Fast follow) A `WillowRead` cap lets a peer receive but not push. (007)
+  refused. (004)
+- Revoking a cap prevents future sync after reconnect. (006)
+- A public doc (anonymous or attributable) syncs to any peer presenting its
+  public cap + key proof; a non-public doc does not. (004, 005)
+- The contacts shared-display-name doc migrates to the gated path. (007)
+- (Fast follow) A `Read` cap lets a peer receive but not push. (008)
 
 ## Out of scope for this arc
 
-- The encryption-at-rest *mechanism* (L0 governs its keys; samod only carries
-  ciphertext).
-- A capability-management UI (caps are minted programmatically here).
-- Capability delegation/chaining (mint-by-owner only in the first deliverable;
-  delegation is a follow-up).
+- The encryption-at-rest *mechanism* (L0 governs its keys; the engine only
+  carries ciphertext).
+- A capability-management UI (caps minted programmatically here).
+- Capability delegation/chaining (mint-by-signer only in v1).
 - In-flight revocation teardown (fast follow).
-- Discovery (how peers find each other — out-of-band tickets, per
-  `OPEN_QUESTIONS.md`).
+- The syncing Willow store itself (the `CapabilityStore` seam lets us plug it
+  in later).
+- Discovery (out-of-band tickets, per `OPEN_QUESTIONS.md`).

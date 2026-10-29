@@ -1,253 +1,227 @@
 # Brainstorm — Willow-gated automerge sync
 
-> **Status: exploration + RATIFIED rulings.** The design-space exploration is
-> here; the settled target-state is in [`SPEC.md`](SPEC.md). The rulings are
-> Nick's (this session) and are marked RATIFIED. Sub-decisions still open are
-> marked PROPOSED and live as design questions in the tickets.
+> **Status: exploration + RATIFIED rulings.** Design-space exploration is
+> here; the settled target-state is in [`SPEC.md`](SPEC.md). Rulings are
+> Nick's and marked RATIFIED. Sub-decisions still open are PROPOSED and live
+> as design questions in the tickets.
 
-## What we're trying to do
+## What we're building
 
-A next-generation samod that **only syncs automerge documents between peers
-who hold and prove valid signed Willow capabilities**. Today samod syncs with
-any peer that dials it; there is no notion of identity or authority anywhere
-in the engine. The requirement (from L0, from T4, from the user stories U1–U7)
-is that a shared object must only sync with a peer who can present a valid
-capability for that object, enforced by the sync engine itself — not by an
-outer wrapper that can be bypassed.
+**`galvanized-sync`**: a new, from-scratch automerge sync engine in this repo
+that only syncs documents between peers who hold and prove valid signed
+Willow capabilities. Privacy is the primary case; public sharing is a granted
+exception (a kind of capability), never the default. No `automerge-repo` / JS
+interop is preserved. `samod`/`samod-core` are a reference we're inspired by
+(sans-IO actor shape, CBOR codec), not a dependency.
 
-## What samod is today (grounded in the code)
+## What samod is, and what we take from it (reference, not substrate)
 
-- `samod-core` is a **sans-IO actor model**: a `Hub` actor routes by
-  `DocumentId`, and one `DocumentActor` per document. `Hub::handle_event`
-  takes events and returns `HubResults` (effects to execute). Pure state
-  machine, runtime-agnostic, FFI-friendly.
-- **Wire protocol** (`network/wire_protocol.rs`): CBOR-encoded `Join`/`Peer`
-  handshake exchanging `PeerId` + `PeerMetadata` (storage id, is_ephemeral),
-  then `Request`/`Sync`/`DocUnavailable` per document, plus `Ephemeral`,
-  `RemoteSubscriptionChange`, `RemoteHeadsChanged`.
-- **`PeerId`** (`peer_id.rs`) is `peer-{u64}` — an **ephemeral string**. No
-  cryptographic identity, no binding to a keypair, no proof of possession.
-  Generated fresh per process.
-- **`DocumentId`** (`document_id.rs`) is a random UUID (bs58-encoded on the
-  wire). No binding to any Willow path or namespace.
-- **`SyncDirection`** (`actors/document/sync_message_stat.rs`) is **stats
-  only** (`Received` vs `Generated`). It is *not* a sync-control mechanism.
-  `generate_sync_messages` (`doc_state.rs:333`) iterates `peer_connections`
-  and generates for all of them; `handle_sync_message` applies all received
-  changes. **There is no hook to make a session directional.**
-- **No authorization seams.** The `Hub` has no trait hook to consult an
-  authorizer before establishing or continuing a doc sync. The `DocumentActor`
-  has no notion of per-connection permissions.
-- **Storage** is abstracted as a key-value store with range queries
-  (`StorageKey` = list of strings). **Transport** is abstracted as a
-  `Transport` (stream + sink) over a `Dialer` trait. Both are clean seams —
-  the gap is purely on the *authorization* axis.
+- **Sans-IO actor model** — a `Hub` routes by `DocumentId`; one
+  `DocumentActor` per document; `handle_event` → effects. Runtime-agnostic,
+  testable, FFI-friendly. **We take the shape; we rewrite the code.**
+- **CBOR wire codec** with a `Join`/`Peer` handshake then `Request`/`Sync`
+  per document. **We take the codec idea; the protocol is new** (carries
+  Willow identity + capabilities natively).
+- **What we explicitly drop:**
+  - `PeerId` as an ephemeral string (`peer-{u64}`) — replaced by Willow
+    `SubspaceId`.
+  - `SyncDirection` as stats-only — we build a real `SyncMode` control.
+  - The "any peer syncs any doc" default — replaced by deny-by-default.
+  - JS `automerge-repo` wire compatibility — not a goal.
+- **Storage/Transport abstraction** — samod's KV-store + stream/sink traits
+  are a clean separation worth keeping in spirit.
 
-**Conclusion:** samod is well-shaped for extension (sans-IO, trait-based
-transport/storage) but has *zero* enforcement surface for identity or
-capabilities. A next-gen samod must *add* that surface.
+**Conclusion:** samod is a good architectural reference; we are not bound by
+its data types, wire format, or defaults. Everything about identity and
+authority is ours to define.
 
 ## What galvanized already has (grounded in the code)
 
 - **`galvanized-cap`** (`crates/galvanized-cap/src/lib.rs`): `WillowRead` /
-  `WillowWrite` `Permission` types, `WillowScope` (namespace + subspace +
-  path prefix, structured matching against Willow URIs), `WillowKeyStore`
-  that mints Willow `WriteCapability` gated by `StrictSendCap<WillowWrite,
-  WillowScope>`. The **signed-data + type-token duality** from L0 is already
-  partially built: the serialized `WriteCapability` is the sync-checked form,
-  `StrictSendCap` is the type-token gated by `capsec::root()`.
-- **`plugin-willow`** (`crates/plugin-willow/src/lib.rs`): `WillowCx` over a
-  global `WillowState` (`MemoryStore` today), `create_entry` / `list_entries`
-  / `read_entry`. `Willowize` / `EntryHandle` are a commented-out skeleton
-  (T2's job).
-- **Current samod glue** (`plugin-automerge/src/protocol.rs`:
-  `AutomergeProtocol`; `plugin-p2p/src/iroh_repo.rs`: `IrohSamod`): dial an
-  Iroh endpoint, open a bidi stream, hand it to samod's `Transport`, sync with
-  **no auth check**. The contacts handshake authenticates the peer's Profile
-  via `SignedEnvelope` but does **not** gate the automerge sync on a
-  capability.
+  `WillowWrite` permissions, `WillowScope` (namespace + subspace + path
+  prefix, structured matching), `WillowKeyStore` holding both namespace and
+  subspace secrets, minting Willow `WriteCapability` gated by
+  `StrictSendCap<WillowWrite, WillowScope>`, and `subspace_secret_for_signing`
+  ("sign as Profile"). The signed-data + type-token duality is partly built.
+  We extend this with `AutomergeSyncCapability` (ticket 002).
+- **`plugin-willow`**: `WillowCx` over a global `WillowState` (`MemoryStore`
+  today). No syncing Willow store exists yet — which is why `galvanized-sync`
+  must be **self-sufficient** for capability distribution (ticket 003), not
+  dependent on a syncing Willow store.
+- **Current samod glue** (`plugin-automerge/src/protocol.rs`,
+  `plugin-p2p/src/iroh_repo.rs`): dial Iroh, hand the bidi stream to samod,
+  sync with zero auth. **This gets replaced**, not extended (ticket 007).
 
-**Conclusion:** the capability *machinery* exists in `galvanized-cap`; what's
-missing is the *bridge* from that machinery into samod's sync decisions.
+## The goals (from L0 + T4 + user stories, privacy-primary)
 
-## The goals (from L0 + T4 + user stories)
-
-1. **Cryptographic peer identity.** Replace ephemeral `PeerId` with Willow
-   `SubspaceId`. A peer *is* their Profile.
-2. **Per-document capability gating at sync time.** Verify the peer holds a
-   valid signed cap for the doc before/while syncing.
+1. **Cryptographic peer identity.** Peers are Willow `SubspaceId`s; the
+   handshake proves key possession.
+2. **Per-document capability gating, deny-by-default.** No valid signed cap
+   → no sync. No ungated path exists.
 3. **Sync-authority ≠ read-authority.** The cap gates *propagation*; decrypt
-   is a separate key. Samod handles only sync-authority and must not collapse
-   the two (it syncs ciphertext to a sync-authorized peer who may lack the
-   read key).
-4. **Revocation that holds across offline peers.** Revocation is data in an
-   eventually-consistent store; re-check on reconnect.
+   is a separate key (L0 §5). The engine syncs ciphertext to a sync-authorized
+   peer who may lack the read key — correct and intended.
+4. **Revocation that holds across offline peers.** Revocation is data; re-check
+   on reconnect; best-effort mid-session via the live store view.
 5. **Read-only vs read-write** (deferred — write-gate first).
-6. **"Leaked token isn't enough."** Prove key possession per session.
-7. **Interop posture.** JS `automerge-repo` interop is a bonus, not a
-   constraint (Nick's ruling).
+6. **"Leaked token isn't enough."** Challenge-response per session.
+7. **Two public modes.** Anonymous-public (hard requirement) and
+   attributable-public, both as granted capabilities.
+8. **Self-sufficient capability distribution now;** swappable to a syncing
+   Willow store later.
 
-## The design space
+## The design space (and why we landed where we did)
 
-### Option A — Gate as a wrapper above samod (don't touch samod)
+### Fork samod-core vs. extend-with-seams vs. new crate
 
-A capability guard in `plugin-automerge` wraps the `Transport` before handing
-it to samod; runs a cap handshake on the bidi stream first.
+- **Fork:** breaks any future samod upstream; we own a divergent engine.
+- **Extend samod-core with seams (the prior direction):** preserved JS interop
+  as a bonus, but forced a no-op "open default" that contradicts the
+  privacy-primary stance, and constrained the wire format to stay
+  `automerge-repo`-shaped.
+- **New crate (RATIFIED):** samod as reference only; we bake in Willow
+  identity + deny-by-default + the new wire protocol from line one. Seams
+  still exist, but for *our* evolution (refining rules, swapping the
+  capability store), not to keep samod wrapped. Privacy wins cleanly.
 
-- **Strongest counter first:** per-document gating is **hard from outside the
-  wire protocol**. The guard would have to parse/intercept samod's
-  `Request`/`Sync` frames to check caps per doc — fragile, version-coupled,
-  and read-only enforcement is impossible without dropping frames mid-stream.
-  You get connection-level gating but not clean per-doc gating.
-- **Pro:** samod untouched.
-- **Verdict:** rejected for the core requirement. Per-doc gating *is* the
-  requirement, and A can't deliver it cleanly.
+### Why deny-by-default, no ungated path
 
-### Option B — Fork samod-core into a galvanized sync engine
+A privacy-first system cannot default to "sync with anyone who dials."
+Nick's ruling: every sync requires positive proof of a valid signed cap; even
+"public" docs carry a signed owner capability approving public sharing. The
+"open path" concept is gone — what remains is a *public-sharing cap* (wildcard
+recipient) vs a *recipient-specific cap*. Both are signed; both are verified.
 
-Branch samod-core; replace `PeerId` with `SubspaceId`; extend the handshake;
-add per-doc cap checks in `Hub`/`DocumentActor`; add read-only enforcement.
+### The hardest sub-problem: who signs an anonymous-public cap?
 
-- **Strongest counter first:** breaks JS interop permanently; galvanized owns
-  a divergent sync engine; upstream samod improvements stop flowing in. Nick
-  values JS interop as a *bonus*, and a fork throws that bonus away for a
-  simplification that the seam approach can achieve with discipline.
-- **Pro:** cleanest integration; the gate lives at the right layer.
-- **Verdict:** rejected by Nick's ruling #1 (seam, not fork) — *unless* the
-  seam approach turns out to be unable to express the enforcement. That's a
-  finding to surface, not a reason to preemptively fork.
+A public cap must be signed by an authority the validator can check, but for
+anonymous-public that authority must **not** be the owner's Profile
+`SubspaceSecret` (that names the owner). Resolution (RATIFIED, ruling #11):
+reuse Willow's key duality —
 
-### Option C — Extend samod-core with trait seams (RATIFIED direction)
+- **Recipient-specific & attributable-public:** signed by the owner's
+  `SubspaceSecret` → names the Profile. Validator checks against `SubspaceId`.
+- **Anonymous-public:** signed by the **namespace secret** (owned namespace)
+  → the `NamespaceId` is the "owner" identity, decoupled from any Profile.
+  Validator checks against `NamespaceId`. The owner-Profile is not revealed.
+- Communal namespaces are attributable by nature (any subspace holder signs →
+  reveals their subspace), so anonymous-public is an owned-namespace facility.
 
-Keep samod-core pure and JS-interop-clean. Add no-op-by-default extension
-points; a sibling crate plugs in the real Willow logic.
+This is L0 "key synergy" made concrete: identity, capability, and namespace
+keys are one family. All three cap modes fall out of the same
+`galvanized-cap` machinery (`WillowKeyStore` already holds both secrets).
 
-- **Strongest counter first:** designing the seams *well* is the hard part.
-  They must be general enough not to bake in Willow specifics (samod-core
-  stays substrate), but tight enough to actually enforce (no bypass). A loose
-  seam is a false sense of security; a tight seam risks coupling samod-core
-  to Willow concepts. The handshake extension is the trickiest: it changes
-  the wire format unless carried by a separate ALPN — which Nick's ruling #8
-  resolves (separate ALPN).
-- **Pro:** samod stays interop-compatible (seams default to open); the gate is
-  at the right layer (`Hub` already routes by `DocumentId`); read-only is a
-  first-class mode; the sans-IO design makes the validator a pure function
-  (testable, no I/O in the auth path).
-- **Verdict:** **RATIFIED.** This is the direction.
-
-The seams (to be finalized in ticket 001):
-
-- `PeerAuthenticator` — hook into the handshake: verify identity + capability
-  presentation, yield a `PeerIdentity` (carrying `SubspaceId` + granted
-  scopes) or a visible refusal.
-- `CapabilityValidator` — given `(peer_identity, document_id, direction)`,
-  return `Allow | Deny(reason)`. Consulted at `Request`/`Sync` time in the
-  `Hub`.
-- `SyncMode` per connection (`ReadWrite | ReadOnly`) that
-  `generate_sync_messages` / `handle_sync_message` consult (ticket 007, fast
-  follow).
-
-## The capability object (signed-data form)
-
-Grounded in `galvanized-cap`'s existing `WillowScope` + `WriteCapability`,
-extended for per-doc sync:
+## The capability object
 
 ```
 AutomergeSyncCapability {
-  owner: SubspaceId,            // doc owner's Profile (minter)
-  recipient: SubspaceId,        // peer's Profile (who it's granted to)
-  document_id: DocumentId,      // the automerge doc being authorized
-  willow_scope: WillowScope,    // (namespace, subspace, path_prefix) — the binding
-  permission: WillowRead | WillowWrite,
+  signer: Signer,                // Subspace(SubspaceId) | Namespace(NamespaceId)
+  recipient: Recipient,          // Subspace(SubspaceId) | Public
+  document_id: DocumentId,       // the automerge doc authorized
+  willow_scope: WillowScope,     // (namespace, subspace, path_prefix) binding
+  permission: AutomergeSyncPermission,  // Read | Write
   expiry: UnixTimestamp,
-  nonce: [u8; 32],              // uniqueness for revocation tracking
+  nonce: [u8; 32],               // revocation tracking id
 }
-signed by owner's SubspaceSecret
+signed by the signer's secret (subspace secret or namespace secret)
 ```
 
-Per ruling #6: `document_id` and `willow_scope` are **independent**, bound
-together by the signed claims. The engine trusts the binding because the owner
-signed it; no separate doc→path registry needed. Per ruling #7: the `nonce`
-identifies the cap for revocation tombstones under the doc's own namespace.
+- **Binding (ruling #6):** `document_id` and `willow_scope` are independent;
+  the signed claims bind them. No external registry.
+- **Public caps (ruling #9):** `permission = Read`, tight TTL, revokable.
+  Public *write* is not minted (anyone-push is almost never wanted).
+- **Honest limit:** revoking a public cap stops *future* sync; peers who
+  already synced keep the bytes. Public sharing is an irrevocable-to-that-point
+  visibility grant. Stated explicitly, not implied away.
 
 ## The handshake + per-doc flow
 
-1. **Connect** (Iroh QUIC link established, galvanized ALPN negotiated).
-2. **Identity + capability handshake** (extended `Join`/`Peer` on the
-   galvanized ALPN):
-   - Exchange `SubspaceId`s + challenge nonces.
-   - Each side signs the other's challenge with its `SubspaceSecret` → proves
-     key possession (ruling #3: leaked-token mitigation).
-   - Each side presents the capability object(s) it holds for the other's
-     docs; the other verifies (signature, recipient match, expiry, revocation
-     view).
-3. **samod normal sync** proceeds, but the `Hub`'s `CapabilityValidator` is
-   consulted on every `Request`/`Sync` for a doc — refuse with a visible
-   `Error` if the peer lacks a valid cap.
-4. **On reconnect:** re-run the handshake + re-sync the revocation view
-   (ruling #4).
+1. **Connect** (Iroh QUIC, new galvanized ALPN).
+2. **Identity + capability handshake** (new protocol):
+   - Exchange `SubspaceId`s + fresh challenge nonces.
+   - Each side signs the other's nonce with its `SubspaceSecret` → proves key
+     possession. For a recipient-specific cap, the recipient must prove *the
+     named* `SubspaceId`; for a public cap, *some* `SubspaceId`
+     (sybil-resistant identity; the cap doesn't restrict *which*).
+   - Each side presents the `AutomergeSyncCapability`(s) it holds (sourced via
+     the `CapabilityStore`, ticket 003). Each side verifies: signature valid
+     against the signer's public key, recipient matches (or is `Public`),
+     permission covers the direction, not expired, nonce not revoked.
+3. **Sync proceeds**, but the engine re-validates per `Request`/`Sync` against
+   the live revocation view (ticket 005) — so a revocation landing mid-session
+   takes effect at the next message.
+4. **On reconnect:** re-run the handshake + re-sync the revocation view.
 
-The handshake establishes *peer identity + which docs each side may sync*; the
-per-doc gate (ticket 004) is the runtime enforcement that the peer actually
-has a cap for each doc it touches.
+The handshake establishes *who you are + what you may sync*; the per-doc gate
+(ticket 005) is the runtime enforcement, re-checked per message.
 
-## Revocation (ruling #4 + #7)
+## Capability distribution — the `CapabilityStore` seam (ticket 003)
 
-- The owner writes tombstones to a path in the doc's namespace:
-  `/{owner_subspace}/revoked/{cap_nonce}`.
-- Syncing the namespace propagates revocations to all peers for free — no
-  separate channel.
-- On reconnect, the engine syncs revocation entries and checks the peer's cap
-  nonces against them (ticket 005).
-- **In-flight revocation** (tear down a live session mid-sync) is harder:
-  needs an active notification over the control stream or periodic re-checking.
-  Explicitly a **fast follow**, not in the first deliverable (ruling #4).
+No syncing Willow store exists yet, so the engine must be self-sufficient.
+The `CapabilityStore` trait abstracts *where caps live and how they propagate*,
+with an initial self-sufficient impl and a future Willow-namespace-path impl.
 
-## Read-only (ruling #5)
+**The per-peer automerge "index doc" idea — critique and scoped adoption.**
 
-Deferred. The first deliverable ships **write-gated**: you either have a
-`WillowWrite` cap or you can't sync. Read-only (`WillowRead` = receive but
-don't push) requires the new `SyncMode::ReadOnly` mechanism in the
-`DocumentActor` (skip `generate_sync_messages` for read-only conns, or drop
-incoming changes from them). Samod has no directional control today
-(`SyncDirection` is stats only — verified in `sync_message_stat.rs`), so this
-is new actor work. Tracked as ticket 007, explicitly a fast follow.
+The proposal: each peer has a public-read-only automerge doc indexing the
+caps it has issued. Critique:
+
+- **Strongest counter (privacy):** a public index of *all* a peer's caps
+  publishes their entire sharing graph — every doc, every recipient — to
+  anyone who reads it. "Who you know" is maximally sensitive. So
+  **recipient-specific caps must never go in a public index.** They stay
+  out-of-band (contact ticket / direct message / the handshake itself).
+- **Public caps in a per-peer index is fine *for attributable-public only*:**
+  a public cap already declares the doc public and is already signed by an
+  authority, so listing it leaks no more than the cap does itself.
+- **Anonymous-public caps cannot live in an identity-bound index** — the
+  index associates the (anonymous) doc with the (identified) indexing peer,
+  de-anonymizing it. Anonymous-public needs an *identity-less* store (future
+  Willow namespace path, or travel-with-the-doc). Behind the same seam.
+- **CRDT invariant:** caps in an automerge doc are **immutable append-only
+  entries + tombstones**, never editable fields (editing a signed cap
+  invalidates its signature; an editable field is a forge path).
+- **Bootstrap doesn't vanish, it shrinks:** a peer still needs the index doc's
+  `DocumentId` out-of-band first; thereafter the index is the source of
+  further public caps.
+
+**Adopted scope:** the self-sufficient `CapabilityStore` impl uses a per-peer
+automerge index doc for *attributable-public* caps + their tombstones;
+recipient-specific caps are out-of-band and held locally; anonymous-public
+awaits the identity-less store impl. All behind the seam, swappable later.
+
+## Read-only (ruling #5, deferred)
+
+First deliverable is write-gated: no `Write` cap → no sync. Read-only
+(`Read` = receive but not push) is ticket 008: a `SyncMode::ReadOnly` the
+actor honors (skip `generate` for read-only conns; drop incoming pushes).
+New actor work — samod's `SyncDirection` is stats-only, and we're rewriting
+the actor anyway, so we design `SyncMode` in from the start (plumbing lands
+in 001; policy activates in 008).
 
 ## What "Willow rules" means here
 
-Willow's Meadowcap determines, via capabilities, which peers may sync which
-data. The capability is a signed object; the sync layer checks it. Willow
-**does not encrypt** — read-authority is a separate key layer above Willow
-(L0 §5). So "sync according to Willow rules" means: **the sync engine treats
-the signed capability as the ground truth for propagation authority**, and
-**read-authority (decryption) is independent and not samod's concern**. Samod
-syncs ciphertext to a sync-authorized peer who may or may not be able to
-decrypt it; that's correct and intended.
+Willow's Meadowcap determines, via signed capabilities, which peers may sync
+which data; the sync layer checks the capability; Willow does **not** encrypt
+(read-authority is a separate key layer above). So "sync according to Willow
+rules" = **the engine treats the signed capability as ground truth for
+propagation authority**, and **read-authority is independent and not the
+engine's concern**.
 
-## Honest gaps / things this brainstorm does not resolve
+## Honest gaps / unresolved sub-decisions (surfaced in tickets, not buried)
 
-- **The exact wire encoding of the extended handshake.** CBOR map extending
-  `Join`/`Peer`, or a distinct capability-exchange frame post-handshake?
-  PROPOSED in ticket 003; Nick to rule.
-- **The tombstone entry format.** Bare nonce vs. a signed revocation object?
-  PROPOSED in ticket 005.
-- **Multi-owner docs.** A doc whose namespace is communal (any subspace holder
-  writes) — who mints caps? Likely each writer mints for their own subspace;
-  the cap's `owner` is the writer's `SubspaceId`. PROPOSED; surface in 002.
-- **Capability chaining / delegation.** Can a recipient further delegate
-  (attenuate)? Meadowcap supports it; whether samod-willow exposes it in the
-  first deliverable is open. PROPOSED: ship mint-by-owner only; delegation as
-  a follow-up.
-- **Ephemeral messages and subscription changes.** The wire protocol has
-  `Ephemeral` and `RemoteSubscriptionChange` — do caps gate these too, or only
-  `Request`/`Sync`? PROPOSED: caps gate `Request`/`Sync` (the document path);
-  ephemeral messaging is a separate concern (T3's envelope already signs by
-  subspace).
-- **The `PeerIdentity` carrying granted scopes vs. per-message re-validation.**
-  Does the handshake establish a session-long grant set, or is every message
-  re-checked against the validator (which may consult a fresh revocation view)?
-  PROPOSED: session-long identity + per-message cap check against the live
-  revocation view, so revocation takes effect at the next message even
-  mid-session once the view updates.
-
-These are surfaced as design questions in the relevant tickets, not buried.
+- **Exact wire encoding of the new handshake/protocol.** PROPOSED in 004.
+- **Tombstone entry shape** (bare nonce vs signed revocation object).
+  PROPOSED in 006.
+- **Public-cap TTL value** and whether it's per-mint or global. PROPOSED in 002.
+- **Anonymous-public distribution today.** The identity-less store is future
+  work; until then anonymous-public caps travel out-of-band like
+  recipient-specific ones. Stated honestly in 003.
+- **Multi-owner / communal docs.** Each writer mints as `signer = their
+  SubspaceId` for their own subspace; communal = attributable by nature.
+  PROPOSED in 002.
+- **Capability delegation/chaining.** Mint-by-signer only in the first
+  deliverable; delegation is a follow-up.
+- **Session-long grant set vs per-message re-validation.** PROPOSED:
+  session-long identity + per-message cap check against the live revocation
+  view, so revocation takes effect mid-session once the view updates.
