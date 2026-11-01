@@ -106,7 +106,7 @@ graph TD
 | 002 | `AutomergeSyncCapability` signed object | REFINED | 001 (soft) |
 | 003 | `CapabilityStore` trait seam + self-sufficient impl | REFINED | 002 |
 | 004 | Capability handshake + new protocol/ALPN | REFINED | 001, 002, 003 |
-| 005 | Per-document gating in the engine | DRAFT | 001, 002, 004 |
+| 005 | Per-document gating in the engine | REFINED | 001, 002, 004 |
 | 006 | Revocation via `CapabilityStore` tombstones | DRAFT | 002, 003, 005 |
 | 007 | Galvanized integration + contacts migration | DRAFT | 004, 005, 006 |
 | 008 | Read-only `SyncMode` (fast follow) | DRAFT (deferred) | 001 |

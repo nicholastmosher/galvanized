@@ -1,6 +1,6 @@
 # 005 — Per-document gating in the engine
 
-**Status:** DRAFT
+**Status:** REFINED (shape signed off by Nick, 2026-11-01; ready to pick up)
 **Depends on:** 001 (validator seam), 002 (cap object), 004 (handshake
 establishes `PeerIdentity` + granted scopes)
 
@@ -79,23 +79,26 @@ waiting for a reconnect. This is where T4's core acceptance criterion lands:
 - In-flight session teardown on revocation — ticket 006 fast follow.
 - How the revocation view populates — tickets 003/006.
 
-## Design questions for Nick
+## Rulings (Nick, 2026-11-01 — RATIFIED)
 
-1. **v1 direction semantics.** Confirm: no `Write` cap → no sync at all
-   (neither push nor receive). This makes 008 a clean relaxation. (Matches the
-   brainstorm rec.)
+1. **v1 direction semantics — RATIFIED.** Nick: "Confirmed. No Write cap
+   -> no sync at all, to make 008 an easy relaxation." No `Write` cap → no
+   sync at all (neither push nor receive). 008 (read-only receive) becomes a
+   clean relaxation.
 
-2. **Deny granularity.** Per-doc deny (connection stays up, other docs
-   proceed) vs whole-connection deny. Recommendation: **per-doc** — a peer
-   may be authorized for doc A and not doc B; tearing down over B is
-   heavy-handed and loses A's sync. Confirm.
+2. **Deny granularity — RATIFIED.** Nick: "Per-doc deny for sure, not worth
+   terminating an entire connection for." Per-doc deny; the connection stays up
+   for other authorized docs.
 
-3. **Validator placement.** 001 Q2 leans Hub-side (the `PeerIdentity` +
-   granted scopes live there). This ticket implements against that. Re-confirm
-   if Nick moves it to the `DocumentActor`.
+3. **Validator placement — RATIFIED.** Nick: "Hub-side validator is fine."
+   Hub-side (the `PeerIdentity` + granted scopes live there).
 
-4. **Reason detail on the wire.** Coarse category on the wire, detailed
-   locally (privacy). Confirmed in 004 Q4; mirror here. Confirm.
+4. **Reason detail on the wire — RATIFIED.** Nick: "Confirm." Coarse category
+   on the wire, detailed locally (privacy) — mirroring 004 Q4.
+
+## Open design questions for Nick
+
+- None blocking pickup — all four questions ruled.
 
 ## Acceptance criteria
 
@@ -119,4 +122,5 @@ waiting for a reconnect. This is where T4's core acceptance criterion lands:
 ## Records
 
 - Add a "per-document capability gating" section to `ARCHITECTURE.md`.
-- Move design Q1–Q4 rulings to `DECISIONS.md`.
+- Granular rulings (Q1–Q4) kept in-ticket; the arc-level direction is in
+  `DECISIONS.md` (2026-11-01).
