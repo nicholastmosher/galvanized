@@ -4,6 +4,7 @@ members = [
     "crates/app-galvanized",
     "crates/galvanized-cap",
     "crates/galvanized-core",
+    "crates/galvanized-sync",
     "crates/plugin-automerge",
     "crates/plugin-calendar",
     "crates/plugin-chat",

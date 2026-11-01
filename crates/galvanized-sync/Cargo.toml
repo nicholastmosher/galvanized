@@ -1,0 +1,15 @@
+[package]
+name = "galvanized-sync"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+galvanized-cap.workspace = true
+willow25.workspace = true
+automerge.workspace = true
+thiserror.workspace = true
+rand_core.workspace = true
+
+[dev-dependencies]
+rand.workspace = true
+rand_core_0_6_4 = { workspace = true, features = ["getrandom"] }
