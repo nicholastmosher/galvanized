@@ -1,6 +1,6 @@
 # 003 — `CapabilityStore` trait seam + self-sufficient impl
 
-**Status:** DRAFT
+**Status:** REFINED (shape signed off by Nick, 2026-11-01; ready to pick up)
 **Depends on:** 002 (stores `AutomergeSyncCapability` objects)
 
 ## Why
@@ -105,35 +105,31 @@ publish a peer's sharing graph. This drives the split between attributable-publi
 - The validator that *consults* the store (005).
 - A capability-management UI.
 
-## Design questions for Nick
+## Rulings (Nick, 2026-11-01 — RATIFIED)
 
-1. **`CapabilityStore` trait shape.** The PROPOSED shape above, or
-   narrower/wider? Specifically: should `caps_to_present` take a `peer` and
-   filter, or return all held caps and let the handshake filter? Recommendation:
-   **take `peer` and filter** — keeps the handshake simple and avoids
-   over-sharing. Confirm.
+1. **`CapabilityStore` trait shape — RATIFIED.** Nick: "CapabilityStore shape
+   looks good." `caps_to_present(peer)` takes a `peer` and filters (keeps the
+   handshake simple, avoids over-sharing).
 
-2. **Index doc as automerge.** The per-peer index doc is itself an automerge
-   doc synced by `galvanized-sync`. Confirm this recursion is acceptable
-   (it's the most self-sufficient option given no Willow sync yet). Alternative:
-   a plain local KV + out-of-band for everything public too — but that loses
-   automatic propagation of public caps across the peer's own devices and to
-   others. Recommendation: **automerge index doc**. Confirm.
+2. **Index doc as automerge — RATIFIED.** Nick: "Index doc as automerge is
+   good." The per-peer index doc is itself an automerge doc synced by
+   `galvanized-sync` (self-sufficient; automatic propagation across the peer's
+   own devices and to others).
 
-3. **Index doc cap signer.** Is the index doc's own public cap
-   `Signer::Subspace` (attributable to the peer) or `Signer::Namespace`?
-   Recommendation: **`Subspace`** — the index doc is intentionally
-   attributable (it's the peer's public face); anonymous-public docs live
-   elsewhere. Confirm.
+3. **Index doc cap signer — RATIFIED.** Nick: "Index doc cap signer can be
+   Subspace, yes." `Signer::Subspace` — the index doc is intentionally
+   attributable (the peer's public face); anonymous-public docs live
+   elsewhere.
 
-4. **Revocation for recipient-specific caps across the owner's devices.** When
-   the owner revokes a recipient-specific cap, the tombstone must reach the
-   owner's other devices so they also refuse. The local store + the engine's
-   own sync can carry tombstones, or a separate small synced doc. Recommendation:
-   **tombstones ride in the same per-peer index doc** (append-only log) even
-   for recipient-specific revocations — the tombstone is just a nonce, it
-   doesn't reveal *which* recipient. Confirm (this keeps one propagation
-   channel for all tombstones without leaking recipients).
+4. **Tombstones ride in the same per-peer index doc — RATIFIED.** Nick:
+   "Tombstones can ride in the same per-peer index doc, yes." One append-only
+   propagation channel for all tombstones (including recipient-specific
+   revocations); a tombstone is just a nonce, so it doesn't reveal *which*
+   recipient.
+
+## Open design questions for Nick
+
+- None blocking pickup — all four questions ruled.
 
 ## Acceptance criteria
 
@@ -158,5 +154,6 @@ publish a peer's sharing graph. This drives the split between attributable-publi
 ## Records
 
 - Add a "CapabilityStore" section to `ARCHITECTURE.md`.
-- Move design Q1–Q4 rulings to `DECISIONS.md`.
+- Granular rulings (Q1–Q4) kept in-ticket; the arc-level direction is in
+  `DECISIONS.md` (2026-11-01).
 - Note the anonymous-public identity-less store as a follow-up (open).

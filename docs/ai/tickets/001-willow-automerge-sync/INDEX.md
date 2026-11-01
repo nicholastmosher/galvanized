@@ -104,7 +104,7 @@ graph TD
 |-----|-------|--------|------------|
 | 001 | `galvanized-sync` engine core + identity + auth seams | REFINED | — |
 | 002 | `AutomergeSyncCapability` signed object | REFINED | 001 (soft) |
-| 003 | `CapabilityStore` trait seam + self-sufficient impl | DRAFT | 002 |
+| 003 | `CapabilityStore` trait seam + self-sufficient impl | REFINED | 002 |
 | 004 | Capability handshake + new protocol/ALPN | DRAFT | 001, 002, 003 |
 | 005 | Per-document gating in the engine | DRAFT | 001, 002, 004 |
 | 006 | Revocation via `CapabilityStore` tombstones | DRAFT | 002, 003, 005 |
