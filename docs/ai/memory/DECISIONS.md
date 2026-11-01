@@ -114,3 +114,27 @@ for touched crates still apply. Agents should not invoke `cargo clippy` (or
 Zed's `./script/clippy`) as part of normal verification; only when Nick asks
 for it explicitly. Warnings surfaced incidentally (e.g. from `cargo build`) can
 be noted, but don't gate work on them.
+
+## 2026-11-01 — RATIFIED
+**`galvanized-sync` is a new, from-scratch crate; samod is reference-only.**
+Nick's ruling (chat, 2026-11-01, across the `001-willow-automerge-sync` arc):
+the automerge sync engine is built from scratch as a new crate
+`galvanized-sync` in this repo, with Willow identity and deny-by-default
+capability gating baked in. `samod`/`samod-core` are a reference implementation
+we are inspired by (sans-IO actor shape, codec ideas), **not a dependency and
+not a compatibility target**. No `automerge-repo`/JS interop is preserved.
+Privacy is the primary case; public sharing is a granted exception (a kind of
+capability), never the default. Every sync requires positive proof of a valid
+signed capability; there is no ungated path. This **supersedes** the earlier
+"extend samod-core with trait seams to preserve JS interop" direction.
+
+The `001` ticket's crate-layout rulings (Nick, chat, 2026-11-01):
+- "One crate is fine" — `galvanized-sync` ships the sans-IO actor core and the
+  built-in Willow authenticator/validator in a single crate.
+- "Concrete is fine" — `PeerIdentity` carries a concrete `SubspaceId` +
+  `Vec<AutomergeSyncCapability>` (no opaque payload).
+- "Single crate is fine" — one crate with sans-IO actors + a thin async façade
+  (no `galvanized-sync-core` + tokio wrapper split).
+
+Full arc: `docs/ai/tickets/001-willow-automerge-sync/` (INDEX, SPEC,
+BRAINSTORM, tickets 001–008).

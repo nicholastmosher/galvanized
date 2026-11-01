@@ -1,6 +1,6 @@
 # 001 — `galvanized-sync` engine core + identity + auth seams
 
-**Status:** DRAFT
+**Status:** REFINED (shape signed off by Nick, 2026-11-01; ready to pick up)
 **Depends on:** —
 
 ## Why
@@ -90,30 +90,31 @@ Willow implementations, not permissive stubs.
 - Per-doc gating policy (005).
 - Read-only *policy* (008).
 
-## Design questions for Nick
+## Rulings (Nick, 2026-11-01 — RATIFIED)
 
-1. **Crate layout.** One crate `galvanized-sync` with the actor core + the
-   Willow authenticator/validator built in, or split into a sans-IO core +
-   a `galvanized-sync-willow` impl crate? Recommendation: **one crate** for
-   now — the Willow impls *are* the defaults; splitting now is premature. If
-   a future non-Willow consumer appears, split then. Confirm.
+1. **Crate layout — one crate.** Nick: "One crate is fine." `galvanized-sync`
+   ships the sans-IO actor core and the built-in Willow authenticator/validator
+   in a single crate. If a future non-Willow consumer appears, split then.
 
-2. **`PeerIdentity` concrete vs generic.** Since the Willow impl is the
-   built-in default (not a plug-in), `PeerIdentity` can carry a concrete
-   `SubspaceId` + `Vec<AutomergeSyncCapability>` rather than an opaque
-   payload. This simplifies 004/005 (no downcasting). Recommendation:
-   **concrete** — we're not building for arbitrary plug-ins, only our own
-   evolution. Confirm.
+2. **`PeerIdentity` — concrete.** Nick: "Concrete is fine." `PeerIdentity`
+   carries a concrete `SubspaceId` + `Vec<AutomergeSyncCapability>` (no opaque
+   `Box<dyn Any>` payload, no downcasting at the validator). We are not
+   building for arbitrary plug-ins, only our own evolution.
 
-3. **Async runtime coupling.** samod splits `samod-core` (sans-IO) from
-   `samod` (tokio wrapper). Do we mirror that (a sans-IO `galvanized-sync-core`
-   + a `galvanized-sync` tokio wrapper), or ship one crate that's sans-IO at
-   the actor layer with a thin async façade? Recommendation: **one crate,
-   sans-IO actors + thin async façade in the same crate** — fewer crates, and
-   we don't need FFI to other languages yet. Confirm.
+3. **Async runtime coupling — single crate with façade.** Nick: "Single
+   crate is fine." One crate: sans-IO actors at the core with a thin async
+   façade in the same crate (no separate `galvanized-sync-core` + tokio
+   wrapper split). No FFI to other languages yet.
 
-4. **`SyncMode` default when a peer holds both `Read` and `Write` caps for a
-   doc.** Max wins → `ReadWrite`. Confirm (matches 008 Q2).
+4. **`SyncMode` when a peer holds both `Read` and `Write` for a doc —
+   PROPOSED default, not explicitly ruled.** Max wins → `ReadWrite`. Trivial,
+   consistent with 008 Q2, non-shape-changing. Carries forward as the default
+   unless Nick objects; flag if it ever matters.
+
+## Open design questions for Nick
+
+- None blocking pickup. Q4 above is a trivial default pending explicit
+  confirm; everything else is ruled.
 
 ## Acceptance criteria
 
@@ -139,4 +140,4 @@ Willow implementations, not permissive stubs.
 ## Records
 
 - Add `galvanized-sync` to `ARCHITECTURE.md`'s crate map.
-- Move design Q1–Q4 rulings to `DECISIONS.md`.
+- Rulings Q1–Q3 recorded in `DECISIONS.md` (2026-11-01).

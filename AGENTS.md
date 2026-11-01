@@ -108,6 +108,10 @@ surfaces gets **fixed**, not filed.
 - **Don't edit the dev log uninvited.** `README.md` is Nick's voice and
   history. Never rewrite or "clean up" it. If you have a finding or an open
   question, it goes in the memory files, not the README.
+- **Emit a one-line git commit message after every turn.** At the end of each
+  turn, output a single one-line `git commit -m`-style message summarizing the
+  turn's changes (e.g. `tickets: Refine 002 cap object rulings`). This is for
+  Nick to copy/use — do not run the commit yourself unless asked.
 
 ## Long-term memory (the part that grows over time)
 

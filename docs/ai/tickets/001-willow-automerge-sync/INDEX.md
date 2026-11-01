@@ -102,8 +102,8 @@ graph TD
 
 | ID  | Title | Status | Depends on |
 |-----|-------|--------|------------|
-| 001 | `galvanized-sync` engine core + identity + auth seams | DRAFT | — |
-| 002 | `AutomergeSyncCapability` signed object | DRAFT | 001 (soft) |
+| 001 | `galvanized-sync` engine core + identity + auth seams | REFINED | — |
+| 002 | `AutomergeSyncCapability` signed object | REFINED | 001 (soft) |
 | 003 | `CapabilityStore` trait seam + self-sufficient impl | DRAFT | 002 |
 | 004 | Capability handshake + new protocol/ALPN | DRAFT | 001, 002, 003 |
 | 005 | Per-document gating in the engine | DRAFT | 001, 002, 004 |

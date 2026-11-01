@@ -1,6 +1,6 @@
 # 002 — `AutomergeSyncCapability` signed object
 
-**Status:** DRAFT
+**Status:** REFINED (shape signed off by Nick, 2026-11-01; ready to pick up)
 **Depends on:** 001 (soft — the engine consumes this; the type itself is
 independent)
 
@@ -111,32 +111,47 @@ rulings.
 - Delegation/chaining (mint-by-signer only in v1).
 - A capability-management UI.
 
-## Design questions for Nick
+## Rulings (Nick, 2026-11-01)
 
-1. **`AutomergeSyncPermission` distinct from `WillowRead/Write`?** See scope
-   §4. Recommendation: distinct. Confirm.
+1. **`AutomergeSyncPermission` distinct from `WillowRead/Write` — RATIFIED.**
+   Nick: "Distinct permission is fine." A separate type gates sync
+   participation; `WillowRead/Write` gate Willow store ops. They align today
+   but may diverge (e.g. a future `Admin` sync permission).
 
-2. **Communal-namespace minting convention.** "Each writer mints as
-   `signer = their SubspaceId`, scoped to their own subspace" — confirm, or a
-   different rule? Affects the validator (005).
+3. **Public-cap TTL default — RATIFIED.** 15 minutes (matching T1's
+   session-cap default), configurable per mint. Public-cap exposure is bounded
+   by TTL since revocation can't recall bytes.
 
-3. **Public-cap TTL default.** PROPOSED: 15 minutes (matching T1's session-cap
-   default), configurable per mint. Public-cap exposure is bounded by TTL
-   since revocation can't recall bytes. Confirm or pick a value.
+4. **Nonce source — RATIFIED.** Random 32 bytes at mint. Nick: "Random nonce
+   is good." Allows re-minting an identical cap; simple revocation identity.
 
-4. **Nonce source.** Random 32 bytes at mint (allows re-minting an identical
-   cap; simple revocation identity), or derived from
-   `(signer, recipient, document_id, expiry)`? Recommendation: **random**.
-   Confirm.
+6. **Canonical encoding — RATIFIED.** Deterministic CBOR (RFC 8949). Nick:
+   "Deterministic cbor is good."
 
-5. **`DocumentId` type.** Reuse samod's UUID shape, or define a fresh one in
-   `galvanized-sync`? Recommendation: **fresh in `galvanized-sync`** (we're
-   not bound to samod's types); a `DocumentId` newtype over a fixed byte
-   array, base58 on the wire. Confirm — this is a 001/002 shared decision.
+## Open design questions for Nick
 
-6. **Canonical encoding.** Deterministic CBOR (RFC 8949) vs a
-   length-prefixed encoding. Recommendation: **deterministic CBOR**.
-   Confirm.
+2. **Communal-namespace minting convention — RATIFIED.** Nick:
+   "Understood, I accept the limitation." The convention is forced by the
+   key model: a communal namespace has no namespace secret, so
+   `Signer::Namespace` is unavailable, and every cap for a doc in a communal
+   namespace must be `Signer::Subspace(the writer's SubspaceId)`. Consequences
+   (accepted as the scope limit): (a) communal caps are always attributable to
+   the writer's Profile; (b) ownership is per-subspace — each writer owns docs
+   at `(communal_namespace, their_subspace, path)` and mints for those as
+   themselves, no namespace-level owner; (c) a shared doc lives under the
+   original creator's subspace, co-authors hold `Write` caps from that subspace
+   owner. **Anonymous-public is an owned-namespace facility only** — accepted.
+
+5. **`DocumentId` type + string form — RATIFIED.** Nick: "base58 is fine, and
+   a fresh newtype is fine." Define `DocumentId` fresh in `galvanized-sync`
+   (not reusing samod's UUID type) as a newtype over a fixed byte array. Wire
+   form: deterministic CBOR bytes (Q6). Human-facing string form (`Display`/
+   `FromStr`): base58 (copy-paste-safe, no URL-hostile punctuation or
+   ambiguous glyphs).
+
+## Open design questions for Nick
+
+- None blocking pickup — all six questions ruled.
 
 ## Acceptance criteria
 
@@ -163,4 +178,5 @@ rulings.
 
 - Add `AutomergeSyncCapability` (and the three modes) to `GLOSSARY.md` under
   "Live collaboration."
-- Move design Q1–Q6 rulings to `DECISIONS.md`.
+- Granular rulings (Q1–Q6) kept in-ticket; the arc-level direction is in
+  `DECISIONS.md` (2026-11-01).
