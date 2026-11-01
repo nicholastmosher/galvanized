@@ -1,6 +1,6 @@
 # 004 — Capability handshake + new protocol/ALPN
 
-**Status:** DRAFT
+**Status:** REFINED (shape signed off by Nick, 2026-11-01; ready to pick up)
 **Depends on:** 001 (engine + authenticator seam), 002 (cap object), 003
 (store sources caps)
 
@@ -89,28 +89,29 @@ codec, not compatible with `automerge-repo`.
   populating it is 003/006.
 - Read-only *policy activation* (008).
 
-## Design questions for Nick
+## Rulings (Nick, 2026-11-01 — RATIFIED)
 
-1. **Wire encoding shape.** The PROPOSED message set above, or fold cap
-   exchange into extended `Hello`/`Proof` maps? Recommendation: **distinct
-   `Caps` frame** — cleaner, lets a peer stream many caps without bloating
-   `Hello`, and keeps each message's purpose single. Confirm.
+1. **Wire encoding shape — RATIFIED.** Nick: "The proposed message set is
+   good." Distinct `Caps` frame (separate from `Hello`/`Proof`); each
+   message's purpose stays single; a peer can stream many caps without bloating
+   `Hello`.
 
-2. **Cap presentation granularity.** Present all relevant caps upfront
-   (could be large) vs announce `document_id`+`nonce` and present full signed
-   objects lazily on first `Request`? Recommendation: **upfront** — the
-   handshake is the trust-establishment moment; the per-doc gate (005) then
-   decides from in-memory state without round-trips. Re-evaluate if cap sets
-   get large. Confirm.
+2. **Cap presentation granularity — RATIFIED.** Nick: "Presenting all relevant
+   caps upfront is ok." All relevant caps upfront at the trust-establishment
+   moment; the per-doc gate (005) then decides from in-memory state without
+   round-trips. Re-evaluate if cap sets get large.
 
-3. **Re-handshake on reconnect.** Confirm: a new ALPN stream = full
-   handshake + revocation-view re-sync (006). No partial resumption in v1.
+3. **Re-handshake on reconnect — RATIFIED.** Nick: "Confirm, a new ALPN stream
+   performs a full new handshake." A new ALPN stream = full handshake +
+   revocation-view re-sync (006). No partial resumption in v1.
 
-4. **Privacy: reason detail on the wire.** How much refusal detail is safe to
-   send to an untrusted peer (does "revoked" vs "expired" leak state)?
-   Recommendation: **coarse category on the wire** (`Unauthorized`,
-   `Expired`, `Revoked`), **detailed reason local only**. Confirm —
-   privacy-shaped.
+4. **Refusal reason detail on the wire — RATIFIED.** Nick: "Confirm, coarse
+   category on the wire, detailed local is good." Coarse category on the wire
+   (`Unauthorized`, `Expired`, `Revoked`); detailed reason local only.
+
+## Open design questions for Nick
+
+- None blocking pickup — all four questions ruled.
 
 ## Acceptance criteria
 
@@ -137,4 +138,5 @@ codec, not compatible with `automerge-repo`.
 ## Records
 
 - Add a "galvanized-sync handshake" section to `ARCHITECTURE.md`.
-- Move design Q1–Q4 rulings to `DECISIONS.md`.
+- Granular rulings (Q1–Q4) kept in-ticket; the arc-level direction is in
+  `DECISIONS.md` (2026-11-01).
