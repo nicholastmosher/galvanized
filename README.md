@@ -184,6 +184,83 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 Nov 6
+
+- Need to write software to help people
+- What do people need?
+  - chat, filesystem, calendar, photos (image viewer), audio player, video player
+    - Usually displayed with different views, including different navigation
+  - As objects: chatbubble, file, calendar event, image, track, video
+- Create a unified navigation for objects, and let objects display themselves
+  according to plugin definitions
+
+What do people need?
+- chat and files, files embedded in chat
+- A view like a file browser tree but with context for namespace, subspace, then path viewer
+- A Zed-like app, but built on Willow/Automerge "filesystem" primitives
+  - , but built like a file browser instead of a code editor
+
+"Relations box", like a folder but shows the set of all related objects
+(bikeshed everything)
+- E.g. a file would be related to a folder by a "child" relation
+  - But a calendarevent would be related to a calendar by the "belongsto" relation
+  - Represent relations as colors or emoji, with a namespace context (virtual filesystem vibes)
+  - Really just "tags" but where each tag has a filesystem-like keyspace
+
+Experimenting modelling gzed as a shell program to help think through commands
+- In a gpui app, these can translate to actions / command palatte
+
+Gzed being like a shell using "willow filesystem" hosting an "automerge filesystem"
+- Like `bash` calls executables in a namespace we call PATH: `cd`, `ls`, `mkdir`, 
+- `gzed` would call "executables" (invoke plugin fns?) in ~PATH~WillowSpace (deignated by) `/ns/subns/...`
+
+- Write type-queries like Bevy, but querying over the space of willow/automerge
+- `Query<(Ns, Subns, Components)>` (path components? components as tags?)
+
+- Shell generated from gpui-Entity-based plugins
+  - Tui for shell generated from Entity plugins
+
+```bash
+$ gzed touch /<ns-alias>/<subns-alias>/home/user/.zshrc
+$ gzed touch /<willow-ns>/<willow-subns>/home/user/file.am # .am being "automerge"
+$ gzed mkdir -p /<ns-alias>/<subns-alias>/home/user/
+$ gzed ls /<ns-alias>/<subns-alias>/
+$ gzed echo /<ns-alias>/<subns-alias>/ ""
+$ gzed cat /<ns-alias>/<subns-alias>/file.txt < file.txt
+$ gzed cd ns <ns-alias>
+$ gzed cd subns <ns-alias>
+
+# 
+# Any navigable keyspace, as in:
+# - "current directory" used by cd
+# - "current namespace" e.g. from willow
+# - "current subspace" e.g. from willow
+# - "union of two other keyspaces"
+# - "intersection of two other keyspaces"
+# trait Keyspace<K> {} // 
+# 
+# Implemented by Entities?
+# 
+
+# Illustrating what an interactive prompt of this shell might show
+# Conceptually, `cd` statefully navigates the shell's location in a key-value space
+# We can make a tool to "navigate" a new space composed of Willow ns/subns and path
+# The IDs of the namespace and subspace we're "in" act as context like how "current directory" is a context in a shell like bash
+# The keys in the namespace and subspace 
+# The namespace/subspace combination 
+# 
+# Launch as an interactive shell
+$ gzed
+gzed >$
+gzed >$ cd <ns>
+gzed ns>$ cd <subns>
+gzed ns> subns$
+gzed ns> subns$ cd <subns>
+
+$ gzed cd ns <ns-alias>
+$ ns-alias $ 
+```
+
 # 2026 Oct 24
 
 ```rust
