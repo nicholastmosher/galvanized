@@ -113,6 +113,19 @@ impl WillowScope {
             }),
         }
     }
+
+    /// Checks whether this scope authorizes the given namespace, ignoring
+    /// subspace and path. Used by [`WillowKeyStore::namespace_secret_for_signing`].
+    pub fn authorizes_namespace(&self, namespace: &NamespaceId) -> Result<(), CapSecError> {
+        match &self.namespace {
+            None => Ok(()),
+            Some(n) if n == namespace => Ok(()),
+            Some(_) => Err(CapSecError::OutOfScope {
+                target: format!("{namespace:?}"),
+                scope: format!("{self:?}"),
+            }),
+        }
+    }
 }
 
 impl Scope for WillowScope {
@@ -437,127 +450,8 @@ impl WillowKeyStore {
     }
 }
 
-// ── Automerge sync capability (v1 struct slice) ───────────────────────────
-//
-// The signed-data capability object that `galvanized-sync` checks at sync
-// time. This is the v1 *struct shape* only (fields + enums); the canonical
-// CBOR encoding, signing/verification, minting gated by `StrictSendCap`,
-// and the type-token dual land in the full 002 work. Only the type shape is
-// here so the sync engine can carry and present it.
-//
-// `D` is the document-id type, owned by `galvanized-sync` (`DocumentId`).
-// Kept generic here to avoid a `galvanized-cap` → `galvanized-sync` crate
-// dependency cycle: `galvanized-sync` depends on `galvanized-cap`, never
-// the reverse. `galvanized-sync` instantiates `AutomergeSyncCapability<DocumentId>`.
-//
-// Rulings baked into this shape (Nick, 2026-11-01): `Signer::Subspace` for
-// recipient-specific & attributable-public (names the owner Profile);
-// `Signer::Namespace` for anonymous-public (names only the namespace, an
-// owned-namespace facility); `Recipient::Public` caps are read-only, tight
-// TTL, revokable; `document_id` and `willow_scope` are independent, bound by
-// the signed claims (ruling #6).
-
-/// Who minted the capability and whose signature the validator checks.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Signer {
-    /// The owner's Profile (a Willow subspace). Names the owner —
-    /// attributable. Recipient-specific and attributable-public caps use this.
-    Subspace(SubspaceId),
-    /// The namespace itself (an owned namespace's id). Names only the
-    /// namespace, not a Profile — anonymous at the Profile level. Available
-    /// only for owned namespaces (communal namespaces have no namespace
-    /// secret, so they cannot mint anonymous-public caps).
-    Namespace(NamespaceId),
-}
-
-/// Who the capability authorizes to sync.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Recipient {
-    /// A specific peer's Profile (a Willow subspace). The peer must prove
-    /// it holds *that* subspace's key.
-    Subspace(SubspaceId),
-    /// Anyone holding the cap and proving *some* subspace key. Public
-    /// sharing; the cap does not restrict *which* peer. Public caps are
-    /// read-only, tight-TTL, revokable.
-    Public,
-}
-
-/// What the capability permits.
-///
-/// Distinct from `WillowRead`/`WillowWrite` (which gate Willow store
-/// operations); this gates sync participation. They align today but may
-/// diverge (e.g. a future `Admin` sync permission).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AutomergeSyncPermission {
-    /// Receive changes for the document only.
-    Read,
-    /// Push and receive changes.
-    Write,
-}
-
-/// A signed capability authorizing a peer to sync an automerge document.
-///
-/// `document_id` and `willow_scope` are independent (ruling #6); the
-/// signed claims bind them. No external registry. The `nonce` identifies the
-/// cap for revocation tombstones.
-#[derive(Debug, Clone)]
-pub struct AutomergeSyncCapability<D> {
-    signer: Signer,
-    recipient: Recipient,
-    document_id: D,
-    willow_scope: WillowScope,
-    permission: AutomergeSyncPermission,
-    /// Milliseconds since the Unix epoch.
-    expiry: u64,
-    nonce: [u8; 32],
-}
-
-impl<D> AutomergeSyncCapability<D> {
-    /// Constructs a capability from its fields. Full 002 adds a
-    /// `StrictSendCap`-gated mint on `WillowKeyStore`; this constructor is
-    /// the low-level shape used by tests and the mint path.
-    pub fn new(
-        signer: Signer,
-        recipient: Recipient,
-        document_id: D,
-        willow_scope: WillowScope,
-        permission: AutomergeSyncPermission,
-        expiry: u64,
-        nonce: [u8; 32],
-    ) -> Self {
-        Self {
-            signer,
-            recipient,
-            document_id,
-            willow_scope,
-            permission,
-            expiry,
-            nonce,
-        }
-    }
-
-    pub fn signer(&self) -> &Signer {
-        &self.signer
-    }
-    pub fn recipient(&self) -> &Recipient {
-        &self.recipient
-    }
-    pub fn document_id(&self) -> &D {
-        &self.document_id
-    }
-    pub fn willow_scope(&self) -> &WillowScope {
-        &self.willow_scope
-    }
-    pub fn permission(&self) -> AutomergeSyncPermission {
-        self.permission
-    }
-    pub fn expiry(&self) -> u64 {
-        self.expiry
-    }
-    pub fn nonce(&self) -> [u8; 32] {
-        self.nonce
-    }
-}
+mod automerge_sync;
+pub use automerge_sync::{AutomergeSyncCapability, AutomergeSyncPermission, Recipient, Signer};
 
 #[cfg(test)]
 mod tests {

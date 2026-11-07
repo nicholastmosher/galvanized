@@ -9,6 +9,7 @@ willow25.workspace = true
 automerge.workspace = true
 thiserror.workspace = true
 rand_core.workspace = true
+bs58.workspace = true
 
 [dev-dependencies]
 rand.workspace = true

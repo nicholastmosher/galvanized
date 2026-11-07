@@ -9,6 +9,7 @@ capsec-core.workspace = true
 strict-cap.workspace = true
 willow25.workspace = true
 thiserror.workspace = true
+signature.workspace = true
 
 [dev-dependencies]
 rand_core_0_6_4 = { workspace = true, features = ["getrandom"] }

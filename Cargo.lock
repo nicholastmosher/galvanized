@@ -3150,6 +3150,7 @@ dependencies = [
  "capsec",
  "capsec-core",
  "rand_core 0.6.4",
+ "signature 2.2.0",
  "strict-cap",
  "thiserror 2.0.18",
  "willow25",
@@ -3171,6 +3172,7 @@ name = "galvanized-sync"
 version = "0.1.0"
 dependencies = [
  "automerge",
+ "bs58",
  "galvanized-cap",
  "rand 0.9.2",
  "rand_core 0.6.4",

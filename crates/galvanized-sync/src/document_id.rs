@@ -8,7 +8,9 @@
 
 use std::fmt;
 use std::hash::Hash;
+use std::str::FromStr;
 
+use bs58;
 use thiserror::Error;
 
 /// A 16-byte document identifier.
@@ -34,22 +36,40 @@ impl DocumentId {
     }
 }
 
-impl fmt::Debug for DocumentId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "DocumentId({})", hex(&self.0))
+impl AsRef<[u8]> for DocumentId {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
     }
 }
 
-/// Hex-encode a byte slice lowercase (used for `Debug` until base58
-/// `Display` lands with the full 002 work).
-fn hex(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        out.push(HEX[(b >> 4) as usize] as char);
-        out.push(HEX[(b & 0x0f) as usize] as char);
+impl fmt::Debug for DocumentId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // base58 with check, consistent with `Display`.
+        bs58::encode(&self.0).with_check().into_string().fmt(f)
     }
-    out
+}
+
+impl fmt::Display for DocumentId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // base58 with check, so a human-facing string form survives
+        // single-bit transcription errors (ruling 002 Q5).
+        bs58::encode(&self.0).with_check().into_string().fmt(f)
+    }
+}
+
+impl FromStr for DocumentId {
+    type Err = BadDocumentId;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = bs58::decode(s)
+            .with_check(None)
+            .into_vec()
+            .map_err(|e| BadDocumentId(e.to_string()))?;
+        let arr: [u8; 16] = bytes
+            .as_slice()
+            .try_into()
+            .map_err(|_| BadDocumentId("expected 16 bytes".to_string()))?;
+        Ok(Self(arr))
+    }
 }
 
 #[derive(Debug, Error)]
