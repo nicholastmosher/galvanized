@@ -53,6 +53,17 @@ Galvanized is **moving off Zed**. As of the latest dev-log entry:
    after the Pane/porting arc is stable — and only with Nick's go-ahead on the
    design.
 
+## Pending decision: Subduction + Keyhive adoption
+
+Arc [`002-subduction-keyhive-exploration`](../tickets/002-subduction-keyhive-exploration/)
+is a DRAFT research ticket, blocked on Nick. It surveys the Ink & Switch
+Rust stack (`keyhive_core`/`keyhive_crypto` on crates.io; `subduction` with
+`subduction_iroh` + `subduction_keyhive`) and frames a build-vs-adopt
+decision that would supersede or reshape arc `001`'s RATIFIED from-scratch
+`galvanized-sync` direction. **No code changed; nothing is a ruling until
+Nick decides.** Read the ticket's "Open questions for Nick" before touching
+`galvanized-sync` or the Willow data model.
+
 ## Don't (without checking with Nick)
 
 - Don't start the Willow persistence switch, the chat-onto-profiles rework, or
